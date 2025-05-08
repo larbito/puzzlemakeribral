@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // For development/debugging - set to false to use real API
-const USE_PLACEHOLDERS = false;
+const USE_PLACEHOLDERS = true; // FORCE PLACEHOLDERS UNTIL API IS FIXED
 
 export interface GenerateImageParams {
   prompt: string;
