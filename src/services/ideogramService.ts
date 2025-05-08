@@ -94,12 +94,36 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     const data = await response.json();
     console.log("Proxy response data:", JSON.stringify(data, null, 2));
 
-    if (!data || !data.data || !data.data[0] || !data.data[0].url) {
-      console.error("Invalid response structure:", data);
-      throw new Error("Invalid response structure from proxy");
+    // Try multiple possible response structures
+    let imageUrl: string | null = null;
+    
+    // Check various possible response structures from the API
+    if (data?.data?.[0]?.url) {
+      // Format: { data: [{ url: '...' }] }
+      imageUrl = data.data[0].url;
+    } else if (data?.images?.[0]?.url) {
+      // Format: { images: [{ url: '...' }] }
+      imageUrl = data.images[0].url;
+    } else if (data?.image?.url) {
+      // Format: { image: { url: '...' } }
+      imageUrl = data.image.url;
+    } else if (data?.url) {
+      // Format: { url: '...' }
+      imageUrl = data.url;
+    } else if (Array.isArray(data) && data[0]?.url) {
+      // Format: [{ url: '...' }]
+      imageUrl = data[0].url;
+    } else if (typeof data === 'string' && data.startsWith('http')) {
+      // Format: 'http://...'
+      imageUrl = data;
     }
 
-    return data.data[0].url;
+    if (!imageUrl) {
+      console.error("Could not extract image URL from response:", data);
+      throw new Error("Could not extract image URL from API response");
+    }
+
+    return imageUrl;
   } catch (error: unknown) {
     console.error("Error calling proxy:", error);
     throw error;
