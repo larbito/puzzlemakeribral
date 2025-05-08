@@ -1,18 +1,18 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { User } from '@supabase/supabase-js';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  signIn: () => Promise<void>;
+  signOut: () => Promise<void>;
+  handleAuthCallback: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-});
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,12 +32,65 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const signIn = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
+        }
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing in:', error);
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error signing out:', error);
+      throw error;
+    }
+  };
+
+  const handleAuthCallback = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      
+      if (!session) {
+        throw new Error('No session found');
+      }
+      
+      setUser(session.user);
+    } catch (error) {
+      console.error('Error handling auth callback:', error);
+      throw error;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    signIn,
+    signOut,
+    handleAuthCallback
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
-};
+}
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

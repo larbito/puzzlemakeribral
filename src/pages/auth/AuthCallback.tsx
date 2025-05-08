@@ -1,64 +1,46 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
-function parseHash(hash: string) {
-  const params = new URLSearchParams(hash.replace(/^#/, ''));
-  return {
-    access_token: params.get('access_token'),
-    refresh_token: params.get('refresh_token'),
-    expires_in: params.get('expires_in'),
-    token_type: params.get('token_type'),
-    error: params.get('error'),
-    error_description: params.get('error_description'),
-  };
-}
-
-export const AuthCallback = () => {
+export default function AuthCallback() {
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+  const { handleAuthCallback } = useAuth();
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
+    async function handleCallback() {
       try {
-        const { access_token, refresh_token, error, error_description } = parseHash(window.location.hash);
-        if (error) throw new Error(error_description || error);
-
-        if (access_token && refresh_token) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-          });
-          if (sessionError) throw sessionError;
-          navigate('/dashboard', { replace: true });
-        } else {
-          throw new Error('Missing access token or refresh token in callback.');
+        // Get the URL hash
+        const hash = window.location.hash;
+        const params = new URLSearchParams(hash.replace('#', '?'));
+        
+        // Check for error
+        const error = params.get('error');
+        const errorDescription = params.get('error_description');
+        
+        if (error) {
+          console.error('Auth error:', error, errorDescription);
+          navigate('/auth/login?error=' + encodeURIComponent(errorDescription || 'Authentication failed'));
+          return;
         }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred during authentication');
-        setTimeout(() => navigate('/login', { replace: true }), 3000);
-      }
-    };
-    handleAuthCallback();
-  }, [navigate]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-destructive text-center">
-          <p>Authentication Error</p>
-          <p className="text-sm mt-2">{error}</p>
-          <p className="text-sm text-muted-foreground mt-4">Redirecting to login...</p>
-        </div>
-      </div>
-    );
-  }
+        // Handle successful authentication
+        await handleAuthCallback();
+        navigate('/dashboard');
+      } catch (error) {
+        console.error('Error handling auth callback:', error);
+        navigate('/auth/login?error=' + encodeURIComponent('Failed to complete authentication'));
+      }
+    }
+
+    handleCallback();
+  }, [navigate, handleAuthCallback]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <p>Completing sign-in, please wait...</p>
+        <h2 className="text-2xl font-semibold mb-4">Completing Authentication...</h2>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
       </div>
     </div>
   );
-}; 
+} 

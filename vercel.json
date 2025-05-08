@@ -16,6 +16,10 @@
   ],
   "routes": [
     {
+      "src": "/api/ideogram",
+      "dest": "/api/ideogram/route.ts"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1.ts"
     },
