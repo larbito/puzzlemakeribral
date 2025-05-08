@@ -88,20 +88,20 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     console.log("Proxy response status:", response.status);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Proxy error response:", errorText);
-      throw new Error(`Proxy error: ${response.status} - ${errorText}`);
+      const errorData = await response.json();
+      console.error("Proxy error response:", errorData);
+      throw new Error(errorData.error || `Proxy error: ${response.status}`);
     }
 
     const data = await response.json();
     console.log("Proxy response data:", JSON.stringify(data, null, 2));
 
-    if (!data || !data.data || !data.data.length || !data.data[0].url) {
+    if (!data || !data.url) {
       console.error("Invalid response structure:", data);
       throw new Error("Invalid response structure from proxy");
     }
 
-    return data.data[0].url;
+    return data.url;
   } catch (error: unknown) {
     console.error("Error calling proxy:", error);
     throw error;
