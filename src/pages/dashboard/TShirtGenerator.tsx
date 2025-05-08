@@ -109,6 +109,11 @@ export function TShirtGenerator() {
     setHistory(savedHistory);
   }, []);
 
+  // Debug effect to log when generatedDesign changes
+  useEffect(() => {
+    console.log("generatedDesign state updated:", generatedDesign);
+  }, [generatedDesign]);
+
   // Handle generation
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -117,8 +122,10 @@ export function TShirtGenerator() {
     }
     
     setLoading(true);
+    setGeneratedDesign(null); // Clear previous design
     
     try {
+      console.log("Starting image generation with prompt:", prompt);
       const imageUrl = await generateImage({
         prompt,
         style,
@@ -128,21 +135,54 @@ export function TShirtGenerator() {
         format: resolution
       });
       
+      console.log("Image generation complete, received URL:", imageUrl);
+      
       if (imageUrl) {
-        setGeneratedDesign(imageUrl);
+        // Test if image loads correctly
+        const imgTest = new Image();
+        imgTest.onload = () => {
+          console.log("Test image loaded successfully:", imageUrl);
+          setGeneratedDesign(imageUrl);
+          
+          // Add to history
+          const newDesign = saveToHistory({
+            prompt,
+            thumbnail: imageUrl,
+            imageUrl,
+            style,
+            colorScheme,
+            format: resolution.toUpperCase()
+          });
+          
+          setHistory(prev => [newDesign, ...prev]);
+          toast.success("Design generated successfully!");
+        };
         
-        // Add to history
-        const newDesign = saveToHistory({
-          prompt,
-          thumbnail: imageUrl, // Using the same URL for thumbnail and full image for now
-          imageUrl,
-          style,
-          colorScheme,
-          format: resolution.toUpperCase()
-        });
+        imgTest.onerror = (error) => {
+          console.error("Test image failed to load:", error);
+          toast.error("Generated image could not be loaded");
+          
+          // Create a direct data URI as fallback
+          const canvas = document.createElement('canvas');
+          canvas.width = 1024;
+          canvas.height = 1365;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#252A37';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 40px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`T-Shirt: ${prompt}`, canvas.width/2, canvas.height/2);
+            
+            const dataUrl = canvas.toDataURL('image/png');
+            console.log("Created fallback data URL");
+            setGeneratedDesign(dataUrl);
+          }
+        };
         
-        setHistory(prev => [newDesign, ...prev]);
-        toast.success("Design generated successfully!");
+        imgTest.src = imageUrl;
       }
     } catch (error) {
       console.error("Error in handleGenerate:", error);
@@ -427,8 +467,9 @@ export function TShirtGenerator() {
                       src={generatedDesign} 
                       alt="Generated t-shirt design" 
                       className="object-contain w-full h-full"
+                      onLoad={() => console.log("Image loaded in DOM")}
                       onError={(e) => {
-                        console.error("Error loading image:", e);
+                        console.error("Error loading image in DOM:", e);
                         toast.error("Failed to load design preview");
                       }}
                     />
