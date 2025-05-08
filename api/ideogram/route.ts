@@ -47,25 +47,23 @@ export default async function handler(
 
   try {
     // Validate request body
-    if (!req.body) {
-      return res.status(400).json({ error: 'Request body is required' });
+    if (!req.body || !req.body.prompt) {
+      return res.status(400).json({ error: 'Prompt is required in the request body' });
     }
 
     console.log('Request body:', JSON.stringify(req.body, null, 2));
 
-    if (!req.body.prompt) {
-      return res.status(400).json({ error: 'Prompt is required in the request body' });
-    }
-
     // Format request body according to Ideogram API requirements
     const requestBody = {
-      prompt: req.body.prompt,
-      model: "V_2",
-      aspect_ratio: req.body.aspect_ratio || "ASPECT_3_4",
-      magic_prompt_option: "AUTO",
-      style_type: req.body.style?.toUpperCase() || "AUTO",
-      negative_prompt: req.body.negative_prompt,
-      seed: req.body.seed
+      image_request: {
+        prompt: req.body.prompt,
+        model: "V_2",
+        aspect_ratio: req.body.aspect_ratio || "ASPECT_3_4",
+        magic_prompt_option: "AUTO",
+        style_type: req.body.style?.toUpperCase() || "AUTO",
+        negative_prompt: req.body.negative_prompt,
+        seed: req.body.seed
+      }
     };
 
     console.log('Making request to Ideogram API with body:', JSON.stringify(requestBody, null, 2));

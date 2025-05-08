@@ -85,8 +85,6 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       body: JSON.stringify(requestBody)
     });
 
-    console.log("Proxy response status:", response.status);
-
     if (!response.ok) {
       const errorData = await response.json();
       console.error("Proxy error response:", errorData);
@@ -96,12 +94,12 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     const data = await response.json();
     console.log("Proxy response data:", JSON.stringify(data, null, 2));
 
-    if (!data || !data.url) {
+    if (!data || !data.data || !data.data[0] || !data.data[0].url) {
       console.error("Invalid response structure:", data);
       throw new Error("Invalid response structure from proxy");
     }
 
-    return data.url;
+    return data.data[0].url;
   } catch (error: unknown) {
     console.error("Error calling proxy:", error);
     throw error;
