@@ -1,5 +1,9 @@
 # Puzzle Craft Forge
 
+An app for generating beautiful designs.
+
+Updated: Force new deployment.
+
 A professional-grade puzzle generator for Kindle Direct Publishing (KDP) and other publishing platforms.
 
 ## Features
