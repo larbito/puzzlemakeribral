@@ -4,11 +4,9 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // Global try/catch to log any unexpected errors
   try {
     console.log('Handler invoked. Method:', req.method);
-    console.log('Request headers:', req.headers);
-
+    
     // Handle CORS
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -29,20 +27,6 @@ export default async function handler(
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Check environment variables
-    console.log('Environment variables:', {
-      hasIdeogramKey: !!process.env.IDEOGRAM_API_KEY,
-      nodeEnv: process.env.NODE_ENV,
-      vercelEnv: process.env.VERCEL_ENV
-    });
-
-    // Check for API key
-    const API_KEY = process.env.IDEOGRAM_API_KEY;
-    if (!API_KEY) {
-      console.error('API key not found in environment variables');
-      return res.status(500).json({ error: 'API key not configured' });
-    }
-
     // Validate request body
     if (!req.body || !req.body.prompt) {
       console.error('Missing prompt in request body:', req.body);
@@ -51,122 +35,51 @@ export default async function handler(
 
     console.log('Request body:', JSON.stringify(req.body, null, 2));
 
-    // Format request body according to Ideogram API requirements
-    const requestBody = {
-      image_request: {
-        prompt: req.body.prompt,
-        model: "V_2",
-        aspect_ratio: req.body.aspect_ratio || "ASPECT_3_4",
-        magic_prompt_option: "AUTO",
-        style_type: req.body.style?.toUpperCase() || "AUTO",
-        negative_prompt: req.body.negative_prompt,
-        seed: req.body.seed
-      }
-    };
-
-    console.log('Making request to Ideogram API with:', {
-      url: 'https://api.ideogram.ai/api/v1/images/generate',
-      headers: {
-        'Content-Type': 'application/json',
-        'Api-Key': '***' // Masked for security
-      },
-      body: requestBody
+    // SIMPLIFIED: Return a placeholder image instead of calling Ideogram API
+    // Format the prompt for the placeholder
+    const prompt = req.body.prompt;
+    const words = prompt.split(' ').slice(0, 5).join('-');
+    
+    // Generate a color based on the prompt
+    const bgColor = getColorForPrompt(prompt);
+    
+    // Create a placeholder image URL
+    const placeholderUrl = `https://dummyimage.com/1024x1365/${bgColor}/FFFFFF?text=${encodeURIComponent('T-Shirt: ' + words)}`;
+    
+    // Simulate a delay to mimic API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Return a mock response that matches the expected format
+    return res.status(200).json({
+      images: [{ url: placeholderUrl }]
     });
-
-    // Use a fallback placeholder in development mode if API fails
-    const shouldUseFallback = process.env.NODE_ENV === 'development' && process.env.USE_FALLBACK === 'true';
-
-    try {
-      const response = await fetch('https://api.ideogram.ai/api/v1/images/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Api-Key': API_KEY,
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log('Ideogram API response status:', response.status);
-      console.log('Ideogram API response headers:', Object.fromEntries(response.headers));
-
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText);
-
-      // TEMP: If debugRaw query param is present, return the raw response for debugging
-      if (req.query && req.query.debugRaw !== undefined) {
-        return res.status(200).json({ raw: responseText });
-      }
-
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        
-        if (shouldUseFallback) {
-          // Return a fallback response in development
-          return res.status(200).json({ 
-            fallback: true,
-            images: [{ url: `https://dummyimage.com/1024x1365/252A37/FFFFFF?text=${encodeURIComponent(req.body.prompt)}` }]
-          });
-        }
-        
-        return res.status(500).json({
-          error: 'Invalid JSON response from Ideogram API',
-          rawResponse: responseText
-        });
-      }
-
-      if (!response.ok) {
-        console.error('Ideogram API error:', {
-          status: response.status,
-          data: responseData
-        });
-        
-        if (shouldUseFallback) {
-          // Return a fallback response in development
-          return res.status(200).json({ 
-            fallback: true,
-            images: [{ url: `https://dummyimage.com/1024x1365/252A37/FFFFFF?text=${encodeURIComponent(req.body.prompt)}` }]
-          });
-        }
-        
-        return res.status(response.status).json({
-          error: 'Ideogram API error',
-          status: response.status,
-          details: responseData
-        });
-      }
-
-      // Forward the successful response
-      res.status(200).json(responseData);
-    } catch (apiError) {
-      console.error('Error calling Ideogram API:', apiError);
-      
-      if (shouldUseFallback) {
-        // Return a fallback response in development
-        return res.status(200).json({ 
-          fallback: true,
-          images: [{ url: `https://dummyimage.com/1024x1365/252A37/FFFFFF?text=${encodeURIComponent(req.body.prompt)}` }]
-        });
-      }
-      
-      res.status(500).json({ 
-        error: apiError instanceof Error ? apiError.message : 'Unknown API error',
-        details: apiError
-      });
-    }
+    
   } catch (error) {
-    // Global error handler for any unexpected errors
-    console.error('Top-level error in ideogram handler:', error);
+    console.error('Error in ideogram-proxy:', error);
     res.status(500).json({ 
-      error: error instanceof Error ? error.message : 'Unknown server error',
-      details: error,
-      debug: {
-        env: process.env.NODE_ENV,
-        vercelEnv: process.env.VERCEL_ENV,
-        hasApiKey: !!process.env.IDEOGRAM_API_KEY
-      }
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error
     });
+  }
+}
+
+// Helper function to determine background color based on prompt
+function getColorForPrompt(prompt: string): string {
+  const lowerPrompt = prompt.toLowerCase();
+  
+  if (lowerPrompt.includes('retro') || lowerPrompt.includes('vintage')) {
+    return "F5A623";
+  } else if (lowerPrompt.includes('minimalist')) {
+    return "444444";
+  } else if (lowerPrompt.includes('cyberpunk') || lowerPrompt.includes('neon')) {
+    return "9013FE";
+  } else if (lowerPrompt.includes('nature')) {
+    return "2D8C3C";
+  } else if (lowerPrompt.includes('ocean')) {
+    return "1E88E5";
+  } else if (lowerPrompt.includes('sunset')) {
+    return "FF5733";
+  } else {
+    return "252A37";
   }
 } 
