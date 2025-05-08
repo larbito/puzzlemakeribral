@@ -81,7 +81,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
 
-    const response = await fetch('/api/ideogram-proxy', {
+    const response = await fetch('/api/ideogram', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
