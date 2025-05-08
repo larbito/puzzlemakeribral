@@ -1,0 +1,169 @@
+
+> vite_react_shadcn_ts@0.0.0 dev
+> vite
+
+
+  VITE v5.4.10  ready in 137 ms
+
+  ➜  Local:   http://localhost:8080/
+  ➜  Network: http://192.168.178.45:8080/
+  ➜  press h + enter to show help
+Browserslist: browsers data (caniuse-lite) is 7 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+8:12:49 PM [vite] hmr update /src/App.tsx, /src/index.css
+8:13:37 PM [vite] hmr update /src/index.css
+8:16:43 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:17:33 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:21:18 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:24:06 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:28:32 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:30:02 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:33:12 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:39:00 PM [vite] hmr update /src/pages/index.tsx, /src/index.css
+8:41:02 PM [vite] hmr update /src/index.css
+8:46:51 PM [vite] hmr update /src/index.css
+8:48:44 PM [vite] hmr update /src/index.css
+8:50:53 PM [vite] hmr update /src/index.css
+8:57:01 PM [vite] page reload tailwind.config.ts
+9:02:19 PM [vite] page reload tailwind.config.ts
+9:02:20 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/components/pricing/pricing-calculator.css:27:3: The `hover:text-accent-foreground` class does not exist. If `hover:text-accent-foreground` is a custom class, make sure it is defined within a `@layer` directive.
+9:02:20 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+9:02:20 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)
+9:02:35 PM [vite] page reload tailwind.config.ts
+9:02:35 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/components/pricing/pricing-calculator.css:27:3: The `hover:text-accent-foreground` class does not exist. If `hover:text-accent-foreground` is a custom class, make sure it is defined within a `@layer` directive.
+9:02:35 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)
+9:02:35 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+9:03:54 PM [vite] hmr update /src/components/layout/Navbar.tsx, /src/index.css
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: Failed to resolve import "@/hooks/useAuth" from "src/components/layout/Navbar.tsx". Does the file exist?
+9:03:54 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+9:03:54 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)
+9:04:14 PM [vite] hmr update /src/pages/Dashboard.tsx, /src/index.css, /src/pages/BookCreator.tsx, /src/pages/Login.tsx, /src/pages/BulkPuzzleMaker.tsx, /src/pages/AIBookMaker.tsx, /src/pages/Register.tsx, /src/pages/Pricing.tsx, /src/pages/BookMaker.tsx, /src/pages/WordSearchPage.tsx, /src/pages/WordScramblePage.tsx, /src/pages/index.tsx, /src/pages/ColoringPagesPage.tsx, /src/pages/BulkGeneratorPage.tsx, /src/pages/UserDashboard.tsx, /src/components/puzzles/BulkGeneratorPage.tsx
+9:04:14 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+9:04:14 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)
+9:04:33 PM [vite] hmr update /src/components/layout/Footer.tsx, /src/index.css
+9:04:33 PM [vite] Pre-transform error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+9:04:33 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)
+9:05:01 PM [vite] Internal server error: [postcss] /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:3: The `to-puzzle-purple` class does not exist. If `to-puzzle-purple` is a custom class, make sure it is defined within a `@layer` directive.
+  Plugin: vite:css
+  File: /Users/larbi/Documents/Maker/puzzle-craft-forge/src/index.css:115:2
+  113|  /* Enhanced Gradient Text */
+  114|  .text-gradient-primary {
+  115|    @apply bg-gradient-to-r from-puzzle-primary via-puzzle-secondary to-puzzle-purple bg-clip-text text-transparent;
+     |    ^
+  116|    background-size: 200% auto;
+  117|    animation: gradient-shift 8s ease infinite;
+      at Input.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/input.js:106:16)
+      at AtRule.error (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/node.js:115:32)
+      at processApply (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:380:29)
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/lib/expandApplyAtRules.js:551:9
+      at /Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/processTailwindFeatures.js:55:50
+      at async plugins (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/tailwindcss/lib/plugin.js:38:17)
+      at async LazyResult.runAsync (/Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/postcss/lib/lazy-result.js:261:11)
+      at async compileCSS (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36897:21)
+      at async TransformPluginContext.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:36170:11)
+      at async PluginContainer.transform (file:///Users/larbi/Documents/Maker/puzzle-craft-forge/node_modules/vite/dist/node/chunks/dep-BWSbWtLw.js:49096:18)

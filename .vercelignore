@@ -1,0 +1,6 @@
+tsconfig.json
+tsconfig.prod.json
+tsconfig.node.json
+*.log
+.env*
+.git* 

@@ -1,0 +1,439 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import {
+  BookOpen,
+  Puzzle,
+  Star,
+  Clock,
+  Plus,
+  Download,
+  Brain,
+  Search,
+  Grid,
+  Sparkles,
+  TrendingUp,
+  Activity,
+  Zap,
+  BarChart3,
+  Palette,
+  Shirt,
+  FileText,
+  CalendarDays,
+  ChevronRight,
+  Layers,
+  ChevronDown,
+  LineChart
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+
+const quickActions = [
+  {
+    title: 'T-shirt Generator',
+    description: 'Create AI-powered T-shirt designs',
+    icon: Shirt,
+    color: 'from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
+    iconColor: 'text-blue-500',
+    href: '/dashboard/t-shirts'
+  },
+  {
+    title: 'Coloring Page Generator',
+    description: 'Design unique coloring pages with AI',
+    icon: Palette,
+    color: 'from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30',
+    iconColor: 'text-purple-500',
+    href: '/dashboard/coloring'
+  },
+  {
+    title: 'Cover Designer',
+    description: 'Create professional book covers',
+    icon: BookOpen,
+    color: 'from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30',
+    iconColor: 'text-green-500',
+    href: '/dashboard/covers'
+  },
+  {
+    title: 'Puzzle Book Generator',
+    description: 'Generate puzzle books for publishing',
+    icon: Puzzle,
+    color: 'from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30',
+    iconColor: 'text-amber-500',
+    href: '/dashboard/puzzles'
+  },
+  {
+    title: 'Content Planner',
+    description: 'Plan your POD product releases',
+    icon: CalendarDays,
+    color: 'from-pink-500/20 to-rose-500/20 hover:from-pink-500/30 hover:to-rose-500/30',
+    iconColor: 'text-pink-500',
+    href: '/dashboard/content'
+  },
+  {
+    title: 'Bulk Generator',
+    description: 'Create multiple designs at once',
+    icon: Layers,
+    color: 'from-indigo-500/20 to-violet-500/20 hover:from-indigo-500/30 hover:to-violet-500/30',
+    iconColor: 'text-indigo-500',
+    href: '/dashboard/bulk'
+  }
+];
+
+const recentProjects = [
+  {
+    title: 'Summer T-Shirt Collection',
+    date: 'May 8, 2024',
+    type: 'T-shirt',
+    items: 12,
+    status: 'completed',
+    progress: 100,
+    trend: '+18%',
+    icon: Shirt,
+    iconColor: 'text-blue-500',
+    fileType: '.png'
+  },
+  {
+    title: 'Fantasy Coloring Book',
+    date: 'May 6, 2024',
+    type: 'Coloring',
+    items: 25,
+    status: 'completed',
+    progress: 100,
+    trend: '+15%',
+    icon: Palette,
+    iconColor: 'text-purple-500',
+    fileType: '.pdf'
+  },
+  {
+    title: 'Advanced Sudoku Collection',
+    date: 'May 5, 2024',
+    type: 'Puzzle',
+    items: 50,
+    status: 'completed',
+    progress: 100,
+    trend: '+12%',
+    icon: Puzzle,
+    iconColor: 'text-amber-500',
+    fileType: '.pdf'
+  },
+  {
+    title: 'Mystery Novel Series Covers',
+    date: 'May 3, 2024',
+    type: 'Cover',
+    items: 5,
+    status: 'in-progress',
+    progress: 65,
+    trend: '+8%',
+    icon: BookOpen,
+    iconColor: 'text-green-500',
+    fileType: '.pdf'
+  },
+  {
+    title: 'Mixed Puzzle Book',
+    date: 'May 1, 2024',
+    type: 'Puzzle',
+    items: 45,
+    status: 'completed',
+    progress: 100,
+    trend: '+15%',
+    icon: Puzzle,
+    iconColor: 'text-amber-500',
+    fileType: '.pdf'
+  }
+];
+
+const usageBreakdown = [
+  { type: 'T-shirts', used: 356, limit: 500, color: 'bg-blue-500' },
+  { type: 'Coloring Pages', used: 220, limit: 300, color: 'bg-purple-500' },
+  { type: 'Book Covers', used: 78, limit: 100, color: 'bg-green-500' },
+  { type: 'Puzzle Pages', used: 188, limit: 300, color: 'bg-amber-500' }
+];
+
+const MotionCard = motion(Card);
+
+export const Overview = () => {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  
+  const totalUsed = usageBreakdown.reduce((acc, item) => acc + item.used, 0);
+  const totalLimit = usageBreakdown.reduce((acc, item) => acc + item.limit, 0);
+  const totalPercentage = Math.round((totalUsed / totalLimit) * 100);
+
+  return (
+    <div className="space-y-8 p-8">
+      {/* Stats Section */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <MotionCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="relative overflow-hidden backdrop-blur-3xl border-primary/20"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-grid-white/[0.02]" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+            <Layers className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">68</div>
+            <div className="flex items-center mt-1 text-xs">
+              <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
+              <span className="text-green-500">+12 from last month</span>
+            </div>
+          </CardContent>
+        </MotionCard>
+
+        <MotionCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="relative overflow-hidden backdrop-blur-3xl border-primary/20"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-grid-white/[0.02]" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Items Generated</CardTitle>
+            <FileText className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-500">842</div>
+            <div className="flex items-center mt-1 text-xs">
+              <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
+              <span className="text-green-500">+142 items this month</span>
+            </div>
+          </CardContent>
+        </MotionCard>
+
+        <MotionCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="relative overflow-hidden backdrop-blur-3xl border-primary/20"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-grid-white/[0.02]" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Top Tool Used</CardTitle>
+            <Shirt className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-500">T-shirts</div>
+            <div className="flex items-center mt-1 text-xs">
+              <span className="text-muted-foreground">42% of all creations</span>
+            </div>
+          </CardContent>
+        </MotionCard>
+
+        <MotionCard
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="relative overflow-hidden backdrop-blur-3xl border-primary/20"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-grid-white/[0.02]" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-sm font-medium">Growth Trend</CardTitle>
+            <LineChart className="h-4 w-4 text-green-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-500">+24%</div>
+            <div className="flex items-center mt-1 text-xs">
+              <span className="text-muted-foreground">compared to last month</span>
+            </div>
+          </CardContent>
+        </MotionCard>
+      </div>
+
+      {/* Subscription Usage */}
+      <MotionCard
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="relative overflow-hidden backdrop-blur-3xl border-primary/20"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
+        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Subscription Usage
+          </CardTitle>
+          <CardDescription>You've used {totalPercentage}% of your monthly quota</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-2 bg-primary/10 rounded-full overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${totalPercentage}%` }}
+              transition={{ duration: 1, delay: 0.6 }}
+              className="h-full bg-gradient-to-r from-primary to-secondary"
+            />
+          </div>
+          <p className="text-sm text-muted-foreground mt-2 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            {totalUsed} of {totalLimit} items generated this month
+          </p>
+          
+          <div className="mt-4 flex justify-between items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-xs gap-1"
+              onClick={() => setShowBreakdown(!showBreakdown)}
+            >
+              {showBreakdown ? 'Hide' : 'View'} Usage Breakdown
+              <ChevronDown className={`h-3 w-3 transition-transform ${showBreakdown ? 'rotate-180' : ''}`} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="text-xs bg-primary/10 hover:bg-primary/20"
+            >
+              Upgrade Plan
+              <ChevronRight className="h-3 w-3 ml-1" />
+            </Button>
+          </div>
+          
+          {showBreakdown && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }} 
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mt-4 pt-4 border-t border-primary/10 space-y-3"
+            >
+              {usageBreakdown.map((item, index) => (
+                <div key={index} className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white/80">{item.type}</span>
+                    <span className="text-white/80">{item.used} / {item.limit}</span>
+                  </div>
+                  <div className="h-1.5 bg-primary/10 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(item.used / item.limit) * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.1 * index }}
+                      className={`h-full ${item.color}`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </CardContent>
+      </MotionCard>
+
+      {/* Quick Actions */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight mb-6 flex items-center gap-2">
+          <Zap className="h-6 w-6 text-primary" />
+          Quick Actions
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {quickActions.map((action, index) => (
+            <MotionCard
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 + index * 0.1 }}
+              className="group relative overflow-hidden backdrop-blur-3xl border-primary/20"
+            >
+              <div className={cn(
+                "absolute inset-0 bg-gradient-to-br transition-all duration-300",
+                action.color
+              )} />
+              <div className="absolute inset-0 bg-grid-white/[0.02]" />
+              <CardHeader>
+                <div className={cn(
+                  "p-3 w-fit rounded-xl bg-white/5 backdrop-blur-xl group-hover:scale-110 transition-transform",
+                  action.iconColor
+                )}>
+                  <action.icon className="h-6 w-6" />
+                </div>
+                <CardTitle className="mt-4 text-lg">{action.title}</CardTitle>
+                <CardDescription>{action.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link to={action.href}>
+                <Button className="w-full bg-white/10 backdrop-blur-xl hover:bg-white/20 transition-colors">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New
+                </Button>
+                </Link>
+              </CardContent>
+            </MotionCard>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent Projects */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight mb-6 flex items-center gap-2">
+          <FileText className="h-6 w-6 text-primary" />
+          Recent Projects
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {recentProjects.map((project, index) => (
+            <MotionCard
+              key={index}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1 + index * 0.1 }}
+              className="group relative overflow-hidden backdrop-blur-3xl border-primary/20"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
+              <div className="absolute inset-0 bg-grid-white/[0.02]" />
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <project.icon className={`h-5 w-5 ${project.iconColor}`} />
+                    <span className="truncate">{project.title}</span>
+                  </CardTitle>
+                  <div className="text-xs py-1 px-2 rounded-full bg-white/10 backdrop-blur-sm">
+                    {project.fileType}
+                  </div>
+                </div>
+                <CardDescription className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Created on {project.date} • {project.items} {project.type === 'Puzzle' ? 'pages' : 'items'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="h-2 bg-primary/10 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${project.progress}%` }}
+                      transition={{ duration: 1, delay: 1.2 + index * 0.1 }}
+                      className="h-full bg-gradient-to-r from-primary to-secondary"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        project.status === 'completed' ? "bg-green-500" : "bg-amber-500"
+                      )} />
+                      <span className="text-sm text-muted-foreground capitalize">
+                        {project.status}
+                      </span>
+                    </div>
+                    <Button variant="outline" size="sm" className="bg-white/5 backdrop-blur-xl hover:bg-white/10">
+                      <Download className="mr-2 h-4 w-4" />
+                      Download
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-green-500">
+                    <TrendingUp className="h-4 w-4" />
+                    {project.trend} engagement this week
+                  </div>
+                </div>
+              </CardContent>
+            </MotionCard>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}; 
