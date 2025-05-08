@@ -32,13 +32,28 @@ export default async function handler(
   try {
     console.log('Proxying request to Ideogram API:', JSON.stringify(req.body, null, 2));
 
+    // Format request body according to Ideogram API requirements
+    const requestBody = {
+      image_request: {
+        prompt: req.body.prompt,
+        model: "V_2",
+        aspect_ratio: req.body.aspect_ratio || "ASPECT_3_4",
+        magic_prompt_option: "AUTO",
+        style_type: req.body.style?.toUpperCase() || "AUTO",
+        negative_prompt: req.body.negative_prompt,
+        seed: req.body.seed
+      }
+    };
+
+    console.log('Formatted request body:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch('https://api.ideogram.ai/api/v1/images/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
+        'Api-Key': API_KEY,
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(requestBody),
     });
 
     const data = await response.json();

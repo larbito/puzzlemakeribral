@@ -69,12 +69,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     const requestBody = {
       prompt: prompt,
       style: style !== "custom" ? style : undefined,
-      aspect_ratio: "3:4",
-      width: 1024,
-      height: 1365,
-      steps: 50,
-      cfg_scale: 7.5,
-      model: "ideogram-v2",
+      aspect_ratio: "ASPECT_3_4",
       negative_prompt: "text, watermark, signature, blurry, low quality, distorted, deformed",
       seed: Math.floor(Math.random() * 1000000)
     };
@@ -101,12 +96,12 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     const data = await response.json();
     console.log("Proxy response data:", JSON.stringify(data, null, 2));
 
-    if (!data || !data.images || !data.images.length || !data.images[0].url) {
+    if (!data || !data.data || !data.data.length || !data.data[0].url) {
       console.error("Invalid response structure:", data);
       throw new Error("Invalid response structure from proxy");
     }
 
-    return data.images[0].url;
+    return data.data[0].url;
   } catch (error: unknown) {
     console.error("Error calling proxy:", error);
     throw error;
