@@ -24,13 +24,24 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check environment variables
+  console.log('Environment variables:', {
+    hasIdeogramKey: !!process.env.IDEOGRAM_API_KEY,
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV
+  });
+
   // Check for API key
   const API_KEY = process.env.IDEOGRAM_API_KEY;
   if (!API_KEY) {
     console.error('API key not found in environment variables. Please set IDEOGRAM_API_KEY in Vercel environment variables.');
     return res.status(500).json({ 
       error: 'API key not configured',
-      message: 'Please configure the IDEOGRAM_API_KEY environment variable in Vercel.'
+      message: 'Please configure the IDEOGRAM_API_KEY environment variable in Vercel.',
+      debug: {
+        env: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV
+      }
     });
   }
 
@@ -91,7 +102,11 @@ export default async function handler(
     console.error('Error in ideogram-proxy:', error);
     res.status(500).json({ 
       error: error instanceof Error ? error.message : 'Unknown error',
-      details: error
+      details: error,
+      debug: {
+        env: process.env.NODE_ENV,
+        vercelEnv: process.env.VERCEL_ENV
+      }
     });
   }
 } 
