@@ -462,18 +462,27 @@ export function TShirtGenerator() {
               
               <CardContent className="flex flex-col items-center justify-center">
                 {generatedDesign ? (
-                  <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center">
-                    <img 
-                      src={generatedDesign} 
-                      alt="Generated t-shirt design" 
-                      className="object-contain w-full h-full"
-                      onLoad={() => console.log("Image loaded in DOM")}
-                      onError={(e) => {
-                        console.error("Error loading image in DOM:", e);
-                        toast.error("Failed to load design preview");
-                      }}
-                    />
-                  </div>
+                  <>
+                    <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center bg-white border-4 border-primary">
+                      <img 
+                        src={generatedDesign} 
+                        alt="Generated t-shirt design" 
+                        className="object-contain w-full h-full"
+                        style={{ maxHeight: "100%", maxWidth: "100%" }}
+                        onLoad={() => console.log("Image loaded in DOM")}
+                        onError={(e) => {
+                          console.error("Error loading image in DOM:", e);
+                          toast.error("Failed to load design preview");
+                        }}
+                      />
+                    </div>
+                    <div className="mt-4 w-full overflow-hidden text-xs text-muted-foreground">
+                      <p className="font-semibold">Debug: Image URL</p>
+                      <div className="bg-black/10 p-2 rounded-md mt-1 break-all">
+                        {generatedDesign.substring(0, 100) + '...'}
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center bg-background/50 border border-dashed border-muted-foreground/20">
                     {loading ? (
