@@ -135,15 +135,97 @@ function getPlaceholderImage(prompt: string): Promise<string> {
   const words = prompt.split(' ').slice(0, 5).join('-');
   const bgColor = getColorForStyle(prompt);
   const fgColor = "FFFFFF";
-  const placeholderUrl = `https://dummyimage.com/1024x1365/${bgColor}/${fgColor}?text=${encodeURIComponent('T-Shirt Design: ' + words)}`;
+  
+  // Use a different placeholder service that allows CORS
+  // Instead of dummyimage.com, use a data URI which is guaranteed to work
+  const placeholderUrl = `https://placehold.co/1024x1365/${bgColor}/${fgColor}?text=${encodeURIComponent('T-Shirt: ' + words)}`;
   
   console.log("Generated placeholder URL:", placeholderUrl);
   
   return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(placeholderUrl);
-    }, 1500);
+    // Check if the URL works by creating a test image
+    const testImg = new Image();
+    
+    // Set up event handlers
+    testImg.onload = () => {
+      // Image loaded successfully, resolve with the URL
+      setTimeout(() => {
+        resolve(placeholderUrl);
+      }, 500);
+    };
+    
+    testImg.onerror = () => {
+      // Image failed to load, fall back to a base64 data URI
+      console.error("Placeholder image failed to load, using fallback data URI");
+      const fallbackDataUri = createFallbackImage(words, bgColor);
+      setTimeout(() => {
+        resolve(fallbackDataUri);
+      }, 500);
+    };
+    
+    // Attempt to load the image
+    testImg.src = placeholderUrl;
   });
+}
+
+// Create a simple fallback image as a data URI
+function createFallbackImage(text: string, bgColor: string): string {
+  // Create a canvas to draw the fallback image
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1365;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    // If canvas context isn't available, return an empty data URI
+    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  }
+  
+  // Set background color
+  ctx.fillStyle = `#${bgColor}`;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Add text
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = 'bold 40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  // Break long text into multiple lines
+  const words = text.split(' ');
+  let lines = [];
+  let currentLine = 'T-Shirt Design:';
+  
+  // Add first line
+  lines.push(currentLine);
+  currentLine = '';
+  
+  // Split remaining words into lines
+  for (const word of words) {
+    const testLine = currentLine + ' ' + word;
+    if (testLine.length > 20) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  
+  // Add the last line if it's not empty
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+  
+  // Draw the lines of text
+  const lineHeight = 50;
+  const startY = canvas.height / 2 - (lines.length * lineHeight) / 2;
+  
+  lines.forEach((line, index) => {
+    ctx.fillText(line, canvas.width / 2, startY + index * lineHeight);
+  });
+  
+  // Convert canvas to data URL
+  return canvas.toDataURL('image/png');
 }
 
 // Helper function to select background colors based on prompt style
