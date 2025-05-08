@@ -34,15 +34,8 @@ export default async function handler(
   // Check for API key
   const API_KEY = process.env.IDEOGRAM_API_KEY;
   if (!API_KEY) {
-    console.error('API key not found in environment variables. Please set IDEOGRAM_API_KEY in Vercel environment variables.');
-    return res.status(500).json({ 
-      error: 'API key not configured',
-      message: 'Please configure the IDEOGRAM_API_KEY environment variable in Vercel.',
-      debug: {
-        env: process.env.NODE_ENV,
-        vercelEnv: process.env.VERCEL_ENV
-      }
-    });
+    console.error('API key not found in environment variables');
+    return res.status(500).json({ error: 'API key not configured' });
   }
 
   try {
@@ -66,7 +59,14 @@ export default async function handler(
       }
     };
 
-    console.log('Making request to Ideogram API with body:', JSON.stringify(requestBody, null, 2));
+    console.log('Making request to Ideogram API with:', {
+      url: 'https://api.ideogram.ai/api/v1/images/generate',
+      headers: {
+        'Content-Type': 'application/json',
+        'Api-Key': '***' // Masked for security
+      },
+      body: requestBody
+    });
 
     const response = await fetch('https://api.ideogram.ai/api/v1/images/generate', {
       method: 'POST',
@@ -78,9 +78,26 @@ export default async function handler(
     });
 
     console.log('Ideogram API response status:', response.status);
-    
-    const responseData = await response.json();
-    console.log('Ideogram API response:', JSON.stringify(responseData, null, 2));
+    console.log('Ideogram API response headers:', Object.fromEntries(response.headers));
+
+    const responseText = await response.text();
+    console.log('Raw response text:', responseText);
+
+    // TEMP: If debugRaw query param is present, return the raw response for debugging
+    if (req.query && req.query.debugRaw !== undefined) {
+      return res.status(200).json({ raw: responseText });
+    }
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('Failed to parse response as JSON:', parseError);
+      return res.status(500).json({
+        error: 'Invalid JSON response from Ideogram API',
+        rawResponse: responseText
+      });
+    }
 
     if (!response.ok) {
       console.error('Ideogram API error:', {
@@ -103,7 +120,8 @@ export default async function handler(
       details: error,
       debug: {
         env: process.env.NODE_ENV,
-        vercelEnv: process.env.VERCEL_ENV
+        vercelEnv: process.env.VERCEL_ENV,
+        hasApiKey: !!process.env.IDEOGRAM_API_KEY
       }
     });
   }
