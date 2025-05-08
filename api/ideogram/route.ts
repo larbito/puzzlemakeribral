@@ -24,18 +24,26 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check for API key
   const API_KEY = process.env.IDEOGRAM_API_KEY;
   if (!API_KEY) {
-    console.error('API key not found in environment variables');
-    return res.status(500).json({ error: 'API key not configured' });
+    console.error('API key not found in environment variables. Please set IDEOGRAM_API_KEY in Vercel environment variables.');
+    return res.status(500).json({ 
+      error: 'API key not configured',
+      message: 'Please configure the IDEOGRAM_API_KEY environment variable in Vercel.'
+    });
   }
 
   try {
+    // Validate request body
+    if (!req.body) {
+      return res.status(400).json({ error: 'Request body is required' });
+    }
+
     console.log('Request body:', JSON.stringify(req.body, null, 2));
 
-    if (!req.body || !req.body.prompt) {
-      console.error('Invalid request body - missing prompt');
-      return res.status(400).json({ error: 'Invalid request - prompt is required' });
+    if (!req.body.prompt) {
+      return res.status(400).json({ error: 'Prompt is required in the request body' });
     }
 
     // Format request body according to Ideogram API requirements
@@ -49,7 +57,7 @@ export default async function handler(
       seed: req.body.seed
     };
 
-    console.log('Formatted request body:', JSON.stringify(requestBody, null, 2));
+    console.log('Making request to Ideogram API with body:', JSON.stringify(requestBody, null, 2));
 
     const response = await fetch('https://api.ideogram.ai/api/v1/images/generate', {
       method: 'POST',
@@ -61,25 +69,24 @@ export default async function handler(
     });
 
     console.log('Ideogram API response status:', response.status);
-    console.log('Ideogram API response headers:', Object.fromEntries(response.headers));
-
-    const data = await response.json();
-    console.log('Ideogram API response data:', JSON.stringify(data, null, 2));
+    
+    const responseData = await response.json();
+    console.log('Ideogram API response:', JSON.stringify(responseData, null, 2));
 
     if (!response.ok) {
       console.error('Ideogram API error:', {
         status: response.status,
-        data: data
+        data: responseData
       });
       return res.status(response.status).json({
         error: 'Ideogram API error',
         status: response.status,
-        details: data
+        details: responseData
       });
     }
 
     // Forward the successful response
-    res.status(200).json(data);
+    res.status(200).json(responseData);
   } catch (error) {
     console.error('Error in ideogram-proxy:', error);
     res.status(500).json({ 
