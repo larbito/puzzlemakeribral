@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Sparkles,
@@ -100,6 +100,7 @@ export function TShirtGenerator() {
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
   const [history, setHistory] = useState<DesignHistoryItem[]>([]);
   const [activeTab, setActiveTab] = useState("design");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
 
@@ -113,6 +114,59 @@ export function TShirtGenerator() {
   useEffect(() => {
     console.log("generatedDesign state updated:", generatedDesign);
   }, [generatedDesign]);
+
+  // Draw the image on canvas when generatedDesign changes
+  useEffect(() => {
+    if (generatedDesign && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Create a new image
+        const img = new Image();
+        
+        // When image loads, draw it on canvas
+        img.onload = () => {
+          console.log("Drawing image on canvas");
+          // Clear canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // Set canvas dimensions to match image aspect ratio
+          const aspectRatio = img.height / img.width;
+          canvas.width = 1024;
+          canvas.height = 1024 * aspectRatio;
+          
+          // Draw image
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          console.log("Image drawn on canvas");
+        };
+        
+        // If image fails to load, draw a fallback
+        img.onerror = () => {
+          console.error("Failed to load image on canvas");
+          
+          // Clear canvas
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          
+          // Set background
+          ctx.fillStyle = '#252A37';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw text
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 40px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`T-Shirt: ${prompt}`, canvas.width / 2, canvas.height / 2);
+          
+          console.log("Fallback image drawn on canvas");
+        };
+        
+        // Set the source to start loading
+        img.src = generatedDesign;
+      }
+    }
+  }, [generatedDesign, prompt]);
 
   // Handle generation
   const handleGenerate = async () => {
@@ -464,16 +518,10 @@ export function TShirtGenerator() {
                 {generatedDesign ? (
                   <>
                     <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center bg-white border-4 border-primary">
-                      <img 
-                        src={generatedDesign} 
-                        alt="Generated t-shirt design" 
-                        className="object-contain w-full h-full"
+                      <canvas 
+                        ref={canvasRef} 
+                        className="w-full h-full object-contain"
                         style={{ maxHeight: "100%", maxWidth: "100%" }}
-                        onLoad={() => console.log("Image loaded in DOM")}
-                        onError={(e) => {
-                          console.error("Error loading image in DOM:", e);
-                          toast.error("Failed to load design preview");
-                        }}
                       />
                     </div>
                     <div className="mt-4 w-full overflow-hidden text-xs text-muted-foreground">
