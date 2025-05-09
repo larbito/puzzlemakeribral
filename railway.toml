@@ -1,7 +1,9 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-buildCommand = ""  # Explicitly disable any automatic build steps
+# Disable any automatic build steps and caching
+buildCommand = ""
+dockerBuildArgs = ["BUILDKIT_INLINE_CACHE=0"]
 
 [deploy]
 startCommand = "node src/index.js"
