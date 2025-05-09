@@ -6,23 +6,34 @@ RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
+# Copy all configuration files first
+COPY package.json package-lock.json .npmrc ./
+COPY tsconfig.json tsconfig.app.json vite.config.ts postcss.config.js tailwind.config.js ./
 
-# Install ALL dependencies (including dev dependencies) with better error handling
+# Install ALL dependencies (including dev dependencies)
 RUN set -eux \
+    && echo "Installing dependencies..." \
     && npm install --legacy-peer-deps --no-audit \
     && npm install -g vite typescript \
-    || (echo "npm install failed" && cat npm-debug.log && exit 1)
+    || (echo "npm install failed" && ls -la && cat npm-debug.log && exit 1)
 
-# Copy source files
+# Copy the rest of the source files
 COPY . .
 
-# Build the app with better error handling
+# Debug information before build
+RUN set -eux \
+    && echo "Listing directory contents:" \
+    && ls -la \
+    && echo "Node version:" \
+    && node --version \
+    && echo "NPM version:" \
+    && npm --version
+
+# Build the app with verbose logging
 RUN set -eux \
     && echo "Starting build process..." \
-    && NODE_ENV=production npm run build \
-    || (echo "Build failed" && cat npm-debug.log && ls -la && exit 1)
+    && npm run build --verbose \
+    || (echo "Build failed. Directory contents:" && ls -la && echo "Error log:" && cat npm-debug.log 2>/dev/null || true && exit 1)
 
 # Production stage
 FROM nginx:alpine
