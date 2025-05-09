@@ -12,7 +12,7 @@ COPY .npmrc ./
 RUN npm install
 
 # Copy configuration files
-COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js ./
+COPY tsconfig.json tsconfig.node.json vite.config.ts postcss.config.js tailwind.config.js ./
 
 # Copy source files
 COPY src/ ./src/
