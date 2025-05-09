@@ -1,41 +1,29 @@
 # Build stage for client
-FROM node:18-alpine AS client-builder
-
-# Set npm config to avoid issues
-ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
-ENV NPM_CONFIG_IGNORE_SCRIPTS=true
-ENV NPM_CONFIG_AUDIT=false
-ENV NPM_CONFIG_FUND=false
+FROM oven/bun:1 as client-builder
 
 WORKDIR /build
 COPY client/package*.json ./
 COPY .npmrc ./
 
-# Install dependencies without any extras
-RUN npm install --production=false --no-package-lock
+# Install dependencies
+RUN bun install --no-save
 
 # Build client
 COPY client/ ./
-RUN npm run build
+RUN bun run build
 
 # Build stage for server
-FROM node:18-alpine AS server-builder
-
-# Set npm config
-ENV NPM_CONFIG_LEGACY_PEER_DEPS=true
-ENV NPM_CONFIG_IGNORE_SCRIPTS=true
-ENV NPM_CONFIG_AUDIT=false
-ENV NPM_CONFIG_FUND=false
+FROM oven/bun:1 as server-builder
 
 WORKDIR /build
 COPY server/package*.json ./
 COPY .npmrc ./
 
 # Install only production dependencies
-RUN npm install --production --no-package-lock
+RUN bun install --production --no-save
 
 # Final stage
-FROM node:18-alpine
+FROM oven/bun:1
 
 WORKDIR /app
 
@@ -48,4 +36,4 @@ COPY --from=client-builder /build/dist ./public
 EXPOSE 3000
 
 # Start command
-CMD ["node", "src/index.js"] 
+CMD ["bun", "src/index.js"] 
