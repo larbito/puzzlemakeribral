@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "build": "echo 'No build step needed'",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "aws-sdk": "^2.1489.0",
@@ -24,6 +26,9 @@
     "winston": "^3.11.0"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.0",
+    "eslint": "^8.57.0",
+    "globals": "^14.0.0",
     "nodemon": "^3.0.1"
   }
 } 

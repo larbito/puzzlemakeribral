@@ -1,47 +1,26 @@
 # Puzzle Craft Forge
 
-A powerful puzzle creation tool that uses AI to generate and manipulate images.
+A modern web application for creating and managing puzzle books, with a focus on Sudoku puzzles and AI-powered features.
 
 ## Project Structure
 
-The project is split into two main parts:
-- Frontend: React/Vite application deployed on Vercel
-- Backend: Node.js/Express API deployed on Render/Railway
+The project is organized into two main parts:
 
-## Frontend Setup
+- `client/`: React frontend built with TypeScript, Vite, and Tailwind CSS
+- `server/`: Node.js backend built with Express
 
-1. Install dependencies:
+## Prerequisites
+
+- Node.js 18 or later
+- npm 8 or later
+- Git
+
+## Development Setup
+
+1. Clone the repository:
 ```bash
-npm install
-```
-
-2. Create a `.env` file with the following variables:
-```env
-# Firebase Configuration
-VITE_FIREBASE_API_KEY=your_api_key
-VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
-VITE_FIREBASE_PROJECT_ID=your_project_id
-VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-VITE_FIREBASE_APP_ID=your_app_id
-
-# Backend API URL
-VITE_API_URL=http://localhost:3000
-
-# Optional: Analytics
-VITE_GA_MEASUREMENT_ID=your_ga_id
-```
-
-3. Start the development server:
-```bash
-npm run dev
-```
-
-## Backend Setup
-
-1. Navigate to the backend directory:
-```bash
-cd backend
+git clone https://github.com/yourusername/puzzle-craft-forge.git
+cd puzzle-craft-forge
 ```
 
 2. Install dependencies:
@@ -49,88 +28,77 @@ cd backend
 npm install
 ```
 
-3. Create a `.env` file with the following variables:
-```env
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
+3. Set up environment variables:
+   - Copy `.env.example` to `.env` in both `client/` and `server/` directories
+   - Fill in the required environment variables
 
-# Firebase Admin
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_PRIVATE_KEY=your_private_key
-FIREBASE_CLIENT_EMAIL=your_client_email
-
-# AWS S3 (for file storage)
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=your_region
-AWS_BUCKET_NAME=your_bucket_name
-
-# Cloudinary (alternative file storage)
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-# Ideogram API
-IDEOGRAM_API_KEY=your_api_key
-
-# Rate Limiting
-RATE_LIMIT_WINDOW_MS=900000  # 15 minutes
-RATE_LIMIT_MAX_REQUESTS=100
-```
-
-4. Start the development server:
+4. Start development servers:
 ```bash
 npm run dev
 ```
 
+This will start both the client (port 5173) and server (port 3000) in development mode.
+
+## Building for Production
+
+```bash
+npm run build
+```
+
+This will:
+1. Build the client into static files
+2. Prepare the server for production
+
 ## Deployment
 
-### Frontend (Vercel)
+The application is configured for deployment on Railway.
 
-1. Connect your GitHub repository to Vercel
-2. Configure environment variables in Vercel dashboard
-3. Deploy!
+### Railway Deployment Steps
 
-### Backend (Render/Railway)
+1. Create a new project on Railway
+2. Connect your GitHub repository
+3. Add the required environment variables in Railway's dashboard
+4. Deploy!
 
-1. Connect your GitHub repository to Render/Railway
-2. Configure environment variables in the dashboard
-3. Deploy!
+Railway will automatically:
+1. Build the client using the client Dockerfile
+2. Build the server using the server Dockerfile
+3. Set up the necessary infrastructure
+
+### Environment Variables
+
+#### Server Environment Variables
+- `PORT`: Server port (default: 3000)
+- `NODE_ENV`: Environment (production/development)
+- `FRONTEND_URL`: URL of the frontend application
+- `FIREBASE_*`: Firebase configuration
+- `AWS_*`: AWS configuration (if using S3)
+- `CLOUDINARY_*`: Cloudinary configuration
+- `IDEOGRAM_API_KEY`: Ideogram API key
+- `RATE_LIMIT_*`: Rate limiting configuration
+
+#### Client Environment Variables
+- `VITE_API_URL`: Backend API URL
+- `VITE_FIREBASE_*`: Firebase configuration for client
 
 ## Features
 
-- Image generation using Ideogram AI
-- File upload and download
-- Authentication and authorization
-- Usage tracking
-- Cloud storage integration (AWS S3/Cloudinary)
-
-## Tech Stack
-
-### Frontend
-- React
-- Vite
-- TypeScript
-- Tailwind CSS
-- Firebase Auth
-- React Query
-- Zustand
-
-### Backend
-- Node.js
-- Express
-- Firebase Admin
-- AWS SDK
-- Cloudinary
-- Rate limiting
-- Security middleware
+- User authentication with Firebase
+- Sudoku puzzle generation and customization
+- AI-powered image generation
+- PDF export functionality
+- Real-time updates
+- Responsive design
+- Modern UI with Tailwind CSS
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
+2. Create your feature branch: `git checkout -b feature/my-new-feature`
+3. Commit your changes: `git commit -am 'Add some feature'`
+4. Push to the branch: `git push origin feature/my-new-feature`
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

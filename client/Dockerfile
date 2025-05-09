@@ -1,34 +1,45 @@
 # Build stage
-FROM node:18-alpine
+FROM node:18-alpine as build
+
+# Install build dependencies
+RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Copy everything needed for build
+# Copy package files
 COPY package.json package-lock.json ./
-COPY .npmrc ./
-COPY tsconfig.json ./
-COPY vite.config.ts ./
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
-COPY public ./public
-COPY src ./src
-COPY index.html ./
 
-# Install dependencies using clean install
-RUN npm ci --no-audit
+# Install dependencies with legacy peer deps and error handling
+RUN set -eux \
+    && npm install --legacy-peer-deps --no-audit \
+    || (cat npm-debug.log && exit 1)
 
-# Build
-RUN npm run build
+# Copy source files
+COPY . .
 
-# Serve using a lightweight server
+# Build the app with error handling
+RUN set -eux \
+    && npm run build \
+    || (cat npm-debug.log && exit 1)
+
+# Production stage
 FROM nginx:alpine
 
-# Copy built files
-COPY --from=0 /app/dist /usr/share/nginx/html
+# Install curl for healthcheck
+RUN apk add --no-cache curl
 
-# Copy nginx config
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Copy built files
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:80/ || exit 1
+
+# Expose port
 EXPOSE 80
 
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 
