@@ -57,25 +57,34 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Force HTTP/1.1 in main nginx.conf
+RUN sed -i 's/listen 80;/listen 80; http2 off;/' /etc/nginx/nginx.conf
+
 # Verify our setup - this runs during build
 RUN nginx -t && \
     echo "Nginx configuration valid" && \
     echo "Files in /usr/share/nginx/html:" && \
     ls -la /usr/share/nginx/html && \
     echo "Content of nginx config:" && \
-    cat /etc/nginx/conf.d/default.conf
+    cat /etc/nginx/conf.d/default.conf && \
+    echo "Content of main nginx config:" && \
+    cat /etc/nginx/nginx.conf
 
 # Create a debug script
 RUN echo '#!/bin/sh\n\
-echo "Checking health endpoint..."\n\
-curl -v http://localhost/health || echo "Health check failed"\n\
+echo "Checking OS and network..."\n\
+uname -a\n\
+ip addr show || echo "No ip command"\n\
+echo "Checking health endpoint with HTTP/1.1..."\n\
+curl -v --http1.1 http://localhost/health || echo "Health check failed"\n\
 echo "Checking root directory..."\n\
 ls -la /usr/share/nginx/html\n\
 echo "Checking nginx config..."\n\
 cat /etc/nginx/conf.d/default.conf\n\
-nginx -t\n\
-echo "Starting nginx..."\n\
-exec nginx -g "daemon off;"' > /entrypoint.sh && \
+echo "Checking nginx process list..."\n\
+ps aux | grep nginx || echo "No process info available"\n\
+echo "Starting nginx with debug log level..."\n\
+exec nginx -g "daemon off; error_log /dev/stdout debug;"' > /entrypoint.sh && \
 chmod +x /entrypoint.sh
 
 # Expose port
