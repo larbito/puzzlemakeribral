@@ -3,8 +3,16 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy the entire client directory
-COPY . .
+# Copy everything needed for build
+COPY package.json package-lock.json ./
+COPY .npmrc ./
+COPY tsconfig.json ./
+COPY vite.config.ts ./
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
+COPY public ./public
+COPY src ./src
+COPY index.html ./
 
 # Install dependencies using clean install
 RUN npm ci --no-audit
