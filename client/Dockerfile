@@ -8,7 +8,7 @@ WORKDIR /app
 
 # Copy all configuration files first
 COPY package.json package-lock.json .npmrc ./
-COPY tsconfig.json tsconfig.app.json vite.config.ts postcss.config.js tailwind.config.js ./
+COPY tsconfig.json vite.config.ts postcss.config.js tailwind.config.js ./
 
 # Install ALL dependencies (including dev dependencies)
 RUN set -eux \
