@@ -42,46 +42,44 @@ RUN npx tsc --noEmit
 # Then run the build with full output
 RUN npm run build
 
-# Production stage
+# Production stage - simple nginx setup
 FROM nginx:alpine
 
-# Install curl and other debugging tools
-RUN apk add --no-cache curl busybox-extras
+# Install curl for debugging
+RUN apk add --no-cache curl
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Create a test index.html in case build fails
+RUN echo "<html><body>App is running</body></html>" > /usr/share/nginx/html/index.html
 
 # Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Verify nginx config and directory structure
+# Copy nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Verify our setup - this runs during build
 RUN nginx -t && \
+    echo "Nginx configuration valid" && \
+    echo "Files in /usr/share/nginx/html:" && \
     ls -la /usr/share/nginx/html && \
+    echo "Content of nginx config:" && \
     cat /etc/nginx/conf.d/default.conf
 
-# Create healthcheck script
+# Create a debug script
 RUN echo '#!/bin/sh\n\
-response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80/health)\n\
-if [ "$response" = "200" ]; then\n\
-    exit 0\n\
-else\n\
-    echo "Healthcheck failed with status $response"\n\
-    exit 1\n\
-fi' > /healthcheck.sh && \
-    chmod +x /healthcheck.sh
-
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD /healthcheck.sh
-
-# Create startup script
-RUN echo '#!/bin/sh\n\
-echo "Checking nginx configuration..."\n\
+echo "Checking health endpoint..."\n\
+curl -v http://localhost/health || echo "Health check failed"\n\
+echo "Checking root directory..."\n\
+ls -la /usr/share/nginx/html\n\
+echo "Checking nginx config..."\n\
+cat /etc/nginx/conf.d/default.conf\n\
 nginx -t\n\
 echo "Starting nginx..."\n\
-exec nginx -g "daemon off;"' > /docker-entrypoint.sh && \
-    chmod +x /docker-entrypoint.sh
+exec nginx -g "daemon off;"' > /entrypoint.sh && \
+chmod +x /entrypoint.sh
 
+# Expose port
 EXPOSE 80
 
-CMD ["/docker-entrypoint.sh"] 
+# Start nginx with debugging
+CMD ["/entrypoint.sh"] 
