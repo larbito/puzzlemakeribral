@@ -2,7 +2,7 @@
 FROM node:18-alpine
 
 # Install build dependencies
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ git
 
 # Set working directory
 WORKDIR /app
@@ -13,12 +13,17 @@ COPY client/package*.json ./client/
 COPY server/package*.json ./server/
 COPY .npmrc ./
 
-# Clean install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies with error handling
+RUN echo "Installing root dependencies..." && \
+    npm install --legacy-peer-deps --no-audit || exit 1
+
 WORKDIR /app/client
-RUN npm install --legacy-peer-deps
+RUN echo "Installing client dependencies..." && \
+    npm install --legacy-peer-deps --no-audit || exit 1
+
 WORKDIR /app/server
-RUN npm install --legacy-peer-deps
+RUN echo "Installing server dependencies..." && \
+    npm install --legacy-peer-deps --no-audit || exit 1
 
 # Return to app root
 WORKDIR /app
@@ -26,9 +31,10 @@ WORKDIR /app
 # Copy the rest of the application
 COPY . .
 
-# Build client
+# Build client with error handling
 WORKDIR /app/client
-RUN npm run build
+RUN echo "Building client..." && \
+    npm run build || exit 1
 
 # Return to app root
 WORKDIR /app
