@@ -42,47 +42,64 @@ RUN npx tsc --noEmit
 # Then run the build with full output
 RUN npm run build
 
-# Production stage - simple nginx setup
-FROM nginx:alpine
+# Production stage - dual server approach
+FROM node:18-alpine
 
-# Install necessary tools
-RUN apk add --no-cache curl bash netcat-openbsd
+WORKDIR /app
 
-# Create a health check file
-RUN mkdir -p /health && \
-    echo "healthy" > /health/index.html
+# Install nginx
+RUN apk add --no-cache nginx curl
 
-# Copy built files
+# Copy healthcheck server
+COPY healthcheck.js /app/healthcheck.js
+
+# Create directory for nginx static files
+RUN mkdir -p /usr/share/nginx/html
+
+# Copy built files for the app
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Create a basic nginx config
+RUN echo 'server {\n\
+    listen 80 default_server;\n\
+    root /usr/share/nginx/html;\n\
+    index index.html;\n\
+    location / {\n\
+        try_files $uri $uri/ /index.html;\n\
+    }\n\
+}' > /etc/nginx/http.d/default.conf
 
-# Create a separate health check server script
-RUN echo '#!/bin/bash\n\
-while true; do\n\
-  echo -e "HTTP/1.1 200 OK\\r\\nContent-Length: 8\\r\\nContent-Type: text/plain\\r\\n\\r\\nhealthy\\n" | nc -l -p 8080\n\
-done' > /health-server.sh && \
-chmod +x /health-server.sh
+# Validate nginx config
+RUN nginx -t
 
-# Create an entrypoint script
-RUN echo '#!/bin/bash\n\
-# Start the health check server in the background\n\
+# Create startup script
+RUN echo '#!/bin/sh\n\
 echo "Starting health check server on port 8080..."\n\
-/health-server.sh &\n\
+node /app/healthcheck.js &\n\
+HEALTH_PID=$!\n\
 \n\
-# Test that health server is working\n\
-sleep 1\n\
-echo "Testing health server:"\n\
-curl -v http://localhost:8080 || echo "Health server not responding"\n\
+# Wait a moment for health check server to start\n\
+sleep 2\n\
 \n\
-# Start nginx in the foreground\n\
+# Verify health server is responding\n\
+echo "Testing health check server:"\n\
+curl -v http://localhost:8080 || echo "WARNING: Health check server not responding"\n\
+\n\
+# Start nginx\n\
 echo "Starting nginx..."\n\
-exec nginx -g "daemon off;"' > /entrypoint.sh && \
-chmod +x /entrypoint.sh
+nginx -g "daemon off;" &\n\
+NGINX_PID=$!\n\
+\n\
+# Monitor both processes\n\
+echo "Monitoring servers (nginx_pid=$NGINX_PID, health_pid=$HEALTH_PID)"\n\
+wait $NGINX_PID\n\
+' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
-# Expose ports
+# Expose both ports
 EXPOSE 80 8080
 
-# Start services
-CMD ["/entrypoint.sh"] 
+# Set environment variables
+ENV HEALTH_PORT=8080
+
+# Start both servers
+CMD ["/app/entrypoint.sh"] 
