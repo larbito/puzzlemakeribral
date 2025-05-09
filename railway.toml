@@ -3,12 +3,11 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "bun src/index.js"
+startCommand = "node src/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
 [deploy.env]
-NODE_ENV = "production"
-RUNTIME = "bun" 
+NODE_ENV = "production" 

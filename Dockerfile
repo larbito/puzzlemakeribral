@@ -1,39 +1,44 @@
-# Build stage for client
-FROM oven/bun:1 as client-builder
+# Build stage for dependencies
+FROM node:18-alpine AS deps
 
-WORKDIR /build
-COPY client/package*.json ./
-COPY .npmrc ./
-
-# Install dependencies
-RUN bun install --no-save
-
-# Build client
-COPY client/ ./
-RUN bun run build
-
-# Build stage for server
-FROM oven/bun:1 as server-builder
-
-WORKDIR /build
-COPY server/package*.json ./
-COPY .npmrc ./
-
-# Install only production dependencies
-RUN bun install --production --no-save
-
-# Final stage
-FROM oven/bun:1
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Copy only necessary files
-COPY --from=server-builder /build/node_modules ./node_modules
+# Copy package files
+COPY package*.json ./
+COPY client/package*.json ./client/
+COPY server/package*.json ./server/
+COPY .npmrc ./
+
+# Install dependencies
+RUN npm ci || npm install
+
+# Build stage for client
+FROM node:18-alpine AS client-builder
+
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/client/node_modules ./client/node_modules
+COPY . .
+
+# Build client
+WORKDIR /app/client
+RUN npm run build
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy server files and dependencies
+COPY --from=deps /app/server/node_modules ./node_modules
 COPY server/src ./src
-COPY --from=client-builder /build/dist ./public
+COPY --from=client-builder /app/client/dist ./public
 
 # Expose port
 EXPOSE 3000
 
 # Start command
-CMD ["bun", "src/index.js"] 
+CMD ["node", "src/index.js"] 
