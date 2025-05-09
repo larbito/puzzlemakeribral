@@ -9,7 +9,9 @@ RUN apk add --no-cache git
 # Copy package files and install dependencies first
 COPY package*.json ./
 COPY .npmrc ./
-RUN npm install
+
+# Clean install dependencies
+RUN npm ci || (echo "Clean install failed, trying with legacy peer deps" && npm install --legacy-peer-deps)
 
 # Copy configuration files
 COPY tsconfig.json tsconfig.node.json vite.config.ts postcss.config.js tailwind.config.js ./
@@ -19,8 +21,8 @@ COPY src/ ./src/
 COPY public/ ./public/
 COPY index.html ./
 
-# Build the app
-RUN npm run build || (echo "Build failed" && npm run build --verbose && exit 1)
+# Build the app with detailed error output
+RUN npm run build || (echo "Build failed" && npm run build --verbose && ls -la && exit 1)
 
 # Production stage
 FROM nginx:alpine
