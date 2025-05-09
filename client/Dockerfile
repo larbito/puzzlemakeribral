@@ -45,8 +45,8 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Install curl for healthcheck and debugging tools
-RUN apk add --no-cache curl
+# Install curl and other debugging tools
+RUN apk add --no-cache curl busybox-extras
 
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -54,12 +54,32 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
 
+# Verify nginx config and directory structure
+RUN nginx -t && \
+    ls -la /usr/share/nginx/html && \
+    cat /etc/nginx/conf.d/default.conf
+
+# Create healthcheck script
+RUN echo '#!/bin/sh\n\
+response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:80/health)\n\
+if [ "$response" = "200" ]; then\n\
+    exit 0\n\
+else\n\
+    echo "Healthcheck failed with status $response"\n\
+    exit 1\n\
+fi' > /healthcheck.sh && \
+    chmod +x /healthcheck.sh
+
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/health || exit 1
+    CMD /healthcheck.sh
 
-# Add debugging command to check nginx config on startup
-RUN echo '#!/bin/sh\nnginx -t\nexec nginx -g "daemon off;"' > /docker-entrypoint.sh && \
+# Create startup script
+RUN echo '#!/bin/sh\n\
+echo "Checking nginx configuration..."\n\
+nginx -t\n\
+echo "Starting nginx..."\n\
+exec nginx -g "daemon off;"' > /docker-entrypoint.sh && \
     chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
