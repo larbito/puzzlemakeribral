@@ -2,27 +2,32 @@
 FROM node:18-alpine
 
 # Install build dependencies
-RUN apk add --no-cache git
+RUN apk add --no-cache git curl
 
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install production dependencies with legacy peer deps and error handling
+# Install production dependencies with better error handling
 RUN set -eux \
-    && npm install --legacy-peer-deps --only=production --no-audit \
-    || (cat npm-debug.log && exit 1)
+    && echo "Installing dependencies..." \
+    && npm install --legacy-peer-deps --no-audit \
+    || (echo "npm install failed" && cat npm-debug.log && exit 1)
 
 # Copy source files
 COPY src ./src
 
-# Add healthcheck
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+# Add healthcheck with increased timeout and better error handling
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000/health || (echo "Health check failed" && exit 1)
 
 # Expose port
 EXPOSE 3000
 
-# Start server
-CMD ["node", "src/index.js"] 
+# Set environment variables
+ENV NODE_ENV=production \
+    PORT=3000
+
+# Start server with better error handling
+CMD ["sh", "-c", "node src/index.js 2>&1 | tee /app/server.log"] 

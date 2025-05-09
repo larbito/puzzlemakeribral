@@ -9,18 +9,20 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json ./
 
-# Install dependencies with legacy peer deps and error handling
+# Install ALL dependencies (including dev dependencies) with better error handling
 RUN set -eux \
     && npm install --legacy-peer-deps --no-audit \
-    || (cat npm-debug.log && exit 1)
+    && npm install -g vite typescript \
+    || (echo "npm install failed" && cat npm-debug.log && exit 1)
 
 # Copy source files
 COPY . .
 
-# Build the app with error handling
+# Build the app with better error handling
 RUN set -eux \
-    && npm run build \
-    || (cat npm-debug.log && exit 1)
+    && echo "Starting build process..." \
+    && NODE_ENV=production npm run build \
+    || (echo "Build failed" && cat npm-debug.log && ls -la && exit 1)
 
 # Production stage
 FROM nginx:alpine
