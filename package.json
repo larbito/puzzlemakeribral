@@ -2,21 +2,9 @@
   "name": "puzzle-craft-forge",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "client",
-    "server"
-  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
-    "dev:client": "cd client && npm run dev",
-    "dev:server": "cd server && npm run dev",
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build",
     "start": "cd server && npm run start",
-    "install:all": "npm install && npm run install:client && npm run install:server",
-    "install:client": "cd client && npm install",
-    "install:server": "cd server && npm install"
+    "dev": "concurrently \"cd client && npm run dev\" \"cd server && npm run dev\""
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
