@@ -26,7 +26,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - FRONTEND_URL=http://localhost:5173
+      - FRONTEND_URL=https://puzzlemakeribral-production.up.railway.app
     volumes:
       - ./server:/app
       - /app/node_modules
