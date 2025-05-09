@@ -17,7 +17,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks: {
@@ -28,7 +28,10 @@ export default defineConfig({
     },
     minify: true,
     target: 'es2015',
-    chunkSizeWarningLimit: 2000
+    chunkSizeWarningLimit: 2000,
+    reportCompressedSize: true,
+    assetsDir: 'assets',
+    emptyOutDir: true
   },
   esbuild: {
     drop: ['console', 'debugger'],
@@ -43,5 +46,7 @@ export default defineConfig({
         secure: false
       }
     }
-  }
+  },
+  logLevel: 'info',
+  clearScreen: false
 }); 
