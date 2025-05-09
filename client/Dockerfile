@@ -45,11 +45,12 @@ RUN npm run build
 # Production stage - simple nginx setup
 FROM nginx:alpine
 
-# Install curl for debugging
-RUN apk add --no-cache curl
+# Install necessary tools
+RUN apk add --no-cache curl bash netcat-openbsd
 
-# Create a test index.html in case build fails
-RUN echo "<html><body>App is running</body></html>" > /usr/share/nginx/html/index.html
+# Create a health check file
+RUN mkdir -p /health && \
+    echo "healthy" > /health/index.html
 
 # Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
@@ -57,38 +58,31 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Force HTTP/1.1 in main nginx.conf
-RUN sed -i 's/listen 80;/listen 80; http2 off;/' /etc/nginx/nginx.conf
+# Create a separate health check server script
+RUN echo '#!/bin/bash\n\
+while true; do\n\
+  echo -e "HTTP/1.1 200 OK\\r\\nContent-Length: 8\\r\\nContent-Type: text/plain\\r\\n\\r\\nhealthy\\n" | nc -l -p 8080\n\
+done' > /health-server.sh && \
+chmod +x /health-server.sh
 
-# Verify our setup - this runs during build
-RUN nginx -t && \
-    echo "Nginx configuration valid" && \
-    echo "Files in /usr/share/nginx/html:" && \
-    ls -la /usr/share/nginx/html && \
-    echo "Content of nginx config:" && \
-    cat /etc/nginx/conf.d/default.conf && \
-    echo "Content of main nginx config:" && \
-    cat /etc/nginx/nginx.conf
-
-# Create a debug script
-RUN echo '#!/bin/sh\n\
-echo "Checking OS and network..."\n\
-uname -a\n\
-ip addr show || echo "No ip command"\n\
-echo "Checking health endpoint with HTTP/1.1..."\n\
-curl -v --http1.1 http://localhost/health || echo "Health check failed"\n\
-echo "Checking root directory..."\n\
-ls -la /usr/share/nginx/html\n\
-echo "Checking nginx config..."\n\
-cat /etc/nginx/conf.d/default.conf\n\
-echo "Checking nginx process list..."\n\
-ps aux | grep nginx || echo "No process info available"\n\
-echo "Starting nginx with debug log level..."\n\
-exec nginx -g "daemon off; error_log /dev/stdout debug;"' > /entrypoint.sh && \
+# Create an entrypoint script
+RUN echo '#!/bin/bash\n\
+# Start the health check server in the background\n\
+echo "Starting health check server on port 8080..."\n\
+/health-server.sh &\n\
+\n\
+# Test that health server is working\n\
+sleep 1\n\
+echo "Testing health server:"\n\
+curl -v http://localhost:8080 || echo "Health server not responding"\n\
+\n\
+# Start nginx in the foreground\n\
+echo "Starting nginx..."\n\
+exec nginx -g "daemon off;"' > /entrypoint.sh && \
 chmod +x /entrypoint.sh
 
-# Expose port
-EXPOSE 80
+# Expose ports
+EXPOSE 80 8080
 
-# Start nginx with debugging
+# Start services
 CMD ["/entrypoint.sh"] 

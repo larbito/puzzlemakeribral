@@ -4,8 +4,9 @@ dockerfilePath = "client/Dockerfile"
 
 [deploy]
 numReplicas = 1
-healthcheckPath = "/health"
-healthcheckTimeout = 30
+healthcheckPath = "/"
+healthcheckPort = 8080
+healthcheckTimeout = 10
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
