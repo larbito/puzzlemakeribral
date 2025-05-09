@@ -2,7 +2,7 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // For development/debugging - set to false to use real API
-const USE_PLACEHOLDERS = true; // FORCE PLACEHOLDERS UNTIL API IS FIXED
+const USE_PLACEHOLDERS = false; // Using real API now
 
 export interface GenerateImageParams {
   prompt: string;
@@ -71,7 +71,8 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       style: style !== "custom" ? style : undefined,
       aspect_ratio: "ASPECT_3_4",
       negative_prompt: "text, watermark, signature, blurry, low quality, distorted, deformed",
-      seed: Math.floor(Math.random() * 1000000)
+      seed: Math.floor(Math.random() * 1000000),
+      apiKey: "WeyDyoA-TbxDLoPtx_bzcGbXgGjBH-NTzDgQZ3Qs9acv3EkmYmNc4q94iRdh6JjWU8nrAed4HJv8Bxxdl1sFhQ"
     };
 
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
@@ -80,41 +81,35 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error("Proxy error response:", errorData);
-      throw new Error(errorData.error || `Proxy error: ${response.status}`);
+      console.error("API error response:", errorData);
+      throw new Error(errorData.error || `API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("Proxy response data:", JSON.stringify(data, null, 2));
+    console.log("API response data:", JSON.stringify(data, null, 2));
 
     // Try multiple possible response structures
     let imageUrl: string | null = null;
     
     // Check various possible response structures from the API
     if (data?.data?.[0]?.url) {
-      // Format: { data: [{ url: '...' }] }
       imageUrl = data.data[0].url;
     } else if (data?.images?.[0]?.url) {
-      // Format: { images: [{ url: '...' }] }
       imageUrl = data.images[0].url;
     } else if (data?.image?.url) {
-      // Format: { image: { url: '...' } }
       imageUrl = data.image.url;
     } else if (data?.url) {
-      // Format: { url: '...' }
       imageUrl = data.url;
     } else if (Array.isArray(data) && data[0]?.url) {
-      // Format: [{ url: '...' }]
       imageUrl = data[0].url;
     } else if (typeof data === 'string' && data.startsWith('http')) {
-      // Format: 'http://...'
       imageUrl = data;
     }
 
@@ -125,7 +120,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 
     return imageUrl;
   } catch (error: unknown) {
-    console.error("Error calling proxy:", error);
+    console.error("Error calling API:", error);
     throw error;
   }
 }

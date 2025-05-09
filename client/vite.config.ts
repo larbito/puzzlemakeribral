@@ -33,5 +33,15 @@ export default defineConfig({
   esbuild: {
     drop: ['console', 'debugger'],
     logOverride: { 'this-is-undefined-in-esm': 'silent' }
+  },
+  server: {
+    port: 5177,
+    proxy: {
+      '/api/ideogram': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false
+      }
+    }
   }
 }); 

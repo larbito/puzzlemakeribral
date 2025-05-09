@@ -1,87 +1,136 @@
 # Puzzle Craft Forge
 
-An app for generating beautiful designs.
+A powerful puzzle creation tool that uses AI to generate and manipulate images.
 
-Updated: Force new deployment.
+## Project Structure
 
-A professional-grade puzzle generator for Kindle Direct Publishing (KDP) and other publishing platforms.
+The project is split into two main parts:
+- Frontend: React/Vite application deployed on Vercel
+- Backend: Node.js/Express API deployed on Render/Railway
 
-## Features
+## Frontend Setup
 
-- **Multiple Puzzle Types**
-  - Sudoku puzzles with various grid sizes (4x4, 6x6, 9x9)
-  - Word search puzzles (coming soon)
-  - More puzzle types in development!
-
-- **KDP-Ready PDFs**
-  - Proper dimensions for KDP publishing
-  - Bleed settings for professional printing
-  - Margin controls for binding
-  - Customizable page layouts (1, 2, 4, or 9 puzzles per page)
-
-- **Advanced Sudoku Options**
-  - Multiple difficulty levels (Easy, Medium, Hard, Expert)
-  - Mixed difficulty books with customizable sections
-  - Solutions included with flexible placement options
-  - Custom puzzle numbering styles (Sequential, By Section, Custom Prefix)
-  - Grid styling customization (line colors, alternate box shading, number fonts)
-  - Optional hints for easier puzzles
-
-- **Export Options**
-  - Download as PDF for print publishing
-  - Export as PNG images for digital use or custom layouts
-  - Batch export to ZIP archives for multiple puzzles
-
-- **Performance Optimized**
-  - Web worker implementation for non-blocking UI
-  - Batch processing for large puzzle books
-  - Preview generation with real-time progress indicators
-
-## Sudoku Generator Features
-
-### Puzzle Generation
-
-The Sudoku generator creates puzzles with these options:
-- Grid sizes: 4x4, 6x6, and 9x9
-- Difficulty levels: Easy, Medium, Hard, Expert
-- Custom difficulty mixes with section-by-section control
-- Layout options: 1, 2, 4, or 9 puzzles per page
-
-### Styling & Formatting
-
-Customize your puzzles with:
-- **Grid Styles**: Classic (bold box lines), Modern (rounded corners), or Minimal (thin lines)
-- **Line Colors**: Black, Gray, or Dark Blue
-- **Box Shading**: Optional alternate box shading for visual distinction
-- **Number Fonts**: Sans-serif, Serif, or Monospace fonts
-- **Puzzle Numbering**: Sequential (1, 2, 3...), By Section (E1, E2..., M1, M2...), or Custom Prefix
-
-### Export Options
-
-- **PDF Export**: KDP-ready books with proper dimensions and formatting
-- **PNG Export**: High-quality PNG images of individual puzzles and solutions
-- **Batch Export**: ZIP archives for multiple puzzles
-
-## Getting Started
-
-1. Select your puzzle type (currently Sudoku)
-2. Configure your options (layout, difficulty, styling, etc.)
-3. Generate your puzzles
-4. Preview and make adjustments as needed
-5. Download in your preferred format
-
-## Development
-
-To run this project locally:
-
+1. Install dependencies:
 ```bash
-# Install dependencies
 npm install
+```
 
-# Start development server
+2. Create a `.env` file with the following variables:
+```env
+# Firebase Configuration
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+
+# Backend API URL
+VITE_API_URL=http://localhost:3000
+
+# Optional: Analytics
+VITE_GA_MEASUREMENT_ID=your_ga_id
+```
+
+3. Start the development server:
+```bash
 npm run dev
 ```
 
-## License
+## Backend Setup
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+1. Navigate to the backend directory:
+```bash
+cd backend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env` file with the following variables:
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+# Firebase Admin
+FIREBASE_PROJECT_ID=your_project_id
+FIREBASE_PRIVATE_KEY=your_private_key
+FIREBASE_CLIENT_EMAIL=your_client_email
+
+# AWS S3 (for file storage)
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_region
+AWS_BUCKET_NAME=your_bucket_name
+
+# Cloudinary (alternative file storage)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Ideogram API
+IDEOGRAM_API_KEY=your_api_key
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000  # 15 minutes
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+4. Start the development server:
+```bash
+npm run dev
+```
+
+## Deployment
+
+### Frontend (Vercel)
+
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables in Vercel dashboard
+3. Deploy!
+
+### Backend (Render/Railway)
+
+1. Connect your GitHub repository to Render/Railway
+2. Configure environment variables in the dashboard
+3. Deploy!
+
+## Features
+
+- Image generation using Ideogram AI
+- File upload and download
+- Authentication and authorization
+- Usage tracking
+- Cloud storage integration (AWS S3/Cloudinary)
+
+## Tech Stack
+
+### Frontend
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
+- Firebase Auth
+- React Query
+- Zustand
+
+### Backend
+- Node.js
+- Express
+- Firebase Admin
+- AWS SDK
+- Cloudinary
+- Rate limiting
+- Security middleware
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
