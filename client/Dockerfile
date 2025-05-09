@@ -3,23 +3,32 @@ FROM node:18-alpine as build
 
 WORKDIR /app
 
-# Install essential build dependencies
-RUN apk add --no-cache git
+# Install essential build dependencies and debugging tools
+RUN apk add --no-cache git curl
+
+# Show environment information
+RUN node -v && npm -v
 
 # Copy package files and install dependencies first
 COPY package*.json ./
 COPY .npmrc ./
 
-# Clean install dependencies
-RUN npm ci || (echo "Clean install failed, trying with legacy peer deps" && npm install --legacy-peer-deps)
+# Clean install dependencies with debug output
+RUN npm install --verbose
 
 # Copy configuration files
 COPY tsconfig.json tsconfig.node.json vite.config.ts postcss.config.js tailwind.config.js ./
+
+# Show copied files for debugging
+RUN ls -la
 
 # Copy source files
 COPY src/ ./src/
 COPY public/ ./public/
 COPY index.html ./
+
+# Show full directory structure for debugging
+RUN find . -type f | sort
 
 # Set environment variables for build
 ENV VITE_SUPABASE_URL="https://sqyvdlyjgxaeikubvmuo.supabase.co"
@@ -27,8 +36,11 @@ ENV VITE_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 ENV VITE_OPENAI_API_KEY=""
 ENV NODE_ENV="production"
 
-# Build the app with detailed error output
-RUN npm run build --verbose || (echo "Build failed with error:" && cat /tmp/build-error.log && ls -la && exit 1)
+# First run tsc to check for TypeScript errors
+RUN npx tsc --noEmit
+
+# Then run the build with full output
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
