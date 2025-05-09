@@ -3,16 +3,21 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json ./
-COPY package-lock.json ./
+# Copy package files first
+COPY package*.json ./
 COPY .npmrc ./
 
 # Install dependencies
 RUN npm install --no-cache
 
-# Copy source files
-COPY . .
+# Copy source and config files
+COPY src ./src
+COPY public ./public
+COPY index.html ./
+COPY vite.config.ts ./
+COPY tsconfig.json ./
+COPY tailwind.config.js ./
+COPY postcss.config.js ./
 
 # Build
 RUN npm run build
