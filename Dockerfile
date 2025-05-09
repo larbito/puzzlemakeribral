@@ -1,25 +1,37 @@
 # Use Node.js LTS
 FROM node:18-alpine
 
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files first
 COPY package*.json ./
 COPY client/package*.json ./client/
 COPY server/package*.json ./server/
 COPY .npmrc ./
 
-# Install dependencies
-RUN npm install
-RUN cd client && npm install
-RUN cd server && npm install
+# Clean install dependencies
+RUN npm install --legacy-peer-deps
+WORKDIR /app/client
+RUN npm install --legacy-peer-deps
+WORKDIR /app/server
+RUN npm install --legacy-peer-deps
 
-# Copy source code
+# Return to app root
+WORKDIR /app
+
+# Copy the rest of the application
 COPY . .
 
 # Build client
-RUN cd client && npm run build
+WORKDIR /app/client
+RUN npm run build
+
+# Return to app root
+WORKDIR /app
 
 # Expose port
 EXPOSE 3000
