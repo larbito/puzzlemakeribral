@@ -1,10 +1,9 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-buildCommand = ""  # Explicitly disable automatic build command
 
 [deploy]
-startCommand = "npm start"
+startCommand = "node src/index.js"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"

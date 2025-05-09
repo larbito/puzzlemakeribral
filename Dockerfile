@@ -1,46 +1,46 @@
-# Use Node.js LTS
-FROM node:18-alpine
+# Build stage for client
+FROM node:18-alpine AS client-builder
 
 # Install build dependencies
-RUN apk add --no-cache python3 make g++ git
+RUN apk add --no-cache python3 make g++
 
-# Set working directory
-WORKDIR /app
-
-# Copy package files first
-COPY package*.json ./
-COPY client/package*.json ./client/
-COPY server/package*.json ./server/
+# Set up client build
+WORKDIR /client-build
+COPY client/package*.json ./
 COPY .npmrc ./
+RUN npm install --legacy-peer-deps --no-audit
 
-# Install dependencies with error handling
-RUN echo "Installing root dependencies..." && \
-    npm install --legacy-peer-deps --no-audit || exit 1
+# Build client
+COPY client/ ./
+RUN npm run build
 
-WORKDIR /app/client
-RUN echo "Installing client dependencies..." && \
-    npm install --legacy-peer-deps --no-audit || exit 1
+# Build stage for server
+FROM node:18-alpine AS server-builder
 
-WORKDIR /app/server
-RUN echo "Installing server dependencies..." && \
-    npm install --legacy-peer-deps --no-audit || exit 1
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
 
-# Return to app root
+# Set up server
+WORKDIR /server-build
+COPY server/package*.json ./
+COPY .npmrc ./
+RUN npm install --legacy-peer-deps --no-audit --production
+
+# Final stage
+FROM node:18-alpine
+
+# Create app directory
 WORKDIR /app
 
-# Copy the rest of the application
-COPY . .
+# Copy server from server-builder
+COPY --from=server-builder /server-build/node_modules ./node_modules
+COPY server/ ./
 
-# Build client with error handling
-WORKDIR /app/client
-RUN echo "Building client..." && \
-    npm run build || exit 1
-
-# Return to app root
-WORKDIR /app
+# Copy client build from client-builder
+COPY --from=client-builder /client-build/dist ./public
 
 # Expose port
 EXPOSE 3000
 
 # Start server
-CMD ["npm", "start"] 
+CMD ["node", "src/index.js"] 
