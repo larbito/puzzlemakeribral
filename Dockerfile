@@ -1,41 +1,39 @@
-# Build stage for dependencies
-FROM node:18-alpine AS deps
+# Build stage for client
+FROM node:18-alpine AS client
 
 # Install build dependencies
 RUN apk add --no-cache python3 make g++
 
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY client/package*.json ./client/
-COPY server/package*.json ./server/
+WORKDIR /app/client
+COPY client/package*.json ./
 COPY .npmrc ./
 
-# Install dependencies
-RUN npm ci || npm install
-
-# Build stage for client
-FROM node:18-alpine AS client-builder
-
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/client/node_modules ./client/node_modules
-COPY . .
+# Install client dependencies
+RUN npm install
 
 # Build client
-WORKDIR /app/client
+COPY client/ ./
 RUN npm run build
 
-# Production stage
+# Build stage for server
+FROM node:18-alpine AS server
+
+WORKDIR /app/server
+COPY server/package*.json ./
+COPY .npmrc ./
+
+# Install server dependencies
+RUN npm install --production
+
+# Final stage
 FROM node:18-alpine
 
 WORKDIR /app
 
 # Copy server files and dependencies
-COPY --from=deps /app/server/node_modules ./node_modules
+COPY --from=server /app/server/node_modules ./node_modules
 COPY server/src ./src
-COPY --from=client-builder /app/client/dist ./public
+COPY --from=client /app/client/dist ./public
 
 # Expose port
 EXPOSE 3000

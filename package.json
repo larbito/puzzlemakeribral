@@ -1,9 +1,0 @@
-{
-  "name": "puzzle-craft-forge",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "start": "cd server && node src/index.js",
-    "install": "cd client && npm install && cd ../server && npm install"
-  }
-} 
