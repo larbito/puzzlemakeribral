@@ -45,6 +45,9 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
+# Install curl for healthcheck and debugging tools
+RUN apk add --no-cache curl
+
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
@@ -53,8 +56,12 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:80/ || exit 1
+    CMD curl -f http://localhost:80/health || exit 1
+
+# Add debugging command to check nginx config on startup
+RUN echo '#!/bin/sh\nnginx -t\nexec nginx -g "daemon off;"' > /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"] 
+CMD ["/docker-entrypoint.sh"] 
