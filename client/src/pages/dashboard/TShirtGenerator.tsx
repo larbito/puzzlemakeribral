@@ -438,8 +438,13 @@ export const TShirtGenerator = () => {
     window.scrollTo(0, 0);
   };
 
-  // Add a console.log in the render for debugging
-  console.log('RENDER: customPrompt=', customPrompt, 'isGenerating=', isGenerating);
+  // Debug effect to log state changes
+  useEffect(() => {
+    console.log("State update - customPrompt:", customPrompt, "isGenerating:", isGenerating);
+  }, [customPrompt, isGenerating]);
+
+  // Add debug log before render
+  console.log('RENDER STATE:', { customPrompt, isGenerating });
 
   return (
     <PageLayout
@@ -613,7 +618,10 @@ export const TShirtGenerator = () => {
                   <Textarea
                     placeholder="Enter your prompt here..."
                     value={customPrompt}
-                    onChange={e => setCustomPrompt(e.target.value)}
+                    onChange={(e) => {
+                      console.log("Textarea onChange:", e.target.value);
+                      setCustomPrompt(e.target.value);
+                    }}
                     className="min-h-[100px] relative z-20 bg-background"
                     id="prompt-input"
                     aria-label="Prompt input"
@@ -696,7 +704,7 @@ export const TShirtGenerator = () => {
                 <div className="flex gap-2">
                   <Button
                     onClick={handleGenerateImage}
-                    disabled={!customPrompt || isGenerating}
+                    disabled={!customPrompt.trim() || isGenerating}
                     className="flex-1"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
