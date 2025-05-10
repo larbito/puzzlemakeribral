@@ -10,7 +10,14 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'https://puzzle-craft-forge.vercel.app',
+  origin: (origin, callback) => {
+    const allowedOrigins = (process.env.CORS_ORIGIN || 'https://puzzlemakeribral.vercel.app').split(',');
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST'],
   credentials: true
 }));
