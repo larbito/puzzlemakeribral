@@ -7,6 +7,7 @@ import { signInWithGoogle, signInWithApple, signInWithFacebook, signInWithGithub
 import { FcGoogle } from 'react-icons/fc';
 import { FaFacebook, FaApple } from 'react-icons/fa';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +21,7 @@ export const Login = () => {
     if (session) {
       const params = new URLSearchParams(location.search);
       const redirectTo = params.get('redirect') || '/dashboard';
-      navigate(redirectTo);
+      navigate(redirectTo, { replace: true });
     }
   }, [session, navigate, location]);
 
@@ -54,9 +55,15 @@ export const Login = () => {
   };
 
   const handleSocialLogin = async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
-    setIsLoading(true);
-    setError(null);
     try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Store the current URL or redirect parameter for after login
+      const params = new URLSearchParams(location.search);
+      const redirectTo = params.get('redirect') || '/dashboard';
+      const state = JSON.stringify({ redirectTo });
+      
       const loginFn = {
         google: signInWithGoogle,
         apple: signInWithApple,
@@ -64,15 +71,15 @@ export const Login = () => {
         github: signInWithGithub
       }[provider];
 
-      // Add the redirect parameter to the OAuth redirect URL
-      const params = new URLSearchParams(location.search);
-      const redirectTo = params.get('redirect');
       const { error } = await loginFn();
       
       if (error) throw error;
       // Social login will redirect to callback URL
     } catch (err) {
+      console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during login');
+      toast.error('Login failed. Please try again.');
+    } finally {
       setIsLoading(false);
     }
   };

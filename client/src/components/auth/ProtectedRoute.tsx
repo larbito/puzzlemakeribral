@@ -13,7 +13,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       // Store the attempted URL to redirect back after login
       const currentPath = location.pathname + location.search;
       if (currentPath !== '/login') {
-        navigate(`/login?redirect=${encodeURIComponent(currentPath)}`);
+        navigate(`/login?redirect=${encodeURIComponent(currentPath)}`, { replace: true });
         toast.error('Please sign in to access this page');
       }
     }
@@ -25,6 +25,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
   }, [error]);
 
+  // Show loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -37,10 +38,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  // Only render children if we have both a user and a session
-  if (!user || !session) {
+  // If no session, render nothing (redirect will happen in useEffect)
+  if (!session || !user) {
     return null;
   }
 
+  // If we have a session and user, render the protected content
   return <>{children}</>;
 }; 
