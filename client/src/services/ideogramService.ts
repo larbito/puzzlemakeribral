@@ -279,4 +279,27 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
 }
 
 // Re-export history-related functions
-export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites, saveToProject } from "@/services/designHistory"; 
+export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites, saveToProject } from "@/services/designHistory";
+
+export async function imageToPrompt(imageFile: File): Promise<string> {
+  try {
+    const formData = new FormData();
+    formData.append('image', imageFile);
+
+    const response = await fetch('/api/ideogram/analyze', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.prompt;
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    throw error;
+  }
+} 

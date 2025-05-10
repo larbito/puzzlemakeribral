@@ -16,7 +16,12 @@ import {
   ImageIcon,
   Plus,
   Lock,
-  HelpCircle
+  HelpCircle,
+  Upload,
+  Wand2,
+  Save,
+  MessageSquare,
+  Settings2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,8 +43,10 @@ import {
   deleteFromHistory, 
   saveToFavorites as saveToFavoritesService,
   saveToProject as saveToProjectService,
+  imageToPrompt
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
+import { PageLayout } from '@/components/layout/PageLayout';
 
 // Style options with icons
 const styleOptions = [
@@ -89,7 +96,20 @@ function formatDate(dateString: string): string {
   }
 }
 
-export function TShirtGenerator() {
+interface GeneratedImage {
+  id: string;
+  url: string;
+  prompt: string;
+  timestamp: Date;
+}
+
+export const TShirtGenerator = () => {
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("illustrated");
   const [colorScheme, setColorScheme] = useState("colorful");
@@ -167,6 +187,71 @@ export function TShirtGenerator() {
       }
     }
   }, [generatedDesign, prompt]);
+
+  // Handle image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      try {
+        setIsGenerating(true);
+        const generatedPrompt = await imageToPrompt(file);
+        setPrompt(generatedPrompt);
+        toast.success("Prompt generated from image!");
+      } catch (error) {
+        console.error("Error generating prompt from image:", error);
+        toast.error("Failed to generate prompt from image");
+      } finally {
+        setIsGenerating(false);
+      }
+    }
+  };
+
+  // Generate prompt from image
+  const handleGeneratePrompt = async () => {
+    if (!selectedImage) return;
+    setIsGenerating(true);
+    try {
+      // TODO: Implement API call to generate prompt from image
+      const mockPrompt = "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
+      setGeneratedPrompt(mockPrompt);
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Generate image from prompt
+  const handleGenerateImage = async () => {
+    if (!customPrompt) return;
+    setIsGenerating(true);
+    try {
+      // TODO: Implement API call to generate image from prompt
+      const mockImage: GeneratedImage = {
+        id: Date.now().toString(),
+        url: 'https://via.placeholder.com/400x400',
+        prompt: customPrompt,
+        timestamp: new Date()
+      };
+      setGeneratedImages(prev => [mockImage, ...prev]);
+    } catch (error) {
+      console.error('Error generating image:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Delete generated image
+  const handleDeleteImage = (id: string) => {
+    setGeneratedImages(prev => prev.filter(img => img.id !== id));
+  };
 
   // Handle generation
   const handleGenerate = async () => {
@@ -310,359 +395,166 @@ export function TShirtGenerator() {
   };
 
   return (
-    <div className="container py-6 space-y-8">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center gap-2">
-          <Shirt className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold">T-Shirt Design Generator</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Create print-ready t-shirt designs with AI. Perfect for Merch by Amazon, Printify, Printful and more.
-        </p>
-      </div>
-
-      <Tabs defaultValue="design" className="w-full" onValueChange={setActiveTab} value={activeTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="design" className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            <span>Design</span>
-          </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            <span>History</span>
-          </TabsTrigger>
+    <PageLayout
+      title="T-Shirt Design Generator"
+      description="Create unique t-shirt designs using AI. Upload images to get prompts or generate new designs from prompts."
+    >
+      <Tabs defaultValue="image-to-prompt" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="image-to-prompt">Image to Prompt</TabsTrigger>
+          <TabsTrigger value="prompt-to-image">Prompt to Image</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="design">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Left Panel - Input Controls */}
-            <Card className="backdrop-blur-3xl border-primary/20 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
-              <div className="absolute inset-0 bg-grid-white/[0.02]" />
-              
-              <CardHeader>
-                <CardTitle>Design Input</CardTitle>
-                <CardDescription>
-                  Describe your t-shirt design and customize options
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="space-y-6 relative">
-                {/* Prompt Input */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="prompt" className="flex items-center gap-2">
-                      Describe your T-shirt idea
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-80">
-                            <p>Be specific about style, subject, colors, mood, etc. for best results.</p>
-                            <p className="mt-2">Example: "A minimalist design of a mountain landscape at sunset with pine trees silhouette"</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </Label>
-                    <span className={cn(
-                      "text-xs",
-                      prompt.length > MAX_PROMPT_LENGTH * 0.8 ? "text-yellow-400" : "text-muted-foreground",
-                      prompt.length >= MAX_PROMPT_LENGTH && "text-red-400"
-                    )}>
-                      {prompt.length}/{MAX_PROMPT_LENGTH}
-                    </span>
+        {/* Image to Prompt Tab */}
+        <TabsContent value="image-to-prompt">
+          <Card>
+            <CardHeader>
+              <CardTitle>Generate Prompt from Image</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Image Upload Section */}
+                <div className="space-y-4">
+                  <div className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <label htmlFor="image-upload" className="cursor-pointer">
+                      <div className="flex flex-col items-center gap-2">
+                        <Upload className="w-8 h-8 text-primary/60" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload or drag and drop
+                        </p>
+                      </div>
+                    </label>
                   </div>
-                  <Textarea
-                    id="prompt"
-                    placeholder="Example: A funny astronaut cat drinking coffee"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value.slice(0, MAX_PROMPT_LENGTH))}
-                    className="h-32 resize-none"
-                  />
-                </div>
-
-                {/* Style Selector */}
-                <div className="space-y-2">
-                  <Label htmlFor="style">Style</Label>
-                  <Select value={style} onValueChange={setStyle}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a style" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {styleOptions.map((style) => (
-                        <SelectItem key={style.value} value={style.value}>
-                          <span className="flex items-center gap-2">
-                            {style.label}
-                            <span className="text-xs text-muted-foreground">
-                              {style.description}
-                            </span>
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Color Scheme */}
-                <div className="space-y-2">
-                  <Label>Color Scheme</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {colorSchemeOptions.map((scheme) => (
-                      <Button
-                        key={scheme.value}
-                        type="button"
-                        variant={colorScheme === scheme.value ? "default" : "outline"}
-                        className="rounded-full px-4 py-2 h-auto"
-                        onClick={() => setColorScheme(scheme.value)}
-                      >
-                        <span className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: scheme.color }}></span>
-                        {scheme.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Resolution Output Format */}
-                <div className="space-y-2">
-                  <Label htmlFor="resolution">Output Format</Label>
-                  <Select value={resolution} onValueChange={setResolution}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select resolution" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {resolutionOptions.map((res) => (
-                        <SelectItem key={res.value} value={res.value}>
-                          <span className="flex items-center gap-2">
-                            {res.label}
-                            {res.proOnly && (
-                              <Badge variant="outline" className="ml-2 bg-primary/10 text-primary">
-                                <Crown className="h-3 w-3 mr-1" />
-                                Pro
-                              </Badge>
-                            )}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Background Setting */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="transparent-bg">Transparent Background</Label>
-                    <p className="text-sm text-muted-foreground">Ideal for print-on-demand</p>
-                  </div>
-                  <Switch
-                    id="transparent-bg"
-                    checked={transparentBg}
-                    onCheckedChange={setTransparentBg}
-                  />
-                </div>
-
-                {/* Safe Prompt Mode */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="safe-mode">Commercial-Safe Mode</Label>
-                      <Badge variant="outline" className="bg-primary/10 text-primary">
-                        <Crown className="h-3 w-3 mr-1" />
-                        Pro
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Filter prompts for marketplace compliance</p>
-                  </div>
-                  <Switch
-                    id="safe-mode"
-                    checked={safeMode}
-                    onCheckedChange={setSafeMode}
-                  />
-                </div>
-              </CardContent>
-              
-              <CardFooter className="relative">
-                <Button 
-                  onClick={handleGenerate} 
-                  disabled={!prompt.trim() || loading}
-                  className="w-full"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating Design...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Design
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-
-            {/* Right Panel - Output Preview */}
-            <Card className="backdrop-blur-3xl border-primary/20 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
-              <div className="absolute inset-0 bg-grid-white/[0.02]" />
-              
-              <CardHeader>
-                <CardTitle>Preview</CardTitle>
-                <CardDescription>
-                  Your generated t-shirt design
-                </CardDescription>
-              </CardHeader>
-              
-              <CardContent className="flex flex-col items-center justify-center">
-                {generatedDesign ? (
-                  <>
-                    <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center bg-white border-4 border-primary">
-                      <canvas 
-                        ref={canvasRef} 
-                        className="w-full h-full object-contain"
-                        style={{ maxHeight: "100%", maxWidth: "100%" }}
+                  {imagePreview && (
+                    <div className="relative aspect-square rounded-lg overflow-hidden">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
                       />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => {
+                          setSelectedImage(null);
+                          setImagePreview(null);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="mt-4 w-full overflow-hidden text-xs text-muted-foreground">
-                      <p className="font-semibold">Debug: Image URL</p>
-                      <div className="bg-black/10 p-2 rounded-md mt-1 break-all">
-                        {generatedDesign.substring(0, 100) + '...'}
-                      </div>
+                  )}
+                </div>
+
+                {/* Generated Prompt Section */}
+                <div className="space-y-4">
+                  <Button
+                    onClick={handleGeneratePrompt}
+                    disabled={!selectedImage || isGenerating}
+                    className="w-full"
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {isGenerating ? 'Generating...' : 'Generate Prompt'}
+                  </Button>
+                  {generatedPrompt && (
+                    <div className="space-y-2">
+                      <Textarea
+                        value={generatedPrompt}
+                        readOnly
+                        className="min-h-[200px]"
+                      />
+                      <Button
+                        variant="outline"
+                        onClick={() => navigator.clipboard.writeText(generatedPrompt)}
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        Copy Prompt
+                      </Button>
                     </div>
-                  </>
-                ) : (
-                  <div className="relative w-full aspect-[3/4] rounded-lg overflow-hidden flex items-center justify-center bg-background/50 border border-dashed border-muted-foreground/20">
-                    {loading ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                        <p className="text-muted-foreground text-sm">Crafting your design...</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <Shirt className="h-16 w-16 text-muted-foreground/40" />
-                        <p className="text-muted-foreground">Enter a prompt and generate your design</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-              
-              {generatedDesign && (
-                <CardFooter className="flex flex-col gap-4 relative">
-                  <div className="grid grid-cols-2 gap-3 w-full">
-                    <Button onClick={() => handleDownload(resolution)}>
-                      <Download className="mr-2 h-4 w-4" />
-                      Download {resolution.toUpperCase()}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleSaveToProject}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Save to Project
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 w-full">
-                    <Button
-                      variant="outline"
-                      onClick={handleRegenerate}
-                      className="flex-1"
-                    >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Regenerate
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleSaveToFavorites}
-                      className="aspect-square p-2"
-                    >
-                      <Heart className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardFooter>
-              )}
-            </Card>
-          </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="history">
-          <Card className="backdrop-blur-3xl border-primary/20 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 via-transparent to-primary/5" />
-            <div className="absolute inset-0 bg-grid-white/[0.02]" />
-            
+        {/* Prompt to Image Tab */}
+        <TabsContent value="prompt-to-image">
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Design History
-              </CardTitle>
-              <CardDescription>
-                Your previously generated t-shirt designs
-              </CardDescription>
+              <CardTitle>Generate Image from Prompt</CardTitle>
             </CardHeader>
-            
-            <CardContent>
-              {history.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {history.map((design) => (
-                    <Card key={design.id} className="overflow-hidden group hover:border-primary/50 transition-all duration-200">
-                      <div className="p-3 aspect-[4/5] bg-background/50">
-                        <img
-                          src={design.thumbnail}
-                          alt={design.prompt}
-                          className="w-full h-full object-contain rounded-md"
-                        />
-                      </div>
-                      <CardContent className="p-3">
-                        <p className="text-sm line-clamp-2 h-10">{design.prompt}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-1">
-                            <Badge variant="outline" className="text-xs">
-                              {design.style}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {design.format}
-                            </Badge>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{formatDate(design.createdAt)}</span>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="p-3 pt-0 flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 h-8"
-                          onClick={() => handleReusePrompt(design.prompt)}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Reuse
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="flex-1 h-8"
-                          onClick={() => handleDeleteFromHistory(design.id)}
-                        >
-                          <Trash2 className="h-3 w-3 mr-1" />
-                          Delete
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <ImageIcon className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                  <p className="text-muted-foreground">No design history yet</p>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <Textarea
+                  placeholder="Enter your prompt here..."
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  className="min-h-[100px]"
+                />
+                <div className="flex gap-2">
                   <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setActiveTab("design")}
+                    onClick={handleGenerateImage}
+                    disabled={!customPrompt || isGenerating}
+                    className="flex-1"
                   >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Create your first design
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    {isGenerating ? 'Generating...' : 'Generate Image'}
                   </Button>
+                  <Button variant="outline" onClick={() => setCustomPrompt('')}>
+                    Clear
+                  </Button>
+                </div>
+              </div>
+
+              {/* Generated Images Gallery */}
+              {generatedImages.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Generated Images</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {generatedImages.map((image) => (
+                      <Card key={image.id} className="group">
+                        <CardContent className="p-4">
+                          <div className="relative aspect-square rounded-lg overflow-hidden mb-4">
+                            <img
+                              src={image.url}
+                              alt={`Generated design ${image.id}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                              <Button size="icon" variant="ghost">
+                                <Download className="w-4 h-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost">
+                                <Copy className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteImage(image.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {image.prompt}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {image.timestamp.toLocaleString()}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -670,52 +562,50 @@ export function TShirtGenerator() {
         </TabsContent>
       </Tabs>
 
-      {/* Tips Section */}
-      <Card className="backdrop-blur-3xl border-primary/20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-accent/5" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
-        
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <InfoIcon className="h-5 w-5" />
-            Selling Tips
-          </CardTitle>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <h3 className="font-medium">What Sells Well</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Niche-specific designs</li>
-                <li>• Funny quotes and sayings</li>
-                <li>• Profession-related humor</li>
-                <li>• Simple, clean aesthetics</li>
-              </ul>
+      {/* Additional Features */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <History className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Design History</h3>
+                <p className="text-sm text-muted-foreground">View and manage your previous designs</p>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <h3 className="font-medium">Best Practices</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Use transparent backgrounds</li>
-                <li>• Keep text readable and large</li>
-                <li>• Test multiple variations</li>
-                <li>• Avoid trademarked content</li>
-              </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <MessageSquare className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Prompt Library</h3>
+                <p className="text-sm text-muted-foreground">Access pre-made prompts and templates</p>
+              </div>
             </div>
-            
-            <div className="space-y-2">
-              <h3 className="font-medium">Popular Platforms</h3>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Merch by Amazon</li>
-                <li>• Printful + Etsy</li>
-                <li>• Redbubble</li>
-                <li>• Teespring / Spring</li>
-              </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Settings2 className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Design Settings</h3>
+                <p className="text-sm text-muted-foreground">Customize generation parameters</p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </div>
+    </PageLayout>
   );
-} 
+}; 
