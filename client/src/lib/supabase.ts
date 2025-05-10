@@ -9,36 +9,34 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Log configuration (for debugging)
 console.log('Supabase URL:', supabaseUrl);
-console.log('Auth Configuration:', {
-  redirectUrl: `${window.location.origin}/auth/callback`,
-  flowType: 'pkce'
-});
+console.log('Current origin:', window.location.origin);
+
+const redirectUrl = `${window.location.origin}/auth/callback`;
+console.log('Auth Callback URL:', redirectUrl);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Disable this as we handle it manually
+    detectSessionInUrl: false,
     storage: window.localStorage,
     storageKey: 'puzzle-craft-auth',
     flowType: 'pkce',
-    debug: true // Enable debug mode
+    debug: true
   }
 });
 
-// Helper to get the current origin, even in development
-const getRedirectTo = () => {
-  const redirectUrl = `${window.location.origin}/auth/callback`;
-  console.log('Generated redirect URL:', redirectUrl);
-  return redirectUrl;
-};
+// Set default redirect URL for all OAuth providers
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
+});
 
 export const signInWithGoogle = async () => {
-  console.log('Initiating Google sign-in...');
+  console.log('Initiating Google sign-in with redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: redirectUrl,
       skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
@@ -55,11 +53,11 @@ export const signInWithGoogle = async () => {
 };
 
 export const signInWithApple = async () => {
-  console.log('Initiating Apple sign-in...');
+  console.log('Initiating Apple sign-in with redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: redirectUrl,
       skipBrowserRedirect: false
     }
   });
@@ -72,11 +70,11 @@ export const signInWithApple = async () => {
 };
 
 export const signInWithFacebook = async () => {
-  console.log('Initiating Facebook sign-in...');
+  console.log('Initiating Facebook sign-in with redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'facebook',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: redirectUrl,
       skipBrowserRedirect: false
     }
   });
@@ -89,11 +87,11 @@ export const signInWithFacebook = async () => {
 };
 
 export const signInWithGithub = async () => {
-  console.log('Initiating GitHub sign-in...');
+  console.log('Initiating GitHub sign-in with redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: redirectUrl,
       skipBrowserRedirect: false
     }
   });
