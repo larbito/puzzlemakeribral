@@ -244,16 +244,23 @@ export const TShirtGenerator = () => {
 
   // Generate image from prompt
   const handleGenerateImage = async () => {
+    if (!customPrompt) {
+      toast.error('Please enter a prompt first');
+      return;
+    }
+
     setIsGenerating(true);
     try {
+      console.log('Generating image with prompt:', customPrompt);
       const imageUrl = await generateImage({
         prompt: customPrompt,
-        style: style,
-        colorScheme: colorScheme,
+        style,
+        colorScheme,
         transparentBackground: transparentBg,
-        safeMode: safeMode,
+        safeMode,
         format: resolution
       });
+
       if (imageUrl) {
         const newImage: GeneratedImage = {
           id: Date.now().toString(),
@@ -262,6 +269,7 @@ export const TShirtGenerator = () => {
           timestamp: new Date()
         };
         setGeneratedImages(prev => [newImage, ...prev]);
+        
         // Add to history
         const newDesign = saveToHistory({
           prompt: customPrompt,
@@ -277,16 +285,8 @@ export const TShirtGenerator = () => {
         throw new Error('No image returned from API');
       }
     } catch (error: any) {
-      toast.error("Failed to generate image. Showing placeholder.");
-      const colors = ["252A37", "F5A623", "444444", "9013FE", "2D8C3C", "1E88E5", "FF5733"];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      const mockImage: GeneratedImage = {
-        id: Date.now().toString(),
-        url: `https://placehold.co/600x800/${randomColor}/FFFFFF?text=Failed+to+generate`,
-        prompt: customPrompt,
-        timestamp: new Date()
-      };
-      setGeneratedImages(prev => [mockImage, ...prev]);
+      console.error('Error generating image:', error);
+      toast.error(error.message || "Failed to generate image");
     } finally {
       setIsGenerating(false);
     }
@@ -695,17 +695,9 @@ export const TShirtGenerator = () => {
                 
                 <div className="flex gap-2">
                   <Button
-                    onClick={() => {
-                      if (!customPrompt) {
-                        toast.error('Please enter a prompt.');
-                        return;
-                      }
-                      handleGenerateImage();
-                    }}
-                    // TEMP: Always enabled for debugging
-                    disabled={false}
-                    className="flex-1 border-2 border-red-500 bg-yellow-200 text-black z-50"
-                    style={{ zIndex: 9999 }}
+                    onClick={handleGenerateImage}
+                    disabled={!customPrompt || isGenerating}
+                    className="flex-1"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
                     {isGenerating ? 'Generating...' : 'Generate Image'}
@@ -713,7 +705,6 @@ export const TShirtGenerator = () => {
                   <Button 
                     variant="outline" 
                     onClick={() => setCustomPrompt('')}
-                    className="relative z-10"
                     disabled={isGenerating}
                   >
                     Clear
