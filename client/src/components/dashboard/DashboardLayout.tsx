@@ -1,33 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
-  Book,
   Calendar,
   Calculator,
   Settings,
   Menu,
-  X,
-  LogOut,
-  Wand2,
-  ChevronRight,
-  User,
-  Bell,
   Shirt,
   Palette,
   BookOpen,
-  Layers,
   FolderKanban,
   PencilRuler,
-  FileText,
   Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/lib/supabase';
 
 const navigation = [
   // Dashboard overview
@@ -51,9 +39,7 @@ const navigation = [
 
 export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [notifications] = useState(3); // Example notification count
 
   return (
     <div className="min-h-screen bg-background">
@@ -101,34 +87,11 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                         layoutId="activeNav"
                       />
                     )}
-                    {isActive && (
-                      <ChevronRight className="h-4 w-4 ml-auto text-primary" />
-                    )}
                   </motion.div>
                 </Link>
               );
             })}
           </nav>
-
-          {/* User Area */}
-          <div className="border-t border-primary/10 p-4">
-            <div className="flex items-center gap-3 px-2">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user?.user_metadata?.avatar_url} />
-                <AvatarFallback className="bg-primary/10 text-primary">
-                  {user?.email?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-medium truncate">
-                  {user?.email}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Pro Account
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
       </motion.aside>
 
@@ -148,33 +111,6 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             >
               <Menu className="h-5 w-5" />
             </Button>
-
-            <div className="flex items-center gap-4">
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                {notifications > 0 && (
-                  <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-primary text-[10px] font-medium flex items-center justify-center text-primary-foreground">
-                    {notifications}
-                  </span>
-                )}
-              </Button>
-
-              {/* User Menu */}
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
-              </Button>
-
-              {/* Logout */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => supabase.auth.signOut()}
-                className="text-muted-foreground hover:text-primary"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
           </div>
         </header>
 

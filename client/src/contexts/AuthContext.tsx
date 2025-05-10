@@ -24,49 +24,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session: initialSession }, error: sessionError }) => {
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-        return;
-      }
-
-      if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-      }
+    setLoading(true);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.log('Auth state changed:', event, currentSession ? 'Session exists' : 'No session');
-      
-      if (currentSession) {
-        setSession(currentSession);
-        setUser(currentSession.user);
-        
-        if (event === 'SIGNED_IN') {
-          const params = new URLSearchParams(location.search);
-          const redirectTo = params.get('redirect') || '/dashboard';
-          navigate(redirectTo, { replace: true });
-          toast.success('Successfully signed in!');
-        }
-      } else {
-        setSession(null);
-        setUser(null);
-        
-        if (event === 'SIGNED_OUT') {
-          navigate('/login', { replace: true });
-          toast.success('Successfully signed out!');
-        }
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate, location]);
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Protect routes
   useEffect(() => {

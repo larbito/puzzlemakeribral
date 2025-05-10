@@ -29,7 +29,7 @@ export const AuthCallback = () => {
         const code = searchParams.get('code');
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
-
+        
         // Log all URL parameters for debugging
         console.log('URL Parameters:', {
           code: code ? 'present' : 'missing',
