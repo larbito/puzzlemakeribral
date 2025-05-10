@@ -11,7 +11,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storage: window.localStorage,
+    storageKey: 'puzzle-craft-auth',
+    flowType: 'pkce'
   }
 });
 
@@ -25,9 +28,10 @@ export const signInWithGoogle = async () => {
     provider: 'google',
     options: {
       redirectTo: getRedirectTo(),
+      skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
-        prompt: 'consent',
+        prompt: 'select_account'
       }
     }
   });
@@ -41,7 +45,8 @@ export const signInWithApple = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getRedirectTo()
+      redirectTo: getRedirectTo(),
+      skipBrowserRedirect: false
     }
   });
   if (error) {
@@ -68,7 +73,8 @@ export const signInWithGithub = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
-      redirectTo: getRedirectTo()
+      redirectTo: getRedirectTo(),
+      skipBrowserRedirect: false
     }
   });
   if (error) {
@@ -79,5 +85,8 @@ export const signInWithGithub = async () => {
 
 export const signOut = async () => {
   const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Sign Out Error:', error);
+  }
   return { error };
 }; 
