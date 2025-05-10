@@ -6,6 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const authRoutes = require('./routes/auth');
 const puzzleRoutes = require('./routes/puzzles');
+const ideogramRoutes = require('./routes/ideogram');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +29,7 @@ app.get('/health', (req, res) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/puzzles', puzzleRoutes);
+app.use('/api/ideogram', ideogramRoutes);
 
 // Basic route
 app.get('/', (req, res) => {

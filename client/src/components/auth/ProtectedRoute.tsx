@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, session, loading } = useAuth();
+  const { user, session, loading, error } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -13,16 +14,24 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       const currentPath = location.pathname + location.search;
       if (currentPath !== '/login') {
         navigate(`/login?redirect=${encodeURIComponent(currentPath)}`);
+        toast.error('Please sign in to access this page');
       }
     }
   }, [session, loading, navigate, location]);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <div className="animate-pulse text-primary text-lg">Loading...</div>
-          <p className="text-sm text-muted-foreground mt-2">Please wait while we verify your session.</p>
+          <p className="text-sm text-muted-foreground">Please wait while we verify your session.</p>
         </div>
       </div>
     );

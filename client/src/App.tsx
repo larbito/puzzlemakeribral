@@ -27,63 +27,63 @@ function App() {
   return (
     <>
       <Toaster position="top-right" />
-    <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-background text-foreground">
-          {/* Background gradients */}
-          <div className="fixed inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50" />
-          <div className="fixed inset-0 bg-gradient-radial from-secondary/5 via-transparent to-transparent translate-x-full opacity-50" />
-          <div className="fixed inset-0 bg-gradient-radial from-accent/5 via-transparent to-transparent -translate-x-full opacity-50" />
-          
-          {/* Content */}
-          <div className="relative z-10">
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
-              <Route path="/login" element={<><Navbar /><Login /><Footer /></>} />
-              <Route path="/register" element={<><Navbar /><Register /><Footer /></>} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/pricing" element={<><Navbar /><MainPricing /><Footer /></>} />
-              <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
-              <Route path="/about" element={<><Navbar /><About /><Footer /></>} />
+        <AuthProvider>
+          <div className="min-h-screen bg-background text-foreground">
+            {/* Background gradients */}
+            <div className="fixed inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50" />
+            <div className="fixed inset-0 bg-gradient-radial from-secondary/5 via-transparent to-transparent translate-x-full opacity-50" />
+            <div className="fixed inset-0 bg-gradient-radial from-accent/5 via-transparent to-transparent -translate-x-full opacity-50" />
+            
+            {/* Content */}
+            <div className="relative z-10">
+              <Routes>
+                {/* Public routes */}
+                <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
+                <Route path="/login" element={<><Navbar /><Login /><Footer /></>} />
+                <Route path="/register" element={<><Navbar /><Register /><Footer /></>} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/pricing" element={<><Navbar /><MainPricing /><Footer /></>} />
+                <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
+                <Route path="/about" element={<><Navbar /><About /><Footer /></>} />
 
-              {/* Protected dashboard routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Overview />
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/dashboard/*"
-                element={
-                  <ProtectedRoute>
-                    <DashboardLayout>
-                      <Routes>
-                        <Route path="puzzles" element={<Puzzles />} />
-                        <Route path="content" element={<Content />} />
-                        <Route path="pricing" element={<KDPRoyaltiesCalculator />} />
-                        <Route path="coloring" element={<AIColoringGenerator />} />
-                        <Route path="sudoku" element={<SudokuPage />} />
-                        <Route path="bulk" element={<BulkGeneratorPage />} />
-                        <Route path="ai-book" element={<AIBookPage />} />
-                        <Route path="t-shirts" element={<TShirtGenerator />} />
-                        <Route path="settings" element={<Settings />} />
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                      </Routes>
-                    </DashboardLayout>
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
+                {/* Protected dashboard routes */}
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <Overview />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dashboard/*"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <Routes>
+                          <Route path="puzzles" element={<Puzzles />} />
+                          <Route path="content" element={<Content />} />
+                          <Route path="pricing" element={<KDPRoyaltiesCalculator />} />
+                          <Route path="coloring" element={<AIColoringGenerator />} />
+                          <Route path="sudoku" element={<SudokuPage />} />
+                          <Route path="bulk" element={<BulkGeneratorPage />} />
+                          <Route path="ai-book" element={<AIBookPage />} />
+                          <Route path="t-shirts" element={<TShirtGenerator />} />
+                          <Route path="settings" element={<Settings />} />
+                          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                        </Routes>
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </div>
           </div>
-        </div>
+        </AuthProvider>
       </Router>
-    </AuthProvider>
     </>
   );
 }
