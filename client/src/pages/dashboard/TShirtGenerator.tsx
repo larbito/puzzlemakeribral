@@ -119,7 +119,7 @@ export const TShirtGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
   const [history, setHistory] = useState<DesignHistoryItem[]>([]);
-  const [activeTab, setActiveTab] = useState("design");
+  const [currentTab, setCurrentTab] = useState("image-to-prompt");
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
@@ -389,7 +389,7 @@ export const TShirtGenerator = () => {
 
   const handleReusePrompt = (existingPrompt: string) => {
     setPrompt(existingPrompt);
-    setActiveTab("design");
+    setCurrentTab("image-to-prompt");
     // Scroll to top of the page
     window.scrollTo(0, 0);
   };
@@ -399,15 +399,26 @@ export const TShirtGenerator = () => {
       title="T-Shirt Design Generator"
       description="Create unique t-shirt designs using AI. Upload images to get prompts or generate new designs from prompts."
     >
-      <Tabs defaultValue="image-to-prompt" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="image-to-prompt">Image to Prompt</TabsTrigger>
-          <TabsTrigger value="prompt-to-image">Prompt to Image</TabsTrigger>
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 bg-background/95 border rounded-lg p-1">
+          <TabsTrigger 
+            value="image-to-prompt" 
+            className="text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Upload className="w-5 h-5 mr-2" />
+            Image to Prompt
+          </TabsTrigger>
+          <TabsTrigger 
+            value="prompt-to-image" 
+            className="text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <Wand2 className="w-5 h-5 mr-2" />
+            Prompt to Image
+          </TabsTrigger>
         </TabsList>
 
-        {/* Image to Prompt Tab */}
-        <TabsContent value="image-to-prompt">
-          <Card>
+        <TabsContent value="image-to-prompt" className="mt-6 space-y-4">
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Generate Prompt from Image</CardTitle>
             </CardHeader>
@@ -486,9 +497,8 @@ export const TShirtGenerator = () => {
           </Card>
         </TabsContent>
 
-        {/* Prompt to Image Tab */}
-        <TabsContent value="prompt-to-image">
-          <Card>
+        <TabsContent value="prompt-to-image" className="mt-6 space-y-4">
+          <Card className="border-2">
             <CardHeader>
               <CardTitle>Generate Image from Prompt</CardTitle>
             </CardHeader>
