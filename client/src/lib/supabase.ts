@@ -7,11 +7,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Log configuration (for debugging)
+console.log('Initializing Supabase client');
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // Re-enable this but handle it in the root component
     storage: window.localStorage,
     storageKey: 'puzzle-craft-auth',
     flowType: 'pkce'

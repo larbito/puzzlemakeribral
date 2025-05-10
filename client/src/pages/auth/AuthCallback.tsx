@@ -12,6 +12,8 @@ export const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        console.log('Auth callback running, checking for code');
+        
         // Get the auth code from the URL
         const code = searchParams.get('code');
         if (!code) {
@@ -20,14 +22,22 @@ export const AuthCallback = () => {
           throw new Error(errorDescription || error || 'No code provided');
         }
 
+        console.log('Auth code found, exchanging for session');
+        
         // Exchange the code for a session
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) throw error;
+        if (error) {
+          console.error('Error exchanging code for session:', error);
+          throw error;
+        }
 
         if (!data.session) {
+          console.error('No session returned from code exchange');
           throw new Error('No session returned');
         }
 
+        console.log('Session obtained successfully, redirecting to dashboard');
+        
         // Always navigate to dashboard after successful auth
         navigate('/dashboard', { replace: true });
         toast.success('Successfully signed in!');
@@ -40,8 +50,10 @@ export const AuthCallback = () => {
 
     // Only handle the callback if we don't already have a session
     if (!session) {
+      console.log('No session found, handling callback');
       handleCallback();
     } else {
+      console.log('Session already exists, going to dashboard');
       // If we already have a session, just go to dashboard
       navigate('/dashboard', { replace: true });
     }

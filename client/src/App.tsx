@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Home } from '@/pages/Home';
@@ -22,6 +23,104 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+
+// This component will handle auth codes in the root URL
+const RootAuthHandler = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Check if there's an auth code or access token in the URL
+    const code = searchParams.get('code');
+    const accessToken = searchParams.get('access_token');
+    
+    if (code || accessToken) {
+      console.log('Found auth parameters in root URL, handling authentication');
+      
+      const handleRootAuth = async () => {
+        try {
+          let session = null;
+          
+          // Handle code parameter (OAuth flow)
+          if (code) {
+            console.log('Processing auth code exchange');
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (error) {
+              console.error('Error exchanging code for session:', error);
+              toast.error('Authentication failed. Please try again.');
+              navigate('/login', { replace: true });
+              return;
+            }
+            
+            session = data.session;
+          }
+          
+          // Handle access_token parameter (implicit flow)
+          if (accessToken && !session) {
+            console.log('Processing access token');
+            // Set the access token in the session
+            const { data, error } = await supabase.auth.getUser(accessToken);
+            
+            if (error) {
+              console.error('Error getting user from access token:', error);
+              toast.error('Authentication failed. Please try again.');
+              navigate('/login', { replace: true });
+              return;
+            }
+            
+            if (data.user) {
+              console.log('User authenticated via access token');
+              // Successfully authenticated with access token
+            }
+          }
+          
+          // If we have session or user, redirect to dashboard
+          if (session) {
+            console.log('Authentication successful, redirecting to dashboard');
+            toast.success('Successfully signed in!');
+            navigate('/dashboard', { replace: true });
+          } else {
+            console.error('No session established');
+            toast.error('Authentication failed. Please try again.');
+            navigate('/login', { replace: true });
+          }
+        } catch (err) {
+          console.error('Auth error:', err);
+          toast.error('Authentication failed. Please try again.');
+          navigate('/login', { replace: true });
+        }
+      };
+      
+      handleRootAuth();
+    }
+  }, [navigate, searchParams]);
+
+  // If there's an auth code or token, show loading state
+  if (searchParams.get('code') || searchParams.get('access_token')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-pulse text-primary text-lg">Completing Sign In...</div>
+          <p className="text-sm text-muted-foreground">Please wait while we verify your credentials.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If no auth code, render the regular home page
+  return (
+    <>
+      <Navbar />
+      <Home />
+      <Footer />
+    </>
+  );
+};
 
 function App() {
   return (
@@ -39,7 +138,7 @@ function App() {
             <div className="relative z-10">
               <Routes>
                 {/* Public routes */}
-                <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
+                <Route path="/" element={<RootAuthHandler />} />
                 <Route path="/login" element={<><Navbar /><Login /><Footer /></>} />
                 <Route path="/register" element={<><Navbar /><Register /><Footer /></>} />
                 <Route path="/auth/callback" element={<AuthCallback />} />

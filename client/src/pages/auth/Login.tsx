@@ -35,6 +35,7 @@ export const Login = () => {
     const password = formData.get('password') as string;
 
     try {
+      console.log('Attempting to sign in with email/password');
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -43,12 +44,14 @@ export const Login = () => {
       if (error) throw error;
 
       if (data.session) {
-        const params = new URLSearchParams(location.search);
-        const redirectTo = params.get('redirect') || '/dashboard';
-        navigate(redirectTo);
+        console.log('Email/password sign in successful, redirecting to dashboard');
+        navigate('/dashboard', { replace: true });
+        toast.success('Successfully signed in!');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during login');
+      toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +61,8 @@ export const Login = () => {
     try {
       setIsLoading(true);
       setError(null);
+      
+      console.log(`Attempting to sign in with ${provider}`);
       
       const loginFn = {
         google: signInWithGoogle,
@@ -69,6 +74,8 @@ export const Login = () => {
       const { error } = await loginFn();
       
       if (error) throw error;
+      
+      console.log(`${provider} sign in initiated, waiting for redirect`);
       // Social login will redirect to callback URL
     } catch (err) {
       console.error('Login error:', err);
