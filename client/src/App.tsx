@@ -19,7 +19,7 @@ import { Puzzles } from '@/pages/dashboard/Puzzles';
 import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
 import { TShirtGenerator } from '@/pages/dashboard/TShirtGenerator';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
@@ -31,6 +31,7 @@ const RootAuthHandler = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const { user, session } = useAuth();
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -40,8 +41,14 @@ const RootAuthHandler = () => {
       const callbackUrl = new URL('/auth/callback', window.location.origin);
       callbackUrl.search = currentUrl.search;
       window.location.href = callbackUrl.toString();
+      return;
     }
-  }, [searchParams]);
+
+    // If user is authenticated and on root, show home with authenticated state
+    if (session && user) {
+      console.log('User is authenticated, showing authenticated home view');
+    }
+  }, [searchParams, session, user, navigate]);
 
   // If there's an auth code, show loading state
   if (searchParams.get('code')) {
@@ -56,7 +63,7 @@ const RootAuthHandler = () => {
     );
   }
 
-  // If no auth code, render the regular home page
+  // Show the home page with proper auth state
   return (
     <>
       <Navbar />
