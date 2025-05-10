@@ -56,20 +56,7 @@ export const AuthCallback = () => {
         toast.success('Successfully signed in!');
       } catch (error) {
         console.error('Error in auth callback:', error);
-        
-        // More descriptive error message based on the error type
-        let errorMessage = 'Authentication failed. Please try again.';
-        if (error instanceof Error) {
-          if (error.message.includes('PKCE')) {
-            errorMessage = 'Invalid authentication code. Please try logging in again.';
-          } else if (error.message.includes('expired')) {
-            errorMessage = 'Authentication code expired. Please try logging in again.';
-          } else {
-            errorMessage = error.message;
-          }
-        }
-        
-        toast.error(errorMessage);
+        toast.error('Authentication failed. Please try again.');
         navigate('/login', { replace: true });
       }
     };
@@ -80,7 +67,6 @@ export const AuthCallback = () => {
       handleCallback();
     } else {
       console.log('Session already exists, going to dashboard');
-      // If we already have a session, just go to dashboard
       navigate('/dashboard', { replace: true });
     }
   }, [navigate, searchParams, session]);

@@ -33,80 +33,24 @@ const RootAuthHandler = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Check if there's an auth code or access token in the URL
     const code = searchParams.get('code');
-    const accessToken = searchParams.get('access_token');
-    
-    if (code || accessToken) {
-      console.log('Found auth parameters in root URL, handling authentication');
-      
-      const handleRootAuth = async () => {
-        try {
-          let session = null;
-          
-          // Handle code parameter (OAuth flow)
-          if (code) {
-            console.log('Processing auth code exchange');
-            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-            
-            if (error) {
-              console.error('Error exchanging code for session:', error);
-              toast.error('Authentication failed. Please try again.');
-              navigate('/login', { replace: true });
-              return;
-            }
-            
-            session = data.session;
-          }
-          
-          // Handle access_token parameter (implicit flow)
-          if (accessToken && !session) {
-            console.log('Processing access token');
-            // Set the access token in the session
-            const { data, error } = await supabase.auth.getUser(accessToken);
-            
-            if (error) {
-              console.error('Error getting user from access token:', error);
-              toast.error('Authentication failed. Please try again.');
-              navigate('/login', { replace: true });
-              return;
-            }
-            
-            if (data.user) {
-              console.log('User authenticated via access token');
-              // Successfully authenticated with access token
-            }
-          }
-          
-          // If we have session or user, redirect to dashboard
-          if (session) {
-            console.log('Authentication successful, redirecting to dashboard');
-            toast.success('Successfully signed in!');
-            navigate('/dashboard', { replace: true });
-          } else {
-            console.error('No session established');
-            toast.error('Authentication failed. Please try again.');
-            navigate('/login', { replace: true });
-          }
-        } catch (err) {
-          console.error('Auth error:', err);
-          toast.error('Authentication failed. Please try again.');
-          navigate('/login', { replace: true });
-        }
-      };
-      
-      handleRootAuth();
+    if (code) {
+      console.log('Found auth code in root URL, redirecting to auth callback');
+      const currentUrl = new URL(window.location.href);
+      const callbackUrl = new URL('/auth/callback', window.location.origin);
+      callbackUrl.search = currentUrl.search;
+      window.location.href = callbackUrl.toString();
     }
-  }, [navigate, searchParams]);
+  }, [searchParams]);
 
-  // If there's an auth code or token, show loading state
-  if (searchParams.get('code') || searchParams.get('access_token')) {
+  // If there's an auth code, show loading state
+  if (searchParams.get('code')) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <div className="animate-pulse text-primary text-lg">Completing Sign In...</div>
-          <p className="text-sm text-muted-foreground">Please wait while we verify your credentials.</p>
+          <div className="animate-pulse text-primary text-lg">Redirecting...</div>
+          <p className="text-sm text-muted-foreground">Please wait while we process your sign in.</p>
         </div>
       </div>
     );

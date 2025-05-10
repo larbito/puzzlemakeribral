@@ -18,7 +18,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
     storage: window.localStorage,
     storageKey: 'puzzle-craft-auth',
     flowType: 'pkce',
@@ -26,9 +26,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Set default redirect URL for all OAuth providers
+// Set up auth state change listener
 supabase.auth.onAuthStateChange((event, session) => {
   console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
+  if (event === 'SIGNED_IN' && session) {
+    window.location.href = '/dashboard';
+  }
 });
 
 export const signInWithGoogle = async () => {
