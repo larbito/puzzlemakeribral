@@ -6,6 +6,12 @@ const upload = multer();
 
 router.post('/generate', async (req, res) => {
   try {
+    // Check if API key is configured
+    if (!process.env.IDEOGRAM_API_KEY) {
+      console.error('Ideogram API key is not configured');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
     const { prompt, style, aspect_ratio, negative_prompt, seed } = req.body;
     
     if (!prompt) {
@@ -30,7 +36,13 @@ router.post('/generate', async (req, res) => {
       })
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      console.error('Failed to parse Ideogram API response:', error);
+      return res.status(500).json({ error: 'Invalid response from image generation service' });
+    }
 
     if (!response.ok) {
       console.error('Ideogram API error:', data);

@@ -88,8 +88,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
         'Accept': 'application/json'
       },
       body: JSON.stringify(requestBody),
-      mode: 'cors',
-      credentials: 'include'
+      mode: 'cors'
     });
 
     if (!response.ok) {
