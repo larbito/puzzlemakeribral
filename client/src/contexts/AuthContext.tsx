@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -21,67 +21,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Handle navigation based on auth state
-  const handleAuthNavigation = (event: AuthChangeEvent, currentSession: Session | null) => {
+  const handleAuthNavigation = useCallback(async (event: AuthChangeEvent, currentSession: Session | null) => {
+    if (isNavigating) return; // Prevent multiple navigations
+    
     const isCallback = location.pathname === '/auth/callback';
     const isLoginPage = location.pathname === '/login';
     
-    if (event === 'SIGNED_OUT') {
-      if (!isLoginPage) {
-        navigate('/login');
-        toast.success('Successfully signed out');
+    try {
+      setIsNavigating(true);
+      
+      if (event === 'SIGNED_OUT') {
+        if (!isLoginPage) {
+          navigate('/login');
+          toast.success('Successfully signed out');
+        }
+      } else if (event === 'SIGNED_IN' && currentSession) {
+        if (!isCallback) {
+          const params = new URLSearchParams(location.search);
+          const redirectTo = params.get('redirect') || '/dashboard';
+          navigate(redirectTo);
+          toast.success('Successfully signed in');
+        }
       }
-    } else if (event === 'SIGNED_IN') {
-      if (!isCallback) {
-        const params = new URLSearchParams(location.search);
-        const redirectTo = params.get('redirect') || '/dashboard';
-        navigate(redirectTo);
-        toast.success('Successfully signed in');
-      }
+    } finally {
+      setIsNavigating(false);
     }
-  };
+  }, [navigate, location, isNavigating]);
 
+  // Initialize auth state
   useEffect(() => {
-    // Check active sessions and sets the user
+    let mounted = true;
+    
     const initializeAuth = async () => {
       try {
         setError(null);
         const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
         
+        if (!mounted) return;
+        
         if (sessionError) {
           throw sessionError;
         }
 
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-
         if (initialSession) {
-          handleAuthNavigation('SIGNED_IN', initialSession);
+          setSession(initialSession);
+          setUser(initialSession.user);
+          await handleAuthNavigation('SIGNED_IN', initialSession);
         }
 
         // Set up real-time subscription to auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+          if (!mounted) return;
+          
           console.log('Auth state changed:', event, currentSession?.user?.email);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
-          handleAuthNavigation(event, currentSession);
+          await handleAuthNavigation(event, currentSession);
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+          mounted = false;
+          subscription.unsubscribe();
+        };
       } catch (error) {
+        if (!mounted) return;
+        
         console.error('Error initializing auth:', error);
         setError(error instanceof Error ? error.message : 'Failed to initialize authentication');
         toast.error('Authentication error: ' + (error instanceof Error ? error.message : 'Unknown error'));
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
-  }, [navigate, location]);
+  }, [handleAuthNavigation]);
 
   const signIn = async () => {
     try {
@@ -130,7 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setSession(newSession);
       setUser(newSession.user);
-      // Navigation will be handled by onAuthStateChange
     } catch (error) {
       console.error('Error handling auth callback:', error);
       setError(error instanceof Error ? error.message : 'Failed to complete authentication');

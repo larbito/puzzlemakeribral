@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -6,20 +6,27 @@ import { toast } from 'sonner';
 export const AuthCallback = () => {
   const { handleAuthCallback } = useAuth();
   const navigate = useNavigate();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     const processCallback = async () => {
+      if (isProcessing) return;
+      
       try {
+        setIsProcessing(true);
         await handleAuthCallback();
+        // Navigation will be handled by AuthContext
       } catch (error) {
         console.error('Error in auth callback:', error);
         toast.error('Authentication failed. Please try again.');
         navigate('/login');
+      } finally {
+        setIsProcessing(false);
       }
     };
 
     processCallback();
-  }, [handleAuthCallback, navigate]);
+  }, [handleAuthCallback, navigate, isProcessing]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
