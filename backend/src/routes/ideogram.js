@@ -8,6 +8,12 @@ router.post('/generate', async (req, res) => {
   try {
     const { prompt, style, aspect_ratio, negative_prompt, seed } = req.body;
     
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    console.log('Generating image with params:', { prompt, style, aspect_ratio, negative_prompt, seed });
+    
     const response = await fetch("https://api.ideogram.ai/api/v1/images/generate", {
       method: "POST",
       headers: {
@@ -18,22 +24,31 @@ router.post('/generate', async (req, res) => {
         prompt,
         model: "ideogram-1.0",
         style,
-        aspect_ratio,
-        negative_prompt,
-        seed
+        aspect_ratio: aspect_ratio || "ASPECT_3_4",
+        negative_prompt: negative_prompt || "text, watermark, signature, blurry, low quality, distorted, deformed",
+        seed: seed || Math.floor(Math.random() * 1000000)
       })
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to generate image');
+      console.error('Ideogram API error:', data);
+      return res.status(response.status).json({ 
+        error: data.message || 'Failed to generate image',
+        details: data
+      });
     }
 
-    const data = await response.json();
+    console.log('Ideogram API response:', data);
     res.json(data);
   } catch (error) {
     console.error('Ideogram API error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      type: error.name,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

@@ -87,11 +87,13 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      mode: 'cors',
+      credentials: 'include'
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
       console.error("API error response:", errorData);
       throw new Error(errorData.error || `API error: ${response.status}`);
     }

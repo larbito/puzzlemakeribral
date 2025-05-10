@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = (process.env.CORS_ORIGIN || 'https://puzzlemakeribral.vercel.app').split(',');
+    const allowedOrigins = (process.env.CORS_ORIGIN || 'https://puzzlemaker.hbral.vercel.app,https://puzzlemakeribral.vercel.app').split(',');
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -19,7 +19,8 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
 app.use(morgan('dev'));
