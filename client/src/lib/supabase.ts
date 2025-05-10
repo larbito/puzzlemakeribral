@@ -7,6 +7,23 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Create a custom storage object
+const customStorage = {
+  getItem: (key: string) => {
+    const value = localStorage.getItem(key);
+    console.log('Getting storage item:', key, value ? 'exists' : 'not found');
+    return value;
+  },
+  setItem: (key: string, value: string) => {
+    console.log('Setting storage item:', key);
+    localStorage.setItem(key, value);
+  },
+  removeItem: (key: string) => {
+    console.log('Removing storage item:', key);
+    localStorage.removeItem(key);
+  }
+};
+
 // Log configuration (for debugging)
 console.log('Supabase URL:', supabaseUrl);
 console.log('Current origin:', window.location.origin);
@@ -19,33 +36,56 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storage: window.localStorage,
-    storageKey: 'puzzle-craft-auth',
+    storage: customStorage,
+    storageKey: 'supabase.auth.token',
     flowType: 'pkce'
   }
 });
 
-// Handle auth state changes globally
-supabase.auth.onAuthStateChange(async (event, session) => {
+// Set up auth state change listener
+supabase.auth.onAuthStateChange((event, session) => {
   console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
   
-  if (event === 'SIGNED_IN' && session) {
-    console.log('User signed in, storing session');
-    // Store the session in localStorage
-    window.localStorage.setItem('puzzle-craft-auth', JSON.stringify(session));
+  if (session) {
+    // Store the session
+    customStorage.setItem('supabase.auth.token', JSON.stringify(session));
     
-    // Redirect to dashboard if not already there
-    if (!window.location.pathname.startsWith('/dashboard')) {
+    if (event === 'SIGNED_IN') {
+      // Force refresh the page to ensure all components get the updated session
       window.location.href = '/dashboard';
     }
-  } else if (event === 'SIGNED_OUT') {
-    console.log('User signed out, clearing session');
-    window.localStorage.removeItem('puzzle-craft-auth');
-    if (window.location.pathname !== '/login') {
+  } else {
+    // Clear the session
+    customStorage.removeItem('supabase.auth.token');
+    
+    if (event === 'SIGNED_OUT') {
       window.location.href = '/login';
     }
   }
 });
+
+// Initialize session from storage
+const storedSession = customStorage.getItem('supabase.auth.token');
+if (storedSession) {
+  try {
+    const session = JSON.parse(storedSession);
+    if (session?.access_token) {
+      console.log('Found stored session, validating...');
+      supabase.auth.getUser(session.access_token)
+        .then(({ data: { user }, error }) => {
+          if (error || !user) {
+            console.log('Stored session is invalid, removing');
+            customStorage.removeItem('supabase.auth.token');
+          } else {
+            console.log('Stored session is valid');
+          }
+        });
+    }
+  } catch (error) {
+    console.error('Error parsing stored session:', error);
+    customStorage.removeItem('supabase.auth.token');
+  }
+}
 
 export const signInWithGoogle = async () => {
   console.log('Initiating Google sign-in with redirect URL:', redirectUrl);

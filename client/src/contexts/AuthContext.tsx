@@ -23,67 +23,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Initialize auth state
   useEffect(() => {
-    let mounted = true;
-
-    async function initializeAuth() {
-      try {
-        setError(null);
-
-        // Get the current session from Supabase
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw sessionError;
-        }
-
-        if (mounted) {
-          if (currentSession) {
-            console.log('Found active session');
-            setSession(currentSession);
-            setUser(currentSession.user);
-
-            // Store session in localStorage for persistence
-            localStorage.setItem('puzzle-craft-auth', JSON.stringify(currentSession));
-          } else {
-            console.log('No active session found');
-            // Clear any stale session data
-            localStorage.removeItem('puzzle-craft-auth');
-            setSession(null);
-            setUser(null);
-
-            // Redirect to login if trying to access protected routes
-            if (location.pathname.startsWith('/dashboard')) {
-              navigate('/login');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        if (mounted) {
-          setError(error instanceof Error ? error.message : 'Failed to initialize authentication');
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: initialSession }, error: sessionError }) => {
+      if (sessionError) {
+        console.error('Error getting session:', sessionError);
+        return;
       }
-    }
 
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      if (!mounted) return;
+      if (initialSession) {
+        setSession(initialSession);
+        setUser(initialSession.user);
+      }
+      setLoading(false);
+    });
 
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
       console.log('Auth state changed:', event, currentSession ? 'Session exists' : 'No session');
-
+      
       if (currentSession) {
         setSession(currentSession);
         setUser(currentSession.user);
-        localStorage.setItem('puzzle-craft-auth', JSON.stringify(currentSession));
-
+        
         if (event === 'SIGNED_IN') {
-          // Get redirect path from URL or default to dashboard
           const params = new URLSearchParams(location.search);
           const redirectTo = params.get('redirect') || '/dashboard';
           navigate(redirectTo, { replace: true });
@@ -92,8 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setSession(null);
         setUser(null);
-        localStorage.removeItem('puzzle-craft-auth');
-
+        
         if (event === 'SIGNED_OUT') {
           navigate('/login', { replace: true });
           toast.success('Successfully signed out!');
@@ -101,28 +63,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    // Initialize auth state
-    initializeAuth();
-
-    // Cleanup
     return () => {
-      mounted = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname]);
+  }, [navigate, location]);
 
-  // Check session status periodically
+  // Protect routes
   useEffect(() => {
-    const interval = setInterval(async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (currentSession && !session) {
-        setSession(currentSession);
-        setUser(currentSession.user);
+    if (!loading) {
+      if (!session && location.pathname.startsWith('/dashboard')) {
+        navigate('/login?redirect=' + encodeURIComponent(location.pathname));
+      } else if (session && location.pathname === '/login') {
+        navigate('/dashboard');
       }
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [session]);
+    }
+  }, [session, loading, navigate, location]);
 
   const signIn = async () => {
     try {
@@ -149,8 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setError(null);
-      await supabase.auth.signOut();
-      localStorage.removeItem('puzzle-craft-auth');
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       setSession(null);
       setUser(null);
       navigate('/login', { replace: true });
