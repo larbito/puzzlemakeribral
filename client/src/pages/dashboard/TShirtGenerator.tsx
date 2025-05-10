@@ -218,11 +218,24 @@ export const TShirtGenerator = () => {
     if (!selectedImage) return;
     setIsGenerating(true);
     try {
-      // TODO: Implement API call to generate prompt from image
-      const mockPrompt = "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
+      // Generate a random placeholder prompt for now
+      const promptPrefixes = ["A creative t-shirt design", "A modern t-shirt graphic", "A cool illustration", "A stylish artwork"];
+      const promptElements = ["geometric patterns", "abstract shapes", "colorful splashes", "minimal line art", "bold typography"];
+      const promptStyles = ["urban streetwear style", "retro vintage appeal", "modern minimalist aesthetic", "bold graphic design"];
+      
+      const prefix = promptPrefixes[Math.floor(Math.random() * promptPrefixes.length)];
+      const element = promptElements[Math.floor(Math.random() * promptElements.length)];
+      const style = promptStyles[Math.floor(Math.random() * promptStyles.length)];
+      
+      const mockPrompt = `${prefix} featuring ${element} with ${style}`;
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       setGeneratedPrompt(mockPrompt);
+      toast.success("Prompt generated successfully!");
     } catch (error) {
       console.error('Error generating prompt:', error);
+      toast.error("Failed to generate prompt");
     } finally {
       setIsGenerating(false);
     }
@@ -233,16 +246,33 @@ export const TShirtGenerator = () => {
     if (!customPrompt) return;
     setIsGenerating(true);
     try {
-      // TODO: Implement API call to generate image from prompt
-      const mockImage: GeneratedImage = {
-        id: Date.now().toString(),
-        url: 'https://via.placeholder.com/400x400',
-        prompt: customPrompt,
-        timestamp: new Date()
-      };
-      setGeneratedImages(prev => [mockImage, ...prev]);
+      // Generate a random image URL for placeholder
+      const colors = ["252A37", "F5A623", "444444", "9013FE", "2D8C3C", "1E88E5", "FF5733"];
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      
+      // Create multiple random images
+      const mockImages: GeneratedImage[] = [];
+      
+      for (let i = 0; i < 3; i++) {
+        const uniqueId = Date.now().toString() + i;
+        const width = 400 + (i * 20);
+        const height = 500 + (i * 20);
+        
+        mockImages.push({
+          id: uniqueId,
+          url: `https://placehold.co/${width}x${height}/${randomColor}/FFFFFF?text=T-Shirt+Design+${i+1}`,
+          prompt: customPrompt,
+          timestamp: new Date()
+        });
+      }
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      setGeneratedImages(prev => [...mockImages, ...prev]);
+      toast.success("Images generated successfully!");
     } catch (error) {
       console.error('Error generating image:', error);
+      toast.error("Failed to generate images");
     } finally {
       setIsGenerating(false);
     }
@@ -434,7 +464,41 @@ export const TShirtGenerator = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Image Upload Section */}
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                  <div 
+                    className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer relative"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.currentTarget.classList.add('border-primary');
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.currentTarget.classList.remove('border-primary');
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.currentTarget.classList.remove('border-primary');
+                      
+                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                        const file = e.dataTransfer.files[0];
+                        if (file.type.startsWith('image/')) {
+                          // Create a synthetic event object with the file
+                          const syntheticEvent = {
+                            target: {
+                              files: e.dataTransfer.files
+                            }
+                          } as unknown as React.ChangeEvent<HTMLInputElement>;
+                          
+                          handleImageUpload(syntheticEvent);
+                        } else {
+                          toast.error("Please upload an image file");
+                        }
+                      }
+                    }}
+                  >
                     <input
                       type="file"
                       accept="image/*"
@@ -447,6 +511,9 @@ export const TShirtGenerator = () => {
                         <Upload className="w-8 h-8 text-primary/60" />
                         <p className="text-sm text-muted-foreground">
                           Click to upload or drag and drop
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          SVG, PNG, JPG or GIF (max. 5MB)
                         </p>
                       </div>
                     </label>
@@ -564,18 +631,37 @@ export const TShirtGenerator = () => {
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                              <Button size="icon" variant="ghost">
-                                <Download className="w-4 h-4" />
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadImage(image.url, 'png', `tshirt-design-${image.id}`);
+                                }}
+                              >
+                                <Download className="w-4 h-4 text-white" />
                               </Button>
-                              <Button size="icon" variant="ghost">
-                                <Copy className="w-4 h-4" />
+                              <Button 
+                                size="icon" 
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(image.prompt);
+                                  toast.success('Prompt copied to clipboard');
+                                }}
+                              >
+                                <Copy className="w-4 h-4 text-white" />
                               </Button>
                               <Button
                                 size="icon"
                                 variant="ghost"
-                                onClick={() => handleDeleteImage(image.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteImage(image.id);
+                                  toast.success('Design deleted');
+                                }}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-4 h-4 text-white" />
                               </Button>
                             </div>
                           </div>
@@ -598,47 +684,81 @@ export const TShirtGenerator = () => {
 
       {/* Additional Features */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <History className="w-6 h-6 text-primary" />
+        <Button 
+          variant="ghost" 
+          className="p-0 h-auto"
+          onClick={() => {
+            if (history.length > 0) {
+              toast.success("Showing design history");
+            } else {
+              toast.info("No design history available yet");
+            }
+          }}
+        >
+          <Card className="w-full hover:border-primary transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <History className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold">Design History</h3>
+                  <p className="text-sm text-muted-foreground">View and manage your previous designs</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">Design History</h3>
-                <p className="text-sm text-muted-foreground">View and manage your previous designs</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Button>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <MessageSquare className="w-6 h-6 text-primary" />
+        <Button 
+          variant="ghost" 
+          className="p-0 h-auto"
+          onClick={() => {
+            toast.success("Prompt library coming soon!");
+          }}
+        >
+          <Card className="w-full hover:border-primary transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <MessageSquare className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold">Prompt Library</h3>
+                  <p className="text-sm text-muted-foreground">Access pre-made prompts and templates</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">Prompt Library</h3>
-                <p className="text-sm text-muted-foreground">Access pre-made prompts and templates</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Button>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Settings2 className="w-6 h-6 text-primary" />
+        <Button 
+          variant="ghost" 
+          className="p-0 h-auto"
+          onClick={() => {
+            const settingsDialog = document.getElementById('design-settings-dialog');
+            if (settingsDialog) {
+              // If we had a dialog, we'd open it here
+              toast.success("Design settings coming soon!");
+            } else {
+              toast.success("Design settings coming soon!");
+            }
+          }}
+        >
+          <Card className="w-full hover:border-primary transition-colors">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Settings2 className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold">Design Settings</h3>
+                  <p className="text-sm text-muted-foreground">Customize generation parameters</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold">Design Settings</h3>
-                <p className="text-sm text-muted-foreground">Customize generation parameters</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </Button>
       </div>
     </PageLayout>
   );
