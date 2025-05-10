@@ -16,19 +16,32 @@ export const AuthCallback = () => {
         
         // Get the auth code from the URL
         const code = searchParams.get('code');
+        const error = searchParams.get('error');
+        const errorDescription = searchParams.get('error_description');
+
+        // Log all URL parameters for debugging
+        console.log('URL Parameters:', {
+          code: code ? 'present' : 'missing',
+          error,
+          errorDescription,
+          allParams: Object.fromEntries(searchParams.entries())
+        });
+
         if (!code) {
-          const error = searchParams.get('error');
-          const errorDescription = searchParams.get('error_description');
-          throw new Error(errorDescription || error || 'No code provided');
+          if (error || errorDescription) {
+            console.error('OAuth error:', { error, errorDescription });
+            throw new Error(errorDescription || error || 'Authentication error');
+          }
+          throw new Error('No code provided');
         }
 
         console.log('Auth code found, exchanging for session');
         
         // Exchange the code for a session
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-        if (error) {
-          console.error('Error exchanging code for session:', error);
-          throw error;
+        const { data, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
+        if (sessionError) {
+          console.error('Error exchanging code for session:', sessionError);
+          throw sessionError;
         }
 
         if (!data.session) {
@@ -43,7 +56,20 @@ export const AuthCallback = () => {
         toast.success('Successfully signed in!');
       } catch (error) {
         console.error('Error in auth callback:', error);
-        toast.error('Authentication failed. Please try again.');
+        
+        // More descriptive error message based on the error type
+        let errorMessage = 'Authentication failed. Please try again.';
+        if (error instanceof Error) {
+          if (error.message.includes('PKCE')) {
+            errorMessage = 'Invalid authentication code. Please try logging in again.';
+          } else if (error.message.includes('expired')) {
+            errorMessage = 'Authentication code expired. Please try logging in again.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
+        toast.error(errorMessage);
         navigate('/login', { replace: true });
       }
     };
