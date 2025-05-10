@@ -699,8 +699,10 @@ export const TShirtGenerator = () => {
                       }
                       handleGenerateImage();
                     }}
-                    disabled={isGenerating}
-                    className="flex-1"
+                    // TEMP: Always enabled for debugging
+                    disabled={false}
+                    className="flex-1 border-2 border-red-500 bg-yellow-200 text-black z-50"
+                    style={{ zIndex: 9999 }}
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
                     {isGenerating ? 'Generating...' : 'Generate Image'}
@@ -881,6 +883,29 @@ export const TShirtGenerator = () => {
           </Card>
         </Button>
       </div>
+      {/* Debug: Fixed-position button at bottom of page */}
+      <button
+        style={{
+          position: 'fixed',
+          bottom: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 99999,
+          background: 'red',
+          color: 'white',
+          padding: '1rem 2rem',
+          fontSize: '1.2rem',
+          borderRadius: '8px',
+          border: '2px solid black',
+          cursor: 'pointer',
+        }}
+        onClick={() => {
+          alert('Debug button clicked!');
+          handleGenerateImage();
+        }}
+      >
+        DEBUG: Generate Image
+      </button>
     </PageLayout>
   );
 }; 
