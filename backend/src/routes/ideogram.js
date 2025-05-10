@@ -6,6 +6,9 @@ const upload = multer();
 
 router.post('/generate', async (req, res) => {
   try {
+    console.log('Received request headers:', req.headers);
+    console.log('Received request body:', req.body);
+
     // Check if API key is configured
     if (!process.env.IDEOGRAM_API_KEY) {
       console.error('Ideogram API key is not configured');

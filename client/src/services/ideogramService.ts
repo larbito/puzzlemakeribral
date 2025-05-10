@@ -2,9 +2,9 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL
-const API_URL = process.env.NODE_ENV === 'production' 
+const API_URL = import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' 
   ? 'https://puzzle-craft-forge-production.up.railway.app'
-  : '';  // Empty string will make it use relative URLs which will work with the Vite proxy
+  : '');  // Empty string will make it use relative URLs which will work with the Vite proxy
 
 // For development/debugging - set to false to use real API
 const USE_PLACEHOLDERS = false; // Using real API now
