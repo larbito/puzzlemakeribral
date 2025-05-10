@@ -11,7 +11,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false,
     storage: window.localStorage,
     storageKey: 'puzzle-craft-auth',
     flowType: 'pkce'
@@ -19,15 +19,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Helper to get the current origin, even in development
-const getRedirectTo = (redirectPath: string) => {
-  return `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(redirectPath)}`;
+const getRedirectTo = () => {
+  return `${window.location.origin}/auth/callback`;
 };
 
-export const signInWithGoogle = async (redirectTo: string = '/dashboard') => {
+export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: getRedirectTo(redirectTo),
+      redirectTo: getRedirectTo(),
       skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
@@ -41,11 +41,11 @@ export const signInWithGoogle = async (redirectTo: string = '/dashboard') => {
   return { data, error };
 };
 
-export const signInWithApple = async (redirectTo: string = '/dashboard') => {
+export const signInWithApple = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getRedirectTo(redirectTo),
+      redirectTo: getRedirectTo(),
       skipBrowserRedirect: false
     }
   });
@@ -55,11 +55,11 @@ export const signInWithApple = async (redirectTo: string = '/dashboard') => {
   return { data, error };
 };
 
-export const signInWithFacebook = async (redirectTo: string = '/dashboard') => {
+export const signInWithFacebook = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'facebook',
     options: {
-      redirectTo: getRedirectTo(redirectTo),
+      redirectTo: getRedirectTo(),
       skipBrowserRedirect: false
     }
   });
@@ -69,11 +69,11 @@ export const signInWithFacebook = async (redirectTo: string = '/dashboard') => {
   return { data, error };
 };
 
-export const signInWithGithub = async (redirectTo: string = '/dashboard') => {
+export const signInWithGithub = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
-      redirectTo: getRedirectTo(redirectTo),
+      redirectTo: getRedirectTo(),
       skipBrowserRedirect: false
     }
   });

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 export const AuthCallback = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { session } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -27,16 +28,8 @@ export const AuthCallback = () => {
           throw new Error('No session returned');
         }
 
-        // Get the redirect URL from the redirect_to parameter
-        const redirectTo = searchParams.get('redirect_to');
-        if (redirectTo) {
-          // Ensure the redirect URL is safe (starts with /)
-          const safeRedirectTo = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
-          navigate(safeRedirectTo, { replace: true });
-        } else {
-          navigate('/dashboard', { replace: true });
-        }
-        
+        // Always navigate to dashboard after successful auth
+        navigate('/dashboard', { replace: true });
         toast.success('Successfully signed in!');
       } catch (error) {
         console.error('Error in auth callback:', error);
@@ -45,8 +38,14 @@ export const AuthCallback = () => {
       }
     };
 
-    handleCallback();
-  }, [navigate, searchParams]);
+    // Only handle the callback if we don't already have a session
+    if (!session) {
+      handleCallback();
+    } else {
+      // If we already have a session, just go to dashboard
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate, searchParams, session]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
