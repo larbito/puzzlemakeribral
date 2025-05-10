@@ -1,9 +1,11 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { User } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -14,23 +16,45 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
 
-    // Listen for changes on auth state (signed in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+        // Set up real-time subscription to auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, currentSession: Session | null) => {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
 
-    return () => subscription.unsubscribe();
-  }, []);
+          // Handle sign out
+          if (event === 'SIGNED_OUT') {
+            navigate('/login');
+          }
+
+          // Handle sign in
+          if (event === 'SIGNED_IN' && !location.pathname.startsWith('/auth')) {
+            navigate('/dashboard');
+          }
+        });
+
+        return () => subscription.unsubscribe();
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, [navigate, location]);
 
   const signIn = async () => {
     try {
@@ -55,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
       throw error;
@@ -63,22 +88,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const handleAuthCallback = async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session: newSession }, error } = await supabase.auth.getSession();
       if (error) throw error;
       
-      if (!session) {
+      if (!newSession) {
         throw new Error('No session found');
       }
       
-      setUser(session.user);
+      setSession(newSession);
+      setUser(newSession.user);
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error handling auth callback:', error);
+      navigate('/login');
       throw error;
     }
   };
 
   const value = {
     user,
+    session,
     loading,
     signIn,
     signOut,

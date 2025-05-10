@@ -1,16 +1,21 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, session, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login');
+    if (!loading && !session) {
+      // Store the attempted URL to redirect back after login
+      const currentPath = location.pathname + location.search;
+      if (currentPath !== '/login') {
+        navigate(`/login?redirect=${encodeURIComponent(currentPath)}`);
+      }
     }
-  }, [user, loading, navigate]);
+  }, [session, loading, navigate, location]);
 
   if (loading) {
     return (
@@ -23,7 +28,8 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) {
+  // Only render children if we have both a user and a session
+  if (!user || !session) {
     return null;
   }
 

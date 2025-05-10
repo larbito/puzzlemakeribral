@@ -1,16 +1,28 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { signInWithGoogle, signInWithApple, signInWithFacebook, signInWithGithub, supabase } from '@/lib/supabase';
 import { FcGoogle } from 'react-icons/fc';
 import { FaFacebook, FaApple } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const { session } = useAuth();
+
+  // If user is already logged in, redirect to dashboard or the requested page
+  useEffect(() => {
+    if (session) {
+      const params = new URLSearchParams(location.search);
+      const redirectTo = params.get('redirect') || '/dashboard';
+      navigate(redirectTo);
+    }
+  }, [session, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +42,9 @@ export const Login = () => {
       if (error) throw error;
 
       if (data.session) {
-        navigate('/dashboard');
+        const params = new URLSearchParams(location.search);
+        const redirectTo = params.get('redirect') || '/dashboard';
+        navigate(redirectTo);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
@@ -50,9 +64,12 @@ export const Login = () => {
         github: signInWithGithub
       }[provider];
 
+      // Add the redirect parameter to the OAuth redirect URL
+      const params = new URLSearchParams(location.search);
+      const redirectTo = params.get('redirect');
       const { error } = await loginFn();
-      if (error) throw error;
       
+      if (error) throw error;
       // Social login will redirect to callback URL
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login');
