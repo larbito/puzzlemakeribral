@@ -19,15 +19,15 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Helper to get the current origin, even in development
-const getRedirectTo = () => {
-  return `${window.location.origin}/auth/callback`;
+const getRedirectTo = (redirectPath: string) => {
+  return `${window.location.origin}/auth/callback?redirect_to=${encodeURIComponent(redirectPath)}`;
 };
 
-export const signInWithGoogle = async () => {
+export const signInWithGoogle = async (redirectTo: string = '/dashboard') => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: getRedirectTo(redirectTo),
       skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
@@ -41,11 +41,11 @@ export const signInWithGoogle = async () => {
   return { data, error };
 };
 
-export const signInWithApple = async () => {
+export const signInWithApple = async (redirectTo: string = '/dashboard') => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'apple',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: getRedirectTo(redirectTo),
       skipBrowserRedirect: false
     }
   });
@@ -55,11 +55,11 @@ export const signInWithApple = async () => {
   return { data, error };
 };
 
-export const signInWithFacebook = async () => {
+export const signInWithFacebook = async (redirectTo: string = '/dashboard') => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'facebook',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: getRedirectTo(redirectTo),
       skipBrowserRedirect: false
     }
   });
@@ -69,11 +69,11 @@ export const signInWithFacebook = async () => {
   return { data, error };
 };
 
-export const signInWithGithub = async () => {
+export const signInWithGithub = async (redirectTo: string = '/dashboard') => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: {
-      redirectTo: getRedirectTo(),
+      redirectTo: getRedirectTo(redirectTo),
       skipBrowserRedirect: false
     }
   });

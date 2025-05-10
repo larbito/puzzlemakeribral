@@ -62,7 +62,6 @@ export const Login = () => {
       // Store the current URL or redirect parameter for after login
       const params = new URLSearchParams(location.search);
       const redirectTo = params.get('redirect') || '/dashboard';
-      const state = JSON.stringify({ redirectTo });
       
       const loginFn = {
         google: signInWithGoogle,
@@ -71,7 +70,7 @@ export const Login = () => {
         github: signInWithGithub
       }[provider];
 
-      const { error } = await loginFn();
+      const { error } = await loginFn(redirectTo);
       
       if (error) throw error;
       // Social login will redirect to callback URL

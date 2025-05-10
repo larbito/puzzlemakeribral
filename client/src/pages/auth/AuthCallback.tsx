@@ -27,9 +27,16 @@ export const AuthCallback = () => {
           throw new Error('No session returned');
         }
 
-        // Get the redirect URL from state if it exists
-        const redirectTo = searchParams.get('redirect_to') || '/dashboard';
-        navigate(redirectTo, { replace: true });
+        // Get the redirect URL from the redirect_to parameter
+        const redirectTo = searchParams.get('redirect_to');
+        if (redirectTo) {
+          // Ensure the redirect URL is safe (starts with /)
+          const safeRedirectTo = redirectTo.startsWith('/') ? redirectTo : '/dashboard';
+          navigate(safeRedirectTo, { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
+        
         toast.success('Successfully signed in!');
       } catch (error) {
         console.error('Error in auth callback:', error);
