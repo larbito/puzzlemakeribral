@@ -24,6 +24,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Handle navigation based on auth state
+  const handleAuthNavigation = (event: AuthChangeEvent, currentSession: Session | null) => {
+    const isCallback = location.pathname === '/auth/callback';
+    const isLoginPage = location.pathname === '/login';
+    
+    if (event === 'SIGNED_OUT') {
+      if (!isLoginPage) {
+        navigate('/login');
+        toast.success('Successfully signed out');
+      }
+    } else if (event === 'SIGNED_IN') {
+      if (!isCallback) {
+        const params = new URLSearchParams(location.search);
+        const redirectTo = params.get('redirect') || '/dashboard';
+        navigate(redirectTo);
+        toast.success('Successfully signed in');
+      }
+    }
+  };
+
   useEffect(() => {
     // Check active sessions and sets the user
     const initializeAuth = async () => {
@@ -38,25 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
 
+        if (initialSession) {
+          handleAuthNavigation('SIGNED_IN', initialSession);
+        }
+
         // Set up real-time subscription to auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, currentSession: Session | null) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           console.log('Auth state changed:', event, currentSession?.user?.email);
           setSession(currentSession);
           setUser(currentSession?.user ?? null);
-
-          // Handle sign out
-          if (event === 'SIGNED_OUT') {
-            navigate('/login');
-            toast.success('Successfully signed out');
-          }
-
-          // Handle sign in
-          if (event === 'SIGNED_IN') {
-            if (!location.pathname.startsWith('/auth')) {
-              navigate('/dashboard');
-              toast.success('Successfully signed in');
-            }
-          }
+          handleAuthNavigation(event, currentSession);
         });
 
         return () => subscription.unsubscribe();
@@ -99,7 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
       setError(error instanceof Error ? error.message : 'Failed to sign out');
@@ -120,7 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setSession(newSession);
       setUser(newSession.user);
-      navigate('/dashboard');
+      // Navigation will be handled by onAuthStateChange
     } catch (error) {
       console.error('Error handling auth callback:', error);
       setError(error instanceof Error ? error.message : 'Failed to complete authentication');
