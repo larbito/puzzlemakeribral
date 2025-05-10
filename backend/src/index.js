@@ -4,6 +4,9 @@ const cors = require('cors');
 const morgan = require('morgan');
 const { createClient } = require('@supabase/supabase-js');
 
+const authRoutes = require('./routes/auth');
+const puzzleRoutes = require('./routes/puzzles');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -21,6 +24,10 @@ app.use(morgan('dev'));
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/puzzles', puzzleRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
