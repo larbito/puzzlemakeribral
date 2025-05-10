@@ -108,6 +108,12 @@ export const TShirtGenerator = () => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
   const [customPrompt, setCustomPrompt] = useState<string>('');
+  
+  // Log prompt changes for debugging
+  useEffect(() => {
+    console.log("Custom prompt updated:", customPrompt);
+  }, [customPrompt]);
+  
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [prompt, setPrompt] = useState("");
@@ -613,12 +619,43 @@ export const TShirtGenerator = () => {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
-                <Textarea
-                  placeholder="Enter your prompt here..."
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  className="min-h-[100px]"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="prompt-input">Enter your prompt</Label>
+                  <Textarea
+                    placeholder="Enter your prompt here..."
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    className="min-h-[100px] relative z-10"
+                    id="prompt-input"
+                    aria-label="Prompt input"
+                    onFocus={() => console.log("Prompt field focused")}
+                  />
+                  
+                  {/* Alternative input method in case textarea has issues */}
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      type="text"
+                      placeholder="Alternative prompt input"
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      className="flex-1 relative z-10"
+                      id="alt-prompt-input"
+                    />
+                    <Button 
+                      variant="secondary"
+                      onClick={() => {
+                        const inputValue = (document.getElementById('alt-prompt-input') as HTMLInputElement)?.value;
+                        if (inputValue) {
+                          setCustomPrompt(inputValue);
+                          toast.success("Prompt updated");
+                        }
+                      }}
+                      className="relative z-10"
+                    >
+                      Update
+                    </Button>
+                  </div>
+                </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -709,6 +746,37 @@ export const TShirtGenerator = () => {
                   >
                     Clear
                   </Button>
+                </div>
+                
+                {/* Quick generation with predefined prompt */}
+                <div className="border border-border rounded-md p-3 bg-muted/30">
+                  <h4 className="font-medium mb-2">Quick Generate</h4>
+                  <div className="grid gap-2 grid-cols-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setCustomPrompt("Minimalist t-shirt design with abstract geometric shapes in black and white");
+                        setTimeout(() => {
+                          handleGenerateImage();
+                        }, 100);
+                      }}
+                      className="text-xs h-auto py-1.5"
+                    >
+                      Minimalist Design
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setCustomPrompt("Retro vintage t-shirt with colorful 80s patterns and palm trees");
+                        setTimeout(() => {
+                          handleGenerateImage();
+                        }, 100);
+                      }}
+                      className="text-xs h-auto py-1.5"
+                    >
+                      Retro Design
+                    </Button>
+                  </div>
                 </div>
               </div>
 
