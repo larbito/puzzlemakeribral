@@ -28,42 +28,16 @@ import { toast } from 'sonner';
 
 // This component will handle auth codes in the root URL
 const RootAuthHandler = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const location = useLocation();
-  const { user, session } = useAuth();
 
+  // If there's an auth code in the root URL, redirect to /auth/callback
   useEffect(() => {
-    const code = searchParams.get('code');
-    if (code) {
-      console.log('Found auth code in root URL, redirecting to auth callback');
-      const currentUrl = new URL(window.location.href);
-      const callbackUrl = new URL('/auth/callback', window.location.origin);
-      callbackUrl.search = currentUrl.search;
-      window.location.href = callbackUrl.toString();
-      return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('code')) {
+      window.location.replace(`/auth/callback${window.location.search}`);
     }
+  }, []);
 
-    // If user is authenticated and on root, show home with authenticated state
-    if (session && user) {
-      console.log('User is authenticated, showing authenticated home view');
-    }
-  }, [searchParams, session, user, navigate]);
-
-  // If there's an auth code, show loading state
-  if (searchParams.get('code')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <div className="animate-pulse text-primary text-lg">Redirecting...</div>
-          <p className="text-sm text-muted-foreground">Please wait while we process your sign in.</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show the home page with proper auth state
   return (
     <>
       <Navbar />
