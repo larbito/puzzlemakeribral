@@ -7,23 +7,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-// Create a custom storage object
-const customStorage = {
-  getItem: (key: string) => {
-    const value = localStorage.getItem(key);
-    console.log('Getting storage item:', key, value ? 'exists' : 'not found');
-    return value;
-  },
-  setItem: (key: string, value: string) => {
-    console.log('Setting storage item:', key);
-    localStorage.setItem(key, value);
-  },
-  removeItem: (key: string) => {
-    console.log('Removing storage item:', key);
-    localStorage.removeItem(key);
-  }
-};
-
 // Log configuration (for debugging)
 console.log('Supabase URL:', supabaseUrl);
 console.log('Current origin:', window.location.origin);
@@ -36,9 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storage: customStorage,
-    storageKey: 'supabase.auth.token',
-    flowType: 'pkce'
+    flowType: 'pkce',
   }
 });
 
@@ -48,7 +29,7 @@ supabase.auth.onAuthStateChange((event, session) => {
   
   if (session) {
     // Store the session
-    customStorage.setItem('supabase.auth.token', JSON.stringify(session));
+    localStorage.setItem('supabase.auth.token', JSON.stringify(session));
     
     if (event === 'SIGNED_IN') {
       // Force refresh the page to ensure all components get the updated session
@@ -56,7 +37,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     }
   } else {
     // Clear the session
-    customStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('supabase.auth.token');
     
     if (event === 'SIGNED_OUT') {
       window.location.href = '/login';
@@ -65,7 +46,7 @@ supabase.auth.onAuthStateChange((event, session) => {
 });
 
 // Initialize session from storage
-const storedSession = customStorage.getItem('supabase.auth.token');
+const storedSession = localStorage.getItem('supabase.auth.token');
 if (storedSession) {
   try {
     const session = JSON.parse(storedSession);
@@ -75,7 +56,7 @@ if (storedSession) {
         .then(({ data: { user }, error }) => {
           if (error || !user) {
             console.log('Stored session is invalid, removing');
-            customStorage.removeItem('supabase.auth.token');
+            localStorage.removeItem('supabase.auth.token');
           } else {
             console.log('Stored session is valid');
           }
@@ -83,7 +64,7 @@ if (storedSession) {
     }
   } catch (error) {
     console.error('Error parsing stored session:', error);
-    customStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('supabase.auth.token');
   }
 }
 
