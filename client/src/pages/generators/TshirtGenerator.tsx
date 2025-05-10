@@ -18,7 +18,6 @@ export default function TshirtGenerator() {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [designs, setDesigns] = useState<GeneratedDesign[]>([]);
-  const [activeTab, setActiveTab] = useState('prompt');
 
   const handleImageUpload = async (file: File) => {
     try {
@@ -51,7 +50,7 @@ export default function TshirtGenerator() {
           or enter a prompt to generate new designs.
         </p>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="prompt" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="prompt">Generate from Prompt</TabsTrigger>
             <TabsTrigger value="image">Generate from Image</TabsTrigger>
