@@ -1,0 +1,21 @@
+{
+  "name": "puzzle-craft-forge-backend",
+  "version": "1.0.0",
+  "description": "Backend for Puzzle Craft Forge",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "morgan": "^1.10.0",
+    "winston": "^3.8.2",
+    "@supabase/supabase-js": "^2.39.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+} 
