@@ -244,10 +244,8 @@ export const TShirtGenerator = () => {
 
   // Generate image from prompt
   const handleGenerateImage = async () => {
-    if (!customPrompt) return;
     setIsGenerating(true);
     try {
-      // Use the real API to generate images
       const imageUrl = await generateImage({
         prompt: customPrompt,
         style: style,
@@ -256,7 +254,6 @@ export const TShirtGenerator = () => {
         safeMode: safeMode,
         format: resolution
       });
-      
       if (imageUrl) {
         const newImage: GeneratedImage = {
           id: Date.now().toString(),
@@ -264,9 +261,7 @@ export const TShirtGenerator = () => {
           prompt: customPrompt,
           timestamp: new Date()
         };
-        
         setGeneratedImages(prev => [newImage, ...prev]);
-        
         // Add to history
         const newDesign = saveToHistory({
           prompt: customPrompt,
@@ -276,25 +271,21 @@ export const TShirtGenerator = () => {
           colorScheme,
           format: resolution.toUpperCase()
         });
-        
         setHistory(prev => [newDesign, ...prev]);
         toast.success("Image generated successfully!");
+      } else {
+        throw new Error('No image returned from API');
       }
-    } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error("Failed to generate image");
-      
-      // Fallback to placeholder for better user experience
+    } catch (error: any) {
+      toast.error("Failed to generate image. Showing placeholder.");
       const colors = ["252A37", "F5A623", "444444", "9013FE", "2D8C3C", "1E88E5", "FF5733"];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      
       const mockImage: GeneratedImage = {
         id: Date.now().toString(),
         url: `https://placehold.co/600x800/${randomColor}/FFFFFF?text=Failed+to+generate`,
         prompt: customPrompt,
         timestamp: new Date()
       };
-      
       setGeneratedImages(prev => [mockImage, ...prev]);
     } finally {
       setIsGenerating(false);
@@ -619,8 +610,8 @@ export const TShirtGenerator = () => {
                   <Textarea
                     placeholder="Enter your prompt here..."
                     value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    className="min-h-[100px] relative z-10"
+                    onChange={e => setCustomPrompt(e.target.value)}
+                    className="min-h-[100px] relative z-20 bg-background"
                     id="prompt-input"
                     aria-label="Prompt input"
                     autoFocus
@@ -701,8 +692,14 @@ export const TShirtGenerator = () => {
                 
                 <div className="flex gap-2">
                   <Button
-                    onClick={handleGenerateImage}
-                    disabled={!customPrompt || isGenerating}
+                    onClick={() => {
+                      if (!customPrompt) {
+                        toast.error('Please enter a prompt.');
+                        return;
+                      }
+                      handleGenerateImage();
+                    }}
+                    disabled={isGenerating}
                     className="flex-1"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
@@ -712,6 +709,7 @@ export const TShirtGenerator = () => {
                     variant="outline" 
                     onClick={() => setCustomPrompt('')}
                     className="relative z-10"
+                    disabled={isGenerating}
                   >
                     Clear
                   </Button>
