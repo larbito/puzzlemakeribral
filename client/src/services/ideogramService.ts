@@ -1,6 +1,11 @@
 import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
+// API base URL
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://puzzle-craft-forge-production.up.railway.app'
+  : 'http://localhost:3000';
+
 // For development/debugging - set to false to use real API
 const USE_PLACEHOLDERS = false; // Using real API now
 
@@ -71,13 +76,12 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       style: style !== "custom" ? style : undefined,
       aspect_ratio: "ASPECT_3_4",
       negative_prompt: "text, watermark, signature, blurry, low quality, distorted, deformed",
-      seed: Math.floor(Math.random() * 1000000),
-      apiKey: "WeyDyoA-TbxDLoPtx_bzcGbXgGjBH-NTzDgQZ3Qs9acv3EkmYmNc4q94iRdh6JjWU8nrAed4HJv8Bxxdl1sFhQ"
+      seed: Math.floor(Math.random() * 1000000)
     };
 
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
 
-    const response = await fetch('/api/ideogram', {
+    const response = await fetch(`${API_URL}/api/ideogram/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
