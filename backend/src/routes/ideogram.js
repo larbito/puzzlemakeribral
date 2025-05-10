@@ -5,9 +5,15 @@ const multer = require('multer');
 const upload = multer();
 
 router.post('/generate', async (req, res) => {
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     console.log('Received request headers:', req.headers);
     console.log('Received request body:', req.body);
+    console.log('Request origin:', req.headers.origin);
 
     // Check if API key is configured
     if (!process.env.IDEOGRAM_API_KEY) {
@@ -56,6 +62,9 @@ router.post('/generate', async (req, res) => {
     }
 
     console.log('Ideogram API response:', data);
+    
+    // Ensure CORS headers are set
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.json(data);
   } catch (error) {
     console.error('Ideogram API error:', error);

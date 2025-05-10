@@ -85,7 +85,8 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Origin': window.location.origin
       },
       body: JSON.stringify(requestBody),
       mode: 'cors'
