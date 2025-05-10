@@ -51,7 +51,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       >
         <div className="flex h-full flex-col">
           {/* Logo Area */}
-          <div className="flex h-16 items-center gap-2 px-6 border-b border-primary/10">
+          <Link to="/" className="flex h-16 items-center gap-2 px-6 border-b border-primary/10 hover:bg-primary/5 transition-colors">
             <motion.div
               className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center"
               whileHover={{ scale: 1.05 }}
@@ -62,7 +62,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             <span className="font-semibold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               PuzzleCraft Forge
             </span>
-          </div>
+          </Link>
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4">

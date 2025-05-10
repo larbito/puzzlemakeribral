@@ -3,6 +3,11 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Home } from '@/pages/Home';
 import { Pricing as MainPricing } from '@/pages/Pricing';
+import { Features } from '@/pages/Features';
+import { Templates } from '@/pages/Templates';
+import { Blog } from '@/pages/Blog';
+import { Privacy } from '@/pages/legal/Privacy';
+import { Terms } from '@/pages/legal/Terms';
 import { KDPRoyaltiesCalculator } from '@/pages/dashboard/Pricing';
 import { AIColoringGenerator } from '@/pages/dashboard/AIColoringGenerator';
 import { SudokuPage } from '@/pages/dashboard/SudokuPage';
@@ -34,9 +39,14 @@ function App() {
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
+              <Route path="/features" element={<><Navbar /><Features /><Footer /></>} />
+              <Route path="/templates" element={<><Navbar /><Templates /><Footer /></>} />
               <Route path="/pricing" element={<><Navbar /><MainPricing /><Footer /></>} />
-              <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
+              <Route path="/blog" element={<><Navbar /><Blog /><Footer /></>} />
               <Route path="/about" element={<><Navbar /><About /><Footer /></>} />
+              <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
+              <Route path="/privacy" element={<><Navbar /><Privacy /><Footer /></>} />
+              <Route path="/terms" element={<><Navbar /><Terms /><Footer /></>} />
 
               {/* Dashboard routes */}
               <Route
