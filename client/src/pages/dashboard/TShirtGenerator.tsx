@@ -246,33 +246,55 @@ export const TShirtGenerator = () => {
     if (!customPrompt) return;
     setIsGenerating(true);
     try {
-      // Generate a random image URL for placeholder
+      // Use the real API to generate images
+      const imageUrl = await generateImage({
+        prompt: customPrompt,
+        style: style,
+        colorScheme: colorScheme,
+        transparentBackground: transparentBg,
+        safeMode: safeMode,
+        format: resolution
+      });
+      
+      if (imageUrl) {
+        const newImage: GeneratedImage = {
+          id: Date.now().toString(),
+          url: imageUrl,
+          prompt: customPrompt,
+          timestamp: new Date()
+        };
+        
+        setGeneratedImages(prev => [newImage, ...prev]);
+        
+        // Add to history
+        const newDesign = saveToHistory({
+          prompt: customPrompt,
+          thumbnail: imageUrl,
+          imageUrl,
+          style,
+          colorScheme,
+          format: resolution.toUpperCase()
+        });
+        
+        setHistory(prev => [newDesign, ...prev]);
+        toast.success("Image generated successfully!");
+      }
+    } catch (error) {
+      console.error('Error generating image:', error);
+      toast.error("Failed to generate image");
+      
+      // Fallback to placeholder for better user experience
       const colors = ["252A37", "F5A623", "444444", "9013FE", "2D8C3C", "1E88E5", "FF5733"];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
       
-      // Create multiple random images
-      const mockImages: GeneratedImage[] = [];
+      const mockImage: GeneratedImage = {
+        id: Date.now().toString(),
+        url: `https://placehold.co/600x800/${randomColor}/FFFFFF?text=Failed+to+generate`,
+        prompt: customPrompt,
+        timestamp: new Date()
+      };
       
-      for (let i = 0; i < 3; i++) {
-        const uniqueId = Date.now().toString() + i;
-        const width = 400 + (i * 20);
-        const height = 500 + (i * 20);
-        
-        mockImages.push({
-          id: uniqueId,
-          url: `https://placehold.co/${width}x${height}/${randomColor}/FFFFFF?text=T-Shirt+Design+${i+1}`,
-          prompt: customPrompt,
-          timestamp: new Date()
-        });
-      }
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setGeneratedImages(prev => [...mockImages, ...prev]);
-      toast.success("Images generated successfully!");
-    } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error("Failed to generate images");
+      setGeneratedImages(prev => [mockImage, ...prev]);
     } finally {
       setIsGenerating(false);
     }
@@ -597,6 +619,80 @@ export const TShirtGenerator = () => {
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   className="min-h-[100px]"
                 />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="style">Style</Label>
+                    <Select value={style} onValueChange={setStyle}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {styleOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="colorScheme">Color Scheme</Label>
+                    <Select value={colorScheme} onValueChange={setColorScheme}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select color scheme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {colorSchemeOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="resolution">Export Format</Label>
+                    <Select value={resolution} onValueChange={setResolution}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select format" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {resolutionOptions.map(option => (
+                          <SelectItem 
+                            key={option.value} 
+                            value={option.value}
+                            disabled={option.proOnly}
+                          >
+                            {option.label} {option.proOnly && <Lock className="inline w-3 h-3 ml-1" />}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="transparentBg">Transparent Background</Label>
+                      <Switch 
+                        id="transparentBg" 
+                        checked={transparentBg} 
+                        onCheckedChange={setTransparentBg} 
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="safeMode">Safe Mode</Label>
+                      <Switch 
+                        id="safeMode" 
+                        checked={safeMode} 
+                        onCheckedChange={setSafeMode} 
+                      />
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="flex gap-2">
                   <Button
                     onClick={handleGenerateImage}
@@ -619,16 +715,35 @@ export const TShirtGenerator = () => {
               {/* Generated Images Gallery */}
               {generatedImages.length > 0 && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Generated Images</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Generated Images</h3>
+                    {generatedImages.length > 1 && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          if (confirm("Are you sure you want to clear all generated images?")) {
+                            setGeneratedImages([]);
+                            toast.success("Gallery cleared");
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Clear All
+                      </Button>
+                    )}
+                  </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {generatedImages.map((image) => (
-                      <Card key={image.id} className="group">
-                        <CardContent className="p-4">
-                          <div className="relative aspect-square rounded-lg overflow-hidden mb-4">
+                      <Card key={image.id} className="group overflow-hidden">
+                        <CardContent className="p-3">
+                          <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-border">
                             <img
                               src={image.url}
                               alt={`Generated design ${image.id}`}
                               className="w-full h-full object-cover"
+                              loading="lazy"
                             />
                             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <Button 
@@ -665,12 +780,14 @@ export const TShirtGenerator = () => {
                               </Button>
                             </div>
                           </div>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {image.prompt}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {image.timestamp.toLocaleString()}
-                          </p>
+                          <div className="space-y-1">
+                            <p className="text-sm text-muted-foreground line-clamp-2 break-words">
+                              {image.prompt}
+                            </p>
+                            <p className="text-xs text-muted-foreground/70">
+                              {new Date(image.timestamp).toLocaleString()}
+                            </p>
+                          </div>
                         </CardContent>
                       </Card>
                     ))}

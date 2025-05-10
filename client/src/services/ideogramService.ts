@@ -7,7 +7,7 @@ const API_URL = process.env.NODE_ENV === 'production'
   : '';  // Empty string will make it use relative URLs which will work with the Vite proxy
 
 // For development/debugging - set to false to use real API
-const USE_PLACEHOLDERS = true; // Temporarily using placeholders until API is fully configured
+const USE_PLACEHOLDERS = false; // Using real API now
 
 export interface GenerateImageParams {
   prompt: string;
