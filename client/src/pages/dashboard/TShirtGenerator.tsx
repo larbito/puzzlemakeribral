@@ -438,6 +438,9 @@ export const TShirtGenerator = () => {
     window.scrollTo(0, 0);
   };
 
+  // Add a console.log in the render for debugging
+  console.log('RENDER: customPrompt=', customPrompt, 'isGenerating=', isGenerating);
+
   return (
     <PageLayout
       title="T-Shirt Design Generator"
@@ -699,8 +702,10 @@ export const TShirtGenerator = () => {
                       }
                       handleGenerateImage();
                     }}
-                    disabled={isGenerating}
-                    className="flex-1"
+                    // TEMP: Always enabled for debugging
+                    disabled={false}
+                    className="flex-1 border-2 border-red-500 bg-yellow-200 text-black z-50"
+                    style={{ zIndex: 9999 }}
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
                     {isGenerating ? 'Generating...' : 'Generate Image'}
