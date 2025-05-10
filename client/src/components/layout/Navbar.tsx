@@ -1,12 +1,24 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, Puzzle, DollarSign, Users, Phone } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
-  const menuItems = [
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
+  const publicMenuItems = [
     {
       name: 'Pricing',
       path: '/pricing',
@@ -26,6 +38,18 @@ export const Navbar = () => {
       description: 'Get in touch'
     }
   ];
+
+  const authenticatedMenuItems = [
+    {
+      name: 'Dashboard',
+      path: '/dashboard',
+      icon: <LayoutDashboard className="w-4 h-4" />,
+      description: 'Go to dashboard'
+    },
+    ...publicMenuItems
+  ];
+
+  const menuItems = user ? authenticatedMenuItems : publicMenuItems;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b border-primary/10">
@@ -61,31 +85,48 @@ export const Navbar = () => {
             ))}
             
             <div className="ml-8 flex items-center space-x-4">
-              <Link to="/login">
+              {user ? (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="border-primary/20 hover:border-primary/50 relative group overflow-hidden"
+                  onClick={handleSignOut}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative">Login</span>
+                  <span className="relative flex items-center gap-2">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </span>
                 </Button>
-              </Link>
-              <Link to="/register">
-                <Button 
-                  size="sm"
-                  className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative group overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative">Get Started</span>
-                </Button>
-              </Link>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="border-primary/20 hover:border-primary/50 relative group overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      <span className="relative">Login</span>
+                    </Button>
+                  </Link>
+                  <Link to="/register">
+                    <Button 
+                      size="sm"
+                      className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative group overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      <span className="relative">Get Started</span>
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden">
-                <Button 
+            <Button 
               variant="ghost"
               size="icon"
               onClick={() => setIsOpen(!isOpen)}
@@ -97,7 +138,7 @@ export const Navbar = () => {
               ) : (
                 <Menu className="h-5 w-5 relative" />
               )}
-                </Button>
+            </Button>
           </div>
         </div>
       </div>
@@ -122,32 +163,51 @@ export const Navbar = () => {
             ))}
             
             <div className="pt-4 grid gap-2">
-              <Link
-                to="/login"
-                className="block w-full"
-                onClick={() => setIsOpen(false)}
-              >
+              {user ? (
                 <Button 
                   variant="outline" 
                   className="w-full justify-center border-primary/20 hover:border-primary/50 relative group overflow-hidden"
+                  onClick={() => {
+                    handleSignOut();
+                    setIsOpen(false);
+                  }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative">Login</span>
+                  <span className="relative flex items-center justify-center gap-2">
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </span>
                 </Button>
-              </Link>
-              <Link
-                to="/register"
-                className="block w-full"
-                onClick={() => setIsOpen(false)}
-              >
-                <Button 
-                  className="w-full justify-center bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative group overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative">Get Started</span>
-                </Button>
-              </Link>
-                </div>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="block w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Button 
+                      variant="outline" 
+                      className="w-full justify-center border-primary/20 hover:border-primary/50 relative group overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-secondary/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      <span className="relative">Login</span>
+                    </Button>
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="block w-full"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Button 
+                      className="w-full justify-center bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative group overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                      <span className="relative">Get Started</span>
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
