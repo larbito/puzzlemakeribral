@@ -21,16 +21,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     storage: window.localStorage,
     storageKey: 'puzzle-craft-auth',
-    flowType: 'pkce',
-    debug: true
+    flowType: 'pkce'
   }
 });
 
-// Set up auth state change listener
-supabase.auth.onAuthStateChange((event, session) => {
+// Handle auth state changes globally
+supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('Auth state changed:', event, session ? 'Session exists' : 'No session');
+  
   if (event === 'SIGNED_IN' && session) {
-    window.location.href = '/dashboard';
+    console.log('User signed in, storing session');
+    // Store the session in localStorage
+    window.localStorage.setItem('puzzle-craft-auth', JSON.stringify(session));
+    
+    // Redirect to dashboard if not already there
+    if (!window.location.pathname.startsWith('/dashboard')) {
+      window.location.href = '/dashboard';
+    }
+  } else if (event === 'SIGNED_OUT') {
+    console.log('User signed out, clearing session');
+    window.localStorage.removeItem('puzzle-craft-auth');
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 });
 
@@ -40,10 +53,9 @@ export const signInWithGoogle = async () => {
     provider: 'google',
     options: {
       redirectTo: redirectUrl,
-      skipBrowserRedirect: false,
       queryParams: {
         access_type: 'offline',
-        prompt: 'select_account'
+        prompt: 'consent'
       }
     }
   });

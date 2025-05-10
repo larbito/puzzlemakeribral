@@ -14,6 +14,17 @@ export const AuthCallback = () => {
       try {
         console.log('Auth callback running, checking for code');
         
+        // Check if we already have a valid session in localStorage
+        const storedSession = window.localStorage.getItem('puzzle-craft-auth');
+        if (storedSession) {
+          const parsedSession = JSON.parse(storedSession);
+          if (parsedSession?.access_token) {
+            console.log('Found existing session, redirecting to dashboard');
+            navigate('/dashboard', { replace: true });
+            return;
+          }
+        }
+        
         // Get the auth code from the URL
         const code = searchParams.get('code');
         const error = searchParams.get('error');
@@ -49,9 +60,13 @@ export const AuthCallback = () => {
           throw new Error('No session returned');
         }
 
-        console.log('Session obtained successfully, redirecting to dashboard');
+        console.log('Session obtained successfully');
         
-        // Always navigate to dashboard after successful auth
+        // Store the new session
+        window.localStorage.setItem('puzzle-craft-auth', JSON.stringify(data.session));
+        
+        // Navigate to dashboard
+        console.log('Redirecting to dashboard');
         navigate('/dashboard', { replace: true });
         toast.success('Successfully signed in!');
       } catch (error) {
@@ -61,15 +76,9 @@ export const AuthCallback = () => {
       }
     };
 
-    // Only handle the callback if we don't already have a session
-    if (!session) {
-      console.log('No session found, handling callback');
-      handleCallback();
-    } else {
-      console.log('Session already exists, going to dashboard');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [navigate, searchParams, session]);
+    // Handle the callback immediately
+    handleCallback();
+  }, [navigate, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">

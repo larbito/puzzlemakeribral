@@ -30,35 +30,78 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         setError(null);
         
-        // Get the initial session
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+        // First check localStorage for existing session
+        const storedSession = window.localStorage.getItem('puzzle-craft-auth');
+        if (storedSession) {
+          const parsedSession = JSON.parse(storedSession);
+          if (parsedSession?.access_token) {
+            console.log('Found stored session, validating...');
+            const { data: { user: storedUser }, error: userError } = await supabase.auth.getUser(parsedSession.access_token);
+            
+            if (!userError && storedUser) {
+              console.log('Stored session is valid');
+              setSession(parsedSession);
+              setUser(storedUser);
+              
+              if (location.pathname === '/login') {
+                navigate('/dashboard');
+              }
+              return;
+            } else {
+              console.log('Stored session is invalid, removing');
+              window.localStorage.removeItem('puzzle-craft-auth');
+            }
+          }
+        }
+        
+        // If no valid stored session, get the current session
+        console.log('Getting current session from Supabase');
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
 
         if (mounted) {
-          setSession(initialSession);
-          setUser(initialSession?.user ?? null);
+          if (currentSession) {
+            console.log('Found current session');
+            setSession(currentSession);
+            setUser(currentSession.user);
+            window.localStorage.setItem('puzzle-craft-auth', JSON.stringify(currentSession));
 
-          // If we have a session and we're on the login page, redirect to dashboard
-          if (initialSession && location.pathname === '/login') {
-            navigate('/dashboard');
+            if (location.pathname === '/login') {
+              navigate('/dashboard');
+            }
+          } else {
+            console.log('No current session found');
+            if (location.pathname.startsWith('/dashboard')) {
+              navigate('/login');
+            }
           }
         }
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
           if (!mounted) return;
 
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-
-          if (event === 'SIGNED_OUT') {
-            navigate('/login');
-            toast.success('Successfully signed out');
-          } else if (event === 'SIGNED_IN' && currentSession) {
-            const params = new URLSearchParams(location.search);
-            const redirectTo = params.get('redirect') || '/dashboard';
-            navigate(redirectTo);
-            toast.success('Successfully signed in');
+          console.log('Auth state changed:', event);
+          
+          if (currentSession) {
+            setSession(currentSession);
+            setUser(currentSession.user);
+            window.localStorage.setItem('puzzle-craft-auth', JSON.stringify(currentSession));
+            
+            if (event === 'SIGNED_IN') {
+              const redirectTo = new URLSearchParams(location.search).get('redirect') || '/dashboard';
+              navigate(redirectTo, { replace: true });
+              toast.success('Successfully signed in!');
+            }
+          } else {
+            setSession(null);
+            setUser(null);
+            window.localStorage.removeItem('puzzle-craft-auth');
+            
+            if (event === 'SIGNED_OUT') {
+              navigate('/login', { replace: true });
+              toast.success('Successfully signed out!');
+            }
           }
         });
 
@@ -68,10 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       } catch (error) {
         if (!mounted) return;
-
         console.error('Error initializing auth:', error);
         setError(error instanceof Error ? error.message : 'Failed to initialize authentication');
-        toast.error('Authentication error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        toast.error('Authentication error occurred');
       } finally {
         if (mounted) {
           setLoading(false);
@@ -89,10 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
-          skipBrowserRedirect: false,
           queryParams: {
             access_type: 'offline',
-            prompt: 'select_account'
+            prompt: 'consent'
           }
         }
       });
@@ -100,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error signing in:', error);
       setError(error instanceof Error ? error.message : 'Failed to sign in');
-      toast.error('Sign in error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('Sign in failed. Please try again.');
       throw error;
     }
   };
@@ -110,10 +151,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      window.localStorage.removeItem('puzzle-craft-auth');
     } catch (error) {
       console.error('Error signing out:', error);
       setError(error instanceof Error ? error.message : 'Failed to sign out');
-      toast.error('Sign out error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      toast.error('Sign out failed. Please try again.');
       throw error;
     }
   };
