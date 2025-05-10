@@ -15,6 +15,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    port: 5177,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path
+      }
+    }
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,
@@ -36,16 +47,6 @@ export default defineConfig({
   esbuild: {
     drop: ['console', 'debugger'],
     logOverride: { 'this-is-undefined-in-esm': 'silent' }
-  },
-  server: {
-    port: 5177,
-    proxy: {
-      '/api/ideogram': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
-        secure: false
-      }
-    }
   },
   logLevel: 'info',
   clearScreen: false

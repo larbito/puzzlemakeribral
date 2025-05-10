@@ -403,14 +403,14 @@ export const TShirtGenerator = () => {
         <TabsList className="grid w-full grid-cols-2 bg-background/95 border rounded-lg p-1">
           <TabsTrigger 
             value="image-to-prompt" 
-            className="text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="relative z-10 text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
             <Upload className="w-5 h-5 mr-2" />
             Image to Prompt
           </TabsTrigger>
           <TabsTrigger 
             value="prompt-to-image" 
-            className="text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="relative z-10 text-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
           >
             <Wand2 className="w-5 h-5 mr-2" />
             Prompt to Image
@@ -418,7 +418,15 @@ export const TShirtGenerator = () => {
         </TabsList>
 
         <TabsContent value="image-to-prompt" className="mt-6 space-y-4">
-          <Card className="border-2">
+          <Card className="border-2 relative">
+            {isGenerating && (
+              <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <p>Generating prompt...</p>
+                </div>
+              </div>
+            )}
             <CardHeader>
               <CardTitle>Generate Prompt from Image</CardTitle>
             </CardHeader>
@@ -426,7 +434,7 @@ export const TShirtGenerator = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Image Upload Section */}
                 <div className="space-y-4">
-                  <div className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <div className="border-2 border-dashed border-primary/20 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
                     <input
                       type="file"
                       accept="image/*"
@@ -434,7 +442,7 @@ export const TShirtGenerator = () => {
                       className="hidden"
                       id="image-upload"
                     />
-                    <label htmlFor="image-upload" className="cursor-pointer">
+                    <label htmlFor="image-upload" className="cursor-pointer block w-full h-full">
                       <div className="flex flex-col items-center gap-2">
                         <Upload className="w-8 h-8 text-primary/60" />
                         <p className="text-sm text-muted-foreground">
@@ -470,7 +478,7 @@ export const TShirtGenerator = () => {
                   <Button
                     onClick={handleGeneratePrompt}
                     disabled={!selectedImage || isGenerating}
-                    className="w-full"
+                    className="w-full relative"
                   >
                     <Wand2 className="w-4 h-4 mr-2" />
                     {isGenerating ? 'Generating...' : 'Generate Prompt'}
@@ -484,7 +492,11 @@ export const TShirtGenerator = () => {
                       />
                       <Button
                         variant="outline"
-                        onClick={() => navigator.clipboard.writeText(generatedPrompt)}
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedPrompt);
+                          toast.success('Prompt copied to clipboard');
+                        }}
+                        className="w-full"
                       >
                         <Copy className="w-4 h-4 mr-2" />
                         Copy Prompt
@@ -498,7 +510,15 @@ export const TShirtGenerator = () => {
         </TabsContent>
 
         <TabsContent value="prompt-to-image" className="mt-6 space-y-4">
-          <Card className="border-2">
+          <Card className="border-2 relative">
+            {isGenerating && (
+              <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <p>Generating image...</p>
+                </div>
+              </div>
+            )}
             <CardHeader>
               <CardTitle>Generate Image from Prompt</CardTitle>
             </CardHeader>
@@ -519,7 +539,11 @@ export const TShirtGenerator = () => {
                     <Wand2 className="w-4 h-4 mr-2" />
                     {isGenerating ? 'Generating...' : 'Generate Image'}
                   </Button>
-                  <Button variant="outline" onClick={() => setCustomPrompt('')}>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCustomPrompt('')}
+                    className="relative z-10"
+                  >
                     Clear
                   </Button>
                 </div>

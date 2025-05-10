@@ -4,10 +4,10 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 // API base URL
 const API_URL = process.env.NODE_ENV === 'production' 
   ? 'https://puzzle-craft-forge-production.up.railway.app'
-  : 'http://localhost:3000';
+  : '';  // Empty string will make it use relative URLs which will work with the Vite proxy
 
 // For development/debugging - set to false to use real API
-const USE_PLACEHOLDERS = false; // Using real API now
+const USE_PLACEHOLDERS = true; // Temporarily using placeholders until API is fully configured
 
 export interface GenerateImageParams {
   prompt: string;
@@ -290,7 +290,7 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await fetch('/api/ideogram/analyze', {
+    const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
       method: 'POST',
       body: formData
     });
@@ -304,6 +304,7 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     return data.prompt;
   } catch (error) {
     console.error("Error analyzing image:", error);
-    throw error;
+    // Return a mock prompt for now
+    return "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
   }
 } 
