@@ -230,102 +230,141 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 });
 
 // New endpoint: Batch download multiple images as a zip file
-router.post('/batch-download', express.json(), async (req, res) => {
+router.post('/batch-download', async (req, res) => {
+  console.log('Batch download request received');
+  console.log('Content-Type:', req.get('content-type'));
+  
   let images;
   
   // Check if the content type is form data or JSON
   const contentType = req.get('content-type') || '';
   
-  if (contentType.includes('application/json')) {
-    // If it's JSON, use req.body.images directly
-    images = req.body.images;
-  } else if (contentType.includes('application/x-www-form-urlencoded')) {
-    // If it's form data, parse the JSON string
-    try {
-      images = JSON.parse(req.body.images);
-    } catch (error) {
-      console.error('Error parsing JSON from form data:', error);
-      return res.status(400).json({ error: 'Invalid images data format' });
-    }
-  } else {
-    console.error('Unsupported content type:', contentType);
-    return res.status(400).json({ error: 'Unsupported content type' });
-  }
-  
-  if (!images || !Array.isArray(images) || images.length === 0) {
-    return res.status(400).json({ error: 'Valid images array is required' });
-  }
-  
-  console.log(`Batch downloading ${images.length} images as zip`);
-  
-  // Create a zip archive
-  const archive = archiver('zip', {
-    zlib: { level: 5 } // Compression level (1-9)
-  });
-  
-  // Set the response headers for zip download
-  res.setHeader('Content-Type', 'application/zip');
-  res.setHeader('Content-Disposition', `attachment; filename="tshirt-designs-${Date.now()}.zip"`);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 'no-cache');
-  
-  // Pipe the archive to the response
-  archive.pipe(res);
-  
-  let failedImages = 0;
-  
-  // Add each image to the zip file
-  for (let i = 0; i < images.length; i++) {
-    const { url, prompt } = images[i];
-    const uniqueId = crypto.randomBytes(4).toString('hex');
-    
-    try {
-      console.log(`Fetching image ${i+1}/${images.length}: ${url.substring(0, 50)}...`);
-      
-      // Generate a filename based on the prompt or index
-      const filename = prompt 
-        ? `tshirt-${prompt.split(' ').slice(0, 3).join('-').toLowerCase()}-${uniqueId}.png`
-        : `tshirt-design-${i+1}-${uniqueId}.png`;
-      
-      // Fetch the image
-      const imageResponse = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
-        }
-      });
-      
-      if (!imageResponse.ok) {
-        console.error(`Failed to fetch image ${i+1}: ${imageResponse.status}`);
-        failedImages++;
-        continue; // Skip this image and continue with others
-      }
-      
-      // Get the image buffer
-      const imageBuffer = await imageResponse.buffer();
-      
-      // Create a readable stream from the buffer
-      const stream = new Readable();
-      stream.push(imageBuffer);
-      stream.push(null); // Signal the end of the stream
-      
-      // Add the stream to the archive with a filename
-      archive.append(stream, { name: filename });
-      
-      console.log(`Added image ${i+1} to zip as ${filename}`);
-    } catch (error) {
-      console.error(`Error processing image ${i+1}:`, error);
-      failedImages++;
-    }
-  }
-  
-  // Finalize the archive
   try {
+    if (contentType.includes('application/json')) {
+      // If it's JSON, use req.body.images directly
+      console.log('Processing JSON request body');
+      images = req.body.images;
+    } else if (contentType.includes('application/x-www-form-urlencoded')) {
+      // If it's form data, parse the JSON string
+      console.log('Processing form-urlencoded request body');
+      try {
+        images = JSON.parse(req.body.images);
+      } catch (error) {
+        console.error('Error parsing JSON from form data:', error);
+        return res.status(400).json({ error: 'Invalid images data format' });
+      }
+    } else {
+      console.error('Unsupported content type:', contentType);
+      return res.status(400).json({ error: 'Unsupported content type' });
+    }
+    
+    console.log('Parsed images:', images ? images.length : 'none');
+    
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      console.error('Invalid or empty images array:', images);
+      return res.status(400).json({ error: 'Valid images array is required' });
+    }
+    
+    console.log(`Batch downloading ${images.length} images as zip`);
+    
+    // Create a zip archive
+    const archive = archiver('zip', {
+      zlib: { level: 5 } // Compression level (1-9)
+    });
+    
+    // Listen for errors on the archive
+    archive.on('error', (err) => {
+      console.error('Archiver error:', err);
+      // Try to send an error if the response hasn't been sent yet
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error creating zip archive' });
+      }
+    });
+    
+    // Set the response headers for zip download
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="tshirt-designs-${Date.now()}.zip"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Pipe the archive to the response
+    archive.pipe(res);
+    
+    let failedImages = 0;
+    let successfulImages = 0;
+    
+    // Add each image to the zip file
+    for (let i = 0; i < images.length; i++) {
+      const { url, prompt } = images[i];
+      const uniqueId = crypto.randomBytes(4).toString('hex');
+      
+      try {
+        console.log(`Fetching image ${i+1}/${images.length}: ${url.substring(0, 50)}...`);
+        
+        // Generate a filename based on the prompt or index
+        const filename = prompt 
+          ? `tshirt-${prompt.split(' ').slice(0, 3).join('-').toLowerCase()}-${uniqueId}.png`.replace(/[^a-zA-Z0-9\-_.]/g, '_')
+          : `tshirt-design-${i+1}-${uniqueId}.png`;
+        
+        // Fetch the image
+        const imageResponse = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+          },
+          timeout: 10000 // 10 second timeout
+        });
+        
+        if (!imageResponse.ok) {
+          console.error(`Failed to fetch image ${i+1}: ${imageResponse.status}`);
+          failedImages++;
+          continue; // Skip this image and continue with others
+        }
+        
+        // Get the image buffer
+        const imageBuffer = await imageResponse.buffer();
+        
+        if (!imageBuffer || imageBuffer.length === 0) {
+          console.error(`Empty image buffer for image ${i+1}`);
+          failedImages++;
+          continue;
+        }
+        
+        // Create a readable stream from the buffer
+        const stream = new Readable();
+        stream.push(imageBuffer);
+        stream.push(null); // Signal the end of the stream
+        
+        // Add the stream to the archive with a filename
+        archive.append(stream, { name: filename });
+        
+        successfulImages++;
+        console.log(`Added image ${i+1} to zip as ${filename}`);
+      } catch (error) {
+        console.error(`Error processing image ${i+1}:`, error);
+        failedImages++;
+      }
+    }
+    
+    if (successfulImages === 0) {
+      console.error('No images were successfully added to the archive');
+      if (!res.headersSent) {
+        return res.status(400).json({ error: 'Failed to process any of the provided images' });
+      }
+    }
+    
+    // Finalize the archive
+    console.log('Finalizing zip archive...');
     await archive.finalize();
-    console.log(`Zip archive created with ${images.length - failedImages} images`);
+    console.log(`Zip archive created with ${successfulImages} images (${failedImages} failed)`);
   } catch (error) {
-    console.error('Error finalizing zip archive:', error);
-    // The response might already be partially sent, so we can't send a new error response
-    // Just log the error and let the client handle any incomplete downloads
+    console.error('Error in batch download endpoint:', error);
+    // Only send a response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: error.message || 'Failed to download images',
+        type: error.name
+      });
+    }
   }
 });
 

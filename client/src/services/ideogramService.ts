@@ -403,22 +403,63 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
   try {
     // Call the backend batch-download endpoint that creates a zip file
     console.log("Using batch download endpoint for", images.length, "images");
+    console.log("API URL:", API_URL);
+    
+    const batchEndpoint = `${API_URL}/api/ideogram/batch-download`;
+    console.log("Full endpoint URL:", batchEndpoint);
+    
+    // Format the request body
+    const requestBody = JSON.stringify({ images });
+    console.log("Request body size:", new Blob([requestBody]).size, "bytes");
     
     // Use the Fetch API to make a direct request to our backend
-    const response = await fetch(`${API_URL}/api/ideogram/batch-download`, {
+    const response = await fetch(batchEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/zip',
       },
-      body: JSON.stringify({ images }),
+      body: requestBody,
     });
     
+    console.log("Response status:", response.status);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
-      throw new Error(`Server responded with status: ${response.status}`);
+      // Try to read the error message from the response
+      let errorMessage = `Server responded with status: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        // If response isn't JSON, try to get text
+        try {
+          const textError = await response.text();
+          if (textError) errorMessage = textError;
+        } catch {
+          // Ignore if we can't read the response
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+    
+    // Get content type from response
+    const contentType = response.headers.get('content-type');
+    console.log("Response content type:", contentType);
+    
+    if (!contentType || !contentType.includes('application/zip')) {
+      console.warn("Expected application/zip content type but got:", contentType);
+      // Continue anyway since some servers might not set the correct content type
     }
     
     // Get response as a blob
     const blob = await response.blob();
+    console.log("Response blob size:", blob.size, "bytes");
+    
+    if (blob.size === 0) {
+      throw new Error("Received empty response from server");
+    }
     
     // Create a download link for the blob
     const downloadUrl = URL.createObjectURL(blob);
@@ -431,8 +472,10 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
     link.click();
     
     // Clean up
-    document.body.removeChild(link);
-    URL.revokeObjectURL(downloadUrl);
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    }, 100);
     
     // Show success message
     toast.dismiss(toastId);
@@ -440,7 +483,7 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
   } catch (error) {
     console.error("Error in batch download:", error);
     toast.dismiss(toastId);
-    toast.error("Failed to download images. Please try again.");
+    toast.error(`Failed to download images: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
