@@ -368,4 +368,122 @@ router.post('/batch-download', async (req, res) => {
   }
 });
 
+// Endpoint for generating custom dimension images (for book covers)
+router.post('/generate-custom', upload.none(), async (req, res) => {
+  console.log('Received generate-custom request for book cover');
+  console.log('Content-Type:', req.get('content-type'));
+  console.log('Request body after multer:', req.body);
+  
+  try {
+    // Check if API key is configured
+    if (!process.env.IDEOGRAM_API_KEY) {
+      console.error('Ideogram API key is not configured');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const { prompt, style, width, height, negative_prompt } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    if (!width || !height) {
+      return res.status(400).json({ error: 'Width and height are required' });
+    }
+
+    console.log('Generating book cover with params:', { prompt, style, width, height, negative_prompt });
+    
+    // Create form data for the Ideogram API
+    const form = new FormData();
+    form.append('prompt', prompt);
+    
+    // Add custom dimensions (must be between 512 and 4096)
+    const parsedWidth = parseInt(width);
+    const parsedHeight = parseInt(height);
+    
+    // Validate dimensions
+    if (parsedWidth < 512 || parsedWidth > 4096 || parsedHeight < 512 || parsedHeight > 4096) {
+      return res.status(400).json({ 
+        error: 'Dimensions must be between 512 and 4096 pixels',
+        details: `Received: ${parsedWidth}x${parsedHeight}`
+      });
+    }
+    
+    form.append('width', parsedWidth.toString());
+    form.append('height', parsedHeight.toString());
+    
+    // Use standard rendering for better quality
+    form.append('rendering_speed', 'STANDARD');
+
+    if (negative_prompt) {
+      form.append('negative_prompt', negative_prompt);
+    } else {
+      // Default negative prompt for book covers
+      form.append('negative_prompt', 'text overlays, watermark, signature, blurry, low quality, distorted');
+    }
+
+    if (style) {
+      form.append('style_type', style.toUpperCase());
+    }
+
+    // Add some default parameters
+    form.append('num_images', '1');
+    form.append('seed', Math.floor(Math.random() * 1000000));
+
+    console.log('Making request to Ideogram API with custom dimensions');
+    
+    const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+      method: 'POST',
+      headers: {
+        'Api-Key': process.env.IDEOGRAM_API_KEY,
+        ...form.getHeaders()
+      },
+      body: form
+    });
+
+    console.log('Ideogram API response status for book cover:', response.status);
+
+    const responseText = await response.text();
+    console.log('Raw response for book cover:', responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      console.error('Failed to parse Ideogram API response for book cover:', error);
+      return res.status(500).json({ error: 'Invalid response from image generation service' });
+    }
+
+    if (!response.ok) {
+      console.error('Ideogram API error for book cover:', data);
+      return res.status(response.status).json({ 
+        error: data.message || 'Failed to generate book cover image',
+        details: data
+      });
+    }
+
+    console.log('Ideogram API response data for book cover:', data);
+    
+    // Extract the image URL from the response
+    let imageUrl = null;
+    if (data?.data?.[0]?.url) {
+      imageUrl = data.data[0].url;
+    }
+
+    if (!imageUrl) {
+      console.error('No image URL in response for book cover:', data);
+      throw new Error('No image URL in API response for book cover');
+    }
+
+    // Return the image URL to the client
+    res.json({ url: imageUrl });
+  } catch (error) {
+    console.error('Ideogram API error for book cover:', error);
+    res.status(500).json({ 
+      error: error.message || 'Internal server error',
+      type: error.name
+    });
+  }
+});
+
 module.exports = router; 

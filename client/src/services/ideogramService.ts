@@ -686,3 +686,106 @@ export async function removeBackgroundWithAPI(imageUrl: string): Promise<string>
 */
 
 // The imageToPrompt function already exists above, don't duplicate it 
+
+export interface GenerateBookCoverParams {
+  prompt: string;
+  style?: string;
+  width: number;
+  height: number;
+}
+
+export async function generateBookCover({
+  prompt,
+  style = "realistic",
+  width,
+  height
+}: GenerateBookCoverParams): Promise<string | null> {
+  try {
+    console.log("Generating book cover with prompt:", prompt);
+    
+    // For testing UI interactivity
+    if (USE_PLACEHOLDERS) {
+      console.log("Using placeholder by configuration");
+      return getPlaceholderImage(prompt);
+    }
+
+    // Build the enhanced prompt with additional context
+    let enhancedPrompt = `Print-ready book cover design: ${prompt}`;
+    
+    // Handle style
+    if (style && style !== "realistic") {
+      enhancedPrompt += `, ${style} style`;
+    }
+    
+    console.log("Enhanced prompt for book cover:", enhancedPrompt);
+    console.log("Dimensions:", width, "x", height);
+
+    try {
+      // Create form data for the request
+      const formData = new FormData();
+      formData.append('prompt', enhancedPrompt);
+      formData.append('width', width.toString());
+      formData.append('height', height.toString());
+      formData.append('rendering_speed', 'STANDARD');
+      
+      if (style && style !== "realistic") {
+        formData.append('style_type', style.toUpperCase());
+      }
+
+      formData.append('negative_prompt', 'text overlays, watermark, signature, blurry, low quality, distorted');
+
+      // Log the form data entries for debugging
+      console.log("Form data entries for book cover:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+      
+      const fullUrl = `${API_URL}/api/ideogram/generate-custom`;
+      console.log("Making book cover generation request to:", fullUrl);
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log("Book cover response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Raw error response:", errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || 'Failed to parse error response' };
+        }
+        
+        console.error("API error response:", errorData);
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Book cover API response data:", data);
+
+      if (!data.url) {
+        console.error("Could not extract image URL from response:", data);
+        throw new Error("Could not extract image URL from API response");
+      }
+
+      return data.url;
+    } catch (error: unknown) {
+      console.error("Error calling book cover API:", error);
+      if (error instanceof Error) {
+        throw new Error(`Book cover API call failed: ${error.message}`);
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in generateBookCover:", error);
+    
+    // Ensure we always return something
+    console.log("Using placeholder for book cover due to error");
+    return getPlaceholderImage(prompt);
+  }
+} 
