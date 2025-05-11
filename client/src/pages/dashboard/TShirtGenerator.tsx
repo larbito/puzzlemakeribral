@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
   Shirt,
@@ -31,7 +31,8 @@ import {
   Layers,
   Edit,
   Palette,
-  Clock
+  Clock,
+  X
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -194,6 +195,9 @@ export const TShirtGenerator = () => {
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
+
+  // Add a new state variable for toggling the T-shirt preview
+  const [showTshirtPreview, setShowTshirtPreview] = useState(false);
 
   // Load history on component mount
   useEffect(() => {
@@ -401,9 +405,20 @@ export const TShirtGenerator = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImage, showSafeZone, prompt]);
 
-  // Add an effect to update the mockup when the background changes
+  // Add an effect to update the mockup when the user toggles the preview
   useEffect(() => {
-    if (selectedImage) {
+    if (showTshirtPreview && selectedImage) {
+      const img = new Image();
+      img.onload = () => {
+        updateMockupPreview(img);
+      };
+      img.src = selectedImage.url;
+    }
+  }, [showTshirtPreview, selectedImage]);
+
+  // Update the existing mockup background effect
+  useEffect(() => {
+    if (showTshirtPreview && selectedImage) {
       const img = new Image();
       img.onload = () => {
         updateMockupPreview(img);
@@ -411,7 +426,7 @@ export const TShirtGenerator = () => {
       img.src = selectedImage.url;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mockupBackground, selectedImage]);
+  }, [mockupBackground, selectedImage, showTshirtPreview]);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1132,7 +1147,7 @@ export const TShirtGenerator = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="relative flex flex-col items-center">
+                    <div className="relative inline-block">
                       {/* Display the image directly */}
                       <img 
                         src={selectedImage.url}
@@ -1144,56 +1159,87 @@ export const TShirtGenerator = () => {
                         }}
                       />
                       
-                      {/* T-shirt mockup canvas */}
-                      <div className="relative mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20">
-                        <h4 className="text-sm font-medium mb-4 flex items-center">
-                          <Shirt className="w-4 h-4 mr-1 text-primary" />
-                          T-shirt Preview
-                        </h4>
-                        <div className="flex justify-center">
-                          <canvas 
-                            ref={mockupCanvasRef}
-                            className="max-w-full h-auto"
-                            width="500"
-                            height="600"
-                          />
-                        </div>
-                        <div className="mt-4 flex justify-center space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setMockupBackground('white')}
-                            className={cn(
-                              "text-xs px-3 py-1 h-auto",
-                              mockupBackground === 'white' && "bg-primary text-primary-foreground"
-                            )}
-                          >
-                            White
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setMockupBackground('black')}
-                            className={cn(
-                              "text-xs px-3 py-1 h-auto",
-                              mockupBackground === 'black' && "bg-primary text-primary-foreground"
-                            )}
-                          >
-                            Black
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setMockupBackground('navy')}
-                            className={cn(
-                              "text-xs px-3 py-1 h-auto",
-                              mockupBackground === 'navy' && "bg-primary text-primary-foreground"
-                            )}
-                          >
-                            Navy
-                          </Button>
-                        </div>
+                      {/* Toggle button for T-shirt mockup preview */}
+                      <div className="mt-4 flex justify-center">
+                        <Button
+                          variant={showTshirtPreview ? "default" : "outline"}
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => setShowTshirtPreview(prev => !prev)}
+                        >
+                          <Shirt className="h-4 w-4" />
+                          {showTshirtPreview ? "Hide T-shirt Preview" : "View on T-shirt"}
+                        </Button>
                       </div>
+                      
+                      {/* T-shirt mockup - conditionally rendered */}
+                      {showTshirtPreview && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="relative mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20 overflow-hidden"
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-medium flex items-center">
+                              <Shirt className="w-4 h-4 mr-1 text-primary" />
+                              T-shirt Preview
+                            </h4>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-7 w-7"
+                              onClick={() => setShowTshirtPreview(false)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex justify-center">
+                            <canvas 
+                              ref={mockupCanvasRef}
+                              className="max-w-full h-auto rounded-md border shadow-sm"
+                              width="500"
+                              height="600"
+                            />
+                          </div>
+                          <div className="mt-4 flex justify-center space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setMockupBackground('white')}
+                              className={cn(
+                                "text-xs px-3 py-1 h-auto",
+                                mockupBackground === 'white' && "bg-primary text-primary-foreground"
+                              )}
+                            >
+                              White
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setMockupBackground('black')}
+                              className={cn(
+                                "text-xs px-3 py-1 h-auto",
+                                mockupBackground === 'black' && "bg-primary text-primary-foreground"
+                              )}
+                            >
+                              Black
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setMockupBackground('navy')}
+                              className={cn(
+                                "text-xs px-3 py-1 h-auto",
+                                mockupBackground === 'navy' && "bg-primary text-primary-foreground"
+                              )}
+                            >
+                              Navy
+                            </Button>
+                          </div>
+                        </motion.div>
+                      )}
                       
                       {/* Debug/hidden canvas for processing */}
                       <canvas 
