@@ -65,6 +65,16 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 import { HISTORY_STORAGE_KEY } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
 
+// CSS utility for the grid pattern background
+const gridPatternStyle = {
+  backgroundSize: '40px 40px',
+  backgroundImage: `
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px)
+  `,
+  backgroundPosition: '0 0'
+};
+
 // Enhanced style options with more choices
 const styleOptions = [
   { value: "vintage", label: "Vintage", description: "Vintage-style design with retro elements" },
@@ -1129,46 +1139,56 @@ export const TShirtGenerator = () => {
           
           {/* History Tab */}
           <TabsContent value="history" className="flex-1 overflow-auto p-4 bg-gradient-to-b from-background to-background/50">
-            <div className="max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <History className="w-5 h-5 text-primary" />
+            <div className="w-full max-w-[1400px] mx-auto">
+              {/* Header section with background */}
+              <div className="relative overflow-hidden rounded-xl mb-8 bg-gradient-to-r from-primary/20 via-primary/10 to-background border shadow-md">
+                <div className="absolute inset-0 opacity-5" style={gridPatternStyle}></div>
+                <div className="relative z-10 px-6 py-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-3xl font-bold flex items-center gap-3 mb-2">
+                      <div className="bg-primary/20 p-2.5 rounded-lg">
+                        <History className="w-6 h-6 text-primary" />
+                      </div>
+                      <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                        Design History
+                      </span>
+                    </h2>
+                    <p className="text-muted-foreground max-w-lg">
+                      Browse and manage your previously generated T-shirt designs. 
+                      Click on any design to view details or reuse the prompt.
+                    </p>
                   </div>
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
-                    Design History
-                  </span>
-                </h2>
-                
-                {history.length > 0 && (
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setCurrentTab("design")}
-                      className="flex items-center gap-2 bg-background/80 backdrop-blur-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      New Design
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => {
-                        const confirmed = window.confirm("Clear all design history? This cannot be undone.");
-                        if (confirmed) {
-                          localStorage.setItem(HISTORY_STORAGE_KEY, "[]");
-                          setHistory([]);
-                          toast.success("Design history cleared");
-                        }
-                      }}
-                      className="text-destructive hover:text-destructive/80"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      Clear History
-                    </Button>
-                  </div>
-                )}
+                  
+                  {history.length > 0 && (
+                    <div className="flex flex-wrap gap-2 sm:self-start">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCurrentTab("design")}
+                        className="flex items-center gap-2 bg-background/90 backdrop-blur-sm"
+                      >
+                        <Plus className="w-4 h-4" />
+                        New Design
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          const confirmed = window.confirm("Clear all design history? This cannot be undone.");
+                          if (confirmed) {
+                            localStorage.setItem(HISTORY_STORAGE_KEY, "[]");
+                            setHistory([]);
+                            toast.success("Design history cleared");
+                          }
+                        }}
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Clear History
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
               
               {history.length === 0 ? (
@@ -1190,8 +1210,8 @@ export const TShirtGenerator = () => {
                 </div>
               ) : (
                 <>
-                  {/* Filter controls */}
-                  <div className="mb-6 flex flex-wrap items-center gap-3 p-4 rounded-lg bg-background/80 backdrop-blur-sm border shadow-sm">
+                  {/* Filter and sort controls */}
+                  <div className="mb-6 flex flex-wrap items-center gap-3 p-4 rounded-lg bg-background/90 backdrop-blur-sm border shadow-sm">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="history-filter" className="text-sm font-medium">Filter:</Label>
                       <Select defaultValue="all">
@@ -1202,6 +1222,19 @@ export const TShirtGenerator = () => {
                           <SelectItem value="all">All designs</SelectItem>
                           <SelectItem value="favorites">Favorites</SelectItem>
                           <SelectItem value="recent">Last 7 days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="history-layout" className="text-sm font-medium">View:</Label>
+                      <Select defaultValue="grid">
+                        <SelectTrigger id="history-layout" className="w-[120px] h-9 text-sm">
+                          <SelectValue placeholder="Grid view" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="grid">Grid view</SelectItem>
+                          <SelectItem value="list">List view</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1219,16 +1252,29 @@ export const TShirtGenerator = () => {
                       </Select>
                     </div>
                   </div>
+                  
+                  {/* Design count and export options */}
+                  <div className="flex justify-between items-center mb-4">
+                    <p className="text-sm text-muted-foreground">
+                      Showing <span className="font-medium text-foreground">{history.length}</span> designs
+                    </p>
+                    
+                    <Button variant="outline" size="sm" className="text-xs" onClick={handleDownloadAll}>
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      Export All
+                    </Button>
+                  </div>
                 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {/* Main grid of designs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 mb-8">
                     {history.map((item, index) => (
                       <motion.div
                         key={item.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                        transition={{ duration: 0.3, delay: index * 0.03 }}
                       >
-                        <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/80 backdrop-blur-sm">
+                        <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/90 backdrop-blur-sm h-full flex flex-col">
                           <div className="relative aspect-square rounded-t-lg overflow-hidden">
                             <img
                               src={item.imageUrl}
@@ -1247,7 +1293,10 @@ export const TShirtGenerator = () => {
                                 <Button 
                                   size="icon" 
                                   variant="secondary"
-                                  onClick={() => handleDownload(item.imageUrl)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownload(item.imageUrl);
+                                  }}
                                   className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
                                 >
                                   <Download className="w-4 h-4" />
@@ -1255,7 +1304,8 @@ export const TShirtGenerator = () => {
                                 <Button 
                                   size="icon" 
                                   variant="secondary"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     navigator.clipboard.writeText(item.prompt);
                                     toast.success('Prompt copied to clipboard');
                                   }}
@@ -1266,7 +1316,8 @@ export const TShirtGenerator = () => {
                                 <Button 
                                   size="icon" 
                                   variant="secondary"
-                                  onClick={() => {
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     handleReusePrompt(item.prompt);
                                     setCurrentTab("design");
                                   }}
@@ -1298,14 +1349,14 @@ export const TShirtGenerator = () => {
                             </Button>
                           </div>
                           
-                          <CardContent className="p-3">
+                          <CardContent className="p-3 flex-1 flex flex-col">
                             <div className="truncate text-sm font-medium mb-2">
                               {item.prompt.length > 40 
                                 ? `${item.prompt.substring(0, 40)}...` 
                                 : item.prompt}
                             </div>
                             
-                            <div className="flex justify-between items-center">
+                            <div className="mt-auto flex justify-between items-center">
                               <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
                                 {formatDate(item.createdAt)}
                               </Badge>
@@ -1314,7 +1365,10 @@ export const TShirtGenerator = () => {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => handleDeleteFromHistory(item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteFromHistory(item.id);
+                                }}
                               >
                                 <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
                               </Button>
@@ -1330,7 +1384,10 @@ export const TShirtGenerator = () => {
                                         <motion.div 
                                           className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
                                           style={{ backgroundColor: color }}
-                                          onClick={() => handleCopyColor(color)}
+                                          onClick={(e) => {
+                                            e.stopPropagation(); 
+                                            handleCopyColor(color);
+                                          }}
                                           whileHover={{ scale: 1.2 }}
                                           transition={{ type: "spring", stiffness: 400, damping: 10 }}
                                         />
@@ -1359,9 +1416,9 @@ export const TShirtGenerator = () => {
                   </div>
                   
                   {/* Pagination */}
-                  {history.length > 20 && (
-                    <div className="flex justify-center mt-8">
-                      <div className="flex items-center space-x-2 bg-background/80 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
+                  {history.length > 24 && (
+                    <div className="flex justify-center mt-4 mb-8">
+                      <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
                         <Button variant="outline" size="icon" className="h-8 w-8">
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -1369,7 +1426,7 @@ export const TShirtGenerator = () => {
                         <Button variant="ghost" size="sm" className="h-8 w-8">2</Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8">3</Button>
                         <span className="text-sm text-muted-foreground">...</span>
-                        <Button variant="ghost" size="sm" className="h-8 w-8">{Math.ceil(history.length / 20)}</Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8">{Math.ceil(history.length / 24)}</Button>
                         <Button variant="outline" size="icon" className="h-8 w-8">
                           <ChevronRight className="h-4 w-4" />
                         </Button>
