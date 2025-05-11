@@ -55,8 +55,7 @@ import {
   deleteFromHistory, 
   saveToFavorites as saveToFavoritesService,
   saveToProject as saveToProjectService,
-  imageToPrompt,
-  removeBackground
+  imageToPrompt
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -182,7 +181,6 @@ export const TShirtGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
-  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
   
@@ -644,137 +642,6 @@ export const TShirtGenerator = () => {
     createMockupDir();
   }, []);
 
-  // Enhance handleRemoveBackground to handle CORS issues
-  const handleRemoveBackground = async () => {
-    if (!selectedImage) {
-      toast.error("No image selected");
-      return;
-    }
-    
-    // Check if the image is from an external URL (where CORS might be an issue)
-    const isExternalUrl = selectedImage.url.startsWith('http') && 
-                         !selectedImage.url.includes(window.location.hostname) &&
-                         !selectedImage.url.startsWith('data:');
-                         
-    if (isExternalUrl) {
-      // Show a warning about potential CORS issues and suggest downloading first
-      toast.warning(
-        "Background removal may not work on external images due to CORS restrictions. Try downloading the image first.",
-        { duration: 5000 }
-      );
-    }
-    
-    // Show a loading toast that we can update
-    const toastId = toast.loading("Removing background...");
-    setIsRemovingBackground(true);
-    
-    try {
-      console.log("Removing background from:", selectedImage.url);
-      
-      // Remove background using the service function
-      const transparentImageUrl = await removeBackground(selectedImage.url);
-      
-      // Create a new image object with the transparent version
-      const updatedImage = {
-        ...selectedImage,
-        url: transparentImageUrl,
-        hasTransparency: true
-      };
-      
-      // Update states
-      setSelectedImage(updatedImage);
-      
-      // Update current designs array
-      setCurrentDesigns(prev => 
-        prev.map(img => img.id === updatedImage.id ? updatedImage : img)
-      );
-      
-      // Update generated images array
-      setGeneratedImages(prev => 
-        prev.map(img => img.id === updatedImage.id ? updatedImage : img)
-      );
-      
-      // Update the toast
-      toast.dismiss(toastId);
-      toast.success("Background removed successfully");
-    } catch (error) {
-      console.error("Error removing background:", error);
-      
-      // Update the toast
-      toast.dismiss(toastId);
-      toast.error(error instanceof Error ? error.message : "Failed to remove background");
-    } finally {
-      setIsRemovingBackground(false);
-    }
-  };
-
-  // Add a new function to handle file uploads for background removal
-  const handleFileUploadForBackgroundRemoval = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files[0]) return;
-    
-    const file = event.target.files[0];
-    const reader = new FileReader();
-    
-    // Show a loading toast
-    const toastId = toast.loading("Processing uploaded image...");
-    
-    reader.onload = async (e) => {
-      if (!e.target || typeof e.target.result !== 'string') {
-        toast.dismiss(toastId);
-        toast.error("Failed to read uploaded file");
-        return;
-      }
-      
-      const imageUrl = e.target.result;
-      
-      try {
-        // Remove background from the local image
-        console.log("Removing background from uploaded image");
-        const transparentImageUrl = await removeBackground(imageUrl);
-        
-        if (!selectedImage) {
-          toast.dismiss(toastId);
-          toast.error("No image selected to apply background removal to");
-          return;
-        }
-        
-        // Create an updated image with the transparent version
-        const updatedImage = {
-          ...selectedImage,
-          url: transparentImageUrl,
-          hasTransparency: true
-        };
-        
-        // Update states
-        setSelectedImage(updatedImage);
-        
-        // Update current designs array
-        setCurrentDesigns(prev => 
-          prev.map(img => img.id === updatedImage.id ? updatedImage : img)
-        );
-        
-        // Update generated images array
-        setGeneratedImages(prev => 
-          prev.map(img => img.id === updatedImage.id ? updatedImage : img)
-        );
-        
-        toast.dismiss(toastId);
-        toast.success("Background removed successfully from uploaded image");
-      } catch (error) {
-        console.error("Error removing background from uploaded image:", error);
-        toast.dismiss(toastId);
-        toast.error("Failed to remove background from uploaded image");
-      }
-    };
-    
-    reader.onerror = () => {
-      toast.dismiss(toastId);
-      toast.error("Error reading file");
-    };
-    
-    reader.readAsDataURL(file);
-  };
-
   return (
     <PageLayout
       title="T-Shirt Design Creator"
@@ -874,22 +741,6 @@ export const TShirtGenerator = () => {
                               </Select>
                             </div>
                           </div>
-
-                          <div className="flex items-center justify-between">
-                            <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
-                              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                              Remove Background
-                            </Label>
-                            <Switch 
-                              id="transparentBg" 
-                              checked={transparentBg} 
-                              onCheckedChange={(checked) => {
-                                console.log("Setting transparentBg to:", checked);
-                                setTransparentBg(checked);
-                              }}
-                              className="z-30"
-                            />
-                          </div>
                         </div>
                         
                         <Button 
@@ -968,22 +819,6 @@ export const TShirtGenerator = () => {
                             </Select>
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
-                            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                            Remove Background
-                          </Label>
-                          <Switch 
-                            id="transparentBg" 
-                            checked={transparentBg} 
-                            onCheckedChange={(checked) => {
-                              console.log("Setting transparentBg to:", checked);
-                              setTransparentBg(checked);
-                            }}
-                            className="z-30"
-                          />
-                        </div>
                       </div>
                       
                       <Button 
@@ -1003,41 +838,6 @@ export const TShirtGenerator = () => {
                           </>
                         )}
                       </Button>
-                      
-                      <div className="flex items-center gap-2 mt-4">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRemoveBackground}
-                          disabled={isGenerating || isRemovingBackground || (selectedImage?.hasTransparency === true)}
-                          className="relative"
-                        >
-                          {isRemovingBackground ? (
-                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                          ) : (
-                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
-                          )}
-                          Remove Background
-                        </Button>
-                        <span className="text-muted-foreground text-xs">or</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="relative"
-                          disabled={isGenerating || isRemovingBackground || !selectedImage}
-                          onClick={() => {
-                            // Create a file input element
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*';
-                            input.onchange = handleFileUploadForBackgroundRemoval as any;
-                            input.click();
-                          }}
-                        >
-                          <Upload className="w-3.5 h-3.5 mr-1" />
-                          Upload for BG Removal
-                        </Button>
-                      </div>
                     </>
                   )}
                 </CardContent>

@@ -293,10 +293,14 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       return;
     }
     
-    // For regular URLs, fetch the image
-    console.log("Fetching image from URL");
+    // For regular URLs, fetch the image and force download
+    console.log("Fetching image from URL for direct download");
     try {
-      const response = await fetch(imageUrl, { mode: 'cors' });
+      // Try first with CORS enabled
+      const response = await fetch(imageUrl, { 
+        mode: 'cors',
+        cache: 'no-cache'
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
@@ -318,10 +322,31 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
     } catch (fetchError) {
       console.error("Error fetching image:", fetchError);
       
-      // Fallback for CORS issues - open in new tab
-      console.log("Attempting fallback download method");
-      window.open(imageUrl, '_blank');
-      toast.success(`Image opened in new tab. Right-click and select "Save image as..." to download.`);
+      // Try using a CORS proxy as a fallback
+      try {
+        console.log("Attempting download via CORS proxy");
+        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+        const proxyResponse = await fetch(proxyUrl);
+        
+        if (!proxyResponse.ok) {
+          throw new Error(`Proxy fetch failed: ${proxyResponse.status}`);
+        }
+        
+        const blob = await proxyResponse.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${filename}.${format.toLowerCase()}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`Design downloaded as ${format}`);
+      } catch (proxyError) {
+        console.error("Proxy download failed:", proxyError);
+        toast.error("Could not download image. Please try again later.");
+      }
     }
   } catch (error) {
     console.error("Error downloading image:", error);
