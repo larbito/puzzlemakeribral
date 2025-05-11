@@ -644,11 +644,24 @@ export const TShirtGenerator = () => {
     createMockupDir();
   }, []);
 
-  // New function for handling background removal
+  // Enhance handleRemoveBackground to handle CORS issues
   const handleRemoveBackground = async () => {
     if (!selectedImage) {
       toast.error("No image selected");
       return;
+    }
+    
+    // Check if the image is from an external URL (where CORS might be an issue)
+    const isExternalUrl = selectedImage.url.startsWith('http') && 
+                         !selectedImage.url.includes(window.location.hostname) &&
+                         !selectedImage.url.startsWith('data:');
+                         
+    if (isExternalUrl) {
+      // Show a warning about potential CORS issues and suggest downloading first
+      toast.warning(
+        "Background removal may not work on external images due to CORS restrictions. Try downloading the image first.",
+        { duration: 5000 }
+      );
     }
     
     // Show a loading toast that we can update
@@ -693,6 +706,73 @@ export const TShirtGenerator = () => {
     } finally {
       setIsRemovingBackground(false);
     }
+  };
+
+  // Add a new function to handle file uploads for background removal
+  const handleFileUploadForBackgroundRemoval = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || !event.target.files[0]) return;
+    
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    
+    // Show a loading toast
+    const toastId = toast.loading("Processing uploaded image...");
+    
+    reader.onload = async (e) => {
+      if (!e.target || typeof e.target.result !== 'string') {
+        toast.dismiss(toastId);
+        toast.error("Failed to read uploaded file");
+        return;
+      }
+      
+      const imageUrl = e.target.result;
+      
+      try {
+        // Remove background from the local image
+        console.log("Removing background from uploaded image");
+        const transparentImageUrl = await removeBackground(imageUrl);
+        
+        if (!selectedImage) {
+          toast.dismiss(toastId);
+          toast.error("No image selected to apply background removal to");
+          return;
+        }
+        
+        // Create an updated image with the transparent version
+        const updatedImage = {
+          ...selectedImage,
+          url: transparentImageUrl,
+          hasTransparency: true
+        };
+        
+        // Update states
+        setSelectedImage(updatedImage);
+        
+        // Update current designs array
+        setCurrentDesigns(prev => 
+          prev.map(img => img.id === updatedImage.id ? updatedImage : img)
+        );
+        
+        // Update generated images array
+        setGeneratedImages(prev => 
+          prev.map(img => img.id === updatedImage.id ? updatedImage : img)
+        );
+        
+        toast.dismiss(toastId);
+        toast.success("Background removed successfully from uploaded image");
+      } catch (error) {
+        console.error("Error removing background from uploaded image:", error);
+        toast.dismiss(toastId);
+        toast.error("Failed to remove background from uploaded image");
+      }
+    };
+    
+    reader.onerror = () => {
+      toast.dismiss(toastId);
+      toast.error("Error reading file");
+    };
+    
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -909,7 +989,7 @@ export const TShirtGenerator = () => {
                       <Button 
                         onClick={handleGenerateImage}
                         disabled={!prompt.trim() || isGenerating}
-                        className="w-full"
+                        className="w-full mt-4"
                       >
                         {isGenerating ? (
                           <>
@@ -923,6 +1003,41 @@ export const TShirtGenerator = () => {
                           </>
                         )}
                       </Button>
+                      
+                      <div className="flex items-center gap-2 mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleRemoveBackground}
+                          disabled={isGenerating || isRemovingBackground || (selectedImage?.hasTransparency === true)}
+                          className="relative"
+                        >
+                          {isRemovingBackground ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
+                          )}
+                          Remove Background
+                        </Button>
+                        <span className="text-muted-foreground text-xs">or</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="relative"
+                          disabled={isGenerating || isRemovingBackground || !selectedImage}
+                          onClick={() => {
+                            // Create a file input element
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.onchange = handleFileUploadForBackgroundRemoval as any;
+                            input.click();
+                          }}
+                        >
+                          <Upload className="w-3.5 h-3.5 mr-1" />
+                          Upload for BG Removal
+                        </Button>
+                      </div>
                     </>
                   )}
                 </CardContent>
@@ -1044,20 +1159,6 @@ export const TShirtGenerator = () => {
                             <Download className="w-3.5 h-3.5 mr-1" />
                           )}
                           Download
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRemoveBackground}
-                          disabled={isGenerating || isRemovingBackground || (selectedImage.hasTransparency === true)}
-                          className="relative"
-                        >
-                          {isRemovingBackground ? (
-                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                          ) : (
-                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
-                          )}
-                          Remove Background
                         </Button>
                       </div>
                     )}

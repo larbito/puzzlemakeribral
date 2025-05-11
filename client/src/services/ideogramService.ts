@@ -356,16 +356,24 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
   }
 }
 
-// Add the new background removal function
+// Update the removeBackground function to handle CORS issues
 export async function removeBackground(imageUrl: string): Promise<string> {
   try {
     console.log("Starting background removal for image:", imageUrl.substring(0, 100) + "...");
+    
+    // CORS workaround: If the URL is from an external source, try to use a CORS proxy
+    // or fall back to client-side only processing
+    const processedUrl = imageUrl.startsWith('http') && !imageUrl.includes(window.location.hostname) 
+      ? `https://corsproxy.io/?${encodeURIComponent(imageUrl)}` // Use CORS proxy
+      : imageUrl;
+      
+    console.log("Using URL for processing:", processedUrl.substring(0, 100) + "...");
     
     // For a real implementation, make an API call to a background removal service
     // For now, we'll implement a simple canvas-based approach
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = "anonymous";
+      img.crossOrigin = "anonymous"; // This is important for CORS
       
       img.onload = () => {
         try {
@@ -385,67 +393,76 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           // Draw the original image
           ctx.drawImage(img, 0, 0);
           
-          // Get image data
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const data = imageData.data;
-          
-          console.log("Processing", data.length/4, "pixels");
-          
-          // Check if the image already has transparency
-          let hasTransparency = false;
-          for (let i = 3; i < data.length; i += 4) {
-            if (data[i] < 250) {
-              hasTransparency = true;
-              break;
-            }
-          }
-          
-          if (hasTransparency) {
-            console.log("Image already has transparency");
-            resolve(imageUrl); // Return the original URL if already transparent
-            return;
-          }
-          
-          // Simple background removal - remove white-ish pixels
-          let hasRemovedPixels = false;
-          for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
+          try {
+            // Get image data - this might fail due to CORS
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
             
-            // If pixel is white or very light, make it transparent
-            if (r > 240 && g > 240 && b > 240) {
-              data[i + 3] = 0; // Set alpha to 0
-              hasRemovedPixels = true;
+            console.log("Processing", data.length/4, "pixels");
+            
+            // Check if the image already has transparency
+            let hasTransparency = false;
+            for (let i = 3; i < data.length; i += 4) {
+              if (data[i] < 250) {
+                hasTransparency = true;
+                break;
+              }
+            }
+            
+            if (hasTransparency) {
+              console.log("Image already has transparency");
+              resolve(imageUrl); // Return the original URL if already transparent
+              return;
+            }
+            
+            // Simple background removal - remove white-ish pixels
+            let hasRemovedPixels = false;
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              
+              // If pixel is white or very light, make it transparent
+              if (r > 240 && g > 240 && b > 240) {
+                data[i + 3] = 0; // Set alpha to 0
+                hasRemovedPixels = true;
+              }
+            }
+            
+            console.log("Background removal completed, hasRemovedPixels:", hasRemovedPixels);
+            
+            if (!hasRemovedPixels) {
+              console.log("No white pixels found to remove");
+              reject(new Error("No white background detected in the image"));
+              return;
+            }
+            
+            // Put the modified image data back
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Convert to data URL (PNG with transparency)
+            const transparentImageUrl = canvas.toDataURL('image/png');
+            console.log("Generated transparent image");
+            
+            // Resolve with the data URL
+            resolve(transparentImageUrl);
+          } catch (corsError) {
+            console.error("CORS error when processing image data:", corsError);
+            
+            // CORS issue fallback: draw the image to canvas and return that as a data URL
+            // This won't remove the background but will at least return an image
+            console.log("Falling back to client-side image conversion without background removal");
+            
+            // Try to just convert the image to a data URL
+            try {
+              const dataUrl = canvas.toDataURL('image/png');
+              toast.warning("Could not remove background due to CORS restrictions. Try downloading the image first and then uploading it.");
+              resolve(dataUrl);
+            } catch (fallbackError) {
+              console.error("Fallback also failed:", fallbackError);
+              reject(new Error("Unable to process image due to CORS restrictions"));
             }
           }
-          
-          console.log("Background removal completed, hasRemovedPixels:", hasRemovedPixels);
-          
-          if (!hasRemovedPixels) {
-            console.log("No white pixels found to remove");
-            reject(new Error("No white background detected in the image"));
-            return;
-          }
-          
-          // Put the modified image data back
-          ctx.putImageData(imageData, 0, 0);
-          
-          // Convert to data URL (PNG with transparency)
-          const transparentImageUrl = canvas.toDataURL('image/png');
-          console.log("Generated transparent image");
-          
-          // Pre-load the new image to ensure it's valid
-          const verifyImg = new Image();
-          verifyImg.onload = () => {
-            console.log("Background removal successful, image is valid");
-            resolve(transparentImageUrl);
-          };
-          verifyImg.onerror = () => {
-            console.error("Generated image is invalid");
-            reject(new Error("Failed to create valid transparent image"));
-          };
-          verifyImg.src = transparentImageUrl;
         } catch (error) {
           console.error("Error processing image in canvas:", error);
           reject(error);
@@ -454,17 +471,16 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       img.onerror = (error) => {
         console.error("Error loading image:", error);
-        reject(new Error("Failed to load image for background removal"));
+        reject(new Error("Failed to load image for background removal. This may be due to CORS restrictions."));
       };
       
-      // Fix the timeout issue with a different approach
       // Add a timeout to catch hanging loads
       const timeout = setTimeout(() => {
         console.error("Image load timed out");
         reject(new Error("Timed out while loading image"));
       }, 10000); // 10 second timeout
       
-      // Use a variable to store the original onload handler
+      // Fix the timeout issue with a different approach
       const originalOnload = img.onload;
       img.onload = (event) => {
         clearTimeout(timeout);
@@ -474,7 +490,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       };
       
       console.log("Starting image load");
-      img.src = imageUrl;
+      img.src = processedUrl;
     });
   } catch (error) {
     console.error("Error in removeBackground:", error);
