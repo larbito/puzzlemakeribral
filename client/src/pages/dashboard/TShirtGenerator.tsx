@@ -19,7 +19,6 @@ import {
   HelpCircle,
   Upload,
   Wand2,
-  Save,
   MessageSquare,
   Settings2,
   AlertTriangle,
@@ -29,7 +28,10 @@ import {
   ZoomOut,
   CheckCircle,
   Grid,
-  Layers
+  Layers,
+  Edit,
+  Palette,
+  Clock
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,11 +81,18 @@ const colorSchemeOptions = [
   { value: "monochrome", label: "Monochrome", color: "#808080", description: "Single color variations" }
 ];
 
-// Resolution options with additional information
+// Resolution options
 const resolutionOptions = [
-  { value: "png", label: "4500×5400 PNG", default: true, description: "Standard high-res PNG with transparency" },
-  { value: "svg", label: "SVG Vector", proOnly: true, description: "Scalable vector format (Premium)" },
-  { value: "jpg", label: "JPG Image", description: "Compressed format without transparency" }
+  { value: "small", label: "Small (1024×1024)" },
+  { value: "medium", label: "Medium (2048×2048)" },
+  { value: "large", label: "Large (4096×4096)" }
+];
+
+// Number of designs to generate
+const designCountOptions = [
+  { value: "1", label: "1 Design" },
+  { value: "2", label: "2 Designs" },
+  { value: "4", label: "4 Designs" }
 ];
 
 // Color limit options
@@ -135,47 +144,32 @@ interface GeneratedImage {
   url: string;
   prompt: string;
   timestamp: Date;
+  colors?: string[];
 }
 
 export const TShirtGenerator = () => {
-  // File upload state
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
   // Prompt state
   const [prompt, setPrompt] = useState("");
-  const [negativePrompt, setNegativePrompt] = useState("");
-  const [generatedPrompt, setGeneratedPrompt] = useState<string>('');
-  const [customPrompt, setCustomPrompt] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
   
-  // Style and settings state
-  const [style, setStyle] = useState("illustrated");
-  const [colorScheme, setColorScheme] = useState("colorful");
-  const [designType, setDesignType] = useState("both");
-  const [colorLimit, setColorLimit] = useState("full");
-  const [creativityLevel, setCreativityLevel] = useState([50]);
-  const [resolution, setResolution] = useState("png");
+  // Settings state
+  const [resolution, setResolution] = useState("medium");
+  const [designCount, setDesignCount] = useState("1");
   const [transparentBg, setTransparentBg] = useState(true);
-  const [safeMode, setSafeMode] = useState(true);
-  const [showSafeZone, setShowSafeZone] = useState(true);
-  const [seedValue, setSeedValue] = useState("");
-  const [mockupBackground, setMockupBackground] = useState("white");
-
+  
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [showCompliance, setShowCompliance] = useState(false);
-
+  
   // Results state
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
-  const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
+  const [currentDesigns, setCurrentDesigns] = useState<GeneratedImage[]>([]);
   const [history, setHistory] = useState<DesignHistoryItem[]>([]);
-  const [complianceIssues, setComplianceIssues] = useState<string[]>([]);
+  const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mockupCanvasRef = useRef<HTMLCanvasElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
 
@@ -185,14 +179,9 @@ export const TShirtGenerator = () => {
     setHistory(savedHistory);
   }, []);
 
-  // Debug effect to log when generatedDesign changes
-  useEffect(() => {
-    console.log("generatedDesign state updated:", generatedDesign);
-  }, [generatedDesign]);
-
   // Draw the image on canvas when generatedDesign changes
   useEffect(() => {
-    if (generatedDesign && canvasRef.current) {
+    if (selectedImage && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       
@@ -256,16 +245,16 @@ export const TShirtGenerator = () => {
           ctx.font = 'bold 40px Arial';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(`T-Shirt: ${prompt || customPrompt}`, canvas.width / 2, canvas.height / 2);
+          ctx.fillText(`T-Shirt: ${prompt}`, canvas.width / 2, canvas.height / 2);
           
           console.log("Fallback image drawn on canvas");
         };
         
         // Set the source to start loading
-        img.src = generatedDesign;
+        img.src = selectedImage.url;
       }
     }
-  }, [generatedDesign, prompt, customPrompt, showSafeZone]);
+  }, [selectedImage, showSafeZone]);
 
   // Function to update the mockup preview
   const updateMockupPreview = (designImage: HTMLImageElement) => {
@@ -336,16 +325,12 @@ export const TShirtGenerator = () => {
         return;
       }
       
-      setSelectedImage(file);
-      
-      // Create and set preview URL
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target && typeof event.target.result === 'string') {
-          setImagePreview(event.target.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      setSelectedImage({
+        id: Date.now().toString(),
+        url: URL.createObjectURL(file),
+        prompt: "",
+        timestamp: new Date()
+      });
     }
   };
 
@@ -360,12 +345,15 @@ export const TShirtGenerator = () => {
     setIsGenerating(true);
     try {
       // Call API to analyze image and generate prompt
-      const generatedPromptText = await imageToPrompt(selectedImage);
-      setGeneratedPrompt(generatedPromptText);
+      const generatedPromptText = await imageToPrompt(selectedImage.url);
+      setPrompt(generatedPromptText);
       toast.success("Prompt generated successfully!");
       
       // Auto-populate the design prompt
-      setCustomPrompt(generatedPromptText);
+      setSelectedImage(prev => ({
+        ...prev,
+        prompt: generatedPromptText
+      }));
       
       // Switch to design tab
       setCurrentTab("design");
@@ -377,84 +365,114 @@ export const TShirtGenerator = () => {
     }
   };
 
+  // Extract dominant colors from an image
+  const extractColors = async (imageUrl: string): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        if (!ctx) {
+          resolve([]);
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        
+        // Simple color extraction - more sophisticated algorithms could be used
+        const colorMap: {[key: string]: number} = {};
+        const step = 4; // Sample every few pixels for performance
+        
+        for (let i = 0; i < imageData.length; i += 4 * step) {
+          // Skip transparent pixels
+          if (imageData[i + 3] < 128) continue;
+          
+          // Convert to hex and round to reduce color variations
+          const r = Math.round(imageData[i] / 16) * 16;
+          const g = Math.round(imageData[i + 1] / 16) * 16;
+          const b = Math.round(imageData[i + 2] / 16) * 16;
+          
+          const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          colorMap[hex] = (colorMap[hex] || 0) + 1;
+        }
+        
+        // Sort colors by frequency and get top colors
+        const sortedColors = Object.entries(colorMap)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([color]) => color);
+          
+        resolve(sortedColors);
+      };
+      
+      img.onerror = () => resolve([]);
+      img.src = imageUrl;
+    });
+  };
+
   // Generate image from prompt
   const handleGenerateImage = async () => {
-    const activePrompt = customPrompt.trim() || prompt.trim();
-    console.log('handleGenerateImage called with state:', {
-      prompt: activePrompt,
-      isGenerating
-    });
-    
-    if (!activePrompt) {
+    if (!prompt.trim()) {
       toast.error('Please enter a prompt first');
       return;
     }
 
     setIsGenerating(true);
+    setCurrentDesigns([]);
     
     try {
-      console.log('Generating image with prompt:', activePrompt);
+      const count = parseInt(designCount);
+      const newImages: GeneratedImage[] = [];
       
-      // Add values to enhanced parameters object
-      const enhancedParams: any = {
-        prompt: activePrompt,
-        style,
-        colorScheme,
-        transparentBackground: transparentBg,
-        safeMode,
-        format: resolution
-      };
-      
-      // Add new parameters if they have values
-      if (negativePrompt) {
-        enhancedParams.negativePrompt = negativePrompt;
-      }
-      
-      if (seedValue) {
-        enhancedParams.seed = parseInt(seedValue);
-      }
-      
-      if (designType !== 'both') {
-        enhancedParams.designType = designType;
-      }
-      
-      if (colorLimit !== 'full') {
-        enhancedParams.colorLimit = parseInt(colorLimit);
-      }
-      
-      if (creativityLevel[0] !== 50) {
-        enhancedParams.creativity = creativityLevel[0];
-      }
-      
-      const imageUrl = await generateImage(enhancedParams);
-
-      if (imageUrl) {
-        const newImage: GeneratedImage = {
-          id: Date.now().toString(),
-          url: imageUrl,
-          prompt: activePrompt,
-          timestamp: new Date()
+      for (let i = 0; i < count; i++) {
+        // Add values to parameters object
+        const params: any = {
+          prompt,
+          format: resolution,
+          transparentBackground: transparentBg
         };
-        setGeneratedImages(prev => [newImage, ...prev]);
-        setGeneratedDesign(imageUrl);
         
-        // Add to history
-        const newDesign = saveToHistory({
-          prompt: activePrompt,
-          thumbnail: imageUrl,
-          imageUrl,
-          style,
-          colorScheme,
-          format: resolution.toUpperCase()
-        });
-        setHistory(prev => [newDesign, ...prev]);
-        
-        // Run compliance check
-        checkCompliance(activePrompt, imageUrl);
-        
-        toast.success("Design generated successfully!");
+        const imageUrl = await generateImage(params);
+
+        if (imageUrl) {
+          // Extract colors from the generated image
+          const colors = await extractColors(imageUrl);
+          
+          const newImage: GeneratedImage = {
+            id: Date.now().toString() + i,
+            url: imageUrl,
+            prompt,
+            timestamp: new Date(),
+            colors
+          };
+          
+          newImages.push(newImage);
+          
+          // Add to history
+          const newDesign = saveToHistory({
+            prompt,
+            thumbnail: imageUrl,
+            imageUrl,
+            format: resolution.toUpperCase(),
+            colors
+          });
+          
+          setHistory(prev => [newDesign, ...prev]);
+        }
+      }
+      
+      if (newImages.length > 0) {
+        setCurrentDesigns(newImages);
+        setGeneratedImages(prev => [...newImages, ...prev]);
+        setSelectedImage(newImages[0]);
+        toast.success(`${newImages.length} design${newImages.length > 1 ? 's' : ''} generated successfully!`);
       } else {
-        throw new Error('No image returned from API');
+        throw new Error('No images returned from API');
       }
     } catch (error: any) {
       console.error('Error generating image:', error);
@@ -467,165 +485,37 @@ export const TShirtGenerator = () => {
   // Delete generated image
   const handleDeleteImage = (id: string) => {
     setGeneratedImages(prev => prev.filter(img => img.id !== id));
+    if (selectedImage?.id === id) {
+      setSelectedImage(null);
+    }
   };
 
   // Handle image download
-  const handleDownload = async (format: string) => {
-    if (!generatedDesign) return;
+  const handleDownload = async (imageUrl: string) => {
+    if (!imageUrl) return;
     
     try {
       // Format filename using the first few words of the prompt
-      const activePrompt = customPrompt || prompt;
-      const promptWords = activePrompt.split(' ').slice(0, 4).join('-').toLowerCase();
+      const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
-      await downloadImage(generatedDesign, format, filename);
+      await downloadImage(imageUrl, 'png', filename);
+      toast.success("Image downloaded successfully");
     } catch (error) {
       console.error("Error in handleDownload:", error);
-      toast.error(`Failed to download as ${format}`);
-    }
-  };
-  
-  // Check for compliance issues
-  const checkCompliance = (promptText: string, imageUrl: string) => {
-    const issues: string[] = [];
-    
-    // Check for potential trademark issues in prompt
-    const trademarkKeywords = ['nike', 'adidas', 'disney', 'marvel', 'nfl', 'nba', 'trademarked', 'copyright'];
-    
-    trademarkKeywords.forEach(keyword => {
-      if (promptText.toLowerCase().includes(keyword)) {
-        issues.push(`Potential trademark issue: Contains "${keyword}"`);
-      }
-    });
-    
-    // Validate image dimensions
-    if (imageUrl) {
-      const img = new Image();
-      img.onload = () => {
-        // Check if dimensions match required size
-        if (img.width !== 4500 || img.height !== 5400) {
-          issues.push(`Image size is ${img.width}x${img.height}px. Required: 4500x5400px`);
-        }
-        
-        // Update state with all issues
-        setComplianceIssues(issues);
-      };
-      img.src = imageUrl;
-    }
-    
-    // Update issues found so far
-    setComplianceIssues(issues);
-  };
-
-  // Handle generation
-  const handleGenerate = async () => {
-    if (!prompt.trim()) {
-      toast.error("Please enter a prompt first");
-      return;
-    }
-    
-    setLoading(true);
-    setGeneratedDesign(null); // Clear previous design
-    
-    try {
-      console.log("Starting image generation with prompt:", prompt);
-      const imageUrl = await generateImage({
-        prompt,
-        style,
-        colorScheme,
-        transparentBackground: transparentBg,
-        safeMode,
-        format: resolution
-      });
-      
-      console.log("Image generation complete, received URL:", imageUrl);
-      
-      if (imageUrl) {
-        // Test if image loads correctly
-        const imgTest = new Image();
-        imgTest.onload = () => {
-          console.log("Test image loaded successfully:", imageUrl);
-          setGeneratedDesign(imageUrl);
-          
-          // Add to history
-          const newDesign = saveToHistory({
-            prompt,
-            thumbnail: imageUrl,
-            imageUrl,
-            style,
-            colorScheme,
-            format: resolution.toUpperCase()
-          });
-          
-          setHistory(prev => [newDesign, ...prev]);
-          toast.success("Design generated successfully!");
-        };
-        
-        imgTest.onerror = (error) => {
-          console.error("Test image failed to load:", error);
-          toast.error("Generated image could not be loaded");
-          
-          // Create a direct data URI as fallback
-          const canvas = document.createElement('canvas');
-          canvas.width = 1024;
-          canvas.height = 1365;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.fillStyle = '#252A37';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = 'bold 40px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(`T-Shirt: ${prompt}`, canvas.width/2, canvas.height/2);
-            
-            const dataUrl = canvas.toDataURL('image/png');
-            console.log("Created fallback data URL");
-            setGeneratedDesign(dataUrl);
-          }
-        };
-        
-        imgTest.src = imageUrl;
-      }
-    } catch (error) {
-      console.error("Error in handleGenerate:", error);
-      toast.error("Failed to generate design");
-    } finally {
-      setLoading(false);
+      toast.error("Failed to download image");
     }
   };
 
-  const handleSaveToFavorites = () => {
-    if (!generatedDesign) return;
-    
-    try {
-      // Assuming the current design is the first in history
-      if (history.length > 0) {
-        saveToFavoritesService(history[0].id);
-      }
-    } catch (error) {
-      console.error("Error in handleSaveToFavorites:", error);
-      toast.error("Failed to save to favorites");
-    }
-  };
-
-  const handleSaveToProject = () => {
-    if (!generatedDesign || history.length === 0) return;
-    
-    try {
-      // Assuming the current design is the first in history
-      saveToProjectService(history[0]);
-    } catch (error) {
-      console.error("Error in handleSaveToProject:", error);
-      toast.error("Failed to save to project");
-    }
-  };
-
+  // Handle regeneration
   const handleRegenerate = () => {
-    handleGenerate();
+    if (isEditing) {
+      setIsEditing(false);
+    }
+    handleGenerateImage();
   };
 
+  // Handle deleting from history
   const handleDeleteFromHistory = (id: string) => {
     try {
       const updatedHistory = deleteFromHistory(id);
@@ -637,30 +527,53 @@ export const TShirtGenerator = () => {
     }
   };
 
+  // Handle reusing a prompt
   const handleReusePrompt = (existingPrompt: string) => {
     setPrompt(existingPrompt);
     setCurrentTab("design");
     // Scroll to top of the page
     window.scrollTo(0, 0);
   };
+  
+  // Handle copying color hex code
+  const handleCopyColor = (color: string) => {
+    navigator.clipboard.writeText(color);
+    toast.success(`Copied ${color} to clipboard`);
+  };
+  
+  // Handle editing prompt
+  const handleEditPrompt = () => {
+    setIsEditing(true);
+    // Focus the text area after state update
+    setTimeout(() => {
+      if (promptRef.current) {
+        promptRef.current.focus();
+      }
+    }, 0);
+  };
+  
+  // Handle selecting an image
+  const handleSelectImage = (image: GeneratedImage) => {
+    setSelectedImage(image);
+  };
 
   // Debug effect to log state changes
   useEffect(() => {
-    console.log("State update - customPrompt:", customPrompt, "isGenerating:", isGenerating);
-  }, [customPrompt, isGenerating]);
+    console.log("State update - prompt:", prompt, "isGenerating:", isGenerating);
+  }, [prompt, isGenerating]);
 
   // Debug logging for state changes
   useEffect(() => {
     console.log('State values updated:', {
       selectedImage: !!selectedImage,
       isGenerating,
-      customPrompt: customPrompt.trim(),
+      prompt: prompt.trim(),
       currentTab
     });
-  }, [selectedImage, isGenerating, customPrompt, currentTab]);
+  }, [selectedImage, isGenerating, prompt, currentTab]);
 
   // Add debug log before render
-  console.log('RENDER STATE:', { customPrompt, isGenerating });
+  console.log('RENDER STATE:', { prompt, isGenerating });
 
   return (
     <PageLayout
@@ -668,638 +581,351 @@ export const TShirtGenerator = () => {
       description="Create stunning t-shirt designs with AI. Perfect for print-on-demand and merch."
     >
       <div className="flex flex-col h-[calc(100vh-120px)] overflow-hidden">
-        {/* Header with tabs */}
-        <div className="border-b pb-2 mb-4">
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-4 bg-background/95 border rounded-lg p-1">
+        {/* Main tabs */}
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
+          <div className="border-b pb-2 mb-4">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-background/95 border rounded-lg p-1">
               <TabsTrigger value="design" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Wand2 className="w-4 h-4 mr-2" />
-                Create
-              </TabsTrigger>
-              <TabsTrigger value="upload" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload
-              </TabsTrigger>
-              <TabsTrigger value="gallery" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                <Grid className="w-4 h-4 mr-2" />
-                Gallery
+                <Sparkles className="w-4 h-4 mr-2" />
+                Design Creator
               </TabsTrigger>
               <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <History className="w-4 h-4 mr-2" />
-                History
+                Design History
               </TabsTrigger>
             </TabsList>
+          </div>
 
-            {/* Design Generator Tab - Main T-shirt design studio with new layout */}
-            <TabsContent value="design" className="flex-1 overflow-hidden">
-              <div className="flex h-full gap-0 relative">
-                {/* Left Sidebar - Collapsible */}
-                <div className="w-80 border-r h-full flex flex-col overflow-hidden transition-all duration-300">
-                  <div className="p-4 border-b flex items-center justify-between">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Design Controls
-                    </h3>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-4 space-y-5">
-                    {/* Prompt Section */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-foreground/80">Describe your design</h4>
+          {/* Design Creator Tab */}
+          <TabsContent value="design" className="flex-1 overflow-hidden flex flex-col md:flex-row gap-6 p-4">
+            {/* Left Panel - Controls */}
+            <div className="w-full md:w-1/3 flex flex-col space-y-6">
+              {/* Prompt Section */}
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center">
+                    <Sparkles className="w-4 h-4 mr-2 text-primary" />
+                    Design Prompt
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isEditing || currentDesigns.length === 0 ? (
+                    <>
                       <Textarea
-                        placeholder="e.g., A vintage-style cat wearing sunglasses riding a skateboard"
-                        value={customPrompt}
-                        onChange={(e) => setCustomPrompt(e.target.value)}
-                        className="min-h-[100px] resize-none"
+                        ref={promptRef}
+                        placeholder="Describe your t-shirt design... (e.g., A cute cat wearing sunglasses)"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        className="min-h-[120px] resize-none"
                         maxLength={MAX_PROMPT_LENGTH}
                       />
                       <div className="text-xs text-muted-foreground flex justify-between">
-                        <span>Be specific about style and details</span>
-                        <span>{customPrompt.length}/{MAX_PROMPT_LENGTH}</span>
+                        <span>Be specific about what you want in your design</span>
+                        <span>{prompt.length}/{MAX_PROMPT_LENGTH}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="p-3 bg-muted/30 rounded-md relative">
+                        <p className="pr-8">{prompt}</p>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute top-2 right-2 h-6 w-6"
+                          onClick={handleEditPrompt}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </div>
-                    
-                    {/* Negative Prompt */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="negative-prompt" className="text-sm">Exclude elements</Label>
-                        <Badge variant="outline" className="text-xs">Optional</Badge>
+                  )}
+                  
+                  {/* Settings section */}
+                  <div className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="resolution" className="text-xs">Image Size</Label>
+                        <Select value={resolution} onValueChange={setResolution}>
+                          <SelectTrigger id="resolution">
+                            <SelectValue placeholder="Select size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {resolutionOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                      <Textarea
-                        id="negative-prompt"
-                        placeholder="e.g., No text, no logos, no background"
-                        value={negativePrompt}
-                        onChange={(e) => setNegativePrompt(e.target.value)}
-                        className="min-h-[60px] resize-none"
+
+                      <div className="space-y-2">
+                        <Label htmlFor="designCount" className="text-xs">Number of Designs</Label>
+                        <Select value={designCount} onValueChange={setDesignCount}>
+                          <SelectTrigger id="designCount">
+                            <SelectValue placeholder="How many designs" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {designCountOptions.map(option => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
+                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                        Remove Background
+                      </Label>
+                      <Switch 
+                        id="transparentBg" 
+                        checked={transparentBg} 
+                        onCheckedChange={setTransparentBg} 
                       />
                     </div>
-                    
-                    {/* Quick Settings */}
-                    <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-foreground/80">Quick Settings</h4>
-                      
-                      {/* Style Picker */}
-                      <div>
-                        <Label htmlFor="style" className="text-xs mb-1 block">Design Style</Label>
-                        <Select value={style} onValueChange={setStyle}>
-                          <SelectTrigger id="style" className="w-full">
-                            <SelectValue placeholder="Select style" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {styleOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {/* Design Type */}
-                      <div>
-                        <Label className="text-xs mb-1 block">Design Type</Label>
-                        <div className="flex gap-1">
-                          {designTypeOptions.map(option => (
-                            <Button
-                              key={option.value}
-                              variant={designType === option.value ? "default" : "outline"}
-                              size="sm"
-                              className="flex-1 text-xs h-8 px-2"
-                              onClick={() => setDesignType(option.value)}
-                            >
-                              {option.label}
-                            </Button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Color Limit */}
-                      <div>
-                        <Label htmlFor="color-limit" className="text-xs mb-1 block">Color Limit</Label>
-                        <Select value={colorLimit} onValueChange={setColorLimit}>
-                          <SelectTrigger id="color-limit">
-                            <SelectValue placeholder="Select color limit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {colorLimitOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    {/* Advanced Controls */}
-                    <div className="space-y-3 pt-2">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-medium text-foreground/80">Advanced</h4>
-                      </div>
-                      
-                      {/* Creativity Slider */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <Label htmlFor="creativity" className="text-xs">Creativity</Label>
-                          <span className="text-xs font-medium">{creativityLevel[0]}%</span>
-                        </div>
-                        <Slider
-                          id="creativity"
-                          value={creativityLevel}
-                          onValueChange={setCreativityLevel}
-                          max={100}
-                          step={5}
-                          className="py-1"
-                        />
-                        <div className="flex justify-between text-[10px] text-muted-foreground">
-                          <span>Predictable</span>
-                          <span>Experimental</span>
-                        </div>
-                      </div>
-                      
-                      {/* Seed Value */}
-                      <div className="pt-1">
-                        <Label htmlFor="seed" className="text-xs mb-1 block">
-                          Seed (Optional)
-                        </Label>
-                        <Input
-                          id="seed"
-                          placeholder="Random seed"
-                          value={seedValue}
-                          onChange={(e) => {
-                            const value = e.target.value.replace(/[^0-9]/g, '');
-                            setSeedValue(value);
-                          }}
-                          className="h-8 text-sm"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Generate Button */}
-                    <Button 
-                      onClick={handleGenerateImage}
-                      disabled={!customPrompt.trim() || isGenerating}
-                      className="w-full h-10 relative mt-2"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Generate Design
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Main Content - Design Preview Area */}
-                <div className="flex-1 flex flex-col h-full overflow-hidden">
-                  {/* Canvas area */}
-                  <div className="flex-1 relative flex items-center justify-center bg-gray-50 dark:bg-gray-900/20">
-                    {isGenerating && (
-                      <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10">
-                        <div className="flex flex-col items-center gap-2 p-6 bg-background/95 rounded-lg shadow-lg border">
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                          <p className="font-medium">Creating your design</p>
-                          <p className="text-xs text-muted-foreground">This may take 10-15 seconds</p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {!generatedDesign ? (
-                      <div className="text-center p-8">
-                        <Shirt className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                        <p className="text-muted-foreground font-medium">Your design will appear here</p>
-                        <p className="text-xs text-muted-foreground/70 mt-2 max-w-md">
-                          Enter your prompt on the left and click Generate. The AI will create a design based on your description.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="relative inline-block">
-                        <canvas 
-                          ref={canvasRef}
-                          className="max-w-full max-h-full"
-                          style={{
-                            transform: `scale(${zoomLevel})`,
-                            transformOrigin: 'center'
-                          }}
-                        />
-                        
-                        {/* Zoom controls */}
-                        <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-background/90 p-1 rounded-lg shadow-md border">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))}
-                            className="h-8 w-8"
-                          >
-                            <ZoomOut className="h-4 w-4" />
-                          </Button>
-                          <span className="text-xs w-12 text-center font-medium">{Math.round(zoomLevel * 100)}%</span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setZoomLevel(prev => Math.min(2, prev + 0.1))}
-                            className="h-8 w-8"
-                          >
-                            <ZoomIn className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                   
-                  {/* Control bar */}
-                  {generatedDesign && (
-                    <div className="p-4 border-t flex justify-between items-center">
-                      <div className="flex gap-2">
+                  <Button 
+                    onClick={handleGenerateImage}
+                    disabled={!prompt.trim() || isGenerating}
+                    className="w-full"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        {currentDesigns.length > 0 ? "Generate New Designs" : "Generate Designs"}
+                      </>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+              
+              {/* Color Palette */}
+              {selectedImage && selectedImage.colors && selectedImage.colors.length > 0 && (
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center">
+                      <Palette className="w-4 h-4 mr-2 text-primary" />
+                      Color Palette
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedImage.colors.map((color, index) => (
+                        <TooltipProvider key={index}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                className="h-8 w-8 rounded-full border shadow-sm flex items-center justify-center"
+                                style={{ backgroundColor: color }}
+                                onClick={() => handleCopyColor(color)}
+                              >
+                                <span className="sr-only">Copy {color}</span>
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <p>Click to copy: {color}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">Click any color to copy its hex code</p>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Recent History Preview */}
+              {history.length > 0 && (
+                <Card className="shadow-sm">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center">
+                      <Clock className="w-4 h-4 mr-2 text-primary" />
+                      Recent Designs
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-2">
+                      {history.slice(0, 6).map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="aspect-square rounded-md border overflow-hidden cursor-pointer hover:border-primary transition-all"
+                          onClick={() => {
+                            handleReusePrompt(item.prompt);
+                          }}
+                        >
+                          <img 
+                            src={item.imageUrl} 
+                            alt={item.prompt}
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {history.length > 6 && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full mt-2 text-xs"
+                        onClick={() => setCurrentTab("history")}
+                      >
+                        View All Designs
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+            
+            {/* Right Panel - Preview */}
+            <div className="w-full md:w-2/3 flex flex-col space-y-4">
+              {/* Preview Area */}
+              <Card className="flex-1 shadow-sm overflow-hidden flex flex-col">
+                <CardHeader className="pb-3 border-b">
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Shirt className="w-4 h-4 mr-2 text-primary" />
+                      Design Preview
+                    </div>
+                    {selectedImage && (
+                      <div className="flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setShowSafeZone(!showSafeZone)}
+                          onClick={() => handleRegenerate()}
                         >
-                          {showSafeZone ? <Eye className="w-4 h-4 mr-2" /> : <EyeOff className="w-4 h-4 mr-2" />}
-                          {showSafeZone ? "Hide Safe Zone" : "Show Safe Zone"}
-                        </Button>
-                        
-                        <Button
-                          variant={showCompliance ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setShowCompliance(!showCompliance)}
-                        >
-                          <AlertTriangle className="w-4 h-4 mr-2" />
-                          Compliance Check
-                        </Button>
-                      </div>
-                      
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRegenerate}
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
+                          <RefreshCw className="w-3.5 h-3.5 mr-1" />
                           Regenerate
                         </Button>
-                        
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={handleSaveToFavorites}
+                          onClick={() => handleDownload(selectedImage.url)}
                         >
-                          <Heart className="w-4 h-4 mr-2" />
-                          Favorite
-                        </Button>
-                        
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => handleDownload(resolution)}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
+                          <Download className="w-3.5 h-3.5 mr-1" />
                           Download
                         </Button>
                       </div>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                
+                <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 relative">
+                  {isGenerating ? (
+                    <div className="flex flex-col items-center gap-2 p-6">
+                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                      <p className="font-medium">Creating your T-shirt designs</p>
+                      <p className="text-sm text-muted-foreground">This may take 10-20 seconds...</p>
                     </div>
-                  )}
-                  
-                  {/* Compliance panel - shown conditionally */}
-                  {showCompliance && generatedDesign && (
-                    <div className="p-4 border-t bg-background/50">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-sm font-medium flex items-center">
-                          <AlertTriangle className="w-4 h-4 mr-2 text-yellow-500" />
-                          Compliance Check
-                        </h3>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCompliance(false)}>
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
+                  ) : !selectedImage ? (
+                    <div className="text-center p-8 max-w-lg">
+                      <Shirt className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                      <p className="text-xl font-medium mb-2">Create your T-shirt design</p>
+                      <p className="text-sm text-muted-foreground mb-6">
+                        Enter your prompt, customize your settings, and click Generate to create unique T-shirt designs with AI.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="relative inline-block">
+                      <img 
+                        src={selectedImage.url}
+                        alt={selectedImage.prompt}
+                        className="max-w-full max-h-[60vh] object-contain"
+                        style={{
+                          transform: `scale(${zoomLevel})`,
+                          transformOrigin: 'center'
+                        }}
+                      />
+                      
+                      {/* Zoom controls */}
+                      <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-background/90 p-1 rounded-lg shadow-md border">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))}
+                          className="h-8 w-8"
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs w-12 text-center font-medium">{Math.round(zoomLevel * 100)}%</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setZoomLevel(prev => Math.min(2, prev + 0.1))}
+                          className="h-8 w-8"
+                        >
+                          <ZoomIn className="h-4 w-4" />
                         </Button>
                       </div>
-                      
-                      {complianceIssues.length > 0 ? (
-                        <ul className="space-y-1">
-                          {complianceIssues.map((issue, idx) => (
-                            <li key={idx} className="text-xs flex items-start gap-1 text-red-500">
-                              <span className="mt-0.5">⚠️</span> {issue}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="flex items-center gap-1 text-green-500 text-sm">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>Design passed all compliance checks</span>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
-
-                {/* Right Sidebar - Mockup Preview */}
-                <div className="w-64 border-l h-full flex flex-col overflow-hidden transition-all duration-300">
-                  <div className="p-4 border-b flex items-center justify-between">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Shirt className="w-4 h-4 text-primary" />
-                      Mockup Preview
-                    </h3>
-                  </div>
-                  
-                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                    {/* Mockup Controls */}
-                    <div className="space-y-3">
-                      <Label className="text-xs mb-1 block">Product Type</Label>
-                      <div className="grid grid-cols-2 gap-1">
-                        {mockupOptions.map(option => (
-                          <Button
-                            key={option.value}
-                            variant={mockupBackground === option.value ? "default" : "outline"}
-                            size="sm"
-                            className="h-7 text-xs"
-                            disabled={option.proOnly}
-                            onClick={() => setMockupBackground(option.value)}
-                          >
-                            {option.label}
-                            {option.proOnly && <Lock className="w-3 h-3 ml-1" />}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Mockup Preview Canvas */}
-                    <div className="border rounded-lg overflow-hidden bg-gray-50 aspect-[3/4] relative">
-                      {!generatedDesign && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <Shirt className="w-12 h-12 text-muted-foreground/30" />
-                        </div>
+              </Card>
+              
+              {/* Generated Designs Grid */}
+              {currentDesigns.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {currentDesigns.map((design) => (
+                    <div 
+                      key={design.id} 
+                      className={cn(
+                        "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
+                        selectedImage?.id === design.id ? "border-primary" : "border-transparent"
                       )}
-                      <canvas 
-                        ref={mockupCanvasRef}
-                        className="w-full h-full"
+                      onClick={() => handleSelectImage(design)}
+                    >
+                      <img 
+                        src={design.url} 
+                        alt={design.prompt}
+                        className="w-full h-full object-cover" 
                       />
                     </div>
-                    
-                    {/* Export Options */}
-                    <div className="space-y-3 pt-2">
-                      <Label htmlFor="resolution" className="text-xs mb-1 block">Export Format</Label>
-                      <Select value={resolution} onValueChange={setResolution}>
-                        <SelectTrigger id="resolution">
-                          <SelectValue placeholder="Select format" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {resolutionOptions.map(option => (
-                            <SelectItem 
-                              key={option.value} 
-                              value={option.value}
-                              disabled={option.proOnly}
-                            >
-                              {option.label} {option.proOnly && <Lock className="inline w-3 h-3 ml-1" />}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    {/* Other Settings */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="transparentBg" className="text-xs">Transparent Background</Label>
-                        <Switch 
-                          id="transparentBg" 
-                          checked={transparentBg} 
-                          onCheckedChange={setTransparentBg} 
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="safeMode" className="text-xs">Safe Mode</Label>
-                        <Switch 
-                          id="safeMode" 
-                          checked={safeMode} 
-                          onCheckedChange={setSafeMode} 
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Canvas Size Info */}
-                    <div className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-900/20 space-y-1">
-                      <h3 className="text-xs font-medium">Canvas Size</h3>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs">4500 × 5400 px</span>
-                        <Badge variant="outline" className="text-[10px]">Print Ready</Badge>
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        300 DPI, optimal for print-on-demand
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
+              )}
+            </div>
+          </TabsContent>
+          
+          {/* History Tab */}
+          <TabsContent value="history" className="flex-1 overflow-auto p-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <History className="w-5 h-5 text-primary" />
+                  Design History
+                </h2>
               </div>
-            </TabsContent>
-
-            {/* Upload tab content */}
-            <TabsContent value="upload" className="h-full overflow-auto">
-              <div className="max-w-4xl mx-auto p-4">
-                <Card className="border shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-xl flex items-center gap-2">
-                      <Upload className="w-5 h-5 text-primary" />
-                      Generate from Image
-                    </CardTitle>
-                    <CardDescription>
-                      Upload an existing design or inspiration image to generate a similar t-shirt design
-                    </CardDescription>
-                  </CardHeader>
-                  
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Image Upload Section */}
-                      <div className="space-y-4">
-                        <div 
-                          className={cn(
-                            "border-2 border-dashed rounded-lg p-6 text-center hover:bg-muted/30 transition-colors cursor-pointer",
-                            imagePreview ? "border-primary" : "border-border",
-                            "min-h-[300px] flex flex-col items-center justify-center"
-                          )}
-                          onClick={() => document.getElementById('image-upload')?.click()}
-                        >
-                          <input
-                            type="file"
-                            id="image-upload"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            accept="image/*"
-                          />
-                          
-                          {imagePreview ? (
-                            <div className="space-y-3 w-full">
-                              <div className="relative w-full aspect-square overflow-hidden rounded-md border">
-                                <img 
-                                  src={imagePreview} 
-                                  alt="Preview" 
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="mx-auto"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedImage(null);
-                                  setImagePreview(null);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Remove Image
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <ImageIcon className="w-10 h-10 text-muted-foreground/50 mb-2" />
-                              <p className="text-muted-foreground mb-1">Click to upload an image</p>
-                              <p className="text-xs text-muted-foreground">PNG, JPG or GIF, max 5MB</p>
-                              <Button variant="outline" size="sm" className="mt-4">
-                                <Upload className="w-4 h-4 mr-2" />
-                                Select File
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Generated Prompt Section */}
-                      <div className="space-y-4">
-                        <div className="border rounded-lg p-4 min-h-[300px] flex flex-col">
-                          <h3 className="text-sm font-medium mb-2">Generated Prompt</h3>
-                          
-                          {!imagePreview ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-center">
-                              <MessageSquare className="w-10 h-10 text-muted-foreground/50 mb-2" />
-                              <p className="text-muted-foreground mb-1">Upload an image first</p>
-                              <p className="text-xs text-muted-foreground">AI will generate a similar design</p>
-                            </div>
-                          ) : (
-                            <div className="flex-1 flex flex-col">
-                              <div className="flex-1">
-                                <Textarea
-                                  value={generatedPrompt}
-                                  onChange={(e) => setGeneratedPrompt(e.target.value)}
-                                  placeholder="Your generated prompt will appear here..."
-                                  className="min-h-[180px] resize-none"
-                                  readOnly={!generatedPrompt}
-                                />
-                              </div>
-                              
-                              <div className="flex gap-2 mt-4">
-                                {generatedPrompt ? (
-                                  <>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        navigator.clipboard.writeText(generatedPrompt);
-                                        toast.success("Prompt copied to clipboard");
-                                      }}
-                                      className="text-xs flex-1"
-                                    >
-                                      <Copy className="w-3 h-3 mr-2" />
-                                      Copy
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      onClick={() => {
-                                        setCustomPrompt(generatedPrompt);
-                                        setCurrentTab("design");
-                                      }}
-                                      className="text-xs flex-1"
-                                    >
-                                      <Sparkles className="w-3 h-3 mr-2" />
-                                      Use Prompt
-                                    </Button>
-                                  </>
-                                ) : (
-                                  <Button 
-                                    onClick={handleGeneratePrompt} 
-                                    disabled={!selectedImage || isGenerating}
-                                    className="w-full"
-                                  >
-                                    {isGenerating ? (
-                                      <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        Analyzing...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Wand2 className="w-4 h-4 mr-2" />
-                                        Generate Prompt
-                                      </>
-                                    )}
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-            
-            {/* Gallery tab content */}
-            <TabsContent value="gallery" className="h-full overflow-auto">
-              <div className="p-4 max-w-7xl mx-auto">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <Grid className="w-5 h-5 text-primary" />
-                    Design Gallery
-                  </h2>
+              
+              {history.length === 0 ? (
+                <div className="text-center py-16 max-w-md mx-auto">
+                  <History className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
+                  <h3 className="text-xl font-medium mb-2">Your history is empty</h3>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    When you create designs, they'll be saved here automatically
+                  </p>
+                  <Button onClick={() => setCurrentTab("design")}>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Create Your First Design
+                  </Button>
                 </div>
-                
-                {generatedImages.length === 0 ? (
-                  <div className="text-center py-16 max-w-md mx-auto">
-                    <Shirt className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                    <h3 className="text-xl font-medium mb-2">No designs yet</h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      Start by creating your first t-shirt design or uploading an image
-                    </p>
-                    <div className="flex gap-4 justify-center">
-                      <Button onClick={() => setCurrentTab("design")}>
-                        <Wand2 className="w-4 h-4 mr-2" />
-                        Create Design
-                      </Button>
-                      <Button variant="outline" onClick={() => setCurrentTab("upload")}>
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Image
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {generatedImages.map((image) => (
-                      <Card key={image.id} className="group overflow-hidden border hover:border-primary/50 transition-all">
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                    {history.map((item) => (
+                      <Card key={item.id} className="group overflow-hidden border hover:border-primary/50 transition-all">
                         <div className="relative aspect-square rounded-t-lg overflow-hidden">
                           <img
-                            src={image.url}
-                            alt={`Design ${image.id}`}
+                            src={item.imageUrl}
+                            alt={`Design ${item.id}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
                           />
@@ -1307,9 +933,7 @@ export const TShirtGenerator = () => {
                             <Button 
                               size="icon" 
                               variant="ghost"
-                              onClick={() => {
-                                downloadImage(image.url, 'png', `tshirt-design-${image.id}`);
-                              }}
+                              onClick={() => handleDownload(item.imageUrl)}
                               className="h-9 w-9 rounded-full text-white hover:bg-white/20"
                             >
                               <Download className="w-4 h-4" />
@@ -1318,7 +942,7 @@ export const TShirtGenerator = () => {
                               size="icon" 
                               variant="ghost"
                               onClick={() => {
-                                navigator.clipboard.writeText(image.prompt);
+                                navigator.clipboard.writeText(item.prompt);
                                 toast.success('Prompt copied to clipboard');
                               }}
                               className="h-9 w-9 rounded-full text-white hover:bg-white/20"
@@ -1328,11 +952,7 @@ export const TShirtGenerator = () => {
                             <Button 
                               size="icon" 
                               variant="ghost"
-                              onClick={() => {
-                                setCustomPrompt(image.prompt);
-                                setGeneratedDesign(image.url);
-                                setCurrentTab("design");
-                              }}
+                              onClick={() => handleReusePrompt(item.prompt)}
                               className="h-9 w-9 rounded-full text-white hover:bg-white/20"
                             >
                               <RefreshCw className="w-4 h-4" />
@@ -1342,141 +962,47 @@ export const TShirtGenerator = () => {
                         
                         <CardContent className="p-3">
                           <div className="truncate text-sm font-medium mb-1">
-                            {image.prompt.length > 40 
-                              ? `${image.prompt.substring(0, 40)}...` 
-                              : image.prompt}
+                            {item.prompt.length > 40 
+                              ? `${item.prompt.substring(0, 40)}...` 
+                              : item.prompt}
                           </div>
                           <div className="flex justify-between items-center">
                             <div className="text-xs text-muted-foreground">
-                              {formatDate(image.timestamp.toISOString())}
+                              {formatDate(item.createdAt)}
                             </div>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => handleDeleteImage(image.id)}
+                              onClick={() => handleDeleteFromHistory(item.id)}
                             >
                               <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
                             </Button>
                           </div>
+                          
+                          {/* Color chips */}
+                          {item.colors && item.colors.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                              {item.colors.slice(0, 5).map((color, index) => (
+                                <div 
+                                  key={index}
+                                  className="w-3 h-3 rounded-full cursor-pointer"
+                                  style={{ backgroundColor: color }}
+                                  onClick={() => handleCopyColor(color)}
+                                  title={color}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            {/* History tab content */}
-            <TabsContent value="history" className="h-full overflow-auto">
-              <div className="p-4 max-w-7xl mx-auto">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold flex items-center gap-2">
-                    <History className="w-5 h-5 text-primary" />
-                    Design History
-                  </h2>
-                </div>
-                
-                {history.length === 0 ? (
-                  <div className="text-center py-16 max-w-md mx-auto">
-                    <History className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                    <h3 className="text-xl font-medium mb-2">Your history is empty</h3>
-                    <p className="text-sm text-muted-foreground mb-6">
-                      When you create designs, they'll be saved here automatically
-                    </p>
-                    <Button onClick={() => setCurrentTab("design")}>
-                      <Wand2 className="w-4 h-4 mr-2" />
-                      Create Your First Design
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center mb-4">
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <InfoIcon className="w-4 h-4 mr-2" />
-                        <span>Your history is saved locally on this device</span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                      {history.map((item) => (
-                        <Card key={item.id} className="group overflow-hidden border hover:border-primary/50 transition-all">
-                          <div className="relative aspect-square rounded-t-lg overflow-hidden">
-                            <img
-                              src={item.imageUrl}
-                              alt={`Design ${item.id}`}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => {
-                                  downloadImage(item.imageUrl, 'png', `tshirt-${item.id}`);
-                                }}
-                                className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(item.prompt);
-                                  toast.success('Prompt copied to clipboard');
-                                }}
-                                className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                              >
-                                <Copy className="w-4 h-4" />
-                              </Button>
-                              <Button 
-                                size="icon" 
-                                variant="ghost"
-                                onClick={() => {
-                                  setCustomPrompt(item.prompt);
-                                  setGeneratedDesign(item.imageUrl);
-                                  setCurrentTab("design");
-                                }}
-                                className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                              >
-                                <RefreshCw className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          <CardContent className="p-3">
-                            <div className="truncate text-sm font-medium mb-1">
-                              {item.prompt.length > 40 
-                                ? `${item.prompt.substring(0, 40)}...` 
-                                : item.prompt}
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <div className="text-xs text-muted-foreground">
-                                {formatDate(item.createdAt)}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => {
-                                  deleteFromHistory(item.id);
-                                  setHistory(prev => prev.filter(h => h.id !== item.id));
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
+                </>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </PageLayout>
   );
