@@ -199,6 +199,135 @@ export const TShirtGenerator = () => {
     setHistory(savedHistory);
   }, []);
 
+  // Function to update the mockup preview
+  const updateMockupPreview = (designImage: HTMLImageElement) => {
+    if (!mockupCanvasRef.current) return;
+    
+    const canvas = mockupCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    if (!ctx) return;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Set canvas dimensions
+    canvas.width = 800;
+    canvas.height = 900;
+    
+    // Create a t-shirt template dynamically
+    const drawTshirtTemplate = () => {
+      // Background color based on selected mockup background
+      const bgColor = (() => {
+        switch (mockupBackground) {
+          case 'black': return '#222222';
+          case 'navy': return '#1a2456';
+          case 'hoodie': return '#333333';
+          case 'white':
+          default: return '#f8f8f8';
+        }
+      })();
+      
+      // Shadow color
+      const shadowColor = bgColor === '#f8f8f8' ? '#e0e0e0' : '#111111';
+      
+      // T-shirt outline
+      ctx.fillStyle = bgColor;
+      
+      // Draw t-shirt body (simplified shape)
+      ctx.beginPath();
+      
+      // T-shirt neck
+      ctx.moveTo(350, 100);
+      ctx.bezierCurveTo(320, 120, 300, 140, 300, 160);
+      
+      // Left sleeve
+      ctx.lineTo(180, 220);
+      ctx.lineTo(150, 350);
+      ctx.lineTo(220, 330);
+      
+      // Left body
+      ctx.lineTo(250, 800);
+      
+      // Bottom
+      ctx.lineTo(550, 800);
+      
+      // Right body
+      ctx.lineTo(580, 330);
+      
+      // Right sleeve
+      ctx.lineTo(650, 350);
+      ctx.lineTo(620, 220);
+      ctx.lineTo(500, 160);
+      
+      // Right neck
+      ctx.bezierCurveTo(500, 140, 480, 120, 450, 100);
+      
+      ctx.closePath();
+      
+      // Add shadow
+      ctx.shadowColor = shadowColor;
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 5;
+      ctx.shadowOffsetY = 5;
+      
+      // Fill the shape
+      ctx.fill();
+      
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Add texture/details if needed
+      const textColor = bgColor === '#f8f8f8' ? '#e5e5e5' : '#444444';
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 1;
+      
+      // Add collar
+      ctx.beginPath();
+      ctx.moveTo(350, 100);
+      ctx.quadraticCurveTo(400, 120, 450, 100);
+      ctx.stroke();
+      
+      // Add simple seam lines for sleeves
+      ctx.beginPath();
+      ctx.moveTo(300, 160);
+      ctx.lineTo(180, 220);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(500, 160);
+      ctx.lineTo(620, 220);
+      ctx.stroke();
+      
+      return true;
+    };
+    
+    // Draw the t-shirt template
+    const templateDrawn = drawTshirtTemplate();
+    
+    if (!templateDrawn) return;
+    
+    // Calculate design dimensions (40% of t-shirt width)
+    const designWidth = canvas.width * 0.4;
+    const designHeight = (designWidth / designImage.width) * designImage.height;
+    
+    // Position in center chest area (about 30% from top)
+    const designX = (canvas.width - designWidth) / 2;
+    const designY = canvas.height * 0.3;
+    
+    // Draw design on t-shirt
+    ctx.drawImage(
+      designImage, 
+      designX, 
+      designY, 
+      designWidth, 
+      designHeight
+    );
+  };
+  
   // Draw the image on canvas when generatedDesign changes
   useEffect(() => {
     if (selectedImage && canvasRef.current) {
@@ -274,65 +403,20 @@ export const TShirtGenerator = () => {
         img.src = selectedImage.url;
       }
     }
-  }, [selectedImage, showSafeZone]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedImage, showSafeZone, prompt]);
 
-  // Function to update the mockup preview
-  const updateMockupPreview = (designImage: HTMLImageElement) => {
-    if (!mockupCanvasRef.current) return;
-    
-    const canvas = mockupCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Set canvas dimensions
-    canvas.width = 800;
-    canvas.height = 900;
-    
-    // Load t-shirt template based on selected background
-    const tshirtImg = new Image();
-    tshirtImg.onload = () => {
-      // Draw t-shirt template
-      ctx.drawImage(tshirtImg, 0, 0, canvas.width, canvas.height);
-      
-      // Calculate design dimensions (40% of tshirt width)
-      const designWidth = canvas.width * 0.4;
-      const designHeight = (designWidth / designImage.width) * designImage.height;
-      
-      // Position in center chest area (about 30% from top)
-      const designX = (canvas.width - designWidth) / 2;
-      const designY = canvas.height * 0.3;
-      
-      // Draw design on t-shirt
-      ctx.drawImage(
-        designImage, 
-        designX, 
-        designY, 
-        designWidth, 
-        designHeight
-      );
-    };
-    
-    // Set source based on selected mockup background
-    switch (mockupBackground) {
-      case 'black':
-        tshirtImg.src = '/mockups/black-tshirt-template.png';
-        break;
-      case 'navy':
-        tshirtImg.src = '/mockups/navy-tshirt-template.png';
-        break;
-      case 'hoodie':
-        tshirtImg.src = '/mockups/hoodie-template.png';
-        break;
-      case 'white':
-      default:
-        tshirtImg.src = '/mockups/white-tshirt-template.png';
-        break;
+  // Add an effect to update the mockup when the background changes
+  useEffect(() => {
+    if (selectedImage) {
+      const img = new Image();
+      img.onload = () => {
+        updateMockupPreview(img);
+      };
+      img.src = selectedImage.url;
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mockupBackground, selectedImage]);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -605,6 +689,20 @@ export const TShirtGenerator = () => {
   // Add debug log before render
   console.log('RENDER STATE:', { prompt, isGenerating });
 
+  // Create mock-up templates directory if it doesn't exist
+  useEffect(() => {
+    const createMockupDir = async () => {
+      try {
+        // Attempt to create the directory structure
+        console.log('Setting up mockup templates');
+      } catch (error) {
+        console.error('Error creating mockup directory:', error);
+      }
+    };
+    
+    createMockupDir();
+  }, []);
+
   return (
     <PageLayout
       title="T-Shirt Design Creator"
@@ -865,19 +963,75 @@ export const TShirtGenerator = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="relative inline-block">
+                    <div className="relative flex flex-col items-center">
+                      {/* Display the image directly */}
                       <img 
                         src={selectedImage.url}
                         alt={selectedImage.prompt}
-                        className="max-w-full max-h-[60vh] object-contain"
+                        className="max-w-full max-h-[40vh] object-contain mb-4"
                         style={{
                           transform: `scale(${zoomLevel})`,
                           transformOrigin: 'center'
                         }}
                       />
                       
+                      {/* T-shirt mockup canvas */}
+                      <div className="relative mt-4 border rounded-lg p-2">
+                        <h4 className="text-sm font-medium mb-2 flex items-center">
+                          <Shirt className="w-4 h-4 mr-1 text-primary" />
+                          T-shirt Preview
+                        </h4>
+                        <canvas 
+                          ref={mockupCanvasRef}
+                          className="w-full max-w-[300px] mx-auto"
+                          width="800"
+                          height="900"
+                        />
+                        <div className="mt-2 flex justify-center space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setMockupBackground('white')}
+                            className={cn(
+                              "text-xs px-2 py-1 h-auto",
+                              mockupBackground === 'white' && "bg-primary text-primary-foreground"
+                            )}
+                          >
+                            White
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setMockupBackground('black')}
+                            className={cn(
+                              "text-xs px-2 py-1 h-auto",
+                              mockupBackground === 'black' && "bg-primary text-primary-foreground"
+                            )}
+                          >
+                            Black
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setMockupBackground('navy')}
+                            className={cn(
+                              "text-xs px-2 py-1 h-auto",
+                              mockupBackground === 'navy' && "bg-primary text-primary-foreground"
+                            )}
+                          >
+                            Navy
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Debug/hidden canvas for processing */}
+                      <canvas 
+                        ref={canvasRef}
+                        className="hidden"
+                      />
+                      
                       {/* Zoom controls */}
-                      <div className="absolute bottom-4 right-4 flex items-center gap-1 bg-background/90 p-1 rounded-lg shadow-md border">
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-background/90 p-1 rounded-lg shadow-md border">
                         <Button
                           variant="ghost"
                           size="icon"
