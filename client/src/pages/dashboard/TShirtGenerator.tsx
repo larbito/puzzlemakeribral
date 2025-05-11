@@ -47,6 +47,7 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
+import { TShirtPreview } from "@/components/TShirtPreview";
 import { 
   generateImage, 
   downloadImage, 
@@ -155,6 +156,7 @@ interface GeneratedImage {
   prompt: string;
   timestamp: Date;
   colors?: string[];
+  hasTransparency?: boolean;
 }
 
 // Update the DesignHistoryItem type to include colors
@@ -207,11 +209,62 @@ export const TShirtGenerator = () => {
   // Add a new state variable for toggling the T-shirt preview
   const [showTshirtPreview, setShowTshirtPreview] = useState(false);
 
+  // Add a state variable for the full-page preview
+  const [showFullPagePreview, setShowFullPagePreview] = useState(false);
+  const [hasCheckedTransparency, setHasCheckedTransparency] = useState(false);
+
   // Load history on component mount
   useEffect(() => {
     const savedHistory = getDesignHistory();
     setHistory(savedHistory);
   }, []);
+
+  // Function to check if an image has transparency or a solid white background
+  const checkImageTransparency = async (imageUrl: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        if (!ctx) {
+          resolve(false);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+        
+        // Check if image has transparency or not all white
+        let hasTransparency = false;
+        let hasNonWhitePixel = false;
+        
+        // Sample pixels to check
+        for (let i = 0; i < imageData.length; i += 4) {
+          // Check for transparency
+          if (imageData[i + 3] < 250) {
+            hasTransparency = true;
+            break;
+          }
+          
+          // Check for non-white pixels
+          if (imageData[i] < 240 || imageData[i + 1] < 240 || imageData[i + 2] < 240) {
+            hasNonWhitePixel = true;
+          }
+        }
+        
+        // An image has true transparency if it has transparent pixels
+        // or it doesn't have a solid white background
+        resolve(hasTransparency || hasNonWhitePixel);
+      };
+      
+      img.onerror = () => resolve(false);
+      img.src = imageUrl;
+    });
+  };
 
   // Function to update the mockup preview
   const updateMockupPreview = (designImage: HTMLImageElement) => {
@@ -747,8 +800,50 @@ export const TShirtGenerator = () => {
     }, 0);
   };
   
-  // Handle selecting an image
-  const handleSelectImage = (image: GeneratedImage) => {
+  // Modified function for setting the selected image
+  const handleSelectImage = async (image: GeneratedImage) => {
+    // Check image transparency if we haven't already
+    if (!hasCheckedTransparency && !image.hasTransparency) {
+      const hasTransparency = await checkImageTransparency(image.url);
+      
+      // If image doesn't have transparency, ask if user wants to remove background
+      if (!hasTransparency) {
+        // Update the image object with transparency info
+        image.hasTransparency = false;
+        
+        // Ask user if they want to remove the background
+        toast.custom((t) => (
+          <div className="flex flex-col gap-2 bg-background border rounded-md p-4 shadow-md">
+            <p>This design has a white background. Remove it for better results?</p>
+            <div className="flex justify-end gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => toast.dismiss(t.id)}
+              >
+                Keep Background
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  setTransparentBg(true);
+                }}
+              >
+                Remove Background
+              </Button>
+            </div>
+          </div>
+        ), {
+          duration: 8000,
+        });
+      } else {
+        image.hasTransparency = true;
+      }
+      
+      setHasCheckedTransparency(true);
+    }
+    
     setSelectedImage(image);
   };
 
@@ -1120,8 +1215,8 @@ export const TShirtGenerator = () => {
                           )}
                           Regenerate
                         </Button>
-                        <Button
-                          variant="outline"
+                        <Button 
+                          variant="outline" 
                           size="sm"
                           onClick={() => handleDownload(selectedImage.url)}
                           disabled={isGenerating || isDownloading}
@@ -1167,26 +1262,16 @@ export const TShirtGenerator = () => {
                         }}
                       />
                       
-                      {/* Toggle button for T-shirt mockup preview */}
+                      {/* New button for full-page T-shirt preview */}
                       <div className="mt-4 flex justify-center">
-                        <Button
-                          variant="outline"
+                        <Button 
+                          variant="outline" 
                           size="sm"
                           className="gap-2"
-                          onClick={() => {
-                            setShowTshirtPreview(true);
-                            // Update the preview when opening
-                            if (selectedImage) {
-                              const img = new Image();
-                              img.onload = () => {
-                                updateMockupPreview(img);
-                              };
-                              img.src = selectedImage.url;
-                            }
-                          }}
+                          onClick={() => setShowFullPagePreview(true)}
                         >
                           <Shirt className="h-4 w-4" />
-                          View on T-shirt
+                          View Full-Page T-shirt Preview
                         </Button>
                       </div>
                       
@@ -1355,7 +1440,7 @@ export const TShirtGenerator = () => {
         </Tabs>
       </div>
 
-      {/* T-shirt Preview Dialog */}
+      {/* Old T-shirt Preview Dialog - Now hidden in favor of the full-page preview */}
       <Dialog open={showTshirtPreview} onOpenChange={setShowTshirtPreview}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1409,6 +1494,14 @@ export const TShirtGenerator = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Full-page T-shirt Preview */}
+      {showFullPagePreview && selectedImage && (
+        <TShirtPreview 
+          designImage={selectedImage.url}
+          onClose={() => setShowFullPagePreview(false)}
+        />
+      )}
     </PageLayout>
   );
 }; 
