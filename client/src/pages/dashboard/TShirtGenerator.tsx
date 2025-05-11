@@ -139,12 +139,29 @@ function formatDate(dateString: string): string {
   }
 }
 
+// Update the GeneratedImage interface
 interface GeneratedImage {
   id: string;
   url: string;
   prompt: string;
   timestamp: Date;
   colors?: string[];
+}
+
+// Update the DesignHistoryItem type to include colors
+declare module "@/services/designHistory" {
+  interface DesignHistoryItem {
+    id: string;
+    prompt: string;
+    thumbnail: string;
+    imageUrl: string;
+    style: string;
+    colorScheme?: string;
+    format: string;
+    createdAt: string;
+    isFavorite?: boolean;
+    colors?: string[]; // Add colors property
+  }
 }
 
 export const TShirtGenerator = () => {
@@ -156,6 +173,8 @@ export const TShirtGenerator = () => {
   const [resolution, setResolution] = useState("medium");
   const [designCount, setDesignCount] = useState("1");
   const [transparentBg, setTransparentBg] = useState(true);
+  const [showSafeZone, setShowSafeZone] = useState(false);
+  const [mockupBackground, setMockupBackground] = useState("white");
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -169,6 +188,7 @@ export const TShirtGenerator = () => {
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mockupCanvasRef = useRef<HTMLCanvasElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
@@ -344,16 +364,23 @@ export const TShirtGenerator = () => {
     
     setIsGenerating(true);
     try {
+      // Convert URL to File object for the API call
+      const response = await fetch(selectedImage.url);
+      const blob = await response.blob();
+      const file = new File([blob], "uploaded-image.png", { type: blob.type });
+      
       // Call API to analyze image and generate prompt
-      const generatedPromptText = await imageToPrompt(selectedImage.url);
+      const generatedPromptText = await imageToPrompt(file);
       setPrompt(generatedPromptText);
       toast.success("Prompt generated successfully!");
       
       // Auto-populate the design prompt
-      setSelectedImage(prev => ({
-        ...prev,
-        prompt: generatedPromptText
-      }));
+      if (selectedImage) {
+        setSelectedImage({
+          ...selectedImage,
+          prompt: generatedPromptText
+        });
+      }
       
       // Switch to design tab
       setCurrentTab("design");
@@ -453,14 +480,17 @@ export const TShirtGenerator = () => {
           
           newImages.push(newImage);
           
-          // Add to history
+          // Add to history with required fields
           const newDesign = saveToHistory({
             prompt,
             thumbnail: imageUrl,
             imageUrl,
             format: resolution.toUpperCase(),
-            colors
+            style: "custom" // Add required style field
           });
+          
+          // Update the history item with colors
+          newDesign.colors = colors;
           
           setHistory(prev => [newDesign, ...prev]);
         }
