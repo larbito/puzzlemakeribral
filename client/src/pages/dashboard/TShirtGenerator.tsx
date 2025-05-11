@@ -33,7 +33,9 @@ import {
   Palette,
   Clock,
   X,
-  DownloadCloud
+  DownloadCloud,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +62,7 @@ import {
   imageToPrompt
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
+import { HISTORY_STORAGE_KEY } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
 
 // Enhanced style options with more choices
@@ -1125,108 +1128,254 @@ export const TShirtGenerator = () => {
           </TabsContent>
           
           {/* History Tab */}
-          <TabsContent value="history" className="flex-1 overflow-auto p-4">
+          <TabsContent value="history" className="flex-1 overflow-auto p-4 bg-gradient-to-b from-background to-background/50">
             <div className="max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold flex items-center gap-2">
-                  <History className="w-5 h-5 text-primary" />
-                  Design History
+                  <div className="bg-primary/10 p-2 rounded-lg">
+                    <History className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                    Design History
+                  </span>
                 </h2>
+                
+                {history.length > 0 && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setCurrentTab("design")}
+                      className="flex items-center gap-2 bg-background/80 backdrop-blur-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Design
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => {
+                        const confirmed = window.confirm("Clear all design history? This cannot be undone.");
+                        if (confirmed) {
+                          localStorage.setItem(HISTORY_STORAGE_KEY, "[]");
+                          setHistory([]);
+                          toast.success("Design history cleared");
+                        }
+                      }}
+                      className="text-destructive hover:text-destructive/80"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Clear History
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {history.length === 0 ? (
-                <div className="text-center py-16 max-w-md mx-auto">
-                  <History className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">Your history is empty</h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    When you create designs, they'll be saved here automatically
+                <div className="text-center py-20 max-w-md mx-auto bg-background/50 backdrop-blur-sm rounded-xl border border-primary/10 shadow-lg">
+                  <div className="bg-primary/5 w-20 h-20 flex items-center justify-center rounded-full mx-auto mb-6">
+                    <History className="w-10 h-10 text-primary/40" />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2 bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">Your design journey begins here</h3>
+                  <p className="text-sm text-muted-foreground mb-8 max-w-xs mx-auto">
+                    As you create designs, they'll be automatically saved to your personal collection
                   </p>
-                  <Button onClick={() => setCurrentTab("design")}>
+                  <Button 
+                    onClick={() => setCurrentTab("design")}
+                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white shadow-md"
+                  >
                     <Sparkles className="w-4 h-4 mr-2" />
                     Create Your First Design
                   </Button>
                 </div>
               ) : (
                 <>
+                  {/* Filter controls */}
+                  <div className="mb-6 flex flex-wrap items-center gap-3 p-4 rounded-lg bg-background/80 backdrop-blur-sm border shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="history-filter" className="text-sm font-medium">Filter:</Label>
+                      <Select defaultValue="all">
+                        <SelectTrigger id="history-filter" className="w-[150px] h-9 text-sm">
+                          <SelectValue placeholder="All designs" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All designs</SelectItem>
+                          <SelectItem value="favorites">Favorites</SelectItem>
+                          <SelectItem value="recent">Last 7 days</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 ml-auto">
+                      <Label htmlFor="history-sort" className="text-sm font-medium">Sort by:</Label>
+                      <Select defaultValue="newest">
+                        <SelectTrigger id="history-sort" className="w-[150px] h-9 text-sm">
+                          <SelectValue placeholder="Newest first" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="newest">Newest first</SelectItem>
+                          <SelectItem value="oldest">Oldest first</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                    {history.map((item) => (
-                      <Card key={item.id} className="group overflow-hidden border hover:border-primary/50 transition-all">
-                        <div className="relative aspect-square rounded-t-lg overflow-hidden">
-                          <img
-                            src={item.imageUrl}
-                            alt={`Design ${item.id}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={() => handleDownload(item.imageUrl)}
-                              className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={() => {
-                                navigator.clipboard.writeText(item.prompt);
-                                toast.success('Prompt copied to clipboard');
-                              }}
-                              className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                            <Button 
-                              size="icon" 
-                              variant="ghost"
-                              onClick={() => handleReusePrompt(item.prompt)}
-                              className="h-9 w-9 rounded-full text-white hover:bg-white/20"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <CardContent className="p-3">
-                          <div className="truncate text-sm font-medium mb-1">
-                            {item.prompt.length > 40 
-                              ? `${item.prompt.substring(0, 40)}...` 
-                              : item.prompt}
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <div className="text-xs text-muted-foreground">
-                              {formatDate(item.createdAt)}
+                    {history.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.05 }}
+                      >
+                        <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/80 backdrop-blur-sm">
+                          <div className="relative aspect-square rounded-t-lg overflow-hidden">
+                            <img
+                              src={item.imageUrl}
+                              alt={`Design ${item.id}`}
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                            
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+                              <motion.div 
+                                className="flex items-center gap-2 mt-12"
+                                initial={{ y: 20, opacity: 0 }}
+                                whileInView={{ y: 0, opacity: 1 }}
+                                transition={{ duration: 0.3 }}
+                              >
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary"
+                                  onClick={() => handleDownload(item.imageUrl)}
+                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                >
+                                  <Download className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(item.prompt);
+                                    toast.success('Prompt copied to clipboard');
+                                  }}
+                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                >
+                                  <Copy className="w-4 h-4" />
+                                </Button>
+                                <Button 
+                                  size="icon" 
+                                  variant="secondary"
+                                  onClick={() => {
+                                    handleReusePrompt(item.prompt);
+                                    setCurrentTab("design");
+                                  }}
+                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                >
+                                  <RefreshCw className="w-4 h-4" />
+                                </Button>
+                              </motion.div>
                             </div>
+                            
+                            {/* Favorite button */}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
-                              onClick={() => handleDeleteFromHistory(item.id)}
+                              className="absolute top-2 right-2 h-7 w-7 bg-black/30 backdrop-blur-sm text-white hover:bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                saveToFavoritesService(item.id);
+                                const updatedHistory = history.map(historyItem => 
+                                  historyItem.id === item.id 
+                                    ? { ...historyItem, isFavorite: !historyItem.isFavorite } 
+                                    : historyItem
+                                );
+                                setHistory(updatedHistory);
+                                toast.success(item.isFavorite ? 'Removed from favorites' : 'Added to favorites');
+                              }}
                             >
-                              <Trash2 className="w-4 h-4 text-muted-foreground hover:text-destructive" />
+                              <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                             </Button>
                           </div>
                           
-                          {/* Color chips */}
-                          {item.colors && item.colors.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                              {item.colors.slice(0, 5).map((color, index) => (
-                                <div 
-                                  key={index}
-                                  className="w-3 h-3 rounded-full cursor-pointer"
-                                  style={{ backgroundColor: color }}
-                                  onClick={() => handleCopyColor(color)}
-                                  title={color}
-                                />
-                              ))}
+                          <CardContent className="p-3">
+                            <div className="truncate text-sm font-medium mb-2">
+                              {item.prompt.length > 40 
+                                ? `${item.prompt.substring(0, 40)}...` 
+                                : item.prompt}
                             </div>
-                          )}
-                        </CardContent>
-                      </Card>
+                            
+                            <div className="flex justify-between items-center">
+                              <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
+                                {formatDate(item.createdAt)}
+                              </Badge>
+                              
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => handleDeleteFromHistory(item.id)}
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                              </Button>
+                            </div>
+                            
+                            {/* Color chips */}
+                            {item.colors && item.colors.length > 0 && (
+                              <div className="flex gap-1 mt-2">
+                                {item.colors.slice(0, 5).map((color, index) => (
+                                  <TooltipProvider key={index}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <motion.div 
+                                          className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
+                                          style={{ backgroundColor: color }}
+                                          onClick={() => handleCopyColor(color)}
+                                          whileHover={{ scale: 1.2 }}
+                                          transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                        />
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" className="text-xs">
+                                        <p>Copy: {color}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Style badge */}
+                            {item.style && (
+                              <div className="mt-2">
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5">
+                                  {item.style}
+                                </Badge>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </motion.div>
                     ))}
                   </div>
+                  
+                  {/* Pagination */}
+                  {history.length > 20 && (
+                    <div className="flex justify-center mt-8">
+                      <div className="flex items-center space-x-2 bg-background/80 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
+                        <Button variant="outline" size="icon" className="h-8 w-8">
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 w-8 bg-primary/10">1</Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8">2</Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8">3</Button>
+                        <span className="text-sm text-muted-foreground">...</span>
+                        <Button variant="ghost" size="sm" className="h-8 w-8">{Math.ceil(history.length / 20)}</Button>
+                        <Button variant="outline" size="icon" className="h-8 w-8">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

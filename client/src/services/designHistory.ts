@@ -14,7 +14,7 @@ export interface DesignHistoryItem {
 }
 
 // Local storage key
-const HISTORY_STORAGE_KEY = 'tshirt-design-history';
+export const HISTORY_STORAGE_KEY = 'tshirt-design-history';
 const MAX_HISTORY_ITEMS = 50;
 
 // Get design history from local storage
