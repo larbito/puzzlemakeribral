@@ -3,30 +3,35 @@ const router = express.Router();
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const multer = require('multer');
-const upload = multer();
+
+// Configure multer for handling form data
+const upload = multer({
+  limits: {
+    fieldSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 console.log('Setting up ideogram routes');
 
-// Debug middleware for this router
+// Debug middleware to log request details
 router.use((req, res, next) => {
   console.log('Ideogram route request:', {
     method: req.method,
     path: req.path,
-    url: req.url,
-    baseUrl: req.baseUrl,
-    originalUrl: req.originalUrl,
     headers: req.headers,
+    contentType: req.get('content-type'),
     body: req.body
   });
   next();
 });
 
-router.post('/generate', async (req, res) => {
+// Use multer to handle multipart form data
+router.post('/generate', upload.none(), async (req, res) => {
   console.log('Received generate request');
+  console.log('Content-Type:', req.get('content-type'));
+  console.log('Request body after multer:', req.body);
   
   try {
-    console.log('Request body:', req.body);
-    
     // Check if API key is configured
     if (!process.env.IDEOGRAM_API_KEY) {
       console.error('Ideogram API key is not configured');
@@ -110,8 +115,7 @@ router.post('/generate', async (req, res) => {
     console.error('Ideogram API error:', error);
     res.status(500).json({ 
       error: error.message || 'Internal server error',
-      type: error.name,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      type: error.name
     });
   }
 });

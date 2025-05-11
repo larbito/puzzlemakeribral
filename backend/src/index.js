@@ -14,16 +14,11 @@ app.use((req, res, next) => {
     method: req.method,
     path: req.path,
     headers: req.headers,
-    body: req.body,
     url: req.url,
     originalUrl: req.originalUrl
   });
   next();
 });
-
-// Middleware
-// Handle preflight requests
-app.options('*', cors());
 
 // Configure CORS
 const corsOptions = {
@@ -36,6 +31,10 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
+// Apply CORS
 app.use(cors(corsOptions));
 
 // Add custom headers middleware
@@ -47,8 +46,17 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+// Request logging
 app.use(morgan('dev'));
+
+// Parse JSON requests - only for non-multipart requests
+app.use((req, res, next) => {
+  if (!req.is('multipart/form-data')) {
+    express.json()(req, res, next);
+  } else {
+    next();
+  }
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {

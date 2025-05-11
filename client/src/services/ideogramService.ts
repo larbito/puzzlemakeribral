@@ -88,24 +88,18 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 
     formData.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
 
-    console.log("Request parameters:", {
-      prompt,
-      style,
-      aspect_ratio: '3:4',
-      rendering_speed: 'TURBO'
-    });
+    // Log the form data entries for debugging
+    console.log("Form data entries:");
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}: ${value}`);
+    }
     
     const fullUrl = `${API_URL}/api/ideogram/generate`;
     console.log("Making request to:", fullUrl);
 
     const response = await fetch(fullUrl, {
       method: 'POST',
-      headers: {
-        'Accept': 'application/json'
-      },
-      body: formData,
-      mode: 'cors',
-      credentials: 'omit'
+      body: formData // Send the FormData object directly
     });
 
     console.log("Response status:", response.status);
