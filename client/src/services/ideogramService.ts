@@ -69,22 +69,31 @@ export async function generateImage({
   }
 }
 
-// Generate with our Vercel proxy
+// Generate with our backend proxy
 async function generateWithProxy(prompt: string, style?: string): Promise<string> {
   console.log("Making API call with prompt:", prompt);
   console.log("API URL being used:", API_URL);
   console.log("Full endpoint URL:", `${API_URL}/api/ideogram/generate`);
 
   try {
-    const requestBody = {
-      prompt: prompt,
-      style: style !== "custom" ? style : undefined,
-      aspect_ratio: "ASPECT_3_4",
-      negative_prompt: "text, watermark, signature, blurry, low quality, distorted, deformed",
-      seed: Math.floor(Math.random() * 1000000)
-    };
+    // Create form data for the request
+    const formData = new FormData();
+    formData.append('prompt', prompt);
+    formData.append('aspect_ratio', '3:4');
+    formData.append('rendering_speed', 'TURBO');
+    
+    if (style && style !== "custom") {
+      formData.append('style_type', style.toUpperCase());
+    }
 
-    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    formData.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
+
+    console.log("Request parameters:", {
+      prompt,
+      style,
+      aspect_ratio: '3:4',
+      rendering_speed: 'TURBO'
+    });
     
     const fullUrl = `${API_URL}/api/ideogram/generate`;
     console.log("Making request to:", fullUrl);
@@ -92,11 +101,9 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Origin': window.location.origin
+        'Accept': 'application/json'
       },
-      body: JSON.stringify(requestBody),
+      body: formData,
       mode: 'cors',
       credentials: 'omit'
     });
@@ -119,43 +126,15 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       throw new Error(errorData.error || `API error: ${response.status}`);
     }
 
-    const responseText = await response.text();
-    console.log("Raw response:", responseText);
+    const data = await response.json();
+    console.log("API response data:", data);
 
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch (error) {
-      console.error("Failed to parse JSON response:", error);
-      throw new Error('Invalid JSON response from server');
-    }
-
-    console.log("API response data:", JSON.stringify(data, null, 2));
-
-    // Try multiple possible response structures
-    let imageUrl: string | null = null;
-    
-    // Check various possible response structures from the API
-    if (data?.data?.[0]?.url) {
-      imageUrl = data.data[0].url;
-    } else if (data?.images?.[0]?.url) {
-      imageUrl = data.images[0].url;
-    } else if (data?.image?.url) {
-      imageUrl = data.image.url;
-    } else if (data?.url) {
-      imageUrl = data.url;
-    } else if (Array.isArray(data) && data[0]?.url) {
-      imageUrl = data[0].url;
-    } else if (typeof data === 'string' && data.startsWith('http')) {
-      imageUrl = data;
-    }
-
-    if (!imageUrl) {
+    if (!data.url) {
       console.error("Could not extract image URL from response:", data);
       throw new Error("Could not extract image URL from API response");
     }
 
-    return imageUrl;
+    return data.url;
   } catch (error: unknown) {
     console.error("Error calling API:", error);
     if (error instanceof Error) {

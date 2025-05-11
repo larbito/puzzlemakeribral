@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
+const FormData = require('form-data');
 const multer = require('multer');
 const upload = multer();
 
@@ -22,51 +23,61 @@ router.use((req, res, next) => {
 
 router.post('/generate', async (req, res) => {
   console.log('Received generate request');
-  // Handle preflight
-  if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request');
-    return res.status(200).end();
-  }
-
+  
   try {
-    console.log('Received request headers:', req.headers);
-    console.log('Received request body:', req.body);
-    console.log('Request origin:', req.headers.origin);
-    console.log('Request URL:', req.originalUrl);
-
+    console.log('Request body:', req.body);
+    
     // Check if API key is configured
     if (!process.env.IDEOGRAM_API_KEY) {
       console.error('Ideogram API key is not configured');
       return res.status(500).json({ error: 'API key not configured' });
     }
 
-    const { prompt, style, aspect_ratio, negative_prompt, seed } = req.body;
+    const { prompt, style, aspect_ratio = '3:4', negative_prompt } = req.body;
     
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    console.log('Generating image with params:', { prompt, style, aspect_ratio, negative_prompt, seed });
+    console.log('Generating image with params:', { prompt, style, aspect_ratio, negative_prompt });
     
-    const response = await fetch("https://api.ideogram.ai/api/v1/images/generate", {
-      method: "POST",
+    // Create form data for the new API
+    const form = new FormData();
+    form.append('prompt', prompt);
+    form.append('aspect_ratio', aspect_ratio.replace(':', 'x')); // Convert 3:4 to 3x4 format
+    form.append('rendering_speed', 'TURBO');
+
+    if (negative_prompt) {
+      form.append('negative_prompt', negative_prompt);
+    }
+
+    if (style) {
+      form.append('style_type', style.toUpperCase());
+    }
+
+    // Add some default parameters
+    form.append('num_images', '1');
+    form.append('seed', Math.floor(Math.random() * 1000000));
+
+    console.log('Making request to Ideogram API with form data');
+    
+    const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.IDEOGRAM_API_KEY}`
+        'Api-Key': process.env.IDEOGRAM_API_KEY,
+        ...form.getHeaders()
       },
-      body: JSON.stringify({
-        prompt,
-        model: "ideogram-1.0",
-        style,
-        aspect_ratio: aspect_ratio || "ASPECT_3_4",
-        negative_prompt: negative_prompt || "text, watermark, signature, blurry, low quality, distorted, deformed",
-        seed: seed || Math.floor(Math.random() * 1000000)
-      })
+      body: form
     });
+
+    console.log('Ideogram API response status:', response.status);
+
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
 
     let data;
     try {
-      data = await response.json();
+      data = JSON.parse(responseText);
     } catch (error) {
       console.error('Failed to parse Ideogram API response:', error);
       return res.status(500).json({ error: 'Invalid response from image generation service' });
@@ -80,11 +91,21 @@ router.post('/generate', async (req, res) => {
       });
     }
 
-    console.log('Ideogram API response:', data);
+    console.log('Ideogram API response data:', data);
     
-    // Ensure CORS headers are set
-    res.header('Access-Control-Allow-Origin', '*');
-    res.json(data);
+    // Extract the image URL from the response
+    let imageUrl = null;
+    if (data?.data?.[0]?.url) {
+      imageUrl = data.data[0].url;
+    }
+
+    if (!imageUrl) {
+      console.error('No image URL in response:', data);
+      throw new Error('No image URL in API response');
+    }
+
+    // Return the image URL to the client
+    res.json({ url: imageUrl });
   } catch (error) {
     console.error('Ideogram API error:', error);
     res.status(500).json({ 
