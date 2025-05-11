@@ -178,6 +178,8 @@ export const TShirtGenerator = () => {
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
   
@@ -211,9 +213,9 @@ export const TShirtGenerator = () => {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Set canvas dimensions
-    canvas.width = 800;
-    canvas.height = 900;
+    // Fixed dimensions that work better for previews
+    canvas.width = 500;
+    canvas.height = 600;
     
     // Create a t-shirt template dynamically
     const drawTshirtTemplate = () => {
@@ -231,45 +233,49 @@ export const TShirtGenerator = () => {
       // Shadow color
       const shadowColor = bgColor === '#f8f8f8' ? '#e0e0e0' : '#111111';
       
-      // T-shirt outline
+      // T-shirt outline - scaled down for better visibility
       ctx.fillStyle = bgColor;
       
       // Draw t-shirt body (simplified shape)
       ctx.beginPath();
       
+      // Top of shirt
+      const centerX = canvas.width / 2;
+      const topY = 50;
+      
       // T-shirt neck
-      ctx.moveTo(350, 100);
-      ctx.bezierCurveTo(320, 120, 300, 140, 300, 160);
+      ctx.moveTo(centerX - 50, topY);
+      ctx.bezierCurveTo(centerX - 40, topY + 20, centerX - 30, topY + 40, centerX - 30, topY + 50);
       
       // Left sleeve
-      ctx.lineTo(180, 220);
-      ctx.lineTo(150, 350);
-      ctx.lineTo(220, 330);
+      ctx.lineTo(centerX - 100, topY + 80);
+      ctx.lineTo(centerX - 110, topY + 160);
+      ctx.lineTo(centerX - 60, topY + 130);
       
       // Left body
-      ctx.lineTo(250, 800);
+      ctx.lineTo(centerX - 80, canvas.height - 100);
       
       // Bottom
-      ctx.lineTo(550, 800);
+      ctx.lineTo(centerX + 80, canvas.height - 100);
       
       // Right body
-      ctx.lineTo(580, 330);
+      ctx.lineTo(centerX + 60, topY + 130);
       
       // Right sleeve
-      ctx.lineTo(650, 350);
-      ctx.lineTo(620, 220);
-      ctx.lineTo(500, 160);
+      ctx.lineTo(centerX + 110, topY + 160);
+      ctx.lineTo(centerX + 100, topY + 80);
+      ctx.lineTo(centerX + 30, topY + 50);
       
       // Right neck
-      ctx.bezierCurveTo(500, 140, 480, 120, 450, 100);
+      ctx.bezierCurveTo(centerX + 30, topY + 40, centerX + 40, topY + 20, centerX + 50, topY);
       
       ctx.closePath();
       
       // Add shadow
       ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = 20;
-      ctx.shadowOffsetX = 5;
-      ctx.shadowOffsetY = 5;
+      ctx.shadowBlur = 15;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
       
       // Fill the shape
       ctx.fill();
@@ -287,19 +293,8 @@ export const TShirtGenerator = () => {
       
       // Add collar
       ctx.beginPath();
-      ctx.moveTo(350, 100);
-      ctx.quadraticCurveTo(400, 120, 450, 100);
-      ctx.stroke();
-      
-      // Add simple seam lines for sleeves
-      ctx.beginPath();
-      ctx.moveTo(300, 160);
-      ctx.lineTo(180, 220);
-      ctx.stroke();
-      
-      ctx.beginPath();
-      ctx.moveTo(500, 160);
-      ctx.lineTo(620, 220);
+      ctx.moveTo(centerX - 50, topY);
+      ctx.quadraticCurveTo(centerX, topY + 15, centerX + 50, topY);
       ctx.stroke();
       
       return true;
@@ -311,12 +306,12 @@ export const TShirtGenerator = () => {
     if (!templateDrawn) return;
     
     // Calculate design dimensions (40% of t-shirt width)
-    const designWidth = canvas.width * 0.4;
+    const designWidth = canvas.width * 0.45; // Slightly larger design for better visibility
     const designHeight = (designWidth / designImage.width) * designImage.height;
     
-    // Position in center chest area (about 30% from top)
+    // Position in center chest area (higher up for better visibility)
     const designX = (canvas.width - designWidth) / 2;
-    const designY = canvas.height * 0.3;
+    const designY = canvas.height * 0.23; // Place higher on the shirt
     
     // Draw design on t-shirt
     ctx.drawImage(
@@ -527,7 +522,7 @@ export const TShirtGenerator = () => {
   };
 
   // Generate image from prompt
-  const handleGenerateImage = async () => {
+  const handleGenerateImage = async (): Promise<void> => {
     console.log('Generating image with prompt:', prompt.trim());
     
     if (!prompt.trim()) {
@@ -536,11 +531,12 @@ export const TShirtGenerator = () => {
     }
 
     setIsGenerating(true);
-    setCurrentDesigns([]);
+    setCurrentDesigns([]); // Clear current designs
     
     try {
       console.log('Starting image generation with params:', {
         prompt,
+        count: parseInt(designCount),
         format: resolution,
         transparentBackground: transparentBg
       });
@@ -549,22 +545,22 @@ export const TShirtGenerator = () => {
       const newImages: GeneratedImage[] = [];
       
       // Show immediate feedback
-      toast.loading(`Generating ${count} design${count > 1 ? 's' : ''}...`);
+      const toastId = toast.loading(`Generating ${count} design${count > 1 ? 's' : ''}...`);
       
-      for (let i = 0; i < count; i++) {
-        // Add values to parameters object
-        const params: any = {
-          prompt,
-          format: resolution,
-          transparentBackground: transparentBg
-        };
-        
-        // Log generation attempt
-        console.log(`Generating design ${i+1}/${count}`);
-        
+      // Generate designs in parallel rather than sequentially
+      const designPromises = Array.from({ length: count }, async (_, i) => {
         try {
+          console.log(`Starting generation of design ${i+1}/${count}`);
+          
+          // Add values to parameters object
+          const params: any = {
+            prompt,
+            format: resolution,
+            transparentBackground: transparentBg
+          };
+          
           const imageUrl = await generateImage(params);
-
+          
           if (imageUrl) {
             console.log(`Design ${i+1} generated successfully:`, imageUrl);
             
@@ -579,8 +575,6 @@ export const TShirtGenerator = () => {
               colors
             };
             
-            newImages.push(newImage);
-            
             // Add to history with required fields
             const newDesign = saveToHistory({
               prompt,
@@ -593,28 +587,54 @@ export const TShirtGenerator = () => {
             // Update the history item with colors
             newDesign.colors = colors;
             
-            setHistory(prev => [newDesign, ...prev]);
+            return newImage;
           } else {
             console.error(`Design ${i+1} failed: Empty image URL`);
             throw new Error('Empty image URL returned');
           }
         } catch (error) {
           console.error(`Error generating design ${i+1}:`, error);
-          // Continue with other designs even if one fails
+          return null; // Return null for failed generations
         }
-      }
+      });
       
-      if (newImages.length > 0) {
-        setCurrentDesigns(newImages);
-        setGeneratedImages(prev => [...newImages, ...prev]);
-        setSelectedImage(newImages[0]);
-        toast.success(`${newImages.length} design${newImages.length > 1 ? 's' : ''} generated successfully!`);
+      // Wait for all designs to be generated
+      const results = await Promise.all(designPromises);
+      
+      // Filter out failed generations
+      const successfulImages = results.filter(Boolean) as GeneratedImage[];
+      
+      // Update state with new designs
+      if (successfulImages.length > 0) {
+        // Update history with successful designs
+        setHistory(prev => [...successfulImages.map(img => {
+          // Create history items from the successful images
+          const historyItem = saveToHistory({
+            prompt,
+            thumbnail: img.url,
+            imageUrl: img.url,
+            format: resolution.toUpperCase(),
+            style: "custom"
+          });
+          historyItem.colors = img.colors;
+          return historyItem;
+        }), ...prev]);
+        
+        // Update current designs and selected image
+        setCurrentDesigns(successfulImages);
+        setGeneratedImages(prev => [...successfulImages, ...prev]);
+        setSelectedImage(successfulImages[0]);
+        
+        // Dismiss loading toast and show success
+        toast.dismiss(toastId);
+        toast.success(`${successfulImages.length} design${successfulImages.length > 1 ? 's' : ''} generated successfully!`);
       } else {
+        toast.dismiss(toastId);
         throw new Error('No designs were successfully generated');
       }
     } catch (error: any) {
-      console.error('Error generating image:', error);
-      toast.error(error.message || "Failed to generate image");
+      console.error('Error generating images:', error);
+      toast.error(error.message || "Failed to generate images");
     } finally {
       setIsGenerating(false);
     }
@@ -630,8 +650,9 @@ export const TShirtGenerator = () => {
 
   // Handle image download
   const handleDownload = async (imageUrl: string) => {
-    if (!imageUrl) return;
+    if (!imageUrl || isDownloading) return;
     
+    setIsDownloading(true);
     try {
       // Format filename using the first few words of the prompt
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
@@ -642,15 +663,28 @@ export const TShirtGenerator = () => {
     } catch (error) {
       console.error("Error in handleDownload:", error);
       toast.error("Failed to download image");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   // Handle regeneration
   const handleRegenerate = () => {
+    if (isRegenerating) return;
+    
     if (isEditing) {
       setIsEditing(false);
     }
-    handleGenerateImage();
+    
+    setIsRegenerating(true);
+    
+    // Use a timeout to ensure UI responsiveness
+    setTimeout(() => {
+      handleGenerateImage()
+        .finally(() => {
+          setIsRegenerating(false);
+        });
+    }, 10);
   };
 
   // Handle deleting from history
@@ -1053,16 +1087,28 @@ export const TShirtGenerator = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleRegenerate()}
+                          disabled={isGenerating || isRegenerating}
+                          className="relative"
                         >
-                          <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                          {isRegenerating ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                          )}
                           Regenerate
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleDownload(selectedImage.url)}
+                          disabled={isGenerating || isDownloading}
+                          className="relative"
                         >
-                          <Download className="w-3.5 h-3.5 mr-1" />
+                          {isDownloading ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5 mr-1" />
+                          )}
                           Download
                         </Button>
                       </div>
@@ -1099,24 +1145,26 @@ export const TShirtGenerator = () => {
                       />
                       
                       {/* T-shirt mockup canvas */}
-                      <div className="relative mt-4 border rounded-lg p-2">
-                        <h4 className="text-sm font-medium mb-2 flex items-center">
+                      <div className="relative mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20">
+                        <h4 className="text-sm font-medium mb-4 flex items-center">
                           <Shirt className="w-4 h-4 mr-1 text-primary" />
                           T-shirt Preview
                         </h4>
-                        <canvas 
-                          ref={mockupCanvasRef}
-                          className="w-full max-w-[300px] mx-auto"
-                          width="800"
-                          height="900"
-                        />
-                        <div className="mt-2 flex justify-center space-x-2">
+                        <div className="flex justify-center">
+                          <canvas 
+                            ref={mockupCanvasRef}
+                            className="max-w-full h-auto"
+                            width="500"
+                            height="600"
+                          />
+                        </div>
+                        <div className="mt-4 flex justify-center space-x-2">
                           <Button 
                             variant="outline" 
                             size="sm"
                             onClick={() => setMockupBackground('white')}
                             className={cn(
-                              "text-xs px-2 py-1 h-auto",
+                              "text-xs px-3 py-1 h-auto",
                               mockupBackground === 'white' && "bg-primary text-primary-foreground"
                             )}
                           >
@@ -1127,7 +1175,7 @@ export const TShirtGenerator = () => {
                             size="sm"
                             onClick={() => setMockupBackground('black')}
                             className={cn(
-                              "text-xs px-2 py-1 h-auto",
+                              "text-xs px-3 py-1 h-auto",
                               mockupBackground === 'black' && "bg-primary text-primary-foreground"
                             )}
                           >
@@ -1138,7 +1186,7 @@ export const TShirtGenerator = () => {
                             size="sm"
                             onClick={() => setMockupBackground('navy')}
                             className={cn(
-                              "text-xs px-2 py-1 h-auto",
+                              "text-xs px-3 py-1 h-auto",
                               mockupBackground === 'navy' && "bg-primary text-primary-foreground"
                             )}
                           >
