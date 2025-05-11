@@ -163,6 +163,8 @@ interface GeneratedImage {
   timestamp: Date;
   colors?: string[];
   hasTransparency?: boolean;
+  isFavorite?: boolean;
+  createdAt?: string;
 }
 
 // Update the DesignHistoryItem type to include colors
@@ -199,6 +201,11 @@ export const TShirtGenerator = () => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // History filters and display options
+  const [historyFilter, setHistoryFilter] = useState("all");
+  const [historySort, setHistorySort] = useState("newest");
+  const [historyView, setHistoryView] = useState("grid");
   
   // Results state
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
@@ -688,19 +695,71 @@ export const TShirtGenerator = () => {
     createMockupDir();
   }, []);
 
+  // Create filtered, sorted history list
+  const filteredHistory = React.useMemo(() => {
+    // Apply filters
+    let result = [...history];
+    
+    // Filter by criteria
+    if (historyFilter === "favorites") {
+      result = result.filter(item => item.isFavorite);
+    } else if (historyFilter === "recent") {
+      // Last 7 days
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      result = result.filter(item => new Date(item.createdAt) >= oneWeekAgo);
+    }
+    
+    // Apply sorting
+    result.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return historySort === "newest" ? dateB - dateA : dateA - dateB;
+    });
+    
+    return result;
+  }, [history, historyFilter, historySort]);
+
   return (
     <PageLayout
       title="T-Shirt Design Creator"
       description="Create stunning t-shirt designs with AI. Perfect for print-on-demand and merch."
     >
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center">
+          <Button 
+            variant={currentTab === "design" ? "default" : "outline"} 
+            size="sm"
+            className="flex items-center gap-2"
+            onClick={() => setCurrentTab("design")}
+          >
+            <Sparkles className="w-4 h-4" />
+            Design Creator
+          </Button>
+        </div>
+        <Button 
+          variant="default" 
+          size="sm"
+          className="bg-primary text-white"
+          onClick={() => setCurrentTab("design")}
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          Create Design
+        </Button>
+      </div>
+      
       <div className="flex flex-col h-full overflow-hidden">
         {/* Main tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
           <div className="border-b pb-2 mb-2">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-background/95 border rounded-lg p-1 z-10">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 bg-background/95 border rounded-lg p-1 z-10">
               <TabsTrigger value="design" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Design Creator
+              </TabsTrigger>
+              <TabsTrigger value="image-to-prompt" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
+                <ImageIcon className="w-4 h-4 mr-2" />
+                Image to Prompt
               </TabsTrigger>
               <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
                 <History className="w-4 h-4 mr-2" />
@@ -1089,28 +1148,149 @@ export const TShirtGenerator = () => {
               {/* Generated Designs Grid */}
               {currentDesigns.length > 0 && (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {currentDesigns.map((design) => (
-                      <div 
-                        key={design.id} 
-                        className={cn(
-                          "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
-                          selectedImage?.id === design.id ? "border-primary" : "border-transparent"
-                        )}
-                        onClick={() => handleSelectImage(design)}
-                      >
-                        <img 
-                          src={design.url} 
-                          alt={design.prompt}
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  {historyView === "grid" ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+                      {currentDesigns.map((design) => (
+                        <div 
+                          key={design.id} 
+                          className={cn(
+                            "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
+                            selectedImage?.id === design.id ? "border-primary" : "border-transparent"
+                          )}
+                          onClick={() => handleSelectImage(design)}
+                        >
+                          <img 
+                            src={design.url} 
+                            alt={design.prompt}
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mb-6">
+                      {currentDesigns.map((design, index) => (
+                        <motion.div
+                          key={design.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.03 }}
+                        >
+                          <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-sm bg-background/90 backdrop-blur-sm">
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-32 h-32 sm:h-auto">
+                                <img
+                                  src={design.url}
+                                  alt={`Design ${design.id}`}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute top-2 right-2 h-7 w-7 bg-black/30 backdrop-blur-sm text-white hover:bg-white/20 rounded-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    saveToFavoritesService(design.id);
+                                    const updatedHistory = history.map(historyItem => 
+                                      historyItem.id === design.id 
+                                        ? { ...historyItem, isFavorite: !historyItem.isFavorite } 
+                                        : historyItem
+                                    );
+                                    setHistory(updatedHistory);
+                                    toast.success(design.isFavorite ? 'Removed from favorites' : 'Added to favorites');
+                                  }}
+                                >
+                                  <Heart className={`w-4 h-4 ${design.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+                                </Button>
+                              </div>
+                              
+                              <div className="flex-1 p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <h3 className="font-medium line-clamp-1">{design.prompt}</h3>
+                                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                      <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
+                                        {design.createdAt ? formatDate(design.createdAt) : new Date(design.timestamp).toLocaleDateString()}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex gap-1">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownload(design.url);
+                                      }}
+                                      className="h-8 w-8"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReusePrompt(design.prompt);
+                                        setCurrentTab("design");
+                                      }}
+                                      className="h-8 w-8"
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteFromHistory(design.id);
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                {/* Color chips */}
+                                {design.colors && design.colors.length > 0 && (
+                                  <div className="flex gap-1 mt-2">
+                                    {design.colors.slice(0, 5).map((color, index) => (
+                                      <TooltipProvider key={index}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <motion.div 
+                                              className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
+                                              style={{ backgroundColor: color }}
+                                              onClick={(e) => {
+                                                e.stopPropagation(); 
+                                                handleCopyColor(color);
+                                              }}
+                                              whileHover={{ scale: 1.2 }}
+                                              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                            />
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" className="text-xs">
+                                            <p>Copy: {color}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                   
                   {/* Batch actions row */}
                   {currentDesigns.length > 1 && (
-                    <div className="flex justify-end gap-2 mt-3">
+                    <div className="flex justify-end gap-2 mt-3 mb-4">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1134,6 +1314,123 @@ export const TShirtGenerator = () => {
                   )}
                 </>
               )}
+            </div>
+          </TabsContent>
+          
+          {/* Image to Prompt Tab */}
+          <TabsContent value="image-to-prompt" className="flex-1 overflow-y-auto overflow-x-hidden p-3 z-10">
+            <div className="max-w-3xl mx-auto">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center">
+                    <ImageIcon className="w-4 h-4 mr-2 text-primary" />
+                    Image to Prompt Converter
+                  </CardTitle>
+                  <CardDescription>
+                    Upload an existing T-shirt design image to automatically generate a descriptive prompt
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* File Drop Area */}
+                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer relative">
+                    <input
+                      type="file"
+                      id="image-upload"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                    />
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <Upload className="w-8 h-8 text-muted-foreground" />
+                      <p className="font-medium">Click to upload or drag and drop</p>
+                      <p className="text-sm text-muted-foreground">
+                        PNG, JPG or GIF (max. 5MB)
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Preview Area */}
+                  {selectedImage && (
+                    <div className="border rounded-lg p-4 space-y-4">
+                      <div className="aspect-square max-h-[300px] rounded overflow-hidden mx-auto">
+                        <img 
+                          src={selectedImage.url} 
+                          alt="Uploaded design" 
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-medium">Image Preview</h3>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setSelectedImage(null)}
+                            className="text-destructive"
+                          >
+                            <X className="w-4 h-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Button
+                            onClick={handleGeneratePrompt}
+                            disabled={isGenerating || !selectedImage}
+                            className="w-full"
+                          >
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Analyzing image...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="w-4 h-4 mr-2" />
+                                Generate Prompt from Image
+                              </>
+                            )}
+                          </Button>
+                          
+                          {prompt && (
+                            <div className="mt-4 space-y-2">
+                              <h4 className="font-medium">Generated Prompt:</h4>
+                              <div className="p-3 bg-muted/30 rounded-md">
+                                <p>{prompt}</p>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(prompt);
+                                    toast.success("Prompt copied to clipboard");
+                                  }}
+                                >
+                                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                                  Copy
+                                </Button>
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => {
+                                    setCurrentTab("design");
+                                    // The prompt is already set from the handleGeneratePrompt function
+                                  }}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                                  Use This Prompt
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
           
@@ -1214,7 +1511,7 @@ export const TShirtGenerator = () => {
                   <div className="mb-4 flex flex-wrap items-center gap-3 p-3 rounded-lg bg-background/90 backdrop-blur-sm border shadow-sm">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="history-filter" className="text-sm font-medium">Filter:</Label>
-                      <Select defaultValue="all">
+                      <Select value={historyFilter} onValueChange={setHistoryFilter}>
                         <SelectTrigger id="history-filter" className="w-[150px] h-9 text-sm">
                           <SelectValue placeholder="All designs" />
                         </SelectTrigger>
@@ -1228,7 +1525,7 @@ export const TShirtGenerator = () => {
                     
                     <div className="flex items-center gap-2">
                       <Label htmlFor="history-layout" className="text-sm font-medium">View:</Label>
-                      <Select defaultValue="grid">
+                      <Select value={historyView} onValueChange={setHistoryView}>
                         <SelectTrigger id="history-layout" className="w-[120px] h-9 text-sm">
                           <SelectValue placeholder="Grid view" />
                         </SelectTrigger>
@@ -1241,7 +1538,7 @@ export const TShirtGenerator = () => {
                     
                     <div className="flex items-center gap-2 ml-auto">
                       <Label htmlFor="history-sort" className="text-sm font-medium">Sort by:</Label>
-                      <Select defaultValue="newest">
+                      <Select value={historySort} onValueChange={setHistorySort}>
                         <SelectTrigger id="history-sort" className="w-[150px] h-9 text-sm">
                           <SelectValue placeholder="Newest first" />
                         </SelectTrigger>
@@ -1256,167 +1553,327 @@ export const TShirtGenerator = () => {
                   {/* Design count and export options */}
                   <div className="flex justify-between items-center mb-3">
                     <p className="text-sm text-muted-foreground">
-                      Showing <span className="font-medium text-foreground">{history.length}</span> designs
+                      Showing <span className="font-medium text-foreground">{filteredHistory.length}</span> designs
                     </p>
                     
-                    <Button variant="outline" size="sm" className="text-xs" onClick={handleDownloadAll}>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-xs"
+                      onClick={() => {
+                        // Check if there are designs to export
+                        if (history.length === 0) {
+                          toast.error("No designs to export");
+                          return;
+                        }
+                        
+                        // Convert history items to format needed for downloadAllImages function
+                        const imagesToDownload = history.map(item => ({
+                          url: item.imageUrl,
+                          prompt: item.prompt
+                        }));
+                        
+                        // Call downloadAllImages with toast notifications
+                        toast.promise(
+                          downloadAllImages(imagesToDownload),
+                          {
+                            loading: `Preparing ${history.length} designs for download...`,
+                            success: `Successfully exported ${history.length} designs`,
+                            error: "Failed to export designs. Please try again."
+                          }
+                        );
+                      }}
+                    >
                       <Download className="w-3.5 h-3.5 mr-1.5" />
                       Export All
                     </Button>
                   </div>
                 
                   {/* Main grid of designs */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
-                    {history.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3, delay: index * 0.03 }}
-                      >
-                        <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/90 backdrop-blur-sm h-full flex flex-col">
-                          <div className="relative aspect-square rounded-t-lg overflow-hidden">
-                            <img
-                              src={item.imageUrl}
-                              alt={`Design ${item.id}`}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              loading="lazy"
-                            />
-                            
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
-                              <motion.div 
-                                className="flex items-center gap-2 mt-12"
-                                initial={{ y: 20, opacity: 0 }}
-                                whileInView={{ y: 0, opacity: 1 }}
-                                transition={{ duration: 0.3 }}
-                              >
-                                <Button 
-                                  size="icon" 
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDownload(item.imageUrl);
-                                  }}
-                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
-                                >
-                                  <Download className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigator.clipboard.writeText(item.prompt);
-                                    toast.success('Prompt copied to clipboard');
-                                  }}
-                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
-                                >
-                                  <Copy className="w-4 h-4" />
-                                </Button>
-                                <Button 
-                                  size="icon" 
-                                  variant="secondary"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleReusePrompt(item.prompt);
-                                    setCurrentTab("design");
-                                  }}
-                                  className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
-                                >
-                                  <RefreshCw className="w-4 h-4" />
-                                </Button>
-                              </motion.div>
-                            </div>
-                            
-                            {/* Favorite button */}
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-2 right-2 h-7 w-7 bg-black/30 backdrop-blur-sm text-white hover:bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                saveToFavoritesService(item.id);
-                                const updatedHistory = history.map(historyItem => 
-                                  historyItem.id === item.id 
-                                    ? { ...historyItem, isFavorite: !historyItem.isFavorite } 
-                                    : historyItem
-                                );
-                                setHistory(updatedHistory);
-                                toast.success(item.isFavorite ? 'Removed from favorites' : 'Added to favorites');
-                              }}
-                            >
-                              <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-                            </Button>
-                          </div>
-                          
-                          <CardContent className="p-3 flex-1 flex flex-col">
-                            <div className="truncate text-sm font-medium mb-2">
-                              {item.prompt.length > 40 
-                                ? `${item.prompt.substring(0, 40)}...` 
-                                : item.prompt}
-                            </div>
-                            
-                            <div className="mt-auto flex justify-between items-center">
-                              <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
-                                {formatDate(item.createdAt)}
-                              </Badge>
+                  {historyView === "grid" ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
+                      {filteredHistory.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3, delay: index * 0.03 }}
+                        >
+                          <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 bg-background/90 backdrop-blur-sm h-full flex flex-col">
+                            <div className="relative aspect-square rounded-t-lg overflow-hidden">
+                              <img
+                                src={item.imageUrl}
+                                alt={`Design ${item.id}`}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
+                              />
                               
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+                                <motion.div 
+                                  className="flex items-center gap-2 mt-12"
+                                  initial={{ y: 20, opacity: 0 }}
+                                  whileInView={{ y: 0, opacity: 1 }}
+                                  transition={{ duration: 0.3 }}
+                                >
+                                  <Button 
+                                    size="icon" 
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDownload(item.imageUrl);
+                                    }}
+                                    className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(item.prompt);
+                                      toast.success('Prompt copied to clipboard');
+                                    }}
+                                    className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </Button>
+                                  <Button 
+                                    size="icon" 
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleReusePrompt(item.prompt);
+                                      setCurrentTab("design");
+                                    }}
+                                    className="h-9 w-9 rounded-full backdrop-blur-md bg-white/10 text-white hover:bg-white/20 shadow-lg"
+                                  >
+                                    <RefreshCw className="w-4 h-4" />
+                                  </Button>
+                                </motion.div>
+                              </div>
+                              
+                              {/* Favorite button */}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="absolute top-2 right-2 h-7 w-7 bg-black/30 backdrop-blur-sm text-white hover:bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleDeleteFromHistory(item.id);
+                                  saveToFavoritesService(item.id);
+                                  const updatedHistory = history.map(historyItem => 
+                                    historyItem.id === item.id 
+                                      ? { ...historyItem, isFavorite: !historyItem.isFavorite } 
+                                      : historyItem
+                                  );
+                                  setHistory(updatedHistory);
+                                  toast.success(item.isFavorite ? 'Removed from favorites' : 'Added to favorites');
                                 }}
                               >
-                                <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                                <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
                               </Button>
                             </div>
                             
-                            {/* Color chips */}
-                            {item.colors && item.colors.length > 0 && (
-                              <div className="flex gap-1 mt-2">
-                                {item.colors.slice(0, 5).map((color, index) => (
-                                  <TooltipProvider key={index}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <motion.div 
-                                          className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
-                                          style={{ backgroundColor: color }}
-                                          onClick={(e) => {
-                                            e.stopPropagation(); 
-                                            handleCopyColor(color);
-                                          }}
-                                          whileHover={{ scale: 1.2 }}
-                                          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                                        />
-                                      </TooltipTrigger>
-                                      <TooltipContent side="bottom" className="text-xs">
-                                        <p>Copy: {color}</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                ))}
+                            <CardContent className="p-3 flex-1 flex flex-col">
+                              <div className="truncate text-sm font-medium mb-2">
+                                {item.prompt.length > 40 
+                                  ? `${item.prompt.substring(0, 40)}...` 
+                                  : item.prompt}
                               </div>
-                            )}
-                            
-                            {/* Style badge */}
-                            {item.style && (
-                              <div className="mt-2">
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5">
-                                  {item.style}
+                              
+                              <div className="mt-auto flex justify-between items-center">
+                                <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
+                                  {formatDate(item.createdAt)}
                                 </Badge>
+                                
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteFromHistory(item.id);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                                </Button>
                               </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    ))}
-                  </div>
+                              
+                              {/* Color chips */}
+                              {item.colors && item.colors.length > 0 && (
+                                <div className="flex gap-1 mt-2">
+                                  {item.colors.slice(0, 5).map((color, index) => (
+                                    <TooltipProvider key={index}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <motion.div 
+                                            className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
+                                            style={{ backgroundColor: color }}
+                                            onClick={(e) => {
+                                              e.stopPropagation(); 
+                                              handleCopyColor(color);
+                                            }}
+                                            whileHover={{ scale: 1.2 }}
+                                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                          />
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="text-xs">
+                                          <p>Copy: {color}</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Style badge */}
+                              {item.style && (
+                                <div className="mt-2">
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5">
+                                    {item.style}
+                                  </Badge>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 mb-6">
+                      {filteredHistory.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: index * 0.03 }}
+                        >
+                          <Card className="group overflow-hidden border hover:border-primary/50 transition-all duration-300 hover:shadow-sm bg-background/90 backdrop-blur-sm">
+                            <div className="flex flex-col sm:flex-row">
+                              <div className="relative w-full sm:w-32 h-32 sm:h-auto">
+                                <img
+                                  src={item.imageUrl}
+                                  alt={`Design ${item.id}`}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="absolute top-2 right-2 h-7 w-7 bg-black/30 backdrop-blur-sm text-white hover:bg-white/20 rounded-full"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    saveToFavoritesService(item.id);
+                                    const updatedHistory = history.map(historyItem => 
+                                      historyItem.id === item.id 
+                                        ? { ...historyItem, isFavorite: !historyItem.isFavorite } 
+                                        : historyItem
+                                    );
+                                    setHistory(updatedHistory);
+                                    toast.success(item.isFavorite ? 'Removed from favorites' : 'Added to favorites');
+                                  }}
+                                >
+                                  <Heart className={`w-4 h-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+                                </Button>
+                              </div>
+                              
+                              <div className="flex-1 p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <h3 className="font-medium line-clamp-1">{item.prompt}</h3>
+                                    <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                      <Badge variant="outline" className="text-xs px-2 py-0 h-5 bg-primary/5">
+                                        {formatDate(item.createdAt)}
+                                      </Badge>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex gap-1">
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDownload(item.imageUrl);
+                                      }}
+                                      className="h-8 w-8"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigator.clipboard.writeText(item.prompt);
+                                        toast.success('Prompt copied to clipboard');
+                                      }}
+                                      className="h-8 w-8"
+                                    >
+                                      <Copy className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      size="icon" 
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReusePrompt(item.prompt);
+                                        setCurrentTab("design");
+                                      }}
+                                      className="h-8 w-8"
+                                    >
+                                      <RefreshCw className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-destructive hover:text-destructive/80"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteFromHistory(item.id);
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                
+                                {/* Color chips */}
+                                {item.colors && item.colors.length > 0 && (
+                                  <div className="flex gap-1 mt-2">
+                                    {item.colors.slice(0, 5).map((color, index) => (
+                                      <TooltipProvider key={index}>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <motion.div 
+                                              className="w-4 h-4 rounded-full cursor-pointer shadow-sm transform hover:scale-110 transition-transform"
+                                              style={{ backgroundColor: color }}
+                                              onClick={(e) => {
+                                                e.stopPropagation(); 
+                                                handleCopyColor(color);
+                                              }}
+                                              whileHover={{ scale: 1.2 }}
+                                              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                                            />
+                                          </TooltipTrigger>
+                                          <TooltipContent side="bottom" className="text-xs">
+                                            <p>Copy: {color}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                   
                   {/* Pagination */}
-                  {history.length > 24 && (
+                  {filteredHistory.length > 24 && (
                     <div className="flex justify-center mt-2 mb-4">
                       <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
                         <Button variant="outline" size="icon" className="h-8 w-8">
@@ -1426,7 +1883,7 @@ export const TShirtGenerator = () => {
                         <Button variant="ghost" size="sm" className="h-8 w-8">2</Button>
                         <Button variant="ghost" size="sm" className="h-8 w-8">3</Button>
                         <span className="text-sm text-muted-foreground">...</span>
-                        <Button variant="ghost" size="sm" className="h-8 w-8">{Math.ceil(history.length / 24)}</Button>
+                        <Button variant="ghost" size="sm" className="h-8 w-8">{Math.ceil(filteredHistory.length / 24)}</Button>
                         <Button variant="outline" size="icon" className="h-8 w-8">
                           <ChevronRight className="h-4 w-4" />
                         </Button>
