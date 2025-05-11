@@ -3,11 +3,16 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL
 const API_URL = import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' 
-  ? 'https://puzzle-craft-forge-production.up.railway.app'
-  : '');  // Empty string will make it use relative URLs which will work with the Vite proxy
+  ? 'https://puzzlemakeribral-production.up.railway.app'
+  : 'http://localhost:3000');  // Use localhost:3000 for development
 
 // For development/debugging - set to false to use real API
 const USE_PLACEHOLDERS = false; // Using real API now
+
+// Add debug logging for API URL
+console.log('API_URL:', API_URL);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
 
 export interface GenerateImageParams {
   prompt: string;
@@ -69,6 +74,7 @@ export async function generateImage({
 // Generate with our Vercel proxy
 async function generateWithProxy(prompt: string, style?: string): Promise<string> {
   console.log("Making API call with prompt:", prompt);
+  console.log("API URL being used:", API_URL);
 
   try {
     const requestBody = {
@@ -80,6 +86,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     };
 
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    console.log("Making request to:", `${API_URL}/api/ideogram/generate`);
 
     const response = await fetch(`${API_URL}/api/ideogram/generate`, {
       method: 'POST',
@@ -92,13 +99,35 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       mode: 'cors'
     });
 
+    console.log("Response status:", response.status);
+    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+      const errorText = await response.text();
+      console.error("Raw error response:", errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText || 'Failed to parse error response' };
+      }
+      
       console.error("API error response:", errorData);
       throw new Error(errorData.error || `API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    console.log("Raw response:", responseText);
+
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      console.error("Failed to parse JSON response:", error);
+      throw new Error('Invalid JSON response from server');
+    }
+
     console.log("API response data:", JSON.stringify(data, null, 2));
 
     // Try multiple possible response structures
@@ -127,6 +156,9 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     return imageUrl;
   } catch (error: unknown) {
     console.error("Error calling API:", error);
+    if (error instanceof Error) {
+      throw new Error(`API call failed: ${error.message}`);
+    }
     throw error;
   }
 }
