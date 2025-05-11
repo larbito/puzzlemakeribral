@@ -240,7 +240,6 @@ const BookCoverGenerator = () => {
     
     // Debug form submission
     console.log("=== FORM SUBMISSION STARTED ===");
-    console.log("Form event:", e);
     console.log("Form data:", {
       bookTitle,
       authorName,
@@ -278,53 +277,50 @@ const BookCoverGenerator = () => {
       console.log("Dimensions:", dimensions);
       
       // Call the API to generate the image
-      try {
-        console.log("Calling generateBookCover API");
-        const imageUrl = await generateBookCover({
-          prompt: formattedPrompt,
-          style,
-          width: dimensions.widthPixels,
-          height: dimensions.heightPixels
-        });
-        
-        console.log("API response received:", imageUrl);
-        
-        if (imageUrl) {
-          setGeneratedImage(imageUrl);
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          console.log(`Attempt ${retryCount + 1} to generate book cover`);
+          const imageUrl = await generateBookCover({
+            prompt: formattedPrompt,
+            style,
+            width: dimensions.widthPixels,
+            height: dimensions.heightPixels
+          });
           
-          // Save to history
-          saveToHistory(imageUrl);
+          if (imageUrl) {
+            console.log("Successfully generated image:", imageUrl);
+            setGeneratedImage(imageUrl);
+            saveToHistory(imageUrl);
+            toast.success("Book cover generated successfully!");
+            break; // Exit the loop on success
+          } else {
+            throw new Error("Empty image URL returned");
+          }
+        } catch (error) {
+          console.error(`Error attempt ${retryCount + 1}:`, error);
+          retryCount++;
           
-          toast.success("Book cover generated successfully!");
-        } else {
-          console.error("No image URL returned from API");
-          toast.error("Failed to generate book cover image");
-          
-          // Create a placeholder image for testing
-          const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
-          setGeneratedImage(placeholderUrl);
-          saveToHistory(placeholderUrl);
-          toast.warning("Using placeholder image for testing");
+          if (retryCount > maxRetries) {
+            // Only show error after all retries have failed
+            toast.error("Failed to generate cover after multiple attempts. Try a different prompt.");
+            
+            // Create a placeholder image as absolute last resort
+            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate: ' + bookTitle)}`;
+            setGeneratedImage(placeholderUrl);
+          } else {
+            // Show retry message
+            toast.info(`Retrying... (${retryCount}/${maxRetries})`);
+            // Wait a moment before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
         }
-      } catch (apiError) {
-        console.error("API call error:", apiError);
-        toast.error(apiError instanceof Error ? apiError.message : "API call failed");
-        
-        // Create a placeholder image for testing
-        const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
-        setGeneratedImage(placeholderUrl);
-        saveToHistory(placeholderUrl);
-        toast.warning("Using placeholder image due to API error");
       }
     } catch (error) {
-      console.error("Error generating book cover:", error);
+      console.error("Error in handleSubmit:", error);
       toast.error(error instanceof Error ? error.message : "Failed to generate book cover");
-      
-      // Create a placeholder image for testing
-      const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
-      setGeneratedImage(placeholderUrl);
-      saveToHistory(placeholderUrl);
-      toast.warning("Using placeholder image due to error");
     } finally {
       setIsGenerating(false);
     }
