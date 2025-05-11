@@ -27,13 +27,13 @@ import { generateBookCover } from "@/services/ideogramService";
 
 // Trim size options for Amazon KDP
 const trimSizeOptions = [
-  { value: "5x8", label: "5" × 8" (12.7 × 20.32 cm)", dimensions: { width: 5, height: 8 } },
-  { value: "5.25x8", label: "5.25" × 8" (13.34 × 20.32 cm)", dimensions: { width: 5.25, height: 8 } },
-  { value: "5.5x8.5", label: "5.5" × 8.5" (13.97 × 21.59 cm)", dimensions: { width: 5.5, height: 8.5 } },
-  { value: "6x9", label: "6" × 9" (15.24 × 22.86 cm)", dimensions: { width: 6, height: 9 } },
-  { value: "7x10", label: "7" × 10" (17.78 × 25.4 cm)", dimensions: { width: 7, height: 10 } },
-  { value: "8x10", label: "8" × 10" (20.32 × 25.4 cm)", dimensions: { width: 8, height: 10 } },
-  { value: "8.5x11", label: "8.5" × 11" (21.59 × 27.94 cm)", dimensions: { width: 8.5, height: 11 } },
+  { value: "5x8", label: "5\" x 8\" (12.7 x 20.32 cm)", dimensions: { width: 5, height: 8 } },
+  { value: "5.25x8", label: "5.25\" x 8\" (13.34 x 20.32 cm)", dimensions: { width: 5.25, height: 8 } },
+  { value: "5.5x8.5", label: "5.5\" x 8.5\" (13.97 x 21.59 cm)", dimensions: { width: 5.5, height: 8.5 } },
+  { value: "6x9", label: "6\" x 9\" (15.24 x 22.86 cm)", dimensions: { width: 6, height: 9 } },
+  { value: "7x10", label: "7\" x 10\" (17.78 x 25.4 cm)", dimensions: { width: 7, height: 10 } },
+  { value: "8x10", label: "8\" x 10\" (20.32 x 25.4 cm)", dimensions: { width: 8, height: 10 } },
+  { value: "8.5x11", label: "8.5\" x 11\" (21.59 x 27.94 cm)", dimensions: { width: 8.5, height: 11 } },
 ];
 
 // Book style options
@@ -153,7 +153,7 @@ const BookCoverGenerator = () => {
 
   // Generate a prompt based on user inputs
   const generateFormattedPrompt = () => {
-    let basePrompt = `A professional book cover for a book titled "${bookTitle}" by ${authorName}, showing the full layout: back cover on the left, spine in the center, and front cover on the right. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" × ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
+    let basePrompt = `A professional book cover for a book titled "${bookTitle}" by ${authorName}, showing the full layout: back cover on the left, spine in the center, and front cover on the right. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" x ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
     
     // Add style information if selected
     if (style && style !== "realistic") {
