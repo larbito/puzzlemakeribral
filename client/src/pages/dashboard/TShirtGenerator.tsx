@@ -60,14 +60,6 @@ import {
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
 
 // Enhanced style options with more choices
 const styleOptions = [
@@ -185,7 +177,6 @@ export const TShirtGenerator = () => {
   const [designCount, setDesignCount] = useState("1");
   const [transparentBg, setTransparentBg] = useState(true);
   const [showSafeZone, setShowSafeZone] = useState(false);
-  const [mockupBackground, setMockupBackground] = useState("white");
   
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -202,16 +193,9 @@ export const TShirtGenerator = () => {
   const [selectedImage, setSelectedImage] = useState<GeneratedImage | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mockupCanvasRef = useRef<HTMLCanvasElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
 
   const MAX_PROMPT_LENGTH = 500;
-
-  // Add a new state variable for toggling the T-shirt preview
-  const [showTshirtPreview, setShowTshirtPreview] = useState(false);
-
-  // Add a state variable for the full-page preview
-  const [hasCheckedTransparency, setHasCheckedTransparency] = useState(false);
 
   // Load history on component mount
   useEffect(() => {
@@ -219,167 +203,6 @@ export const TShirtGenerator = () => {
     setHistory(savedHistory);
   }, []);
 
-  // Function to check if an image has transparency or a solid white background
-  const checkImageTransparency = async (imageUrl: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        if (!ctx) {
-          resolve(false);
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        
-        // Check if image has transparency or not all white
-        let hasTransparency = false;
-        
-        // Sample pixels to check
-        for (let i = 3; i < imageData.length; i += 4) {
-          // Check for transparency
-          if (imageData[i] < 250) {
-            hasTransparency = true;
-            break;
-          }
-        }
-        
-        resolve(hasTransparency);
-      };
-      
-      img.onerror = () => resolve(false);
-      img.src = imageUrl;
-    });
-  };
-
-  // Function to update the mockup preview
-  const updateMockupPreview = (designImage: HTMLImageElement) => {
-    if (!mockupCanvasRef.current) return;
-    
-    const canvas = mockupCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-    
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Fixed dimensions that work better for previews
-    canvas.width = 500;
-    canvas.height = 600;
-    
-    // Create a t-shirt template dynamically
-    const drawTshirtTemplate = () => {
-      // Background color based on selected mockup background
-      const bgColor = (() => {
-        switch (mockupBackground) {
-          case 'black': return '#222222';
-          case 'navy': return '#1a2456';
-          case 'hoodie': return '#333333';
-          case 'white':
-          default: return '#f8f8f8';
-        }
-      })();
-      
-      // Shadow color
-      const shadowColor = bgColor === '#f8f8f8' ? '#e0e0e0' : '#111111';
-      
-      // T-shirt outline - scaled down for better visibility
-      ctx.fillStyle = bgColor;
-      
-      // Draw t-shirt body (simplified shape)
-      ctx.beginPath();
-      
-      // Top of shirt
-      const centerX = canvas.width / 2;
-      const topY = 50;
-      
-      // T-shirt neck
-      ctx.moveTo(centerX - 50, topY);
-      ctx.bezierCurveTo(centerX - 40, topY + 20, centerX - 30, topY + 40, centerX - 30, topY + 50);
-      
-      // Left sleeve
-      ctx.lineTo(centerX - 100, topY + 80);
-      ctx.lineTo(centerX - 110, topY + 160);
-      ctx.lineTo(centerX - 60, topY + 130);
-      
-      // Left body
-      ctx.lineTo(centerX - 80, canvas.height - 100);
-      
-      // Bottom
-      ctx.lineTo(centerX + 80, canvas.height - 100);
-      
-      // Right body
-      ctx.lineTo(centerX + 60, topY + 130);
-      
-      // Right sleeve
-      ctx.lineTo(centerX + 110, topY + 160);
-      ctx.lineTo(centerX + 100, topY + 80);
-      ctx.lineTo(centerX + 30, topY + 50);
-      
-      // Right neck
-      ctx.bezierCurveTo(centerX + 30, topY + 40, centerX + 40, topY + 20, centerX + 50, topY);
-      
-      ctx.closePath();
-      
-      // Add shadow
-      ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = 15;
-      ctx.shadowOffsetX = 4;
-      ctx.shadowOffsetY = 4;
-      
-      // Fill the shape
-      ctx.fill();
-      
-      // Reset shadow
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      
-      // Add texture/details if needed
-      const textColor = bgColor === '#f8f8f8' ? '#e5e5e5' : '#444444';
-      ctx.strokeStyle = textColor;
-      ctx.lineWidth = 1;
-      
-      // Add collar
-      ctx.beginPath();
-      ctx.moveTo(centerX - 50, topY);
-      ctx.quadraticCurveTo(centerX, topY + 15, centerX + 50, topY);
-      ctx.stroke();
-      
-      return true;
-    };
-    
-    // Draw the t-shirt template
-    const templateDrawn = drawTshirtTemplate();
-    
-    if (!templateDrawn) return;
-    
-    // Calculate design dimensions (40% of t-shirt width)
-    const designWidth = canvas.width * 0.45; // Slightly larger design for better visibility
-    const designHeight = (designWidth / designImage.width) * designImage.height;
-    
-    // Position in center chest area (higher up for better visibility)
-    const designX = (canvas.width - designWidth) / 2;
-    const designY = canvas.height * 0.23; // Place higher on the shirt
-    
-    // Draw design on t-shirt
-    ctx.drawImage(
-      designImage, 
-      designX, 
-      designY, 
-      designWidth, 
-      designHeight
-    );
-  };
-  
   // Draw the image on canvas when generatedDesign changes
   useEffect(() => {
     if (selectedImage && canvasRef.current) {
@@ -425,9 +248,6 @@ export const TShirtGenerator = () => {
           }
           
           console.log("Image drawn on canvas");
-          
-          // Also update the mockup preview
-          updateMockupPreview(img);
         };
         
         // If image fails to load, draw a fallback
@@ -457,29 +277,6 @@ export const TShirtGenerator = () => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedImage, showSafeZone, prompt]);
-
-  // Add an effect to update the mockup when the user toggles the preview
-  useEffect(() => {
-    if (showTshirtPreview && selectedImage) {
-      const img = new Image();
-      img.onload = () => {
-        updateMockupPreview(img);
-      };
-      img.src = selectedImage.url;
-    }
-  }, [showTshirtPreview, selectedImage]);
-
-  // Update the existing mockup background effect
-  useEffect(() => {
-    if (showTshirtPreview && selectedImage) {
-      const img = new Image();
-      img.onload = () => {
-        updateMockupPreview(img);
-      };
-      img.src = selectedImage.url;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mockupBackground, selectedImage, showTshirtPreview]);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -722,6 +519,8 @@ export const TShirtGenerator = () => {
     
     setIsDownloading(true);
     try {
+      console.log("Downloading image from URL:", imageUrl);
+      
       // Format filename using the first few words of the prompt
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
@@ -792,50 +591,8 @@ export const TShirtGenerator = () => {
     }, 0);
   };
   
-  // Modified function for setting the selected image
-  const handleSelectImage = async (image: GeneratedImage) => {
-    // Check image transparency if we haven't already
-    if (!hasCheckedTransparency && !image.hasTransparency) {
-      const hasTransparency = await checkImageTransparency(image.url);
-      
-      // If image doesn't have transparency, ask if user wants to remove background
-      if (!hasTransparency) {
-        // Update the image object with transparency info
-        image.hasTransparency = false;
-        
-        // Ask user if they want to remove the background
-        toast.custom((t) => (
-          <div className="flex flex-col gap-2 bg-background border rounded-md p-4 shadow-md">
-            <p>This design has a white background. Remove it for better results?</p>
-            <div className="flex justify-end gap-2 mt-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => toast.dismiss(t)}
-              >
-                Keep Background
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={() => {
-                  toast.dismiss(t);
-                  setTransparentBg(true);
-                }}
-              >
-                Remove Background
-              </Button>
-            </div>
-          </div>
-        ), {
-          duration: 8000,
-        });
-      } else {
-        image.hasTransparency = true;
-      }
-      
-      setHasCheckedTransparency(true);
-    }
-    
+  // Simplify the handleSelectImage function since we no longer need to check for transparency
+  const handleSelectImage = (image: GeneratedImage) => {
     setSelectedImage(image);
   };
 
@@ -873,24 +630,20 @@ export const TShirtGenerator = () => {
 
   // New function for handling background removal
   const handleRemoveBackground = async () => {
-    if (!selectedImage) return;
+    if (!selectedImage) {
+      toast.error("No image selected");
+      return;
+    }
     
     setIsRemovingBackground(true);
     
     try {
-      // Check if the image already has transparency
-      const hasTransparency = await checkImageTransparency(selectedImage.url);
+      console.log("Removing background from:", selectedImage.url);
       
-      if (hasTransparency) {
-        toast.info("Image already has a transparent background");
-        setIsRemovingBackground(false);
-        return;
-      }
-      
-      // Remove background
+      // Remove background using the service function
       const transparentImageUrl = await removeBackground(selectedImage.url);
       
-      // Update the selected image with the transparent version
+      // Create a new image object with the transparent version
       const updatedImage = {
         ...selectedImage,
         url: transparentImageUrl,
@@ -1315,29 +1068,6 @@ export const TShirtGenerator = () => {
                           transformOrigin: 'center'
                         }}
                       />
-                      
-                      {/* Toggle button for T-shirt mockup preview */}
-                      <div className="mt-4 flex justify-center">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="gap-2"
-                          onClick={() => {
-                            setShowTshirtPreview(true);
-                            // Update the preview when opening
-                            if (selectedImage) {
-                              const img = new Image();
-                              img.onload = () => {
-                                updateMockupPreview(img);
-                              };
-                              img.src = selectedImage.url;
-                            }
-                          }}
-                        >
-                          <Shirt className="h-4 w-4" />
-                          View on T-shirt
-                        </Button>
-                      </div>
                       
                       {/* Debug/hidden canvas for processing */}
                       <canvas 
