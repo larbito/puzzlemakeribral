@@ -5,7 +5,7 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // For development/debugging - set to true to use placeholder images instead of real API
-const USE_PLACEHOLDERS = false; // Set to true if you want to test with placeholders
+const USE_PLACEHOLDERS = true; // Set to true if you want to test with placeholders
 
 // Add debug logging for API URL and environment
 console.log('API_URL:', API_URL);
@@ -36,7 +36,7 @@ export async function generateImage({
     // If using placeholders for testing, return immediately
     if (USE_PLACEHOLDERS) {
       console.log("Using placeholder by configuration");
-      return getPlaceholderImage(prompt);
+      return getPlaceholderImage(prompt, 'tshirt');
     }
 
     // Build the prompt with style and color scheme preferences
@@ -69,21 +69,21 @@ export async function generateImage({
         
         // Fallback to placeholder for demo/testing
         console.log("Using placeholder as fallback");
-        return getPlaceholderImage(prompt);
+        return getPlaceholderImage(prompt, 'tshirt');
       }
     } catch (error) {
       console.error("Error in generateImage:", error);
       
       // Always return a placeholder for demo purposes
       console.log("Using placeholder due to error");
-      return getPlaceholderImage(prompt);
+      return getPlaceholderImage(prompt, 'tshirt');
     }
   } catch (error) {
     console.error("Error in generateImage outer block:", error);
     
     // Ensure we always return something
     console.log("Using placeholder in catch block");
-    return getPlaceholderImage(prompt);
+    return getPlaceholderImage(prompt, 'tshirt');
   }
 }
 
@@ -189,7 +189,7 @@ function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' = 'tsh
     testImg.onerror = () => {
       // Image failed to load, fall back to a base64 data URI
       console.error("Placeholder image failed to load, using fallback data URI");
-      const fallbackDataUri = createFallbackImage(words, bgColor, typeText);
+      const fallbackDataUri = createFallbackImage(words, bgColor, typeText, width, height);
       setTimeout(() => {
         resolve(fallbackDataUri);
       }, 500);
@@ -201,11 +201,11 @@ function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' = 'tsh
 }
 
 // Create a simple fallback image as a data URI
-function createFallbackImage(text: string, bgColor: string, typeText: string): string {
+function createFallbackImage(text: string, bgColor: string, typeText: string, width = 1024, height = 1365): string {
   // Create a canvas to draw the fallback image
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1365;
+  canvas.width = width;
+  canvas.height = height;
   
   const ctx = canvas.getContext('2d');
   if (!ctx) {
@@ -730,9 +730,10 @@ export async function generateBookCover({
       // Create form data for the request
       const formData = new FormData();
       formData.append('prompt', enhancedPrompt);
-      formData.append('width', width.toString());
-      formData.append('height', height.toString());
-      formData.append('rendering_speed', 'STANDARD');
+      // Note: We're using the standard generate endpoint which doesn't support custom dimensions
+      // So we'll use a predefined aspect ratio instead
+      formData.append('aspect_ratio', '3:4'); // Use a portrait aspect ratio for book covers
+      formData.append('rendering_speed', 'STANDARD'); // Higher quality
       
       if (style && style !== "realistic") {
         formData.append('style_type', style.toUpperCase());
@@ -746,7 +747,8 @@ export async function generateBookCover({
         console.log(`${key}: ${value}`);
       }
       
-      const fullUrl = `${API_URL}/api/ideogram/generate-custom`;
+      // Use the known working endpoint instead of the custom one
+      const fullUrl = `${API_URL}/api/ideogram/generate`;
       console.log("Making book cover generation request to:", fullUrl);
 
       // Add timeout to the fetch request
@@ -801,8 +803,7 @@ export async function generateBookCover({
       
       // Generate a placeholder instead
       console.log("Falling back to placeholder image due to API error");
-      const placeholderUrl = `https://placehold.co/${width}x${height}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + prompt.substring(0, 30))}`;
-      return placeholderUrl;
+      return getPlaceholderImage(prompt, 'bookcover', width, height);
     }
   } catch (error) {
     console.error("Error in generateBookCover:", error);
