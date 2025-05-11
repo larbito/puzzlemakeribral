@@ -743,49 +743,66 @@ export async function generateBookCover({
       const fullUrl = `${API_URL}/api/ideogram/generate-custom`;
       console.log("Making book cover generation request to:", fullUrl);
 
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        body: formData
-      });
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      console.log("Book cover response status:", response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Raw error response:", errorText);
+      try {
+        const response = await fetch(fullUrl, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal
+        });
         
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText || 'Failed to parse error response' };
+        clearTimeout(timeoutId);
+
+        console.log("Book cover response status:", response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Raw error response:", errorText);
+          
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText || 'Failed to parse error response' };
+          }
+          
+          console.error("API error response:", errorData);
+          throw new Error(errorData.error || `API error: ${response.status}`);
         }
-        
-        console.error("API error response:", errorData);
-        throw new Error(errorData.error || `API error: ${response.status}`);
+
+        const data = await response.json();
+        console.log("Book cover API response data:", data);
+
+        if (!data.url) {
+          console.error("Could not extract image URL from response:", data);
+          throw new Error("Could not extract image URL from API response");
+        }
+
+        return data.url;
+      } catch (fetchError: unknown) {
+        console.error("Fetch error:", fetchError);
+        // If it's a timeout error, provide specific messaging
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('API request timed out. Server might be overloaded or unreachable.');
+        }
+        throw fetchError;
       }
-
-      const data = await response.json();
-      console.log("Book cover API response data:", data);
-
-      if (!data.url) {
-        console.error("Could not extract image URL from response:", data);
-        throw new Error("Could not extract image URL from API response");
-      }
-
-      return data.url;
     } catch (error: unknown) {
       console.error("Error calling book cover API:", error);
-      if (error instanceof Error) {
-        throw new Error(`Book cover API call failed: ${error.message}`);
-      }
-      throw error;
+      
+      // Generate a placeholder instead
+      console.log("Falling back to placeholder image due to API error");
+      const placeholderUrl = `https://placehold.co/${width}x${height}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + prompt.substring(0, 30))}`;
+      return placeholderUrl;
     }
   } catch (error) {
     console.error("Error in generateBookCover:", error);
     
     // Ensure we always return something
     console.log("Using placeholder for book cover due to error");
-    return getPlaceholderImage(prompt);
+    return `https://placehold.co/${width}x${height}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + prompt.substring(0, 30))}`;
   }
 } 

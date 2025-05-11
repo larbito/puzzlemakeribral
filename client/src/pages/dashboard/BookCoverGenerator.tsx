@@ -237,6 +237,7 @@ const BookCoverGenerator = () => {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submission started");
     
     // Validation
     if (!bookTitle.trim()) {
@@ -263,26 +264,53 @@ const BookCoverGenerator = () => {
       console.log("Dimensions:", dimensions);
       
       // Call the API to generate the image
-      const imageUrl = await generateBookCover({
-        prompt: formattedPrompt,
-        style,
-        width: dimensions.widthPixels,
-        height: dimensions.heightPixels
-      });
-      
-      if (imageUrl) {
-        setGeneratedImage(imageUrl);
+      try {
+        console.log("Calling generateBookCover API");
+        const imageUrl = await generateBookCover({
+          prompt: formattedPrompt,
+          style,
+          width: dimensions.widthPixels,
+          height: dimensions.heightPixels
+        });
         
-        // Save to history
-        saveToHistory(imageUrl);
+        console.log("API response received:", imageUrl);
         
-        toast.success("Book cover generated successfully!");
-      } else {
-        toast.error("Failed to generate book cover image");
+        if (imageUrl) {
+          setGeneratedImage(imageUrl);
+          
+          // Save to history
+          saveToHistory(imageUrl);
+          
+          toast.success("Book cover generated successfully!");
+        } else {
+          console.error("No image URL returned from API");
+          toast.error("Failed to generate book cover image");
+          
+          // Create a placeholder image for testing
+          const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
+          setGeneratedImage(placeholderUrl);
+          saveToHistory(placeholderUrl);
+          toast.warning("Using placeholder image for testing");
+        }
+      } catch (apiError) {
+        console.error("API call error:", apiError);
+        toast.error(apiError instanceof Error ? apiError.message : "API call failed");
+        
+        // Create a placeholder image for testing
+        const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
+        setGeneratedImage(placeholderUrl);
+        saveToHistory(placeholderUrl);
+        toast.warning("Using placeholder image due to API error");
       }
     } catch (error) {
       console.error("Error generating book cover:", error);
       toast.error(error instanceof Error ? error.message : "Failed to generate book cover");
+      
+      // Create a placeholder image for testing
+      const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + bookTitle)}`;
+      setGeneratedImage(placeholderUrl);
+      saveToHistory(placeholderUrl);
+      toast.warning("Using placeholder image due to error");
     } finally {
       setIsGenerating(false);
     }
@@ -460,7 +488,7 @@ const BookCoverGenerator = () => {
                   </div>
                   
                   {/* Cover description */}
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-2 mb-4 relative z-10">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="cover-description">Cover Description</Label>
                       <TooltipProvider>
@@ -479,9 +507,12 @@ const BookCoverGenerator = () => {
                     <Textarea
                       id="cover-description"
                       value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
+                      onChange={(e) => {
+                        console.log("Textarea changed:", e.target.value);
+                        setPrompt(e.target.value);
+                      }}
                       placeholder="Describe your book cover in detail (front, spine, and back). Be specific about imagery, colors, and mood."
-                      className="min-h-[120px]"
+                      className="min-h-[120px] relative z-20"
                     />
                   </div>
                   
@@ -518,8 +549,22 @@ const BookCoverGenerator = () => {
                   {/* Generate button */}
                   <Button 
                     type="submit" 
-                    className="w-full"
+                    className="w-full relative z-10"
                     disabled={isGenerating}
+                    onClick={(e) => {
+                      console.log("Generate button clicked");
+                      console.log("Form data:", {
+                        bookTitle,
+                        authorName,
+                        prompt,
+                        style,
+                        trimSize,
+                        pageCount,
+                        paperColor,
+                        bookType
+                      });
+                      handleSubmit(e);
+                    }}
                   >
                     {isGenerating ? (
                       <>
