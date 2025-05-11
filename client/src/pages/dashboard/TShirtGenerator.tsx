@@ -693,10 +693,10 @@ export const TShirtGenerator = () => {
       title="T-Shirt Design Creator"
       description="Create stunning t-shirt designs with AI. Perfect for print-on-demand and merch."
     >
-      <div className="flex flex-col h-[calc(100vh-120px)] overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
         {/* Main tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
-          <div className="border-b pb-2 mb-4">
+          <div className="border-b pb-2 mb-2">
             <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-background/95 border rounded-lg p-1 z-10">
               <TabsTrigger value="design" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
                 <Sparkles className="w-4 h-4 mr-2" />
@@ -710,7 +710,7 @@ export const TShirtGenerator = () => {
           </div>
 
           {/* Design Creator Tab */}
-          <TabsContent value="design" className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col md:flex-row gap-6 p-4 z-10">
+          <TabsContent value="design" className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col md:flex-row gap-4 p-3 z-10">
             {/* Left Panel - Controls */}
             <div className="w-full md:w-1/3 flex flex-col space-y-6 z-10">
               {/* Prompt Section */}
@@ -1138,14 +1138,14 @@ export const TShirtGenerator = () => {
           </TabsContent>
           
           {/* History Tab */}
-          <TabsContent value="history" className="flex-1 overflow-auto p-4 bg-gradient-to-b from-background to-background/50">
+          <TabsContent value="history" className="flex-1 overflow-auto p-3 bg-gradient-to-b from-background to-background/50">
             <div className="w-full max-w-[1400px] mx-auto">
               {/* Header section with background */}
-              <div className="relative overflow-hidden rounded-xl mb-8 bg-gradient-to-r from-primary/20 via-primary/10 to-background border shadow-md">
+              <div className="relative overflow-hidden rounded-xl mb-5 bg-gradient-to-r from-primary/20 via-primary/10 to-background border shadow-md">
                 <div className="absolute inset-0 opacity-5" style={gridPatternStyle}></div>
-                <div className="relative z-10 px-6 py-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="relative z-10 px-5 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-3xl font-bold flex items-center gap-3 mb-2">
+                    <h2 className="text-3xl font-bold flex items-center gap-3 mb-1">
                       <div className="bg-primary/20 p-2.5 rounded-lg">
                         <History className="w-6 h-6 text-primary" />
                       </div>
@@ -1211,7 +1211,7 @@ export const TShirtGenerator = () => {
               ) : (
                 <>
                   {/* Filter and sort controls */}
-                  <div className="mb-6 flex flex-wrap items-center gap-3 p-4 rounded-lg bg-background/90 backdrop-blur-sm border shadow-sm">
+                  <div className="mb-4 flex flex-wrap items-center gap-3 p-3 rounded-lg bg-background/90 backdrop-blur-sm border shadow-sm">
                     <div className="flex items-center gap-2">
                       <Label htmlFor="history-filter" className="text-sm font-medium">Filter:</Label>
                       <Select defaultValue="all">
@@ -1254,7 +1254,7 @@ export const TShirtGenerator = () => {
                   </div>
                   
                   {/* Design count and export options */}
-                  <div className="flex justify-between items-center mb-4">
+                  <div className="flex justify-between items-center mb-3">
                     <p className="text-sm text-muted-foreground">
                       Showing <span className="font-medium text-foreground">{history.length}</span> designs
                     </p>
@@ -1266,7 +1266,7 @@ export const TShirtGenerator = () => {
                   </div>
                 
                   {/* Main grid of designs */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 mb-8">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 mb-6">
                     {history.map((item, index) => (
                       <motion.div
                         key={item.id}
@@ -1417,7 +1417,7 @@ export const TShirtGenerator = () => {
                   
                   {/* Pagination */}
                   {history.length > 24 && (
-                    <div className="flex justify-center mt-4 mb-8">
+                    <div className="flex justify-center mt-2 mb-4">
                       <div className="flex items-center space-x-2 bg-background/90 backdrop-blur-sm p-1 rounded-lg border shadow-sm">
                         <Button variant="outline" size="icon" className="h-8 w-8">
                           <ChevronLeft className="h-4 w-4" />

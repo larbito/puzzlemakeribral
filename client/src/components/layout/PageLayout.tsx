@@ -9,22 +9,22 @@ interface PageLayoutProps {
 
 export const PageLayout = ({ title, description, children }: PageLayoutProps) => {
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
         <Card className="w-full">
-          <CardHeader>
+          <CardHeader className="pb-2">
             <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
               {title}
             </CardTitle>
             {description && (
-              <p className="text-muted-foreground mt-2">{description}</p>
+              <p className="text-muted-foreground mt-1">{description}</p>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             {children}
           </CardContent>
         </Card>
