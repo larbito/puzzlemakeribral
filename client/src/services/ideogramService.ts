@@ -293,14 +293,13 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       return;
     }
     
-    // For regular URLs, fetch the image and force download
-    console.log("Fetching image from URL for direct download");
+    // For regular URLs, use a more reliable CORS proxy approach
     try {
-      // Try first with CORS enabled
-      const response = await fetch(imageUrl, { 
-        mode: 'cors',
-        cache: 'no-cache'
-      });
+      console.log("Using CORS proxy to download image");
+      // Use corsproxy.io which is more reliable for CORS issues
+      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+      
+      const response = await fetch(proxyUrl);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
@@ -320,16 +319,17 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       
       toast.success(`Design downloaded as ${format}`);
     } catch (fetchError) {
-      console.error("Error fetching image:", fetchError);
+      console.error("Error fetching image with primary proxy:", fetchError);
       
-      // Try using a CORS proxy as a fallback
+      // Try using an alternative proxy as a fallback
       try {
-        console.log("Attempting download via CORS proxy");
-        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
-        const proxyResponse = await fetch(proxyUrl);
+        console.log("Attempting download via alternative proxy");
+        // Fallback to another service like AllOrigins
+        const altProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`;
+        const proxyResponse = await fetch(altProxyUrl);
         
         if (!proxyResponse.ok) {
-          throw new Error(`Proxy fetch failed: ${proxyResponse.status}`);
+          throw new Error(`Alternative proxy fetch failed: ${proxyResponse.status}`);
         }
         
         const blob = await proxyResponse.blob();
@@ -343,14 +343,129 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
         URL.revokeObjectURL(url);
         
         toast.success(`Design downloaded as ${format}`);
-      } catch (proxyError) {
-        console.error("Proxy download failed:", proxyError);
-        toast.error("Could not download image. Please try again later.");
+      } catch (altProxyError) {
+        console.error("Alternative proxy download failed:", altProxyError);
+        
+        // Final attempt - try a direct approach even with CORS restrictions
+        try {
+          console.log("Attempting direct image access as a last resort");
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.src = imageUrl;
+          
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error("Could not get canvas context");
+            
+            ctx.drawImage(img, 0, 0);
+            
+            // Try to download the canvas as an image
+            try {
+              const dataUrl = canvas.toDataURL('image/png');
+              const link = document.createElement('a');
+              link.href = dataUrl;
+              link.download = `${filename}.${format.toLowerCase()}`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              toast.success(`Design downloaded as ${format}`);
+            } catch (canvasError) {
+              console.error("Canvas conversion failed:", canvasError);
+              throw new Error("Could not convert image to downloadable format");
+            }
+          };
+          
+          img.onerror = () => {
+            throw new Error("Could not load image directly");
+          };
+        } catch (directError) {
+          console.error("Direct access failed:", directError);
+          toast.error("Could not download image due to CORS restrictions. Please try again later.");
+        }
       }
     }
   } catch (error) {
     console.error("Error downloading image:", error);
     toast.error("Failed to download image. Please try again.");
+  }
+}
+
+// New function to download multiple images at once
+export async function downloadAllImages(images: { url: string, prompt: string }[]): Promise<void> {
+  if (!images || images.length === 0) {
+    toast.error("No images to download");
+    return;
+  }
+  
+  // Show a loading toast for the batch download
+  const toastId = toast.loading(`Preparing to download ${images.length} images...`);
+  
+  try {
+    // Use Promise.all to download images in parallel, but limit to 2 at a time to avoid overloading
+    const downloadBatch = async (batch: { url: string, prompt: string }[]) => {
+      const results = await Promise.allSettled(
+        batch.map(async (image, index) => {
+          // Generate a unique filename for each image
+          const promptWords = image.prompt.split(' ').slice(0, 3).join('-').toLowerCase();
+          const filename = `tshirt-${promptWords}-${index+1}-${Date.now()}`;
+          
+          try {
+            await downloadImage(image.url, 'png', filename);
+            return { success: true, url: image.url };
+          } catch (error) {
+            console.error(`Error downloading image ${index+1}:`, error);
+            return { success: false, url: image.url, error };
+          }
+        })
+      );
+      
+      return results;
+    };
+    
+    // Split images into smaller batches of 2 to avoid browser limitations
+    const batchSize = 2;
+    const batches = [];
+    for (let i = 0; i < images.length; i += batchSize) {
+      batches.push(images.slice(i, i + batchSize));
+    }
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    // Process each batch sequentially
+    for (let i = 0; i < batches.length; i++) {
+      const batchResults = await downloadBatch(batches[i]);
+      
+      // Count successes and failures
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      });
+      
+      // Update the toast with progress
+      toast.dismiss(toastId);
+      toast.loading(`Downloaded ${successCount}/${images.length} images...`);
+    }
+    
+    // Final toast message
+    toast.dismiss(toastId);
+    if (failCount === 0) {
+      toast.success(`Successfully downloaded all ${images.length} images`);
+    } else if (successCount === 0) {
+      toast.error(`Failed to download any images. Please try again.`);
+    } else {
+      toast.success(`Downloaded ${successCount}/${images.length} images successfully`);
+    }
+  } catch (error) {
+    console.error("Error in batch download:", error);
+    toast.dismiss(toastId);
+    toast.error("Failed to download images. Please try again.");
   }
 }
 

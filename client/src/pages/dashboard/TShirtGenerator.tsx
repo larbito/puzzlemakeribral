@@ -32,7 +32,8 @@ import {
   Edit,
   Palette,
   Clock,
-  X
+  X,
+  DownloadCloud
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,8 @@ import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
 import { 
   generateImage, 
-  downloadImage, 
+  downloadImage,
+  downloadAllImages,
   getDesignHistory, 
   saveToHistory, 
   deleteFromHistory, 
@@ -180,6 +182,7 @@ export const TShirtGenerator = () => {
   // UI state
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -546,6 +549,36 @@ export const TShirtGenerator = () => {
       toast.error("Failed to download image. Check console for details.");
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Handle downloading all images at once
+  const handleDownloadAll = async () => {
+    if (currentDesigns.length === 0) {
+      toast.error("No designs to download");
+      return;
+    }
+    
+    if (isDownloadingAll) {
+      return; // Prevent multiple batch downloads
+    }
+    
+    setIsDownloadingAll(true);
+    
+    try {
+      // Format images for batch download
+      const imagesToDownload = currentDesigns.map(design => ({
+        url: design.url,
+        prompt: design.prompt || prompt
+      }));
+      
+      // Call the batch download function
+      await downloadAllImages(imagesToDownload);
+    } catch (error) {
+      console.error("Error in handleDownloadAll:", error);
+      toast.error("Failed to download all images. Please try again.");
+    } finally {
+      setIsDownloadingAll(false);
     }
   };
 
@@ -932,7 +965,7 @@ export const TShirtGenerator = () => {
                     </div>
                     {selectedImage && (
                       <div className="flex items-center gap-2">
-                        <Button
+                        <Button 
                           variant="outline"
                           size="sm"
                           onClick={() => handleRegenerate()}
@@ -960,6 +993,22 @@ export const TShirtGenerator = () => {
                           )}
                           Download
                         </Button>
+                        {currentDesigns.length > 1 && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={handleDownloadAll}
+                            disabled={isGenerating || isDownloadingAll || currentDesigns.length === 0}
+                            className="relative"
+                          >
+                            {isDownloadingAll ? (
+                              <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <DownloadCloud className="w-3.5 h-3.5 mr-1" />
+                            )}
+                            Download All
+                          </Button>
+                        )}
                       </div>
                     )}
                   </CardTitle>
@@ -1026,24 +1075,51 @@ export const TShirtGenerator = () => {
               
               {/* Generated Designs Grid */}
               {currentDesigns.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {currentDesigns.map((design) => (
-                    <div 
-                      key={design.id} 
-                      className={cn(
-                        "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
-                        selectedImage?.id === design.id ? "border-primary" : "border-transparent"
-                      )}
-                      onClick={() => handleSelectImage(design)}
-                    >
-                      <img 
-                        src={design.url} 
-                        alt={design.prompt}
-                        className="w-full h-full object-cover" 
-                      />
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {currentDesigns.map((design) => (
+                      <div 
+                        key={design.id} 
+                        className={cn(
+                          "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
+                          selectedImage?.id === design.id ? "border-primary" : "border-transparent"
+                        )}
+                        onClick={() => handleSelectImage(design)}
+                      >
+                        <img 
+                          src={design.url} 
+                          alt={design.prompt}
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Batch actions row */}
+                  {currentDesigns.length > 1 && (
+                    <div className="flex justify-end gap-2 mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadAll}
+                        disabled={isDownloadingAll}
+                        className="text-sm"
+                      >
+                        {isDownloadingAll ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            Downloading...
+                          </>
+                        ) : (
+                          <>
+                            <DownloadCloud className="w-3.5 h-3.5 mr-1.5" />
+                            Download All {currentDesigns.length} Designs
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
