@@ -293,98 +293,95 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       return;
     }
     
-    // For regular URLs, use a more reliable CORS proxy approach
+    // For regular URLs, use our backend proxy to avoid CORS issues
     try {
-      console.log("Using CORS proxy to download image");
-      // Use corsproxy.io which is more reliable for CORS issues
-      const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+      console.log("Using backend proxy to download image");
       
-      const response = await fetch(proxyUrl);
+      // Create a temporary download indicator
+      toast.loading("Processing download...");
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-      }
+      // Use our own backend proxy endpoint
+      const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
+      const encodedUrl = encodeURIComponent(imageUrl);
       
-      const blob = await response.blob();
+      // Direct download approach - create a link to our backend proxy
+      const downloadUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
       
-      // Create a download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${filename}.${format.toLowerCase()}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url); // Clean up
+      // Open the download in a hidden iframe to trigger the download
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
       
-      toast.success(`Design downloaded as ${format}`);
-    } catch (fetchError) {
-      console.error("Error fetching image with primary proxy:", fetchError);
+      // Set a timeout to remove the iframe after download should have started
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        toast.dismiss();
+        toast.success(`Design download initiated`);
+      }, 3000);
       
-      // Try using an alternative proxy as a fallback
+    } catch (proxyError) {
+      console.error("Backend proxy download failed:", proxyError);
+      toast.dismiss();
+      
+      // Fallback to client-side conversion
       try {
-        console.log("Attempting download via alternative proxy");
-        // Fallback to another service like AllOrigins
-        const altProxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imageUrl)}`;
-        const proxyResponse = await fetch(altProxyUrl);
+        console.log("Attempting client-side conversion as fallback");
         
-        if (!proxyResponse.ok) {
-          throw new Error(`Alternative proxy fetch failed: ${proxyResponse.status}`);
-        }
+        // Create a canvas element
+        const canvas = document.createElement('canvas');
+        const img = new Image();
         
-        const blob = await proxyResponse.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `${filename}.${format.toLowerCase()}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        toast.success(`Design downloaded as ${format}`);
-      } catch (altProxyError) {
-        console.error("Alternative proxy download failed:", altProxyError);
-        
-        // Final attempt - try a direct approach even with CORS restrictions
-        try {
-          console.log("Attempting direct image access as a last resort");
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = imageUrl;
-          
+        // Set up a promise to handle the async image loading
+        const downloadPromise = new Promise<void>((resolve, reject) => {
           img.onload = () => {
-            const canvas = document.createElement('canvas');
+            // Set canvas dimensions to match the image
             canvas.width = img.width;
             canvas.height = img.height;
+            
+            // Draw the image on the canvas
             const ctx = canvas.getContext('2d');
-            if (!ctx) throw new Error("Could not get canvas context");
+            if (!ctx) {
+              reject(new Error("Could not get canvas context"));
+              return;
+            }
             
             ctx.drawImage(img, 0, 0);
             
-            // Try to download the canvas as an image
             try {
+              // Convert the canvas to a data URL
               const dataUrl = canvas.toDataURL('image/png');
+              
+              // Create a download link
               const link = document.createElement('a');
               link.href = dataUrl;
               link.download = `${filename}.${format.toLowerCase()}`;
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
-              toast.success(`Design downloaded as ${format}`);
+              
+              resolve();
             } catch (canvasError) {
-              console.error("Canvas conversion failed:", canvasError);
-              throw new Error("Could not convert image to downloadable format");
+              console.error("Error converting canvas to data URL:", canvasError);
+              reject(canvasError);
             }
           };
           
-          img.onerror = () => {
-            throw new Error("Could not load image directly");
+          img.onerror = (error) => {
+            console.error("Error loading image:", error);
+            reject(new Error("Failed to load image"));
           };
-        } catch (directError) {
-          console.error("Direct access failed:", directError);
-          toast.error("Could not download image due to CORS restrictions. Please try again later.");
-        }
+          
+          // Add a proxy to try to avoid CORS issues
+          img.crossOrigin = "anonymous";
+          img.src = `https://corsproxy.io/?${encodeURIComponent(imageUrl)}`;
+        });
+        
+        await downloadPromise;
+        toast.success(`Design downloaded as ${format}`);
+      } catch (fallbackError) {
+        console.error("All download methods failed:", fallbackError);
+        toast.error("Could not download image. Please try a different design.");
       }
     }
   } catch (error) {
@@ -401,67 +398,45 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
   }
   
   // Show a loading toast for the batch download
-  const toastId = toast.loading(`Preparing to download ${images.length} images...`);
+  const toastId = toast.loading(`Preparing to download ${images.length} images as a zip file...`);
   
   try {
-    // Use Promise.all to download images in parallel, but limit to 2 at a time to avoid overloading
-    const downloadBatch = async (batch: { url: string, prompt: string }[]) => {
-      const results = await Promise.allSettled(
-        batch.map(async (image, index) => {
-          // Generate a unique filename for each image
-          const promptWords = image.prompt.split(' ').slice(0, 3).join('-').toLowerCase();
-          const filename = `tshirt-${promptWords}-${index+1}-${Date.now()}`;
-          
-          try {
-            await downloadImage(image.url, 'png', filename);
-            return { success: true, url: image.url };
-          } catch (error) {
-            console.error(`Error downloading image ${index+1}:`, error);
-            return { success: false, url: image.url, error };
-          }
-        })
-      );
-      
-      return results;
-    };
+    // Call the backend batch-download endpoint that creates a zip file
+    console.log("Using batch download endpoint for", images.length, "images");
     
-    // Split images into smaller batches of 2 to avoid browser limitations
-    const batchSize = 2;
-    const batches = [];
-    for (let i = 0; i < images.length; i += batchSize) {
-      batches.push(images.slice(i, i + batchSize));
+    // Use the Fetch API to make a direct request to our backend
+    const response = await fetch(`${API_URL}/api/ideogram/batch-download`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ images }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server responded with status: ${response.status}`);
     }
     
-    let successCount = 0;
-    let failCount = 0;
+    // Get response as a blob
+    const blob = await response.blob();
     
-    // Process each batch sequentially
-    for (let i = 0; i < batches.length; i++) {
-      const batchResults = await downloadBatch(batches[i]);
-      
-      // Count successes and failures
-      batchResults.forEach(result => {
-        if (result.status === 'fulfilled' && result.value.success) {
-          successCount++;
-        } else {
-          failCount++;
-        }
-      });
-      
-      // Update the toast with progress
-      toast.dismiss(toastId);
-      toast.loading(`Downloaded ${successCount}/${images.length} images...`);
-    }
+    // Create a download link for the blob
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `tshirt-designs-${Date.now()}.zip`;
     
-    // Final toast message
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(downloadUrl);
+    
+    // Show success message
     toast.dismiss(toastId);
-    if (failCount === 0) {
-      toast.success(`Successfully downloaded all ${images.length} images`);
-    } else if (successCount === 0) {
-      toast.error(`Failed to download any images. Please try again.`);
-    } else {
-      toast.success(`Downloaded ${successCount}/${images.length} images successfully`);
-    }
+    toast.success(`Downloaded ${images.length} images as a zip file`);
   } catch (error) {
     console.error("Error in batch download:", error);
     toast.dismiss(toastId);

@@ -3,6 +3,9 @@ const router = express.Router();
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const multer = require('multer');
+const archiver = require('archiver');
+const { Readable } = require('stream');
+const crypto = require('crypto');
 
 // Configure multer for handling form data
 const upload = multer({
@@ -120,6 +123,57 @@ router.post('/generate', upload.none(), async (req, res) => {
   }
 });
 
+// New endpoint: Proxy image and serve as download to bypass CORS
+router.get('/proxy-image', async (req, res) => {
+  const { url, filename } = req.query;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL parameter is required' });
+  }
+  
+  console.log(`Proxying image download for: ${url}`);
+  
+  try {
+    // Fetch the image from the source URL
+    const imageResponse = await fetch(url, {
+      headers: {
+        // Use a standard browser user agent
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+      }
+    });
+    
+    if (!imageResponse.ok) {
+      console.error(`Failed to fetch image from source: ${imageResponse.status}`);
+      return res.status(imageResponse.status).json({ 
+        error: `Failed to fetch image: ${imageResponse.statusText}` 
+      });
+    }
+    
+    // Get the content type of the image
+    const contentType = imageResponse.headers.get('content-type') || 'image/png';
+    
+    // Get the image data as a buffer
+    const imageBuffer = await imageResponse.buffer();
+    
+    // Set appropriate headers to force download
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'image.png'}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Send the image data
+    res.send(imageBuffer);
+    
+    console.log(`Successfully proxied image download for: ${url}`);
+  } catch (error) {
+    console.error('Error proxying image:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to download image',
+      type: error.name
+    });
+  }
+});
+
 // Image analysis endpoint
 router.post('/analyze', upload.single('image'), async (req, res) => {
   try {
@@ -172,6 +226,106 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error('Image analysis error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// New endpoint: Batch download multiple images as a zip file
+router.post('/batch-download', express.json(), async (req, res) => {
+  let images;
+  
+  // Check if the content type is form data or JSON
+  const contentType = req.get('content-type') || '';
+  
+  if (contentType.includes('application/json')) {
+    // If it's JSON, use req.body.images directly
+    images = req.body.images;
+  } else if (contentType.includes('application/x-www-form-urlencoded')) {
+    // If it's form data, parse the JSON string
+    try {
+      images = JSON.parse(req.body.images);
+    } catch (error) {
+      console.error('Error parsing JSON from form data:', error);
+      return res.status(400).json({ error: 'Invalid images data format' });
+    }
+  } else {
+    console.error('Unsupported content type:', contentType);
+    return res.status(400).json({ error: 'Unsupported content type' });
+  }
+  
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return res.status(400).json({ error: 'Valid images array is required' });
+  }
+  
+  console.log(`Batch downloading ${images.length} images as zip`);
+  
+  // Create a zip archive
+  const archive = archiver('zip', {
+    zlib: { level: 5 } // Compression level (1-9)
+  });
+  
+  // Set the response headers for zip download
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="tshirt-designs-${Date.now()}.zip"`);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'no-cache');
+  
+  // Pipe the archive to the response
+  archive.pipe(res);
+  
+  let failedImages = 0;
+  
+  // Add each image to the zip file
+  for (let i = 0; i < images.length; i++) {
+    const { url, prompt } = images[i];
+    const uniqueId = crypto.randomBytes(4).toString('hex');
+    
+    try {
+      console.log(`Fetching image ${i+1}/${images.length}: ${url.substring(0, 50)}...`);
+      
+      // Generate a filename based on the prompt or index
+      const filename = prompt 
+        ? `tshirt-${prompt.split(' ').slice(0, 3).join('-').toLowerCase()}-${uniqueId}.png`
+        : `tshirt-design-${i+1}-${uniqueId}.png`;
+      
+      // Fetch the image
+      const imageResponse = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+        }
+      });
+      
+      if (!imageResponse.ok) {
+        console.error(`Failed to fetch image ${i+1}: ${imageResponse.status}`);
+        failedImages++;
+        continue; // Skip this image and continue with others
+      }
+      
+      // Get the image buffer
+      const imageBuffer = await imageResponse.buffer();
+      
+      // Create a readable stream from the buffer
+      const stream = new Readable();
+      stream.push(imageBuffer);
+      stream.push(null); // Signal the end of the stream
+      
+      // Add the stream to the archive with a filename
+      archive.append(stream, { name: filename });
+      
+      console.log(`Added image ${i+1} to zip as ${filename}`);
+    } catch (error) {
+      console.error(`Error processing image ${i+1}:`, error);
+      failedImages++;
+    }
+  }
+  
+  // Finalize the archive
+  try {
+    await archive.finalize();
+    console.log(`Zip archive created with ${images.length - failedImages} images`);
+  } catch (error) {
+    console.error('Error finalizing zip archive:', error);
+    // The response might already be partially sent, so we can't send a new error response
+    // Just log the error and let the client handle any incomplete downloads
   }
 });
 
