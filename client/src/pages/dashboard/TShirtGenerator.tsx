@@ -641,13 +641,13 @@ export const TShirtGenerator = () => {
                       console.log("Textarea onChange:", e.target.value);
                       setCustomPrompt(e.target.value);
                     }}
-                    className="min-h-[100px] relative z-20 bg-background"
+                    className="min-h-[100px] relative bg-background"
                     id="prompt-input"
                     aria-label="Prompt input"
                     autoFocus
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-30">
                   <div className="space-y-2">
                     <Label htmlFor="style">Style</Label>
                     <Select value={style} onValueChange={setStyle}>
@@ -720,7 +720,7 @@ export const TShirtGenerator = () => {
                   </div>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-2 relative z-30">
                   <Button
                     onClick={handleGenerateImage}
                     disabled={!customPrompt.trim() || isGenerating}
