@@ -528,6 +528,8 @@ export const TShirtGenerator = () => {
 
   // Generate image from prompt
   const handleGenerateImage = async () => {
+    console.log('Generating image with prompt:', prompt.trim());
+    
     if (!prompt.trim()) {
       toast.error('Please enter a prompt first');
       return;
@@ -537,8 +539,17 @@ export const TShirtGenerator = () => {
     setCurrentDesigns([]);
     
     try {
+      console.log('Starting image generation with params:', {
+        prompt,
+        format: resolution,
+        transparentBackground: transparentBg
+      });
+      
       const count = parseInt(designCount);
       const newImages: GeneratedImage[] = [];
+      
+      // Show immediate feedback
+      toast.loading(`Generating ${count} design${count > 1 ? 's' : ''}...`);
       
       for (let i = 0; i < count; i++) {
         // Add values to parameters object
@@ -548,35 +559,48 @@ export const TShirtGenerator = () => {
           transparentBackground: transparentBg
         };
         
-        const imageUrl = await generateImage(params);
+        // Log generation attempt
+        console.log(`Generating design ${i+1}/${count}`);
+        
+        try {
+          const imageUrl = await generateImage(params);
 
-        if (imageUrl) {
-          // Extract colors from the generated image
-          const colors = await extractColors(imageUrl);
-          
-          const newImage: GeneratedImage = {
-            id: Date.now().toString() + i,
-            url: imageUrl,
-            prompt,
-            timestamp: new Date(),
-            colors
-          };
-          
-          newImages.push(newImage);
-          
-          // Add to history with required fields
-          const newDesign = saveToHistory({
-            prompt,
-            thumbnail: imageUrl,
-            imageUrl,
-            format: resolution.toUpperCase(),
-            style: "custom" // Add required style field
-          });
-          
-          // Update the history item with colors
-          newDesign.colors = colors;
-          
-          setHistory(prev => [newDesign, ...prev]);
+          if (imageUrl) {
+            console.log(`Design ${i+1} generated successfully:`, imageUrl);
+            
+            // Extract colors from the generated image
+            const colors = await extractColors(imageUrl);
+            
+            const newImage: GeneratedImage = {
+              id: Date.now().toString() + i,
+              url: imageUrl,
+              prompt,
+              timestamp: new Date(),
+              colors
+            };
+            
+            newImages.push(newImage);
+            
+            // Add to history with required fields
+            const newDesign = saveToHistory({
+              prompt,
+              thumbnail: imageUrl,
+              imageUrl,
+              format: resolution.toUpperCase(),
+              style: "custom" // Add required style field
+            });
+            
+            // Update the history item with colors
+            newDesign.colors = colors;
+            
+            setHistory(prev => [newDesign, ...prev]);
+          } else {
+            console.error(`Design ${i+1} failed: Empty image URL`);
+            throw new Error('Empty image URL returned');
+          }
+        } catch (error) {
+          console.error(`Error generating design ${i+1}:`, error);
+          // Continue with other designs even if one fails
         }
       }
       
@@ -586,7 +610,7 @@ export const TShirtGenerator = () => {
         setSelectedImage(newImages[0]);
         toast.success(`${newImages.length} design${newImages.length > 1 ? 's' : ''} generated successfully!`);
       } else {
-        throw new Error('No images returned from API');
+        throw new Error('No designs were successfully generated');
       }
     } catch (error: any) {
       console.error('Error generating image:', error);
@@ -712,12 +736,12 @@ export const TShirtGenerator = () => {
         {/* Main tabs */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
           <div className="border-b pb-2 mb-4">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-background/95 border rounded-lg p-1">
-              <TabsTrigger value="design" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 bg-background/95 border rounded-lg p-1 z-10">
+              <TabsTrigger value="design" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Design Creator
               </TabsTrigger>
-              <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="history" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground z-10">
                 <History className="w-4 h-4 mr-2" />
                 Design History
               </TabsTrigger>
@@ -725,115 +749,214 @@ export const TShirtGenerator = () => {
           </div>
 
           {/* Design Creator Tab */}
-          <TabsContent value="design" className="flex-1 overflow-hidden flex flex-col md:flex-row gap-6 p-4">
+          <TabsContent value="design" className="flex-1 overflow-y-auto overflow-x-hidden flex flex-col md:flex-row gap-6 p-4 z-10">
             {/* Left Panel - Controls */}
-            <div className="w-full md:w-1/3 flex flex-col space-y-6">
+            <div className="w-full md:w-1/3 flex flex-col space-y-6 z-10">
               {/* Prompt Section */}
-              <Card className="shadow-sm">
+              <Card className="shadow-sm z-20 relative">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center">
                     <Sparkles className="w-4 h-4 mr-2 text-primary" />
                     Design Prompt
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 z-20">
                   {isEditing || currentDesigns.length === 0 ? (
                     <>
-                      <Textarea
-                        ref={promptRef}
-                        placeholder="Describe your t-shirt design... (e.g., A cute cat wearing sunglasses)"
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        className="min-h-[120px] resize-none"
-                        maxLength={MAX_PROMPT_LENGTH}
-                      />
-                      <div className="text-xs text-muted-foreground flex justify-between">
-                        <span>Be specific about what you want in your design</span>
-                        <span>{prompt.length}/{MAX_PROMPT_LENGTH}</span>
-                      </div>
+                      <form 
+                        onSubmit={(e) => { 
+                          e.preventDefault();
+                          if (prompt.trim()) handleGenerateImage();
+                        }}
+                        className="relative z-30"
+                      >
+                        <Textarea
+                          ref={promptRef}
+                          placeholder="Describe your t-shirt design... (e.g., A cute cat wearing sunglasses)"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          className="min-h-[120px] resize-none focus:ring-2 focus:ring-primary focus:border-primary z-30"
+                          maxLength={MAX_PROMPT_LENGTH}
+                          required
+                          autoFocus
+                        />
+                        <div className="text-xs text-muted-foreground flex justify-between mt-2">
+                          <span>Be specific about what you want in your design</span>
+                          <span>{prompt.length}/{MAX_PROMPT_LENGTH}</span>
+                        </div>
+                        
+                        {/* Settings section */}
+                        <div className="space-y-4 pt-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="resolution" className="text-xs">Image Size</Label>
+                              <Select value={resolution} onValueChange={(value) => {
+                                console.log("Setting resolution to:", value);
+                                setResolution(value);
+                              }}>
+                                <SelectTrigger id="resolution" className="z-50">
+                                  <SelectValue placeholder="Select size" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="z-50">
+                                  {resolutionOptions.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor="designCount" className="text-xs">Number of Designs</Label>
+                              <Select value={designCount} onValueChange={(value) => {
+                                console.log("Setting design count to:", value);
+                                setDesignCount(value);
+                              }}>
+                                <SelectTrigger id="designCount" className="z-50">
+                                  <SelectValue placeholder="How many designs" />
+                                </SelectTrigger>
+                                <SelectContent position="popper" className="z-50">
+                                  {designCountOptions.map(option => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
+                              <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                              Remove Background
+                            </Label>
+                            <Switch 
+                              id="transparentBg" 
+                              checked={transparentBg} 
+                              onCheckedChange={(checked) => {
+                                console.log("Setting transparentBg to:", checked);
+                                setTransparentBg(checked);
+                              }}
+                              className="z-30"
+                            />
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          type="submit"
+                          disabled={!prompt.trim() || isGenerating}
+                          className="w-full mt-6"
+                        >
+                          {isGenerating ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4 mr-2" />
+                              {currentDesigns.length > 0 ? "Generate New Designs" : "Generate Designs"}
+                            </>
+                          )}
+                        </Button>
+                      </form>
                     </>
                   ) : (
-                    <div className="space-y-3">
-                      <div className="p-3 bg-muted/30 rounded-md relative">
-                        <p className="pr-8">{prompt}</p>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-6 w-6"
-                          onClick={handleEditPrompt}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
+                    <>
+                      <div className="space-y-3">
+                        <div className="p-3 bg-muted/30 rounded-md relative">
+                          <p className="pr-8">{prompt}</p>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="absolute top-2 right-2 h-6 w-6"
+                            onClick={handleEditPrompt}
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                      
+                      {/* Settings section */}
+                      <div className="space-y-4 pt-2">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="resolution" className="text-xs">Image Size</Label>
+                            <Select value={resolution} onValueChange={(value) => {
+                              console.log("Setting resolution to:", value);
+                              setResolution(value);
+                            }}>
+                              <SelectTrigger id="resolution" className="z-50">
+                                <SelectValue placeholder="Select size" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="z-50">
+                                {resolutionOptions.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="designCount" className="text-xs">Number of Designs</Label>
+                            <Select value={designCount} onValueChange={(value) => {
+                              console.log("Setting design count to:", value);
+                              setDesignCount(value);
+                            }}>
+                              <SelectTrigger id="designCount" className="z-50">
+                                <SelectValue placeholder="How many designs" />
+                              </SelectTrigger>
+                              <SelectContent position="popper" className="z-50">
+                                {designCountOptions.map(option => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
+                            <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            Remove Background
+                          </Label>
+                          <Switch 
+                            id="transparentBg" 
+                            checked={transparentBg} 
+                            onCheckedChange={(checked) => {
+                              console.log("Setting transparentBg to:", checked);
+                              setTransparentBg(checked);
+                            }}
+                            className="z-30"
+                          />
+                        </div>
+                      </div>
+                      
+                      <Button 
+                        onClick={handleGenerateImage}
+                        disabled={!prompt.trim() || isGenerating}
+                        className="w-full"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            {currentDesigns.length > 0 ? "Generate New Designs" : "Generate Designs"}
+                          </>
+                        )}
+                      </Button>
+                    </>
                   )}
-                  
-                  {/* Settings section */}
-                  <div className="space-y-4 pt-2">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="resolution" className="text-xs">Image Size</Label>
-                        <Select value={resolution} onValueChange={setResolution}>
-                          <SelectTrigger id="resolution">
-                            <SelectValue placeholder="Select size" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {resolutionOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="designCount" className="text-xs">Number of Designs</Label>
-                        <Select value={designCount} onValueChange={setDesignCount}>
-                          <SelectTrigger id="designCount">
-                            <SelectValue placeholder="How many designs" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {designCountOptions.map(option => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="transparentBg" className="text-sm flex items-center gap-1">
-                        <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                        Remove Background
-                      </Label>
-                      <Switch 
-                        id="transparentBg" 
-                        checked={transparentBg} 
-                        onCheckedChange={setTransparentBg} 
-                      />
-                    </div>
-                  </div>
-                  
-                  <Button 
-                    onClick={handleGenerateImage}
-                    disabled={!prompt.trim() || isGenerating}
-                    className="w-full"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        {currentDesigns.length > 0 ? "Generate New Designs" : "Generate Designs"}
-                      </>
-                    )}
-                  </Button>
                 </CardContent>
               </Card>
               

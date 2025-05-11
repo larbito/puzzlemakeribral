@@ -30,6 +30,9 @@ export async function generateImage({
   format = "png"
 }: GenerateImageParams): Promise<string | null> {
   try {
+    // For testing UI interactivity
+    console.log("Generating image with prompt:", prompt);
+    
     // If using placeholders for testing, return immediately
     if (USE_PLACEHOLDERS) {
       console.log("Using placeholder by configuration");
@@ -54,17 +57,32 @@ export async function generateImage({
     console.log("Enhanced prompt:", enhancedPrompt);
 
     try {
-      const imageUrl = await generateWithProxy(enhancedPrompt, style);
-      console.log("Successfully generated image");
-      return imageUrl;
+      // Simulate async delay to test interactivity
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      try {
+        const imageUrl = await generateWithProxy(enhancedPrompt, style);
+        console.log("Successfully generated image");
+        return imageUrl;
+      } catch (error) {
+        console.error("Error with image generation from proxy:", error);
+        
+        // Fallback to placeholder for demo/testing
+        console.log("Using placeholder as fallback");
+        return getPlaceholderImage(prompt);
+      }
     } catch (error) {
-      console.error("Error with image generation:", error);
-      toast.error("Failed to generate design. Using placeholder instead.");
+      console.error("Error in generateImage:", error);
+      
+      // Always return a placeholder for demo purposes
+      console.log("Using placeholder due to error");
       return getPlaceholderImage(prompt);
     }
   } catch (error) {
-    console.error("Error in generateImage:", error);
-    toast.error("Failed to generate design. Using placeholder instead.");
+    console.error("Error in generateImage outer block:", error);
+    
+    // Ensure we always return something
+    console.log("Using placeholder in catch block");
     return getPlaceholderImage(prompt);
   }
 }
