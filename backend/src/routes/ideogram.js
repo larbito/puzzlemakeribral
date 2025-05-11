@@ -4,9 +4,13 @@ const fetch = require('node-fetch');
 const multer = require('multer');
 const upload = multer();
 
+console.log('Setting up ideogram routes');
+
 router.post('/generate', async (req, res) => {
+  console.log('Received generate request');
   // Handle preflight
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return res.status(200).end();
   }
 

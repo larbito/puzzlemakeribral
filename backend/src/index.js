@@ -8,6 +8,17 @@ const ideogramRoutes = require('./routes/ideogram');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug logging for all requests
+app.use((req, res, next) => {
+  console.log('Incoming request:', {
+    method: req.method,
+    path: req.path,
+    headers: req.headers,
+    body: req.body
+  });
+  next();
+});
+
 // Middleware
 // Handle preflight requests
 app.options('*', cors());
@@ -43,8 +54,19 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Debug log routes
+console.log('Registered routes:');
+app._router.stack.forEach(function(r){
+  if (r.route && r.route.path){
+    console.log(r.route.path)
+  } else if(r.name === 'router'){
+    console.log('Router middleware:', r.regexp);
+  }
+});
+
 // Routes
 app.use('/api/ideogram', ideogramRoutes);
+console.log('Ideogram routes registered at /api/ideogram');
 
 // Basic route
 app.get('/', (req, res) => {
