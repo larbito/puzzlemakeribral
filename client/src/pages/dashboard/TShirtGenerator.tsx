@@ -47,7 +47,6 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Slider } from "@/components/ui/slider";
-import { TShirtPreview } from "@/components/TShirtPreview";
 import { 
   generateImage, 
   downloadImage, 
@@ -212,7 +211,6 @@ export const TShirtGenerator = () => {
   const [showTshirtPreview, setShowTshirtPreview] = useState(false);
 
   // Add a state variable for the full-page preview
-  const [showFullPagePreview, setShowFullPagePreview] = useState(false);
   const [hasCheckedTransparency, setHasCheckedTransparency] = useState(false);
 
   // Load history on component mount
@@ -1505,14 +1503,6 @@ export const TShirtGenerator = () => {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Full-page T-shirt Preview */}
-      {showFullPagePreview && selectedImage && (
-        <TShirtPreview 
-          designImage={selectedImage.url}
-          onClose={() => setShowFullPagePreview(false)}
-        />
-      )}
     </PageLayout>
   );
 }; 
