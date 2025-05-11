@@ -277,32 +277,52 @@ function getColorForStyle(prompt: string): string {
 
 export async function downloadImage(imageUrl: string, format: string, filename: string = "tshirt-design"): Promise<void> {
   try {
-    // Check if the URL is a data URL
-    let blob;
+    console.log("Starting download of image:", imageUrl.substring(0, 100) + "...");
+    
+    // For data URLs (which is what our background removal function returns)
     if (imageUrl.startsWith('data:')) {
-      // For data URLs, extract the blob directly
-      const base64Data = imageUrl.split(',')[1];
-      const binaryData = atob(base64Data);
-      const byteArray = new Uint8Array(binaryData.length);
-      for (let i = 0; i < binaryData.length; i++) {
-        byteArray[i] = binaryData.charCodeAt(i);
-      }
-      blob = new Blob([byteArray], { type: 'image/png' });
-    } else {
-      // For regular URLs, fetch the image
-      const response = await fetch(imageUrl);
-      blob = await response.blob();
+      console.log("Handling data URL download");
+      // Create a direct download link for data URLs
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${filename}.${format.toLowerCase()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Design downloaded as ${format}`);
+      return;
     }
     
-    // Create a download link and trigger it
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${filename}.${format.toLowerCase()}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success(`Design downloaded as ${format}`);
+    // For regular URLs, fetch the image
+    console.log("Fetching image from URL");
+    try {
+      const response = await fetch(imageUrl, { mode: 'cors' });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.${format.toLowerCase()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url); // Clean up
+      
+      toast.success(`Design downloaded as ${format}`);
+    } catch (fetchError) {
+      console.error("Error fetching image:", fetchError);
+      
+      // Fallback for CORS issues - open in new tab
+      console.log("Attempting fallback download method");
+      window.open(imageUrl, '_blank');
+      toast.success(`Image opened in new tab. Right-click and select "Save image as..." to download.`);
+    }
   } catch (error) {
     console.error("Error downloading image:", error);
     toast.error("Failed to download image. Please try again.");
@@ -339,7 +359,7 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
 // Add the new background removal function
 export async function removeBackground(imageUrl: string): Promise<string> {
   try {
-    console.log("Removing background from image:", imageUrl);
+    console.log("Starting background removal for image:", imageUrl.substring(0, 100) + "...");
     
     // For a real implementation, make an API call to a background removal service
     // For now, we'll implement a simple canvas-based approach
@@ -349,6 +369,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       img.onload = () => {
         try {
+          console.log("Image loaded, dimensions:", img.width, "x", img.height);
           // Create canvas to process the image
           const canvas = document.createElement('canvas');
           canvas.width = img.width;
@@ -356,6 +377,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           
           const ctx = canvas.getContext('2d', { willReadFrequently: true });
           if (!ctx) {
+            console.error("Could not create canvas context");
             reject(new Error("Could not create canvas context"));
             return;
           }
@@ -366,6 +388,8 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           // Get image data
           const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
           const data = imageData.data;
+          
+          console.log("Processing", data.length/4, "pixels");
           
           // Check if the image already has transparency
           let hasTransparency = false;
@@ -396,6 +420,8 @@ export async function removeBackground(imageUrl: string): Promise<string> {
             }
           }
           
+          console.log("Background removal completed, hasRemovedPixels:", hasRemovedPixels);
+          
           if (!hasRemovedPixels) {
             console.log("No white pixels found to remove");
             reject(new Error("No white background detected in the image"));
@@ -407,8 +433,19 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           
           // Convert to data URL (PNG with transparency)
           const transparentImageUrl = canvas.toDataURL('image/png');
-          console.log("Background removed successfully");
-          resolve(transparentImageUrl);
+          console.log("Generated transparent image");
+          
+          // Pre-load the new image to ensure it's valid
+          const verifyImg = new Image();
+          verifyImg.onload = () => {
+            console.log("Background removal successful, image is valid");
+            resolve(transparentImageUrl);
+          };
+          verifyImg.onerror = () => {
+            console.error("Generated image is invalid");
+            reject(new Error("Failed to create valid transparent image"));
+          };
+          verifyImg.src = transparentImageUrl;
         } catch (error) {
           console.error("Error processing image in canvas:", error);
           reject(error);
@@ -420,6 +457,23 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         reject(new Error("Failed to load image for background removal"));
       };
       
+      // Fix the timeout issue with a different approach
+      // Add a timeout to catch hanging loads
+      const timeout = setTimeout(() => {
+        console.error("Image load timed out");
+        reject(new Error("Timed out while loading image"));
+      }, 10000); // 10 second timeout
+      
+      // Use a variable to store the original onload handler
+      const originalOnload = img.onload;
+      img.onload = (event) => {
+        clearTimeout(timeout);
+        if (originalOnload) {
+          originalOnload.call(img, event);
+        }
+      };
+      
+      console.log("Starting image load");
       img.src = imageUrl;
     });
   } catch (error) {

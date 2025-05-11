@@ -515,9 +515,19 @@ export const TShirtGenerator = () => {
 
   // Handle image download
   const handleDownload = async (imageUrl: string) => {
-    if (!imageUrl || isDownloading) return;
+    if (!imageUrl) {
+      toast.error("No image to download");
+      return;
+    }
     
+    if (isDownloading) {
+      return; // Prevent multiple downloads
+    }
+    
+    // Show a loading toast that we can update
+    const toastId = toast.loading("Preparing download...");
     setIsDownloading(true);
+    
     try {
       console.log("Downloading image from URL:", imageUrl);
       
@@ -526,10 +536,16 @@ export const TShirtGenerator = () => {
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
       await downloadImage(imageUrl, 'png', filename);
+      
+      // Update the toast
+      toast.dismiss(toastId);
       toast.success("Image downloaded successfully");
     } catch (error) {
       console.error("Error in handleDownload:", error);
-      toast.error("Failed to download image");
+      
+      // Update the toast
+      toast.dismiss(toastId);
+      toast.error("Failed to download image. Check console for details.");
     } finally {
       setIsDownloading(false);
     }
@@ -635,6 +651,8 @@ export const TShirtGenerator = () => {
       return;
     }
     
+    // Show a loading toast that we can update
+    const toastId = toast.loading("Removing background...");
     setIsRemovingBackground(true);
     
     try {
@@ -663,9 +681,14 @@ export const TShirtGenerator = () => {
         prev.map(img => img.id === updatedImage.id ? updatedImage : img)
       );
       
+      // Update the toast
+      toast.dismiss(toastId);
       toast.success("Background removed successfully");
     } catch (error) {
       console.error("Error removing background:", error);
+      
+      // Update the toast
+      toast.dismiss(toastId);
       toast.error(error instanceof Error ? error.message : "Failed to remove background");
     } finally {
       setIsRemovingBackground(false);
