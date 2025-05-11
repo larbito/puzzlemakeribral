@@ -4,8 +4,8 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 // API base URL - ensure it's always the production URL when deployed
 const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
-// For development/debugging - set to false to use real API
-const USE_PLACEHOLDERS = false; // Using real API now
+// For development/debugging - set to true to use placeholder images instead of real API
+const USE_PLACEHOLDERS = true; // Set to true if you want to test with placeholders
 
 // Add debug logging for API URL and environment
 console.log('API_URL:', API_URL);
@@ -157,16 +157,22 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 }
 
 // Helper function to get placeholders
-function getPlaceholderImage(prompt: string): Promise<string> {
+function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' = 'tshirt', width = 1024, height = 1365): Promise<string> {
   const words = prompt.split(' ').slice(0, 5).join('-');
   const bgColor = getColorForStyle(prompt);
   const fgColor = "FFFFFF";
   
+  // Different text based on type
+  const typeText = type === 'bookcover' ? 'Book Cover: ' : 'T-Shirt: ';
+  
+  // Use the provided dimensions if it's a book cover
+  const dimensions = type === 'bookcover' ? `${width}x${height}` : '1024x1365';
+  
   // Use a different placeholder service that allows CORS
   // Instead of dummyimage.com, use a data URI which is guaranteed to work
-  const placeholderUrl = `https://placehold.co/1024x1365/${bgColor}/${fgColor}?text=${encodeURIComponent('T-Shirt: ' + words)}`;
+  const placeholderUrl = `https://placehold.co/${dimensions}/${bgColor}/${fgColor}?text=${encodeURIComponent(typeText + words)}`;
   
-  console.log("Generated placeholder URL:", placeholderUrl);
+  console.log(`Generated ${type} placeholder URL:`, placeholderUrl);
   
   return new Promise((resolve) => {
     // Check if the URL works by creating a test image
@@ -183,7 +189,7 @@ function getPlaceholderImage(prompt: string): Promise<string> {
     testImg.onerror = () => {
       // Image failed to load, fall back to a base64 data URI
       console.error("Placeholder image failed to load, using fallback data URI");
-      const fallbackDataUri = createFallbackImage(words, bgColor);
+      const fallbackDataUri = createFallbackImage(words, bgColor, typeText);
       setTimeout(() => {
         resolve(fallbackDataUri);
       }, 500);
@@ -195,7 +201,7 @@ function getPlaceholderImage(prompt: string): Promise<string> {
 }
 
 // Create a simple fallback image as a data URI
-function createFallbackImage(text: string, bgColor: string): string {
+function createFallbackImage(text: string, bgColor: string, typeText: string): string {
   // Create a canvas to draw the fallback image
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -220,7 +226,7 @@ function createFallbackImage(text: string, bgColor: string): string {
   // Break long text into multiple lines
   const words = text.split(' ');
   let lines = [];
-  let currentLine = 'T-Shirt Design:';
+  let currentLine = typeText;
   
   // Add first line
   lines.push(currentLine);
@@ -706,7 +712,7 @@ export async function generateBookCover({
     // For testing UI interactivity
     if (USE_PLACEHOLDERS) {
       console.log("Using placeholder by configuration");
-      return getPlaceholderImage(prompt);
+      return getPlaceholderImage(prompt, 'bookcover', width, height);
     }
 
     // Build the enhanced prompt with additional context
@@ -803,6 +809,6 @@ export async function generateBookCover({
     
     // Ensure we always return something
     console.log("Using placeholder for book cover due to error");
-    return `https://placehold.co/${width}x${height}/252A37/FFFFFF?text=${encodeURIComponent('Book Cover: ' + prompt.substring(0, 30))}`;
+    return getPlaceholderImage(prompt, 'bookcover', width, height);
   }
 } 
