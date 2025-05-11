@@ -216,7 +216,12 @@ export const TShirtGenerator = () => {
 
   // Generate prompt from image
   const handleGeneratePrompt = async () => {
+    console.log('handleGeneratePrompt called with state:', {
+      selectedImage: !!selectedImage,
+      isGenerating
+    });
     if (!selectedImage) return;
+    
     setIsGenerating(true);
     try {
       // Generate a random placeholder prompt for now
@@ -244,7 +249,11 @@ export const TShirtGenerator = () => {
 
   // Generate image from prompt
   const handleGenerateImage = async () => {
-    if (!customPrompt) {
+    console.log('handleGenerateImage called with state:', {
+      customPrompt: customPrompt.trim(),
+      isGenerating
+    });
+    if (!customPrompt.trim()) {
       toast.error('Please enter a prompt first');
       return;
     }
@@ -442,6 +451,16 @@ export const TShirtGenerator = () => {
   useEffect(() => {
     console.log("State update - customPrompt:", customPrompt, "isGenerating:", isGenerating);
   }, [customPrompt, isGenerating]);
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('State values updated:', {
+      selectedImage: !!selectedImage,
+      isGenerating,
+      customPrompt: customPrompt.trim(),
+      currentTab
+    });
+  }, [selectedImage, isGenerating, customPrompt, currentTab]);
 
   // Add debug log before render
   console.log('RENDER STATE:', { customPrompt, isGenerating });
