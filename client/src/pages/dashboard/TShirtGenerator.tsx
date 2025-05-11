@@ -56,7 +56,8 @@ import {
   deleteFromHistory, 
   saveToFavorites as saveToFavoritesService,
   saveToProject as saveToProjectService,
-  imageToPrompt
+  imageToPrompt,
+  removeBackground
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -191,6 +192,7 @@ export const TShirtGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
   const [currentTab, setCurrentTab] = useState("design");
   const [zoomLevel, setZoomLevel] = useState(1);
   
@@ -240,25 +242,17 @@ export const TShirtGenerator = () => {
         
         // Check if image has transparency or not all white
         let hasTransparency = false;
-        let hasNonWhitePixel = false;
         
         // Sample pixels to check
-        for (let i = 0; i < imageData.length; i += 4) {
+        for (let i = 3; i < imageData.length; i += 4) {
           // Check for transparency
-          if (imageData[i + 3] < 250) {
+          if (imageData[i] < 250) {
             hasTransparency = true;
             break;
           }
-          
-          // Check for non-white pixels
-          if (imageData[i] < 240 || imageData[i + 1] < 240 || imageData[i + 2] < 240) {
-            hasNonWhitePixel = true;
-          }
         }
         
-        // An image has true transparency if it has transparent pixels
-        // or it doesn't have a solid white background
-        resolve(hasTransparency || hasNonWhitePixel);
+        resolve(hasTransparency);
       };
       
       img.onerror = () => resolve(false);
@@ -819,14 +813,14 @@ export const TShirtGenerator = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => toast.dismiss(t.id)}
+                onClick={() => toast.dismiss(t)}
               >
                 Keep Background
               </Button>
               <Button 
                 size="sm" 
                 onClick={() => {
-                  toast.dismiss(t.id);
+                  toast.dismiss(t);
                   setTransparentBg(true);
                 }}
               >
@@ -878,6 +872,54 @@ export const TShirtGenerator = () => {
     
     createMockupDir();
   }, []);
+
+  // New function for handling background removal
+  const handleRemoveBackground = async () => {
+    if (!selectedImage) return;
+    
+    setIsRemovingBackground(true);
+    
+    try {
+      // Check if the image already has transparency
+      const hasTransparency = await checkImageTransparency(selectedImage.url);
+      
+      if (hasTransparency) {
+        toast.info("Image already has a transparent background");
+        setIsRemovingBackground(false);
+        return;
+      }
+      
+      // Remove background
+      const transparentImageUrl = await removeBackground(selectedImage.url);
+      
+      // Update the selected image with the transparent version
+      const updatedImage = {
+        ...selectedImage,
+        url: transparentImageUrl,
+        hasTransparency: true
+      };
+      
+      // Update states
+      setSelectedImage(updatedImage);
+      
+      // Update current designs array
+      setCurrentDesigns(prev => 
+        prev.map(img => img.id === updatedImage.id ? updatedImage : img)
+      );
+      
+      // Update generated images array
+      setGeneratedImages(prev => 
+        prev.map(img => img.id === updatedImage.id ? updatedImage : img)
+      );
+      
+      toast.success("Background removed successfully");
+    } catch (error) {
+      console.error("Error removing background:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to remove background");
+    } finally {
+      setIsRemovingBackground(false);
+    }
+  };
 
   return (
     <PageLayout
@@ -1229,6 +1271,20 @@ export const TShirtGenerator = () => {
                           )}
                           Download
                         </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleRemoveBackground}
+                          disabled={isGenerating || isRemovingBackground || (selectedImage.hasTransparency === true)}
+                          className="relative"
+                        >
+                          {isRemovingBackground ? (
+                            <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <ImageIcon className="w-3.5 h-3.5 mr-1" />
+                          )}
+                          Remove Background
+                        </Button>
                       </div>
                     )}
                   </CardTitle>
@@ -1262,16 +1318,26 @@ export const TShirtGenerator = () => {
                         }}
                       />
                       
-                      {/* New button for full-page T-shirt preview */}
+                      {/* Toggle button for T-shirt mockup preview */}
                       <div className="mt-4 flex justify-center">
                         <Button 
                           variant="outline" 
                           size="sm"
                           className="gap-2"
-                          onClick={() => setShowFullPagePreview(true)}
+                          onClick={() => {
+                            setShowTshirtPreview(true);
+                            // Update the preview when opening
+                            if (selectedImage) {
+                              const img = new Image();
+                              img.onload = () => {
+                                updateMockupPreview(img);
+                              };
+                              img.src = selectedImage.url;
+                            }
+                          }}
                         >
                           <Shirt className="h-4 w-4" />
-                          View Full-Page T-shirt Preview
+                          View on T-shirt
                         </Button>
                       </div>
                       
@@ -1439,61 +1505,6 @@ export const TShirtGenerator = () => {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Old T-shirt Preview Dialog - Now hidden in favor of the full-page preview */}
-      <Dialog open={showTshirtPreview} onOpenChange={setShowTshirtPreview}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shirt className="h-5 w-5 text-primary" />
-              T-shirt Preview
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center">
-            <canvas 
-              ref={mockupCanvasRef}
-              className="w-full h-auto rounded-md border"
-              width="500"
-              height="600"
-            />
-            <div className="mt-4 flex justify-center space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMockupBackground('white')}
-                className={cn(
-                  "text-xs px-3 py-1 h-auto",
-                  mockupBackground === 'white' && "bg-primary text-primary-foreground"
-                )}
-              >
-                White
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMockupBackground('black')}
-                className={cn(
-                  "text-xs px-3 py-1 h-auto",
-                  mockupBackground === 'black' && "bg-primary text-primary-foreground"
-                )}
-              >
-                Black
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMockupBackground('navy')}
-                className={cn(
-                  "text-xs px-3 py-1 h-auto",
-                  mockupBackground === 'navy' && "bg-primary text-primary-foreground"
-                )}
-              >
-                Navy
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Full-page T-shirt Preview */}
       {showFullPagePreview && selectedImage && (

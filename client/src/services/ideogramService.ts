@@ -334,4 +334,127 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     // Return a mock prompt for now
     return "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
   }
-} 
+}
+
+// Add the new background removal function
+export async function removeBackground(imageUrl: string): Promise<string> {
+  try {
+    console.log("Removing background from image:", imageUrl);
+    
+    // For a real implementation, make an API call to a background removal service
+    // For now, we'll implement a simple canvas-based approach
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        try {
+          // Create canvas to process the image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) {
+            reject(new Error("Could not create canvas context"));
+            return;
+          }
+          
+          // Draw the original image
+          ctx.drawImage(img, 0, 0);
+          
+          // Get image data
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Check if the image already has transparency
+          let hasTransparency = false;
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 250) {
+              hasTransparency = true;
+              break;
+            }
+          }
+          
+          if (hasTransparency) {
+            console.log("Image already has transparency");
+            resolve(imageUrl); // Return the original URL if already transparent
+            return;
+          }
+          
+          // Simple background removal - remove white-ish pixels
+          let hasRemovedPixels = false;
+          for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            
+            // If pixel is white or very light, make it transparent
+            if (r > 240 && g > 240 && b > 240) {
+              data[i + 3] = 0; // Set alpha to 0
+              hasRemovedPixels = true;
+            }
+          }
+          
+          if (!hasRemovedPixels) {
+            console.log("No white pixels found to remove");
+            reject(new Error("No white background detected in the image"));
+            return;
+          }
+          
+          // Put the modified image data back
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Convert to data URL (PNG with transparency)
+          const transparentImageUrl = canvas.toDataURL('image/png');
+          console.log("Background removed successfully");
+          resolve(transparentImageUrl);
+        } catch (error) {
+          console.error("Error processing image in canvas:", error);
+          reject(error);
+        }
+      };
+      
+      img.onerror = (error) => {
+        console.error("Error loading image:", error);
+        reject(new Error("Failed to load image for background removal"));
+      };
+      
+      img.src = imageUrl;
+    });
+  } catch (error) {
+    console.error("Error in removeBackground:", error);
+    throw new Error(`Background removal failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+// In a real implementation, you'd make an API call like this:
+/*
+export async function removeBackgroundWithAPI(imageUrl: string): Promise<string> {
+  try {
+    // First convert URL to File/Blob if it's not already
+    const response = await fetch(imageUrl);
+    const imageBlob = await response.blob();
+    
+    const formData = new FormData();
+    formData.append('image', imageBlob);
+    
+    const apiResponse = await fetch(`${API_URL}/api/ideogram/remove-background`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!apiResponse.ok) {
+      throw new Error(`API error: ${apiResponse.status}`);
+    }
+    
+    const data = await apiResponse.json();
+    return data.url; // URL to the image with background removed
+  } catch (error) {
+    console.error("Error removing background:", error);
+    throw error;
+  }
+}
+*/
+
+// The imageToPrompt function already exists above, don't duplicate it 
