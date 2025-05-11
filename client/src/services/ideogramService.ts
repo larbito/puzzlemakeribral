@@ -5,7 +5,7 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // For development/debugging - set to true to use placeholder images instead of real API
-const USE_PLACEHOLDERS = true; // Set to true if you want to test with placeholders
+const USE_PLACEHOLDERS = false; // Set to true if you want to test with placeholders
 
 // Add debug logging for API URL and environment
 console.log('API_URL:', API_URL);

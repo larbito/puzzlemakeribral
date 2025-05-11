@@ -237,7 +237,21 @@ const BookCoverGenerator = () => {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submission started");
+    
+    // Debug form submission
+    console.log("=== FORM SUBMISSION STARTED ===");
+    console.log("Form event:", e);
+    console.log("Form data:", {
+      bookTitle,
+      authorName,
+      prompt,
+      style,
+      trimSize,
+      pageCount,
+      paperColor,
+      bookType,
+      dimensions
+    });
     
     // Validation
     if (!bookTitle.trim()) {
@@ -551,20 +565,6 @@ const BookCoverGenerator = () => {
                     type="submit" 
                     className="w-full relative z-10"
                     disabled={isGenerating}
-                    onClick={(e) => {
-                      console.log("Generate button clicked");
-                      console.log("Form data:", {
-                        bookTitle,
-                        authorName,
-                        prompt,
-                        style,
-                        trimSize,
-                        pageCount,
-                        paperColor,
-                        bookType
-                      });
-                      handleSubmit(e);
-                    }}
                   >
                     {isGenerating ? (
                       <>
