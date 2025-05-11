@@ -59,6 +59,14 @@ import {
 } from "@/services/ideogramService";
 import type { DesignHistoryItem } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // Enhanced style options with more choices
 const styleOptions = [
@@ -1162,84 +1170,25 @@ export const TShirtGenerator = () => {
                       {/* Toggle button for T-shirt mockup preview */}
                       <div className="mt-4 flex justify-center">
                         <Button
-                          variant={showTshirtPreview ? "default" : "outline"}
+                          variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => setShowTshirtPreview(prev => !prev)}
+                          onClick={() => {
+                            setShowTshirtPreview(true);
+                            // Update the preview when opening
+                            if (selectedImage) {
+                              const img = new Image();
+                              img.onload = () => {
+                                updateMockupPreview(img);
+                              };
+                              img.src = selectedImage.url;
+                            }
+                          }}
                         >
                           <Shirt className="h-4 w-4" />
-                          {showTshirtPreview ? "Hide T-shirt Preview" : "View on T-shirt"}
+                          View on T-shirt
                         </Button>
                       </div>
-                      
-                      {/* T-shirt mockup - conditionally rendered */}
-                      {showTshirtPreview && (
-                        <motion.div 
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: "auto" }}
-                          exit={{ opacity: 0, height: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="relative mt-4 border rounded-lg p-4 bg-gray-50 dark:bg-gray-900/20 overflow-hidden"
-                        >
-                          <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-sm font-medium flex items-center">
-                              <Shirt className="w-4 h-4 mr-1 text-primary" />
-                              T-shirt Preview
-                            </h4>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7"
-                              onClick={() => setShowTshirtPreview(false)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <div className="flex justify-center">
-                            <canvas 
-                              ref={mockupCanvasRef}
-                              className="max-w-full h-auto rounded-md border shadow-sm"
-                              width="500"
-                              height="600"
-                            />
-                          </div>
-                          <div className="mt-4 flex justify-center space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setMockupBackground('white')}
-                              className={cn(
-                                "text-xs px-3 py-1 h-auto",
-                                mockupBackground === 'white' && "bg-primary text-primary-foreground"
-                              )}
-                            >
-                              White
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setMockupBackground('black')}
-                              className={cn(
-                                "text-xs px-3 py-1 h-auto",
-                                mockupBackground === 'black' && "bg-primary text-primary-foreground"
-                              )}
-                            >
-                              Black
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => setMockupBackground('navy')}
-                              className={cn(
-                                "text-xs px-3 py-1 h-auto",
-                                mockupBackground === 'navy' && "bg-primary text-primary-foreground"
-                              )}
-                            >
-                              Navy
-                            </Button>
-                          </div>
-                        </motion.div>
-                      )}
                       
                       {/* Debug/hidden canvas for processing */}
                       <canvas 
@@ -1405,6 +1354,61 @@ export const TShirtGenerator = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* T-shirt Preview Dialog */}
+      <Dialog open={showTshirtPreview} onOpenChange={setShowTshirtPreview}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shirt className="h-5 w-5 text-primary" />
+              T-shirt Preview
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center">
+            <canvas 
+              ref={mockupCanvasRef}
+              className="w-full h-auto rounded-md border"
+              width="500"
+              height="600"
+            />
+            <div className="mt-4 flex justify-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMockupBackground('white')}
+                className={cn(
+                  "text-xs px-3 py-1 h-auto",
+                  mockupBackground === 'white' && "bg-primary text-primary-foreground"
+                )}
+              >
+                White
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMockupBackground('black')}
+                className={cn(
+                  "text-xs px-3 py-1 h-auto",
+                  mockupBackground === 'black' && "bg-primary text-primary-foreground"
+                )}
+              >
+                Black
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMockupBackground('navy')}
+                className={cn(
+                  "text-xs px-3 py-1 h-auto",
+                  mockupBackground === 'navy' && "bg-primary text-primary-foreground"
+                )}
+              >
+                Navy
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </PageLayout>
   );
 }; 
