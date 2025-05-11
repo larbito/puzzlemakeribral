@@ -6,6 +6,20 @@ const upload = multer();
 
 console.log('Setting up ideogram routes');
 
+// Debug middleware for this router
+router.use((req, res, next) => {
+  console.log('Ideogram route request:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
+    headers: req.headers,
+    body: req.body
+  });
+  next();
+});
+
 router.post('/generate', async (req, res) => {
   console.log('Received generate request');
   // Handle preflight
@@ -18,6 +32,7 @@ router.post('/generate', async (req, res) => {
     console.log('Received request headers:', req.headers);
     console.log('Received request body:', req.body);
     console.log('Request origin:', req.headers.origin);
+    console.log('Request URL:', req.originalUrl);
 
     // Check if API key is configured
     if (!process.env.IDEOGRAM_API_KEY) {
@@ -68,7 +83,7 @@ router.post('/generate', async (req, res) => {
     console.log('Ideogram API response:', data);
     
     // Ensure CORS headers are set
-    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Origin', '*');
     res.json(data);
   } catch (error) {
     console.error('Ideogram API error:', error);

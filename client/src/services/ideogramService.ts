@@ -1,18 +1,16 @@
 import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
-// API base URL
-const API_URL = import.meta.env.VITE_API_URL || (process.env.NODE_ENV === 'production' 
-  ? 'https://puzzlemakeribral-production.up.railway.app'
-  : 'http://localhost:3000');  // Use localhost:3000 for development
+// API base URL - ensure it's always the production URL when deployed
+const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // For development/debugging - set to false to use real API
 const USE_PLACEHOLDERS = false; // Using real API now
 
-// Add debug logging for API URL
+// Add debug logging for API URL and environment
 console.log('API_URL:', API_URL);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('Window location:', window.location.href);
+console.log('Window origin:', window.location.origin);
 
 export interface GenerateImageParams {
   prompt: string;
@@ -75,6 +73,7 @@ export async function generateImage({
 async function generateWithProxy(prompt: string, style?: string): Promise<string> {
   console.log("Making API call with prompt:", prompt);
   console.log("API URL being used:", API_URL);
+  console.log("Full endpoint URL:", `${API_URL}/api/ideogram/generate`);
 
   try {
     const requestBody = {
@@ -86,9 +85,11 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
     };
 
     console.log("Request body:", JSON.stringify(requestBody, null, 2));
-    console.log("Making request to:", `${API_URL}/api/ideogram/generate`);
+    
+    const fullUrl = `${API_URL}/api/ideogram/generate`;
+    console.log("Making request to:", fullUrl);
 
-    const response = await fetch(`${API_URL}/api/ideogram/generate`, {
+    const response = await fetch(fullUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -96,7 +97,8 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
         'Origin': window.location.origin
       },
       body: JSON.stringify(requestBody),
-      mode: 'cors'
+      mode: 'cors',
+      credentials: 'omit'
     });
 
     console.log("Response status:", response.status);

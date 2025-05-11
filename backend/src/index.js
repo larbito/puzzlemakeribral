@@ -14,7 +14,9 @@ app.use((req, res, next) => {
     method: req.method,
     path: req.path,
     headers: req.headers,
-    body: req.body
+    body: req.body,
+    url: req.url,
+    originalUrl: req.originalUrl
   });
   next();
 });
@@ -23,7 +25,8 @@ app.use((req, res, next) => {
 // Handle preflight requests
 app.options('*', cors());
 
-app.use(cors({
+// Configure CORS
+const corsOptions = {
   origin: true, // Reflect the request origin
   credentials: false,
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -31,11 +34,13 @@ app.use(cors({
   exposedHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400, // 24 hours in seconds
   optionsSuccessStatus: 200
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Add custom headers middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Origin, X-Requested-With');
   res.header('Access-Control-Max-Age', '86400');
@@ -50,7 +55,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    port: PORT
   });
 });
 
@@ -59,8 +66,6 @@ console.log('Registered routes:');
 app._router.stack.forEach(function(r){
   if (r.route && r.route.path){
     console.log(r.route.path)
-  } else if(r.name === 'router'){
-    console.log('Router middleware:', r.regexp);
   }
 });
 
@@ -71,6 +76,21 @@ console.log('Ideogram routes registered at /api/ideogram');
 // Basic route
 app.get('/', (req, res) => {
   res.json({ message: 'Puzzle Craft Forge API - Image Generation Service' });
+});
+
+// Catch-all route for debugging 404s
+app.use((req, res, next) => {
+  console.log('404 Not Found:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl
+  });
+  res.status(404).json({
+    error: 'Not Found',
+    path: req.path,
+    method: req.method
+  });
 });
 
 // Error handling middleware
@@ -89,4 +109,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Environment:', process.env.NODE_ENV);
   console.log('Ideogram API Key configured:', !!process.env.IDEOGRAM_API_KEY);
+  console.log('Server URL:', `http://0.0.0.0:${PORT}`);
 }); 
