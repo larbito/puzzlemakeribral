@@ -273,8 +273,8 @@ const BookCoverGenerator = () => {
 
   // Generate a prompt based on user inputs
   const generateFormattedPrompt = () => {
-    // If we're generating a full cover with front-back-spine, just focus on the front cover in the prompt
-    let basePrompt = `A professional book cover for a book titled "${bookTitle}" by ${authorName}. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" x ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
+    // Create a prompt focused on the cover description only
+    let basePrompt = `A professional book cover design. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" x ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
     
     // Add style information if selected
     if (style && style !== "realistic") {
@@ -299,8 +299,8 @@ const BookCoverGenerator = () => {
         imageUrl: fullCoverUrl || frontImageUrl, // Use full cover as primary image if available
         frontCoverUrl: frontImageUrl,
         fullCoverUrl: fullCoverUrlForHistory,
-        bookTitle,
-        authorName,
+        bookTitle: "Book Title", // Use default value
+        authorName: "Author Name", // Use default value
         prompt,
         style,
         trimSize,
@@ -338,10 +338,9 @@ const BookCoverGenerator = () => {
     setIsDownloading(true);
     
     try {
-      // Create a descriptive filename
-      const safeTitle = bookTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      // Create a descriptive filename using date instead of title
       const coverType = activeTab === "full-cover" ? "full-cover" : "front-cover";
-      const filename = `${safeTitle}-${trimSize}-${coverType}-${Date.now()}`;
+      const filename = `book-cover-${trimSize}-${coverType}-${Date.now()}`;
       
       // Create link element and trigger download
       const link = document.createElement('a');
@@ -377,9 +376,9 @@ const BookCoverGenerator = () => {
       return;
     }
     
-    // Set default values if fields are empty
-    const titleToUse = bookTitle.trim() || "Book Title";
-    const authorToUse = authorName.trim() || "Author Name";
+    // Always use default values since fields have been removed
+    const titleToUse = "Book Title";
+    const authorToUse = "Author Name";
     
     setIsCreatingFullCover(true);
     
@@ -441,8 +440,6 @@ const BookCoverGenerator = () => {
     // Debug form submission
     console.log("=== FORM SUBMISSION STARTED ===");
     console.log("Form data:", {
-      bookTitle,
-      authorName,
       prompt,
       style,
       trimSize,
@@ -452,17 +449,7 @@ const BookCoverGenerator = () => {
       dimensions
     });
     
-    // Validation
-    if (!bookTitle.trim()) {
-      toast.error("Book title is required");
-      return;
-    }
-    
-    if (!authorName.trim()) {
-      toast.error("Author name is required");
-      return;
-    }
-    
+    // Validation - only require the prompt
     if (!prompt.trim()) {
       toast.error("Cover description is required");
       return;
@@ -509,7 +496,7 @@ const BookCoverGenerator = () => {
             toast.error("Failed to generate cover after multiple attempts. Try a different prompt.");
             
             // Create a placeholder image as absolute last resort
-            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels / 2}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate: ' + bookTitle)}`;
+            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels / 2}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate cover')}`;
             setGeneratedImage(placeholderUrl);
             setFrontCoverUrl(placeholderUrl);
           } else {
@@ -541,8 +528,7 @@ const BookCoverGenerator = () => {
   
   // Handle updating settings from history item
   const loadFromHistory = (item: BookCoverHistoryItem) => {
-    setBookTitle(item.bookTitle);
-    setAuthorName(item.authorName);
+    // Don't load title/author since fields have been removed
     setPrompt(item.prompt);
     setStyle(item.style);
     setTrimSize(item.trimSize);
