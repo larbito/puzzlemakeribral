@@ -40,8 +40,8 @@ export async function generateBookCover({
 
     console.log("API URL being used:", API_URL);
     
-    // Full URL for the API endpoint - try without the /api prefix as Railway might be configured differently
-    const apiUrl = `${API_URL}/book-cover/generate-front`;
+    // Full URL for the API endpoint
+    const apiUrl = `${API_URL}/api/book-cover/generate-front`;
     console.log("Full API URL:", apiUrl);
     
     try {
@@ -68,12 +68,18 @@ export async function generateBookCover({
       const data = await response.json();
       console.log("Direct API response data:", data);
 
-      // Try different response formats
-      const imageUrl = data.url || (data.status === 'success' && data.url) || data.image_url;
-      
-      if (imageUrl) {
-        console.log("Successfully extracted image URL:", imageUrl);
-        return imageUrl;
+      // Extract the image URL
+      if (data.url) {
+        console.log("Successfully extracted image URL:", data.url);
+        
+        // Check if it's a placeholder response (contains message about API error)
+        if (data.message && data.message.includes('placeholder')) {
+          console.log("Backend returned a placeholder due to API key issue:", data.message);
+          toast.warning("Using a placeholder image because the API key is not configured on the server");
+        }
+        
+        // Even if it's a placeholder, return the URL so the UI can show something
+        return data.url;
       } else {
         console.error("No image URL found in response:", data);
         return getPlaceholderImage(prompt, width, height);
