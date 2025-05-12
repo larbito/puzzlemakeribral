@@ -1,9 +1,7 @@
 import { toast } from 'sonner';
 
-// Use environment variable for API URL with a fallback
-// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-// Directly use the proxy path since we're using Vite's proxy
-const API_URL = '/api';
+// Use Railway API URL instead of local proxy
+const API_URL = 'https://puzzlemakeribral-production.up.railway.app/api';
 
 /**
  * Calculate the dimensions for a book cover based on KDP specifications
@@ -23,6 +21,7 @@ export async function calculateCoverDimensions({
 }) {
   try {
     console.log('Calculating dimensions with:', { trimSize, pageCount, paperColor, bookType, includeBleed });
+    console.log('API URL:', API_URL);
     
     const response = await fetch(`${API_URL}/book-cover/calculate-dimensions`, {
       method: 'POST',
