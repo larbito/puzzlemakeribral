@@ -4,6 +4,27 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 // API base URL - ensure it's always the production URL when deployed
 const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
+// Force any ideogram.ai URL through our proxy
+export function forceProxyForIdeogramUrl(url: string): string {
+  console.log("Original URL:", url);
+  
+  // If it's already a data URL or blob URL, return as is
+  if (url.startsWith('data:') || url.startsWith('blob:')) {
+    console.log("URL is already a data or blob URL, skipping proxy");
+    return url;
+  }
+  
+  // If it's an ideogram.ai URL, proxy it
+  if (url.includes('ideogram.ai')) {
+    const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+    console.log("Using proxy URL:", proxyUrl);
+    return proxyUrl;
+  }
+  
+  // Otherwise return the original URL
+  return url;
+}
+
 // For development/debugging - set to true to use placeholder images instead of real API
 const USE_PLACEHOLDERS = false; // Set to false to use the real API service
 
@@ -709,6 +730,10 @@ export interface ExtractedColors {
 export async function extractColorsFromImage(imageUrl: string): Promise<ExtractedColors> {
   console.log("Extracting colors from image:", imageUrl.slice(0, 50) + "...");
   
+  // Use our proxy for ideogram URLs
+  const proxiedUrl = forceProxyForIdeogramUrl(imageUrl);
+  console.log("Using URL for color extraction:", proxiedUrl.slice(0, 50) + "...");
+  
   return new Promise((resolve, reject) => {
     try {
       const img = new Image();
@@ -792,7 +817,7 @@ export async function extractColorsFromImage(imageUrl: string): Promise<Extracte
       };
       
       console.log("Starting to load image for color extraction");
-      img.src = imageUrl;
+      img.src = proxiedUrl;
     } catch (error) {
       console.error("Error in color extraction:", error);
       resolve({ colors: [], dominantColor: "#333333" });

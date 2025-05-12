@@ -33,6 +33,7 @@ import {
   generateBookCover, 
   createFullBookCover, 
   extractColorsFromImage,
+  forceProxyForIdeogramUrl,
   type ExtractedColors 
 } from "@/services/ideogramService";
 import { DEBUG_MODE, APP_VERSION, DEBUG_CONFIG } from "@/config";
@@ -719,6 +720,33 @@ const BookCoverGenerator = () => {
     toast.info("Settings loaded from history");
   };
 
+  // Add state monitoring
+  useEffect(() => {
+    console.log("State change detected:");
+    console.log("frontCoverUrl:", frontCoverUrl ? frontCoverUrl.substring(0, 50) + "..." : null);
+    console.log("fullCoverUrl:", fullCoverUrl ? fullCoverUrl.substring(0, 50) + "..." : null);
+    console.log("isGenerating:", isGenerating);
+    console.log("isCreatingFullCover:", isCreatingFullCover);
+    console.log("isDownloading:", isDownloading);
+    
+    // Force proxy for any existing image URL
+    if (frontCoverUrl && frontCoverUrl.includes('ideogram.ai')) {
+      const proxiedUrl = forceProxyForIdeogramUrl(frontCoverUrl);
+      if (proxiedUrl !== frontCoverUrl) {
+        console.log("Forcing proxy for frontCoverUrl");
+        setFrontCoverUrl(proxiedUrl);
+      }
+    }
+    
+    if (fullCoverUrl && fullCoverUrl.includes('ideogram.ai')) {
+      const proxiedUrl = forceProxyForIdeogramUrl(fullCoverUrl);
+      if (proxiedUrl !== fullCoverUrl) {
+        console.log("Forcing proxy for fullCoverUrl");
+        setFullCoverUrl(proxiedUrl);
+      }
+    }
+  }, [frontCoverUrl, fullCoverUrl, isGenerating, isCreatingFullCover, isDownloading]);
+
   return (
     <PageLayout
       title="Book Cover Generator"
@@ -901,9 +929,14 @@ const BookCoverGenerator = () => {
                   
                   {/* Generate button */}
                   <Button 
-                    type="submit" 
+                    type="button" 
                     className="w-full relative z-10"
                     disabled={isGenerating}
+                    onClick={(e) => {
+                      console.log("Direct Generate click handler");
+                      window.alert("Generate Book Cover button clicked!");
+                      handleSubmit(e);
+                    }}
                   >
                     {isGenerating ? (
                       <>
@@ -1040,8 +1073,12 @@ const BookCoverGenerator = () => {
                 <Button 
                   type="button"
                   className="w-full"
-                  onClick={handleCreateFullCover}
                   disabled={isCreatingFullCover}
+                  onClick={() => {
+                    console.log("Direct Create Full Cover click handler");
+                    window.alert("Create Full Cover button clicked!");
+                    handleCreateFullCover();
+                  }}
                 >
                   {isCreatingFullCover ? (
                     <>
@@ -1080,8 +1117,12 @@ const BookCoverGenerator = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={handleDownload}
                       disabled={isDownloading}
+                      onClick={() => {
+                        console.log("Direct download click handler");
+                        window.alert("Download button clicked!");
+                        handleDownload();
+                      }}
                     >
                       {isDownloading ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1093,8 +1134,12 @@ const BookCoverGenerator = () => {
                     <Button 
                       variant="outline" 
                       size="sm"
-                      onClick={handleRegenerate}
                       disabled={isGenerating}
+                      onClick={() => {
+                        console.log("Direct regenerate click handler");
+                        window.alert("Regenerate button clicked!");
+                        handleRegenerate();
+                      }}
                     >
                       {isGenerating ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
