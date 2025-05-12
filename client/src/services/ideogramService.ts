@@ -827,6 +827,7 @@ export async function createFullBookCover({
   interiorPreviewImages = [],
   showGuides = true
 }: CreateFullBookCoverParams): Promise<string> {
+  console.log('[DEBUG] createFullBookCover called', { frontCoverUrl, title, author, spineText, spineColor, dimensions, interiorPreviewImagesLength: interiorPreviewImages.length, showGuides });
   return new Promise(async (resolve, reject) => {
     try {
       console.log("Creating full book cover layout");

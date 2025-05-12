@@ -439,6 +439,7 @@ const BookCoverGenerator = () => {
   
   // Handle download
   const handleDownload = async () => {
+    console.log('[DEBUG] handleDownload called', { activeTab, fullCoverUrl, frontCoverUrl });
     const imageToDownload = activeTab === "full-cover" ? fullCoverUrl : frontCoverUrl;
     
     if (!imageToDownload) {
@@ -482,6 +483,7 @@ const BookCoverGenerator = () => {
 
   // Generate full cover from front cover
   const handleCreateFullCover = async () => {
+    console.log('[DEBUG] handleCreateFullCover called', { frontCoverUrl, dimensions, interiorPreviews, spineText, spineColor });
     if (!frontCoverUrl) {
       toast.error("Please generate a front cover first");
       return;
@@ -729,6 +731,7 @@ const BookCoverGenerator = () => {
   
   // Handle regeneration
   const handleRegenerate = () => {
+    console.log('[DEBUG] handleRegenerate called');
     if (isGenerating) return;
     
     // Reset the full cover if regenerating
