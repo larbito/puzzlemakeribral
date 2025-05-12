@@ -33,9 +33,11 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          utils: ['@react-pdf/renderer', 'framer-motion']
+          ui: ['framer-motion', 'styled-components'],
+          utils: ['@react-pdf/renderer']
         }
-      }
+      },
+      external: [] // Leave external empty to properly bundle styled-components
     },
     minify: true,
     target: 'es2015',
