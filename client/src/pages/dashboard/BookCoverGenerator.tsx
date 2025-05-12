@@ -214,20 +214,17 @@ const BookCoverGenerator = () => {
     extractColors();
   }, [frontCoverUrl, spineColor]);
 
-  // Validate spine text based on spine width
+  // Debug effect to check interiorPreviews
   useEffect(() => {
-    // Only warn if spine is too narrow and text is present
-    if (spineText && dimensions.spineWidth < 0.1) {
-      toast.warning("Spine is too narrow for text. Increase page count for text to appear.", { 
-        duration: 5000,
-        id: "spine-warning"
-      });
-    }
-  }, [spineText, dimensions.spineWidth]);
+    console.log("Interior previews updated:", interiorPreviews.length, "files");
+  }, [interiorPreviews]);
 
   // Handler for interior preview upload
   const handleInteriorPreviewUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("File input change event triggered");
     if (e.target.files && e.target.files.length > 0) {
+      console.log(`Selected ${e.target.files.length} files`);
+      
       const newFiles = Array.from(e.target.files);
       
       // Check max files (max 6)
@@ -244,14 +241,18 @@ const BookCoverGenerator = () => {
       
       // Filter out oversized files
       const validFiles = newFiles.filter(file => file.size <= 2 * 1024 * 1024);
+      console.log(`Adding ${validFiles.length} valid files`);
       
       // Add new files to existing previews
       setInteriorPreviews(prev => [...prev, ...validFiles]);
+      toast.success(`Added ${validFiles.length} interior preview images`);
       
       // Reset the input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    } else {
+      console.log("No files selected or file input is null");
     }
   };
   
@@ -376,21 +377,15 @@ const BookCoverGenerator = () => {
       return;
     }
     
-    // Validate inputs
-    if (!bookTitle.trim()) {
-      toast.error("Book title is required for the full cover");
-      return;
-    }
-    
-    if (!authorName.trim()) {
-      toast.error("Author name is required for the full cover");
-      return;
-    }
+    // Set default values if fields are empty
+    const titleToUse = bookTitle.trim() || "Book Title";
+    const authorToUse = authorName.trim() || "Author Name";
     
     setIsCreatingFullCover(true);
     
     try {
       console.log("Creating full cover...");
+      console.log("Using interior previews:", interiorPreviews.length, "files");
       
       // If spine is too narrow for text, warn the user
       if (spineText && dimensions.spineWidth < 0.1) {
@@ -399,8 +394,8 @@ const BookCoverGenerator = () => {
       
       const fullCoverImage = await createFullBookCover({
         frontCoverUrl,
-        title: bookTitle,
-        author: authorName,
+        title: titleToUse,
+        author: authorToUse,
         spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined, // Only use spine text if book is thick enough
         spineColor,
         dimensions,
@@ -727,30 +722,6 @@ const BookCoverGenerator = () => {
                 </div>
                 
                 <div className="border-t pt-4">
-                  <CardTitle className="text-base mb-4">Book Content</CardTitle>
-                  
-                  {/* Book title */}
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="book-title">Book Title</Label>
-                    <Input
-                      id="book-title"
-                      value={bookTitle}
-                      onChange={(e) => setBookTitle(e.target.value)}
-                      placeholder="Enter your book title"
-                    />
-                  </div>
-                  
-                  {/* Author name */}
-                  <div className="space-y-2 mb-4">
-                    <Label htmlFor="author-name">Author Name</Label>
-                    <Input
-                      id="author-name"
-                      value={authorName}
-                      onChange={(e) => setAuthorName(e.target.value)}
-                      placeholder="Enter author name"
-                    />
-                  </div>
-                  
                   {/* Cover description */}
                   <div className="space-y-2 mb-4 relative z-10">
                     <div className="flex items-center justify-between">
@@ -778,26 +749,6 @@ const BookCoverGenerator = () => {
                       placeholder="Describe your book cover design. Focus on imagery, colors, style, and mood."
                       className="min-h-[120px] relative z-20"
                     />
-                  </div>
-                  
-                  {/* Style */}
-                  <div className="space-y-2 mb-6">
-                    <Label htmlFor="cover-style">Cover Style</Label>
-                    <Select 
-                      value={style} 
-                      onValueChange={setStyle}
-                    >
-                      <SelectTrigger id="cover-style">
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {styleOptions.map(option => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                   
                   {/* Show guides toggle */}
@@ -871,20 +822,24 @@ const BookCoverGenerator = () => {
                     ))}
                     
                     {interiorPreviews.length < 6 && (
-                      <label 
-                        className="aspect-[4/5] border border-dashed rounded-md flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                      >
+                      <div className="aspect-[4/5] border border-dashed rounded-md flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-muted/50 transition-colors">
                         <input
                           type="file"
+                          id="interior-preview-upload"
                           ref={fileInputRef}
                           onChange={handleInteriorPreviewUpload}
                           className="hidden"
                           accept="image/jpeg,image/png,image/webp"
                           multiple
                         />
-                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                        <span className="text-xs text-center text-muted-foreground">Add Image</span>
-                      </label>
+                        <label 
+                          htmlFor="interior-preview-upload"
+                          className="w-full h-full flex flex-col items-center justify-center cursor-pointer"
+                        >
+                          <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                          <span className="text-xs text-center text-muted-foreground">Add Image</span>
+                        </label>
+                      </div>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">Max 6 images, 2MB each (JPG, PNG, WebP)</p>
