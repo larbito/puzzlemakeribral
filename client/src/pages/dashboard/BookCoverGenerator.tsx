@@ -416,52 +416,86 @@ const BookCoverGenerator = () => {
     const titleToUse = "Book Title";
     const authorToUse = "Author Name";
     
+    // Show loading toast
+    toast.loading("Creating full cover...", { id: "create-full-cover" });
     setIsCreatingFullCover(true);
     
     try {
       console.log("Creating full cover...");
+      console.log("Front cover URL:", frontCoverUrl);
       console.log("Using interior previews:", interiorPreviews.length, "files");
+      console.log("Show guides:", showGuides);
+      console.log("Dimensions:", dimensions);
       
       // If spine is too narrow for text, warn the user
       if (spineText && dimensions.spineWidth < 0.1) {
         toast.warning("Note: Spine is too narrow for text. Text will not appear.");
       }
       
+      // Add extra validation for the front cover URL
+      if (!frontCoverUrl.startsWith('http') && !frontCoverUrl.startsWith('data:')) {
+        throw new Error("Invalid front cover URL format");
+      }
+      
+      // Make a local copy of the interior previews
+      const previewsToUse = showInteriorPreviews ? [...interiorPreviews] : [];
+      
+      // Log each preview file for debugging
+      if (previewsToUse.length > 0) {
+        previewsToUse.forEach((file, i) => {
+          console.log(`Preview ${i+1}:`, file.name, file.type, file.size);
+        });
+      }
+      
       const fullCoverImage = await createFullBookCover({
         frontCoverUrl,
         title: titleToUse,
         author: authorToUse,
-        spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined, // Only use spine text if book is thick enough
+        spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined,
         spineColor,
         dimensions,
-        interiorPreviewImages: showInteriorPreviews ? interiorPreviews : [],
+        interiorPreviewImages: previewsToUse,
         showGuides
       });
       
+      console.log("Full cover created successfully");
+      
+      if (!fullCoverImage || typeof fullCoverImage !== 'string') {
+        throw new Error("Invalid full cover image returned");
+      }
+      
+      // Set the full cover URL state
       setFullCoverUrl(fullCoverImage);
       
-      // Save both front and full cover to history
+      // Save to history
       saveToHistory(
         frontCoverUrl, 
         fullCoverImage,
         extractedColors.colors
       );
       
+      // Clear loading toast and show success
+      toast.dismiss("create-full-cover");
       toast.success("Full book cover created successfully!");
       
       // Switch to full cover tab
       setActiveTab("full-cover");
     } catch (error) {
       console.error("Error creating full cover:", error);
-      toast.error("Failed to create full book cover. Please try again.");
+      
+      // Dismiss loading toast
+      toast.dismiss("create-full-cover");
+      
+      // Show detailed error message
+      toast.error(`Failed to create full cover: ${error instanceof Error ? error.message : "Unknown error"}`);
       
       // Try to provide more helpful error information if available
       if (error instanceof Error) {
         const errorMessage = error.message;
         if (errorMessage.includes("CORS")) {
-          toast.error("CORS issue detected. Try using a different image or refreshing.");
+          toast.error("CORS issue detected. The cover image cannot be accessed. Try generating a new front cover.", { duration: 5000 });
         } else if (errorMessage.includes("load")) {
-          toast.error("Failed to load images. Try generating a new front cover.");
+          toast.error("Failed to load images. Try generating a new front cover.", { duration: 5000 });
         }
       }
     } finally {
@@ -926,11 +960,17 @@ const BookCoverGenerator = () => {
                   className="w-full"
                   disabled={isCreatingFullCover || !frontCoverUrl}
                   onClick={handleCreateFullCover}
+                  variant={isCreatingFullCover ? "outline" : "default"}
                 >
                   {isCreatingFullCover ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Creating Full Cover...
+                    </>
+                  ) : fullCoverUrl ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Recreate Full Cover
                     </>
                   ) : (
                     <>
@@ -993,9 +1033,11 @@ const BookCoverGenerator = () => {
                     <TabsTrigger value="front-cover">Front Cover Only</TabsTrigger>
                     <TabsTrigger 
                       value="full-cover"
-                      disabled={!fullCoverUrl}
+                      disabled={!fullCoverUrl && !isCreatingFullCover}
                     >
-                      Full Cover (Front, Spine, Back)
+                      {isCreatingFullCover 
+                        ? "Creating Full Cover..." 
+                        : "Full Cover (Front, Spine, Back)"}
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>

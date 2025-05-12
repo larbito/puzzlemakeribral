@@ -830,6 +830,16 @@ export async function createFullBookCover({
   return new Promise(async (resolve, reject) => {
     try {
       console.log("Creating full book cover layout");
+      console.log("Front cover URL:", frontCoverUrl ? frontCoverUrl.substring(0, 50) + "..." : "undefined");
+      console.log("Spine color:", spineColor);
+      console.log("Dimensions:", dimensions);
+      console.log("Interior previews:", interiorPreviewImages.length);
+      
+      // Check if front cover URL is valid
+      if (!frontCoverUrl) {
+        reject(new Error("Front cover URL is required"));
+        return;
+      }
       
       // 1. Create a canvas with the total cover dimensions
       const canvas = document.createElement('canvas');
@@ -868,14 +878,22 @@ export async function createFullBookCover({
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
+      // Create a timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        reject(new Error("Timed out while loading front cover image"));
+      }, 20000);
+      
       // 2. Load the front cover image
       const frontCoverImg = new Image();
       frontCoverImg.crossOrigin = "anonymous";
       
       // Set up the onload handler for the front cover image
       frontCoverImg.onload = async function() {
+        // Clear the timeout since the image loaded
+        clearTimeout(timeout);
+        
         try {
-          console.log("Front cover image loaded");
+          console.log("Front cover image loaded successfully");
           
           // Draw the front cover (right side)
           ctx.drawImage(
@@ -887,11 +905,18 @@ export async function createFullBookCover({
           );
           
           // 3. Extract colors from the front cover for the spine
-          const { colors, dominantColor } = await extractColorsFromImage(frontCoverUrl);
-          console.log("Extracted colors:", colors);
+          let extractedColors: ExtractedColors = { colors: [], dominantColor: "#333333" };
+          
+          try {
+            extractedColors = await extractColorsFromImage(frontCoverUrl);
+            console.log("Extracted colors:", extractedColors.colors);
+          } catch (colorError) {
+            console.error("Error extracting colors:", colorError);
+            // Continue with default color
+          }
           
           // Use provided spine color or the dominant color
-          const finalSpineColor = spineColor || dominantColor;
+          const finalSpineColor = spineColor || extractedColors.dominantColor || "#333333";
           console.log("Using spine color:", finalSpineColor);
           
           // 4. Draw the spine
@@ -970,9 +995,15 @@ export async function createFullBookCover({
             const gridStartX = leftCoverX + padding;
             const gridStartY = padding + (canvas.height - (rows * imageSize + (rows + 1) * padding)) / 2;
             
-            // Create a promise for each image
+            // Create a promise for each image with a timeout
             const imageLoadPromises = interiorPreviewImages.map((imageFile, i) => {
-              return new Promise<void>((resolveImage) => {
+              return new Promise<void>((resolveImage, rejectImage) => {
+                // Create a timeout for this specific image
+                const imageTimeout = setTimeout(() => {
+                  console.warn(`Loading timeout for interior preview image ${i+1}`);
+                  resolveImage(); // Resolve anyway to continue with other images
+                }, 10000); // 10 second timeout per image
+                
                 const row = Math.floor(i / cols);
                 const col = i % cols;
                 
@@ -986,6 +1017,9 @@ export async function createFullBookCover({
                   // Load the image
                   const img = new Image();
                   img.onload = () => {
+                    // Clear the timeout since the image loaded
+                    clearTimeout(imageTimeout);
+                    
                     // Draw the image with a white background and shadow
                     ctx.fillStyle = "#FFFFFF";
                     ctx.fillRect(imageX - 2, imageY - 2, imageSize + 4, imageSize + 4);
@@ -1025,24 +1059,33 @@ export async function createFullBookCover({
                     resolveImage();
                   };
                   
-                  img.onerror = () => {
-                    console.error("Error loading interior preview image");
+                  img.onerror = (err) => {
+                    clearTimeout(imageTimeout);
+                    console.error(`Error loading interior preview image ${i+1}:`, err);
                     resolveImage(); // Resolve anyway to continue with other images
                   };
                   
                   img.src = imageUrl;
                 } catch (error) {
-                  console.error("Error processing interior preview image:", error);
+                  clearTimeout(imageTimeout);
+                  console.error(`Error processing interior preview image ${i+1}:`, error);
                   resolveImage(); // Resolve anyway to continue with other images
                 }
               });
             });
             
-            // Wait for all images to load
+            // Wait for all images to load with a timeout for the entire batch
+            const batchTimeout = setTimeout(() => {
+              console.warn("Batch loading timeout for interior preview images");
+              // Continue execution even if image loading times out
+            }, 15000);
+            
             try {
               await Promise.all(imageLoadPromises);
+              clearTimeout(batchTimeout);
               console.log("All interior preview images loaded successfully");
             } catch (error) {
+              clearTimeout(batchTimeout);
               console.error("Error loading interior preview images:", error);
               // Continue execution even if some images failed to load
             }
@@ -1100,20 +1143,59 @@ export async function createFullBookCover({
           
         } catch (error) {
           console.error("Error creating full book cover:", error);
-          reject(error);
+          reject(error instanceof Error ? error : new Error(String(error)));
         }
       };
       
       frontCoverImg.onerror = (error) => {
+        clearTimeout(timeout);
         console.error("Error loading front cover image:", error);
-        reject(new Error("Failed to load front cover image"));
+        
+        // Try with a CORS proxy as a fallback
+        console.log("Attempting to load image with CORS proxy...");
+        
+        // Create a new image and try with CORS proxy
+        const proxyImg = new Image();
+        proxyImg.crossOrigin = "anonymous";
+        
+        // Set up a new timeout for the proxy attempt
+        const proxyTimeout = setTimeout(() => {
+          reject(new Error("Timed out while loading front cover image with proxy"));
+        }, 20000);
+        
+        proxyImg.onload = async function() {
+          clearTimeout(proxyTimeout);
+          console.log("Successfully loaded front cover image with proxy");
+          
+          // Replace the original image object with the proxy one
+          frontCoverImg.src = proxyImg.src;
+          // The original onload will now be called
+        };
+        
+        proxyImg.onerror = (proxyError) => {
+          clearTimeout(proxyTimeout);
+          console.error("Failed to load front cover image with proxy:", proxyError);
+          reject(new Error("Failed to load front cover image after multiple attempts"));
+        };
+        
+        // Try with a CORS proxy
+        if (frontCoverUrl.startsWith('http')) {
+          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(frontCoverUrl)}`;
+          console.log("Using proxy URL:", proxyUrl);
+          proxyImg.src = proxyUrl;
+        } else {
+          // If it's not an HTTP URL (e.g., data URL), just fail
+          reject(new Error("Failed to load front cover image and cannot proxy non-HTTP URLs"));
+        }
       };
       
+      // Start loading the image
+      console.log("Starting to load front cover image");
       frontCoverImg.src = frontCoverUrl;
       
     } catch (error) {
       console.error("Error in createFullBookCover:", error);
-      reject(error);
+      reject(error instanceof Error ? error : new Error(String(error)));
     }
   });
 }
