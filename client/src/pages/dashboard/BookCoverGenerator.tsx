@@ -517,12 +517,28 @@ const BookCoverGenerator = () => {
             file && file instanceof File && file.type.startsWith('image/')
           ) : [];
           
-          // Check if front cover is from localStorage and needs special handling
+          // Handle different URL types
           let coverUrlToUse = frontCoverUrl;
-          if (frontCoverUrl.length > 1000 && frontCoverUrl.startsWith('data:')) {
-            console.log("Using data URL for front cover");
-          } else if (frontCoverUrl.startsWith('blob:')) {
-            console.log("Using blob URL for front cover");
+          
+          // If it's a data URL or blob URL, we can use it directly
+          if (frontCoverUrl.startsWith('data:') || frontCoverUrl.startsWith('blob:')) {
+            console.log("Using direct URL for front cover");
+          } else if (frontCoverUrl.startsWith('http')) {
+            // For HTTP URLs, try to fetch and convert to data URL first
+            try {
+              console.log("Converting HTTP URL to data URL...");
+              const response = await fetch(frontCoverUrl);
+              const blob = await response.blob();
+              coverUrlToUse = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              console.log("Successfully converted to data URL");
+            } catch (error) {
+              console.error("Error converting to data URL:", error);
+              // Continue with original URL, the createFullBookCover function will handle it
+            }
           }
           
           // Create the full cover with timeout protection
@@ -579,11 +595,6 @@ const BookCoverGenerator = () => {
         toast.warning("Note: Spine is too narrow for text. Text will not appear.");
       }
       
-      // Add extra validation for the front cover URL
-      if (!frontCoverUrl.startsWith('http') && !frontCoverUrl.startsWith('data:')) {
-        throw new Error("Invalid front cover URL format");
-      }
-      
       // Try to create the full cover with retries
       const fullCoverResult = await retryCreateFullCover();
       
@@ -616,13 +627,15 @@ const BookCoverGenerator = () => {
       
       // Try to provide more helpful error information if available
       if (error instanceof Error) {
-        const errorMessage = error.message;
-        if (errorMessage.includes("CORS")) {
-          toast.error("CORS issue detected. The cover image cannot be accessed. Try generating a new front cover.", { duration: 5000 });
-        } else if (errorMessage.includes("load")) {
-          toast.error("Failed to load images. Try generating a new front cover.", { duration: 5000 });
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes("cors") || errorMessage.includes("origin")) {
+          toast.error("Having trouble accessing the cover image. Trying to fix it automatically...", { duration: 5000 });
+          // Try regenerating the front cover
+          handleRegenerate();
+        } else if (errorMessage.includes("load") || errorMessage.includes("network")) {
+          toast.error("Network issue detected. Please check your internet connection and try again.", { duration: 5000 });
         } else if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
-          toast.error("The operation timed out. Please try again with fewer interior preview images.", { duration: 5000 });
+          toast.error("The operation took too long. Please try again with fewer interior preview images.", { duration: 5000 });
         } else if (errorMessage.includes("dimension")) {
           toast.error("There was a problem with the book dimensions. Try changing the trim size or page count.", { duration: 5000 });
         }

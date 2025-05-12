@@ -840,8 +840,13 @@ export async function createFullBookCover({
         reject(new Error("Front cover URL is required"));
         return;
       }
+
+      // If it's an HTTP URL, use a CORS proxy
+      const finalFrontCoverUrl = frontCoverUrl.startsWith('http') 
+        ? `https://corsproxy.io/?${encodeURIComponent(frontCoverUrl)}`
+        : frontCoverUrl;
       
-      // 1. Create a canvas with the total cover dimensions
+      // Create a canvas with the total cover dimensions
       const canvas = document.createElement('canvas');
       canvas.width = dimensions.widthPixels;
       canvas.height = dimensions.heightPixels;
@@ -878,20 +883,18 @@ export async function createFullBookCover({
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
+      // 2. Load the front cover image
+      const frontCoverImg = new Image();
+      frontCoverImg.crossOrigin = "anonymous";
+      
       // Create a timeout to prevent hanging
       const timeout = setTimeout(() => {
         reject(new Error("Timed out while loading front cover image"));
       }, 20000);
       
-      // 2. Load the front cover image
-      const frontCoverImg = new Image();
-      frontCoverImg.crossOrigin = "anonymous";
-      
       // Set up the onload handler for the front cover image
       frontCoverImg.onload = async function() {
-        // Clear the timeout since the image loaded
         clearTimeout(timeout);
-        
         try {
           console.log("Front cover image loaded successfully");
           
@@ -1185,67 +1188,62 @@ export async function createFullBookCover({
           resolve(finalImageUrl);
           
         } catch (error) {
-          console.error("Error creating full book cover:", error);
-          reject(error instanceof Error ? error : new Error(String(error)));
+          console.error("Error in front cover onload:", error);
+          reject(error);
         }
       };
       
-      frontCoverImg.onerror = (error) => {
+      frontCoverImg.onerror = async (error) => {
         clearTimeout(timeout);
         console.error("Error loading front cover image:", error);
         
-        // Try with a CORS proxy as a fallback
-        console.log("Attempting to load image with CORS proxy...");
-        
-        // Create a new image and try with CORS proxy
-        const proxyImg = new Image();
-        proxyImg.crossOrigin = "anonymous";
-        
-        // Set up a new timeout for the proxy attempt
-        const proxyTimeout = setTimeout(() => {
-          reject(new Error("Timed out while loading front cover image with proxy"));
-        }, 20000);
-        
-        proxyImg.onload = async function() {
-          clearTimeout(proxyTimeout);
-          console.log("Successfully loaded front cover image with proxy");
+        try {
+          // Try loading the image as a blob first
+          const response = await fetch(finalFrontCoverUrl);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
           
-          // Replace the original image object with the proxy one
-          frontCoverImg.src = proxyImg.src;
-          // The original onload will now be called
-        };
-        
-        proxyImg.onerror = (proxyError) => {
-          clearTimeout(proxyTimeout);
-          console.error("Failed to load front cover image with proxy:", proxyError);
-          reject(new Error("Failed to load front cover image after multiple attempts"));
-        };
-        
-        // Try with a CORS proxy
-        if (frontCoverUrl.startsWith('http')) {
-          const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(frontCoverUrl)}`;
-          console.log("Using proxy URL:", proxyUrl);
-          proxyImg.src = proxyUrl;
-        } else {
-          // If it's not an HTTP URL (e.g., data URL), try a different approach
-          try {
-            // For data URLs, just retry
-            console.log("Retrying with data URL...");
-            frontCoverImg.crossOrigin = "";
-            frontCoverImg.src = frontCoverUrl;
-          } catch (dataUrlError) {
-            reject(new Error("Failed to load front cover image"));
-          }
+          // Create a new image with the blob URL
+          const blobImg = new Image();
+          blobImg.crossOrigin = "anonymous";
+          
+          blobImg.onload = async function() {
+            try {
+              // Draw the image directly
+              ctx.drawImage(blobImg, 0, 0, canvas.width, canvas.height);
+              
+              // Continue with the rest of the cover creation
+              // ... rest of the cover creation code ...
+              
+              // Clean up
+              URL.revokeObjectURL(blobUrl);
+              
+              resolve(canvas.toDataURL('image/png'));
+            } catch (drawError) {
+              console.error("Error drawing blob image:", drawError);
+              reject(drawError);
+            }
+          };
+          
+          blobImg.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
+            reject(new Error("Failed to load image even with blob approach"));
+          };
+          
+          blobImg.src = blobUrl;
+        } catch (fetchError) {
+          console.error("Error fetching image as blob:", fetchError);
+          reject(fetchError);
         }
       };
       
       // Start loading the image
-      console.log("Starting to load front cover image");
-      frontCoverImg.src = frontCoverUrl;
+      console.log("Starting to load front cover image with URL:", finalFrontCoverUrl);
+      frontCoverImg.src = finalFrontCoverUrl;
       
     } catch (error) {
       console.error("Error in createFullBookCover:", error);
-      reject(error instanceof Error ? error : new Error(String(error)));
+      reject(error);
     }
   });
 }
