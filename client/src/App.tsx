@@ -20,7 +20,6 @@ import { Puzzles } from '@/pages/dashboard/Puzzles';
 import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
 import { TShirtGenerator } from '@/pages/dashboard/TShirtGenerator';
-import BookCoverCreator from '@/pages/dashboard/BookCoverCreator';
 import AIBookCoverGenerator from '@/pages/dashboard/AIBookCoverGenerator';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
@@ -72,8 +71,7 @@ function App() {
                       <Route path="bulk" element={<BulkGeneratorPage />} />
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="t-shirts" element={<TShirtGenerator />} />
-                      <Route path="covers" element={<BookCoverCreator />} />
-                      <Route path="ai-covers" element={<AIBookCoverGenerator />} />
+                      <Route path="covers" element={<AIBookCoverGenerator />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
