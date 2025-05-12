@@ -229,18 +229,39 @@ router.post('/generate-front', express.json(), async (req, res) => {
       form.append('rendering_speed', 'STANDARD');
       
       console.log('Form data prepared for Ideogram API');
+      // Directly log what we're sending
+      console.log('Form data contents:', {
+        prompt: prompt,
+        width: targetWidth.toString(),
+        height: targetHeight.toString(),
+        negative_prompt: negative_prompt || 'text, watermark, signature, blurry, low quality, distorted, deformed',
+        num_images: '1',
+        seed: Math.floor(Math.random() * 1000000),
+        rendering_speed: 'STANDARD'
+      });
+      
+      // The correct Ideogram API URL is v1 not api/v1
+      const ideogramApiUrl = 'https://api.ideogram.ai/v1/ideogram-v3/generate';
+      console.log('Making request to Ideogram API URL:', ideogramApiUrl);
+      
+      // Add API key to headers - make sure it's valid
+      const headers = {
+        'Api-Key': apiKey,
+      };
+      
+      // Merge with form headers
+      Object.assign(headers, form.getHeaders());
+      console.log('Request headers:', headers);
       
       // Real API call
-      const response = await fetch('https://api.ideogram.ai/api/v1/ideogram-v3/generate', {
+      const response = await fetch(ideogramApiUrl, {
         method: 'POST',
-        headers: {
-          'Api-Key': apiKey,
-          ...form.getHeaders()
-        },
+        headers,
         body: form
       });
 
       console.log('Ideogram API response status:', response.status);
+      console.log('Ideogram API response headers:', response.headers.raw());
 
       if (!response.ok) {
         const errorText = await response.text();
