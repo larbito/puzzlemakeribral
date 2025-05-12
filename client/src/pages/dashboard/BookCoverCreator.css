@@ -1,0 +1,144 @@
+.cover-creator {
+  @apply max-w-6xl mx-auto px-4 py-8;
+}
+
+.header {
+  @apply mb-8 text-center;
+}
+
+.title-section {
+  @apply flex items-center justify-center gap-3 mb-2;
+}
+
+.title-section .icon {
+  @apply w-8 h-8 text-primary;
+}
+
+.title-section h1 {
+  @apply text-3xl font-bold text-foreground;
+}
+
+.subtitle {
+  @apply text-lg text-muted-foreground;
+}
+
+.main-content {
+  @apply p-6 bg-card text-card-foreground shadow-lg rounded-xl border;
+}
+
+.form-group {
+  @apply space-y-2;
+}
+
+.preview-container {
+  @apply min-h-[400px] flex items-center justify-center border-2 border-dashed border-muted rounded-lg p-6;
+}
+
+.loading-state {
+  @apply flex flex-col items-center gap-4 text-muted-foreground;
+}
+
+.preview-content {
+  @apply w-full flex flex-col items-center gap-6;
+}
+
+.preview-image {
+  @apply max-w-full max-h-[500px] rounded-lg shadow-xl;
+}
+
+.preview-actions {
+  @apply flex gap-4;
+}
+
+.empty-state {
+  @apply flex flex-col items-center gap-4 text-muted-foreground;
+}
+
+.progress-bar {
+  @apply mt-6;
+}
+
+/* Enhanced tab styles */
+.tabs-list {
+  @apply bg-muted p-1 rounded-lg mb-6;
+}
+
+.tab-trigger {
+  @apply flex items-center gap-2 px-4 py-2 rounded-md transition-colors;
+}
+
+.tab-trigger[data-state="active"] {
+  @apply bg-background text-foreground shadow-sm;
+}
+
+.tab-trigger[data-state="inactive"] {
+  @apply text-muted-foreground hover:text-foreground hover:bg-muted-foreground/10;
+}
+
+/* Form element styles */
+.input-wrapper {
+  @apply relative;
+}
+
+.input-wrapper .icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground;
+}
+
+.input-with-icon {
+  @apply pl-10;
+}
+
+/* Button enhancements */
+.button-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
+}
+
+.button-outline {
+  @apply border-2 border-primary/50 hover:border-primary text-primary hover:bg-primary/10;
+}
+
+/* Loading animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .cover-creator {
+    @apply px-2 py-4;
+  }
+
+  .main-content {
+    @apply p-4;
+  }
+
+  .preview-container {
+    @apply min-h-[300px];
+  }
+
+  .preview-image {
+    @apply max-h-[300px];
+  }
+}
+
+/* Dark mode enhancements */
+.dark .main-content {
+  @apply bg-card/95 backdrop-blur-sm;
+}
+
+.dark .preview-container {
+  @apply border-muted/30;
+}
+
+.dark .preview-image {
+  @apply shadow-2xl shadow-primary/20;
+} 
