@@ -1103,7 +1103,6 @@ const BookCoverGenerator = () => {
                 <Button 
                   type="button"
                   className="w-full"
-                  disabled={isCreatingFullCover || !frontCoverUrl}
                   onClick={handleCreateFullCover}
                   variant={isCreatingFullCover ? "outline" : "default"}
                 >
@@ -1145,26 +1144,16 @@ const BookCoverGenerator = () => {
                       variant="outline" 
                       size="sm"
                       onClick={handleDownload}
-                      disabled={isDownloading}
                     >
-                      {isDownloading ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Download className="mr-2 h-4 w-4" />
-                      )}
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Download Cover
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={handleRegenerate}
-                      disabled={isGenerating}
                     >
-                      {isGenerating ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="mr-2 h-4 w-4" />
-                      )}
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Regenerate
                     </Button>
                   </div>
@@ -1254,13 +1243,8 @@ const BookCoverGenerator = () => {
                         </p>
                         <Button 
                           onClick={handleCreateFullCover}
-                          disabled={isCreatingFullCover}
                         >
-                          {isCreatingFullCover ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Book className="mr-2 h-4 w-4" />
-                          )}
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Create Full Cover
                         </Button>
                       </div>
