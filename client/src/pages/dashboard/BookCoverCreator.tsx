@@ -10,8 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ColorThief from 'colorthief';
+import { toast } from 'sonner';
 
 import './BookCoverCreator.css';
+
+const MAX_PROMPT_CHARS = 500;
 
 const BookCoverCreator = () => {
   // State variables for book specifications
@@ -29,6 +32,11 @@ const BookCoverCreator = () => {
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [imageResolution, setImageResolution] = useState({ width: 1875, height: 2775 });
   const [zoom, setZoom] = useState('fit');
+  
+  // Additional states for enhanced functionality
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [frontCoverGenerated, setFrontCoverGenerated] = useState(false);
+  const [fullCoverGenerated, setFullCoverGenerated] = useState(false);
 
   // Calculate spine width based on page count
   const calculateSpineWidth = () => {
@@ -61,8 +69,9 @@ const BookCoverCreator = () => {
       const newFiles = Array.from(e.target.files);
       if (uploadedImages.length + newFiles.length <= 6) {
         setUploadedImages([...uploadedImages, ...newFiles]);
+        toast.success(`${newFiles.length} image${newFiles.length > 1 ? 's' : ''} added successfully`);
       } else {
-        alert('You can only upload up to 6 images.');
+        toast.error('You can only upload up to 6 images.');
       }
     }
   };
@@ -72,6 +81,57 @@ const BookCoverCreator = () => {
     const newImages = [...uploadedImages];
     newImages.splice(index, 1);
     setUploadedImages(newImages);
+    toast.info('Image removed');
+  };
+
+  // Handle generate front cover button click
+  const handleGenerateFrontCover = () => {
+    if (coverDescription.length < 10) {
+      toast.error('Please enter a more detailed description for your cover');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      setIsGenerating(false);
+      setFrontCoverGenerated(true);
+      toast.success('Front cover generated successfully!');
+    }, 2000);
+  };
+
+  // Handle create full cover button click
+  const handleCreateFullCover = () => {
+    if (!frontCoverGenerated) {
+      toast.error('Please generate a front cover first');
+      return;
+    }
+    
+    setIsGenerating(true);
+    
+    // Simulate API call with timeout
+    setTimeout(() => {
+      setIsGenerating(false);
+      setFullCoverGenerated(true);
+      setActiveTab('full');
+      toast.success('Full cover assembled successfully!');
+    }, 2000);
+  };
+
+  // Handle download cover
+  const handleDownloadCover = () => {
+    if (activeTab === 'full' && !fullCoverGenerated) {
+      toast.error('Please create the full cover first');
+      return;
+    }
+
+    if (activeTab === 'front' && !frontCoverGenerated) {
+      toast.error('Please generate the front cover first');
+      return;
+    }
+    
+    toast.success(`${activeTab === 'full' ? 'Full' : 'Front'} cover downloaded successfully!`);
   };
 
   return (
@@ -166,13 +226,22 @@ const BookCoverCreator = () => {
 
               <div className="form-group">
                 <Label htmlFor="coverDescription">AI Prompt</Label>
-                <Textarea
-                  id="coverDescription"
-                  value={coverDescription}
-                  onChange={(e) => setCoverDescription(e.target.value)}
-                  placeholder="Describe your book cover concept..."
-                  rows={4}
-                />
+                <div className="textarea-wrapper">
+                  <Textarea
+                    id="coverDescription"
+                    value={coverDescription}
+                    onChange={(e) => {
+                      if (e.target.value.length <= MAX_PROMPT_CHARS) {
+                        setCoverDescription(e.target.value);
+                      }
+                    }}
+                    placeholder="Describe your book cover concept..."
+                    rows={4}
+                  />
+                  <div className="character-count">
+                    {coverDescription.length}/{MAX_PROMPT_CHARS}
+                  </div>
+                </div>
               </div>
 
               <div className="form-group toggle-group">
@@ -186,7 +255,13 @@ const BookCoverCreator = () => {
                 </div>
               </div>
 
-              <Button className="generate-button">Generate Front Cover</Button>
+              <Button 
+                className="generate-button" 
+                onClick={handleGenerateFrontCover}
+                disabled={isGenerating || coverDescription.length < 10}
+              >
+                {isGenerating ? '🔄 Generating...' : '🎨 Generate Front Cover'}
+              </Button>
             </CardContent>
           </Card>
 
@@ -208,7 +283,7 @@ const BookCoverCreator = () => {
 
               {addInteriorImages && (
                 <div className="uploader-container">
-                  <Label htmlFor="imageUpload">Upload up to 6 images (JPG, PNG, WebP - max 2MB each)</Label>
+                  <Label htmlFor="imageUpload">🖼️ Add Interior Pages to Back (up to 6 images)</Label>
                   <Input
                     id="imageUpload"
                     type="file"
@@ -258,9 +333,23 @@ const BookCoverCreator = () => {
             </TabsList>
             <TabsContent value="front" className="preview-content">
               <div className="preview-container">
-                <div className="preview-placeholder">
-                  <p>Generate a cover to see the preview</p>
-                </div>
+                {frontCoverGenerated ? (
+                  <div className="preview-image-container">
+                    {/* This would be replaced with the actual generated image */}
+                    <div style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <p>Front Cover Preview</p>
+                    </div>
+                    {showTrimLines && (
+                      <div className="trim-guides">
+                        {/* Trim guides would be rendered here */}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="preview-placeholder">
+                    <p>Generate a cover to see the preview</p>
+                  </div>
+                )}
                 <div className="zoom-controls">
                   <button className={zoom === '100' ? 'active' : ''} onClick={() => setZoom('100')}>100%</button>
                   <button className={zoom === '150' ? 'active' : ''} onClick={() => setZoom('150')}>150%</button>
@@ -268,16 +357,50 @@ const BookCoverCreator = () => {
                 </div>
               </div>
               <div className="action-buttons">
-                <Button variant="outline" className="regenerate-button">Regenerate</Button>
-                <Button className="create-full-button">Create Full Cover</Button>
-                <Button variant="secondary" className="download-button">Download Cover</Button>
+                <Button 
+                  variant="outline" 
+                  className="regenerate-button" 
+                  onClick={handleGenerateFrontCover}
+                  disabled={isGenerating || !frontCoverGenerated}
+                >
+                  ♻️ Regenerate
+                </Button>
+                <Button 
+                  className="create-full-button" 
+                  onClick={handleCreateFullCover}
+                  disabled={isGenerating || !frontCoverGenerated}
+                >
+                  🧩 Assemble Full Cover
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="download-button" 
+                  onClick={handleDownloadCover}
+                  disabled={!frontCoverGenerated}
+                >
+                  ⬇️ Download Cover
+                </Button>
               </div>
             </TabsContent>
             <TabsContent value="full" className="preview-content">
               <div className="preview-container">
-                <div className="preview-placeholder">
-                  <p>Generate a full cover to see the preview</p>
-                </div>
+                {fullCoverGenerated ? (
+                  <div className="preview-image-container">
+                    {/* This would be replaced with the actual generated full cover image */}
+                    <div style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <p>Full Cover Preview</p>
+                    </div>
+                    {showTrimLines && (
+                      <div className="trim-guides">
+                        {/* Trim guides would be rendered here */}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="preview-placeholder">
+                    <p>Generate a full cover to see the preview</p>
+                  </div>
+                )}
                 <div className="zoom-controls">
                   <button className={zoom === '100' ? 'active' : ''} onClick={() => setZoom('100')}>100%</button>
                   <button className={zoom === '150' ? 'active' : ''} onClick={() => setZoom('150')}>150%</button>
@@ -285,9 +408,29 @@ const BookCoverCreator = () => {
                 </div>
               </div>
               <div className="action-buttons">
-                <Button variant="outline" className="regenerate-button">Regenerate</Button>
-                <Button className="download-button">Download Full Cover</Button>
-                <Button variant="secondary" className="download-pdf-button">Download as PDF</Button>
+                <Button 
+                  variant="outline" 
+                  className="regenerate-button"
+                  onClick={handleGenerateFrontCover} 
+                  disabled={isGenerating}
+                >
+                  ♻️ Regenerate
+                </Button>
+                <Button 
+                  className="download-button"
+                  onClick={handleDownloadCover}
+                  disabled={!fullCoverGenerated}
+                >
+                  ⬇️ Download Full Cover
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  className="download-pdf-button"
+                  onClick={handleDownloadCover}
+                  disabled={!fullCoverGenerated}
+                >
+                  📄 Download as PDF
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
