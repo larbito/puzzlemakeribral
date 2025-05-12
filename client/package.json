@@ -61,7 +61,8 @@
     "styled-components": "^6.1.8",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "zustand": "^5.0.4"
+    "zustand": "^5.0.4",
+    "colorthief": "^2.3.2"
   },
   "devDependencies": {
     "@eslint/js": "^8.57.0",

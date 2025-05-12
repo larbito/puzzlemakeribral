@@ -1,0 +1,90 @@
+.ai-book-cover-generator {
+  display: flex;
+  gap: 2rem;
+  padding: 2rem;
+  background-color: #0D0D0D;
+  color: #E0E0E0;
+}
+
+.left-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section-title {
+  color: #00FF99;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.specifications, .interior-preview {
+  background-color: #1A1A1A;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.input-wrapper, .textarea-wrapper {
+  margin-bottom: 1rem;
+}
+
+.input-wrapper label, .textarea-wrapper label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #00FF99;
+}
+
+.auto-calculation {
+  background-color: #1A1A1A;
+  padding: 1rem;
+  border-radius: 8px;
+  color: #00FF99;
+  margin-bottom: 1rem;
+}
+
+.generate-button, .create-full-cover-button {
+  background-color: #00FF99;
+  color: #0D0D0D;
+  padding: 0.75rem;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.generate-button:hover, .create-full-cover-button:hover {
+  background-color: #00CC7A;
+}
+
+.upload-field {
+  margin-bottom: 1rem;
+}
+
+.upload-zone {
+  background-color: #1A1A1A;
+  border: 2px dashed #00FF99;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+  color: #E0E0E0;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.toggle-switch input {
+  accent-color: #00FF99;
+} 
