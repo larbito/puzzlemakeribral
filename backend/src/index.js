@@ -4,6 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const ideogramRoutes = require('./routes/ideogram');
+const bookCoverRoutes = require('./routes/book-cover');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -80,6 +81,9 @@ app._router.stack.forEach(function(r){
 // Routes
 app.use('/api/ideogram', ideogramRoutes);
 console.log('Ideogram routes registered at /api/ideogram');
+
+app.use('/api/book-cover', bookCoverRoutes);
+console.log('Book cover routes registered at /api/book-cover');
 
 // Basic route
 app.get('/', (req, res) => {

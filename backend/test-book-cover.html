@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book Cover Generator API Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      white-space: pre-wrap;
+    }
+    .preview {
+      max-width: 100%;
+      margin-top: 20px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <h1>Book Cover Generator API Test</h1>
+  
+  <div class="card">
+    <h2>Test Connection</h2>
+    <button id="testConnection">Test API Connection</button>
+    <div id="testResult" class="result"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Calculate Dimensions</h2>
+    <div class="form-group">
+      <label for="trimSize">Trim Size</label>
+      <select id="trimSize">
+        <option value="5x8">5" x 8"</option>
+        <option value="5.5x8.5">5.5" x 8.5"</option>
+        <option value="6x9" selected>6" x 9"</option>
+        <option value="7x10">7" x 10"</option>
+        <option value="8.5x11">8.5" x 11"</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="pageCount">Page Count</label>
+      <input type="number" id="pageCount" value="120" min="24" max="800">
+    </div>
+    <div class="form-group">
+      <label for="paperColor">Paper Color</label>
+      <select id="paperColor">
+        <option value="white" selected>White</option>
+        <option value="cream">Cream</option>
+      </select>
+    </div>
+    <button id="calculateDimensions">Calculate Dimensions</button>
+    <div id="dimensionsResult" class="result"></div>
+  </div>
+  
+  <div class="card">
+    <h2>Generate Front Cover</h2>
+    <div class="form-group">
+      <label for="prompt">AI Prompt</label>
+      <textarea id="prompt" rows="4">A vibrant book cover for a science fiction novel about space exploration, with a futuristic spaceship flying through a colorful nebula, with stars and planets in the background.</textarea>
+    </div>
+    <div class="form-group">
+      <label for="width">Width (px)</label>
+      <input type="number" id="width" value="1800">
+    </div>
+    <div class="form-group">
+      <label for="height">Height (px)</label>
+      <input type="number" id="height" value="2700">
+    </div>
+    <button id="generateCover">Generate Front Cover</button>
+    <div id="generateResult" class="result"></div>
+    <img id="coverPreview" class="preview" style="display: none;">
+  </div>
+
+  <script>
+    const API_BASE_URL = 'http://localhost:3000/api/book-cover';
+    
+    // Test connection
+    document.getElementById('testConnection').addEventListener('click', async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/test`);
+        const data = await response.json();
+        document.getElementById('testResult').textContent = JSON.stringify(data, null, 2);
+      } catch (error) {
+        document.getElementById('testResult').textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    // Calculate dimensions
+    document.getElementById('calculateDimensions').addEventListener('click', async () => {
+      try {
+        const trimSize = document.getElementById('trimSize').value;
+        const pageCount = parseInt(document.getElementById('pageCount').value);
+        const paperColor = document.getElementById('paperColor').value;
+        
+        const response = await fetch(`${API_BASE_URL}/calculate-dimensions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            trimSize,
+            pageCount,
+            paperColor
+          })
+        });
+        
+        const data = await response.json();
+        document.getElementById('dimensionsResult').textContent = JSON.stringify(data, null, 2);
+        
+        // Auto-fill the width and height for the front cover generation
+        if (data.dimensions && data.dimensions.frontCover) {
+          document.getElementById('width').value = data.dimensions.frontCover.widthPx;
+          document.getElementById('height').value = data.dimensions.frontCover.heightPx;
+        }
+      } catch (error) {
+        document.getElementById('dimensionsResult').textContent = `Error: ${error.message}`;
+      }
+    });
+    
+    // Generate front cover
+    document.getElementById('generateCover').addEventListener('click', async () => {
+      try {
+        document.getElementById('generateResult').textContent = 'Generating... Please wait, this may take a minute.';
+        document.getElementById('coverPreview').style.display = 'none';
+        
+        const prompt = document.getElementById('prompt').value;
+        const width = document.getElementById('width').value;
+        const height = document.getElementById('height').value;
+        
+        const formData = new FormData();
+        formData.append('prompt', prompt);
+        formData.append('width', width);
+        formData.append('height', height);
+        
+        const response = await fetch(`${API_BASE_URL}/generate-front`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        document.getElementById('generateResult').textContent = JSON.stringify(data, null, 2);
+        
+        if (data.url) {
+          const previewImg = document.getElementById('coverPreview');
+          previewImg.src = data.url;
+          previewImg.style.display = 'block';
+        }
+      } catch (error) {
+        document.getElementById('generateResult').textContent = `Error: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html> 
