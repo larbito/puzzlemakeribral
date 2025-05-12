@@ -976,119 +976,149 @@ export async function createFullBookCover({
           ctx.drawImage(tempCanvas, leftCoverX, 0);
           
           // 6. Add interior preview images to the back cover if provided
+          let interiorImagesProcessed = false;
+          
           if (interiorPreviewImages && interiorPreviewImages.length > 0) {
             console.log(`Adding ${interiorPreviewImages.length} interior preview images`);
             
-            // Calculate grid layout based on number of images
-            const maxImagesPerRow = interiorPreviewImages.length > 4 ? 3 : 2;
-            const rows = Math.ceil(interiorPreviewImages.length / maxImagesPerRow);
-            const cols = Math.min(maxImagesPerRow, interiorPreviewImages.length);
-            
-            // Calculate image size and padding
-            const padding = 40; // Padding between images in pixels
-            const maxImageWidth = (trimWidthPixels - (padding * (cols + 1))) / cols;
-            const maxImageHeight = (trimHeightPixels - (padding * (rows + 1))) / rows;
-            
-            const imageSize = Math.min(maxImageWidth, maxImageHeight);
-            
-            // Starting position for the grid
-            const gridStartX = leftCoverX + padding;
-            const gridStartY = padding + (canvas.height - (rows * imageSize + (rows + 1) * padding)) / 2;
-            
-            // Create a promise for each image with a timeout
-            const imageLoadPromises = interiorPreviewImages.map((imageFile, i) => {
-              return new Promise<void>((resolveImage, rejectImage) => {
-                // Create a timeout for this specific image
-                const imageTimeout = setTimeout(() => {
-                  console.warn(`Loading timeout for interior preview image ${i+1}`);
-                  resolveImage(); // Resolve anyway to continue with other images
-                }, 10000); // 10 second timeout per image
-                
-                const row = Math.floor(i / cols);
-                const col = i % cols;
-                
-                const imageX = gridStartX + col * (imageSize + padding);
-                const imageY = gridStartY + row * (imageSize + padding);
-                
-                try {
-                  // Create an object URL for the image file
-                  const imageUrl = URL.createObjectURL(imageFile);
-                  
-                  // Load the image
-                  const img = new Image();
-                  img.onload = () => {
-                    // Clear the timeout since the image loaded
-                    clearTimeout(imageTimeout);
-                    
-                    // Draw the image with a white background and shadow
-                    ctx.fillStyle = "#FFFFFF";
-                    ctx.fillRect(imageX - 2, imageY - 2, imageSize + 4, imageSize + 4);
-                    
-                    // Draw shadow
-                    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-                    ctx.shadowBlur = 10;
-                    ctx.shadowOffsetX = 3;
-                    ctx.shadowOffsetY = 3;
-                    
-                    // Calculate aspect ratio to maintain proportions
-                    const aspectRatio = img.height / img.width;
-                    let drawWidth = imageSize;
-                    let drawHeight = imageSize * aspectRatio;
-                    
-                    if (drawHeight > imageSize) {
-                      drawHeight = imageSize;
-                      drawWidth = imageSize / aspectRatio;
-                    }
-                    
-                    // Center the image in its cell
-                    const offsetX = (imageSize - drawWidth) / 2;
-                    const offsetY = (imageSize - drawHeight) / 2;
-                    
-                    // Draw the image
-                    ctx.drawImage(img, imageX + offsetX, imageY + offsetY, drawWidth, drawHeight);
-                    
-                    // Reset shadow
-                    ctx.shadowColor = "transparent";
-                    ctx.shadowBlur = 0;
-                    ctx.shadowOffsetX = 0;
-                    ctx.shadowOffsetY = 0;
-                    
-                    // Revoke the object URL to free memory
-                    URL.revokeObjectURL(imageUrl);
-                    
-                    resolveImage();
-                  };
-                  
-                  img.onerror = (err) => {
-                    clearTimeout(imageTimeout);
-                    console.error(`Error loading interior preview image ${i+1}:`, err);
-                    resolveImage(); // Resolve anyway to continue with other images
-                  };
-                  
-                  img.src = imageUrl;
-                } catch (error) {
-                  clearTimeout(imageTimeout);
-                  console.error(`Error processing interior preview image ${i+1}:`, error);
-                  resolveImage(); // Resolve anyway to continue with other images
-                }
-              });
-            });
-            
-            // Wait for all images to load with a timeout for the entire batch
-            const batchTimeout = setTimeout(() => {
-              console.warn("Batch loading timeout for interior preview images");
-              // Continue execution even if image loading times out
-            }, 15000);
-            
             try {
-              await Promise.all(imageLoadPromises);
-              clearTimeout(batchTimeout);
-              console.log("All interior preview images loaded successfully");
-            } catch (error) {
-              clearTimeout(batchTimeout);
-              console.error("Error loading interior preview images:", error);
-              // Continue execution even if some images failed to load
+              // Calculate grid layout based on number of images
+              const maxImagesPerRow = interiorPreviewImages.length > 4 ? 3 : 2;
+              const rows = Math.ceil(interiorPreviewImages.length / maxImagesPerRow);
+              const cols = Math.min(maxImagesPerRow, interiorPreviewImages.length);
+              
+              // Calculate image size and padding
+              const padding = 40; // Padding between images in pixels
+              const maxImageWidth = (trimWidthPixels - (padding * (cols + 1))) / cols;
+              const maxImageHeight = (trimHeightPixels - (padding * (rows + 1))) / rows;
+              
+              const imageSize = Math.min(maxImageWidth, maxImageHeight);
+              
+              // Starting position for the grid
+              const gridStartX = leftCoverX + padding;
+              const gridStartY = padding + (canvas.height - (rows * imageSize + (rows + 1) * padding)) / 2;
+              
+              // Create a promise for each image with a timeout
+              const imageLoadPromises = interiorPreviewImages.map((imageFile, i) => {
+                return new Promise<void>((resolveImage, rejectImage) => {
+                  // Skip invalid files
+                  if (!imageFile || !(imageFile instanceof File) || !imageFile.type.startsWith('image/')) {
+                    console.warn(`Interior preview ${i} is not a valid image file`);
+                    resolveImage();
+                    return;
+                  }
+                  
+                  // Create a timeout for this specific image
+                  const imageTimeout = setTimeout(() => {
+                    console.warn(`Loading timeout for interior preview image ${i+1}`);
+                    resolveImage(); // Resolve anyway to continue with other images
+                  }, 10000); // 10 second timeout per image
+                  
+                  const row = Math.floor(i / cols);
+                  const col = i % cols;
+                  
+                  const imageX = gridStartX + col * (imageSize + padding);
+                  const imageY = gridStartY + row * (imageSize + padding);
+                  
+                  try {
+                    // Create an object URL for the image file
+                    const imageUrl = URL.createObjectURL(imageFile);
+                    
+                    // Load the image
+                    const img = new Image();
+                    img.onload = () => {
+                      // Clear the timeout since the image loaded
+                      clearTimeout(imageTimeout);
+                      
+                      try {
+                        // Draw the image with a white background and shadow
+                        ctx.fillStyle = "#FFFFFF";
+                        ctx.fillRect(imageX - 2, imageY - 2, imageSize + 4, imageSize + 4);
+                        
+                        // Draw shadow
+                        ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+                        ctx.shadowBlur = 10;
+                        ctx.shadowOffsetX = 3;
+                        ctx.shadowOffsetY = 3;
+                        
+                        // Calculate aspect ratio to maintain proportions
+                        const aspectRatio = img.height / img.width;
+                        let drawWidth = imageSize;
+                        let drawHeight = imageSize * aspectRatio;
+                        
+                        if (drawHeight > imageSize) {
+                          drawHeight = imageSize;
+                          drawWidth = imageSize / aspectRatio;
+                        }
+                        
+                        // Center the image in its cell
+                        const offsetX = (imageSize - drawWidth) / 2;
+                        const offsetY = (imageSize - drawHeight) / 2;
+                        
+                        // Draw the image
+                        ctx.drawImage(img, imageX + offsetX, imageY + offsetY, drawWidth, drawHeight);
+                        
+                        // Reset shadow
+                        ctx.shadowColor = "transparent";
+                        ctx.shadowBlur = 0;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 0;
+                      } catch (drawError) {
+                        console.error(`Error drawing interior preview ${i}:`, drawError);
+                      }
+                      
+                      // Revoke the object URL to free memory
+                      URL.revokeObjectURL(imageUrl);
+                      
+                      resolveImage();
+                    };
+                    
+                    img.onerror = (err) => {
+                      clearTimeout(imageTimeout);
+                      console.error(`Error loading interior preview image ${i+1}:`, err);
+                      resolveImage(); // Resolve anyway to continue with other images
+                    };
+                    
+                    img.src = imageUrl;
+                  } catch (error) {
+                    clearTimeout(imageTimeout);
+                    console.error(`Error processing interior preview image ${i+1}:`, error);
+                    resolveImage(); // Resolve anyway to continue with other images
+                  }
+                });
+              });
+              
+              // Wait for all images to load with a timeout for the entire batch
+              const batchTimeout = setTimeout(() => {
+                console.warn("Batch loading timeout for interior preview images");
+                interiorImagesProcessed = true; // Mark as processed even if timed out
+              }, 15000);
+              
+              try {
+                await Promise.all(imageLoadPromises);
+                clearTimeout(batchTimeout);
+                console.log("All interior preview images loaded successfully");
+                interiorImagesProcessed = true;
+              } catch (error) {
+                clearTimeout(batchTimeout);
+                console.error("Error loading interior preview images:", error);
+                interiorImagesProcessed = true; // Mark as processed even if errored
+              }
+            } catch (layoutError) {
+              console.error("Error in interior preview layout:", layoutError);
+              interiorImagesProcessed = true; // Continue despite errors
             }
+          } else {
+            // No interior previews to process
+            interiorImagesProcessed = true;
+          }
+          
+          // Make sure we have either processed all images or timed out before continuing
+          if (!interiorImagesProcessed) {
+            console.log("Waiting for interior images to complete...");
+            await new Promise<void>(resolveWait => {
+              setTimeout(resolveWait, 5000); // Wait up to 5 seconds then continue anyway
+            });
           }
           
           // 7. Add title and author to back cover
@@ -1138,7 +1168,20 @@ export async function createFullBookCover({
           
           // 9. Finalize and return the complete cover
           console.log("Full book cover created successfully");
-          const finalImageUrl = canvas.toDataURL('image/png');
+          let finalImageUrl = '';
+          
+          try {
+            finalImageUrl = canvas.toDataURL('image/png');
+          } catch (dataUrlError) {
+            console.error("Error generating data URL:", dataUrlError);
+            // Try with a different format
+            finalImageUrl = canvas.toDataURL('image/jpeg', 0.9);
+          }
+          
+          if (!finalImageUrl) {
+            throw new Error("Failed to generate image data URL");
+          }
+          
           resolve(finalImageUrl);
           
         } catch (error) {
@@ -1184,8 +1227,15 @@ export async function createFullBookCover({
           console.log("Using proxy URL:", proxyUrl);
           proxyImg.src = proxyUrl;
         } else {
-          // If it's not an HTTP URL (e.g., data URL), just fail
-          reject(new Error("Failed to load front cover image and cannot proxy non-HTTP URLs"));
+          // If it's not an HTTP URL (e.g., data URL), try a different approach
+          try {
+            // For data URLs, just retry
+            console.log("Retrying with data URL...");
+            frontCoverImg.crossOrigin = "";
+            frontCoverImg.src = frontCoverUrl;
+          } catch (dataUrlError) {
+            reject(new Error("Failed to load front cover image"));
+          }
         }
       };
       

@@ -151,40 +151,62 @@ const BookCoverGenerator = () => {
     }
   }, []);
 
-  // Calculate dimensions based on inputs
-  useEffect(() => {
+  // Function to validate dimensions and recalculate if needed
+  const validateDimensions = () => {
     // Find the selected trim size dimensions
     const selectedTrimSize = trimSizeOptions.find(option => option.value === trimSize);
     
-    if (selectedTrimSize) {
-      const { width, height } = selectedTrimSize.dimensions;
-      
-      // Calculate spine width based on page count and paper color
-      let spineWidth = 0;
-      if (paperColor === "white" || paperColor === "cream") {
-        spineWidth = pageCount * 0.002252;
-      } else {
-        spineWidth = pageCount * 0.002347;
-      }
-      
-      // Calculate total dimensions with bleed (0.125" on all sides)
-      const bleed = 0.25; // 0.125" on both sides (left + right or top + bottom)
-      const totalWidthInches = width + width + spineWidth + bleed;
-      const totalHeightInches = height + bleed;
-      
-      // Convert to pixels at 300 DPI
-      const dpi = 300;
-      const widthPixels = Math.round(totalWidthInches * dpi);
-      const heightPixels = Math.round(totalHeightInches * dpi);
-      
-      setDimensions({
+    if (!selectedTrimSize) {
+      toast.error("Invalid trim size selected");
+      return false;
+    }
+    
+    // Recalculate dimensions to ensure they're valid
+    const { width, height } = selectedTrimSize.dimensions;
+    
+    // Calculate spine width based on page count and paper color
+    let spineWidth = 0;
+    if (paperColor === "white" || paperColor === "cream") {
+      spineWidth = pageCount * 0.002252;
+    } else {
+      spineWidth = pageCount * 0.002347;
+    }
+    
+    // Calculate total dimensions with bleed (0.125" on all sides)
+    const bleed = 0.25; // 0.125" on both sides (left + right or top + bottom)
+    const totalWidthInches = width + width + spineWidth + bleed;
+    const totalHeightInches = height + bleed;
+    
+    // Convert to pixels at 300 DPI
+    const dpi = 300;
+    const widthPixels = Math.round(totalWidthInches * dpi);
+    const heightPixels = Math.round(totalHeightInches * dpi);
+    
+    // Update dimensions if they differ from current state
+    if (
+      dimensions.widthPixels !== widthPixels ||
+      dimensions.heightPixels !== heightPixels ||
+      dimensions.spineWidth !== spineWidth
+    ) {
+      const newDimensions = {
         widthInches: totalWidthInches,
         heightInches: totalHeightInches,
         widthPixels,
         heightPixels,
         spineWidth
-      });
+      };
+      
+      setDimensions(newDimensions);
+      console.log("Dimensions recalculated:", newDimensions);
+      return newDimensions;
     }
+    
+    return dimensions.widthPixels > 0 && dimensions.heightPixels > 0;
+  };
+  
+  // Calculate dimensions when inputs change
+  useEffect(() => {
+    validateDimensions();
   }, [trimSize, pageCount, paperColor, bookType]);
 
   // Effect to extract colors when front cover is generated
@@ -245,19 +267,72 @@ const BookCoverGenerator = () => {
       return;
     }
     
+    // Validate file formats
+    const invalidFormatFiles = files.filter(file => !file.type.startsWith('image/'));
+    if (invalidFormatFiles.length > 0) {
+      toast.error(`${invalidFormatFiles.length} files are not valid images and will be skipped`);
+    }
+    
     // Check file sizes (max 2MB each)
     const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
     if (oversizedFiles.length > 0) {
-      toast.error("Some files exceed the 2MB limit and will be skipped");
+      toast.error(`${oversizedFiles.length} files exceed the 2MB limit and will be skipped`);
     }
     
-    // Filter out oversized files
-    const validFiles = files.filter(file => file.size <= 2 * 1024 * 1024);
-    console.log(`Adding ${validFiles.length} valid files`);
+    // Filter out oversized and invalid format files
+    const validFiles = files.filter(
+      file => file.size <= 2 * 1024 * 1024 && file.type.startsWith('image/')
+    );
     
-    // Add new files to existing previews
-    setInteriorPreviews(prev => [...prev, ...validFiles]);
-    toast.success(`Added ${validFiles.length} interior preview images`);
+    // Validate image files by trying to load them
+    const newValidFiles: File[] = [];
+    
+    // For each valid file, create a promise to check if it can be loaded
+    const checkFilePromises = validFiles.map((file) => {
+      return new Promise<void>((resolve) => {
+        try {
+          // Try to create an object URL and load it
+          const url = URL.createObjectURL(file);
+          const img = new Image();
+          
+          img.onload = () => {
+            // Successfully loaded - add to valid files
+            newValidFiles.push(file);
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          
+          img.onerror = () => {
+            console.warn(`File ${file.name} could not be loaded as an image`);
+            URL.revokeObjectURL(url);
+            resolve();
+          };
+          
+          // Set a timeout to handle cases where the image doesn't load or error
+          setTimeout(() => {
+            URL.revokeObjectURL(url);
+            resolve();
+          }, 2000);
+          
+          img.src = url;
+        } catch (error) {
+          console.error(`Error checking file ${file.name}:`, error);
+          resolve();
+        }
+      });
+    });
+    
+    // Process all file checks and then update state
+    Promise.all(checkFilePromises).then(() => {
+      if (newValidFiles.length === 0) {
+        toast.error("No valid image files could be processed");
+        return;
+      }
+      
+      console.log(`Adding ${newValidFiles.length} valid files`);
+      setInteriorPreviews(prev => [...prev, ...newValidFiles]);
+      toast.success(`Added ${newValidFiles.length} interior preview images`);
+    });
   };
   
   // Handle drag events for file upload
@@ -420,12 +495,84 @@ const BookCoverGenerator = () => {
     toast.loading("Creating full cover...", { id: "create-full-cover" });
     setIsCreatingFullCover(true);
     
+    // Helper function to retry the full cover creation
+    const retryCreateFullCover = async (maxRetries = 2) => {
+      let retryCount = 0;
+      let lastError: any = null;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Validate and potentially recalculate dimensions
+          const validDimensions = validateDimensions();
+          if (!validDimensions) {
+            throw new Error("Invalid dimensions. Please adjust book specifications.");
+          }
+          
+          // Use the dimensions (either existing or newly calculated)
+          const dimensionsToUse = typeof validDimensions === 'object' ? validDimensions : dimensions;
+          console.log("Using dimensions:", dimensionsToUse);
+          
+          // Make a local copy of the interior previews and validate files
+          const previewsToUse = showInteriorPreviews ? interiorPreviews.filter(file => 
+            file && file instanceof File && file.type.startsWith('image/')
+          ) : [];
+          
+          // Check if front cover is from localStorage and needs special handling
+          let coverUrlToUse = frontCoverUrl;
+          if (frontCoverUrl.length > 1000 && frontCoverUrl.startsWith('data:')) {
+            console.log("Using data URL for front cover");
+          } else if (frontCoverUrl.startsWith('blob:')) {
+            console.log("Using blob URL for front cover");
+          }
+          
+          // Create the full cover with timeout protection
+          const coverPromise = createFullBookCover({
+            frontCoverUrl: coverUrlToUse,
+            title: titleToUse,
+            author: authorToUse,
+            spineText: dimensionsToUse.spineWidth >= 0.1 ? spineText : undefined,
+            spineColor,
+            dimensions: dimensionsToUse,
+            interiorPreviewImages: previewsToUse,
+            showGuides
+          });
+          
+          // Set up a timeout in case the createFullBookCover promise hangs
+          const timeoutPromise = new Promise<string>((_, reject) => {
+            setTimeout(() => reject(new Error("Cover generation timed out")), 30000); // 30 second timeout
+          });
+          
+          // Race the promises
+          const fullCoverResult = await Promise.race([coverPromise, timeoutPromise]);
+          
+          if (!fullCoverResult) {
+            throw new Error("No full cover image was returned");
+          }
+          
+          return fullCoverResult; // Success - return the result
+        } catch (error) {
+          lastError = error;
+          retryCount++;
+          
+          if (retryCount <= maxRetries) {
+            console.log(`Retrying full cover creation (attempt ${retryCount} of ${maxRetries})...`);
+            toast.info(`Retrying full cover creation (${retryCount}/${maxRetries})...`, { id: "create-full-cover" });
+            
+            // Small delay before retrying
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          }
+        }
+      }
+      
+      // If we've exhausted all retries, throw the last error
+      throw lastError;
+    };
+    
     try {
       console.log("Creating full cover...");
       console.log("Front cover URL:", frontCoverUrl);
       console.log("Using interior previews:", interiorPreviews.length, "files");
       console.log("Show guides:", showGuides);
-      console.log("Dimensions:", dimensions);
       
       // If spine is too narrow for text, warn the user
       if (spineText && dimensions.spineWidth < 0.1) {
@@ -437,40 +584,18 @@ const BookCoverGenerator = () => {
         throw new Error("Invalid front cover URL format");
       }
       
-      // Make a local copy of the interior previews
-      const previewsToUse = showInteriorPreviews ? [...interiorPreviews] : [];
-      
-      // Log each preview file for debugging
-      if (previewsToUse.length > 0) {
-        previewsToUse.forEach((file, i) => {
-          console.log(`Preview ${i+1}:`, file.name, file.type, file.size);
-        });
-      }
-      
-      const fullCoverImage = await createFullBookCover({
-        frontCoverUrl,
-        title: titleToUse,
-        author: authorToUse,
-        spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined,
-        spineColor,
-        dimensions,
-        interiorPreviewImages: previewsToUse,
-        showGuides
-      });
+      // Try to create the full cover with retries
+      const fullCoverResult = await retryCreateFullCover();
       
       console.log("Full cover created successfully");
       
-      if (!fullCoverImage || typeof fullCoverImage !== 'string') {
-        throw new Error("Invalid full cover image returned");
-      }
-      
       // Set the full cover URL state
-      setFullCoverUrl(fullCoverImage);
+      setFullCoverUrl(fullCoverResult);
       
       // Save to history
       saveToHistory(
         frontCoverUrl, 
-        fullCoverImage,
+        fullCoverResult,
         extractedColors.colors
       );
       
@@ -496,6 +621,10 @@ const BookCoverGenerator = () => {
           toast.error("CORS issue detected. The cover image cannot be accessed. Try generating a new front cover.", { duration: 5000 });
         } else if (errorMessage.includes("load")) {
           toast.error("Failed to load images. Try generating a new front cover.", { duration: 5000 });
+        } else if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
+          toast.error("The operation timed out. Please try again with fewer interior preview images.", { duration: 5000 });
+        } else if (errorMessage.includes("dimension")) {
+          toast.error("There was a problem with the book dimensions. Try changing the trim size or page count.", { duration: 5000 });
         }
       }
     } finally {
@@ -1036,7 +1165,7 @@ const BookCoverGenerator = () => {
                       disabled={!fullCoverUrl && !isCreatingFullCover}
                     >
                       {isCreatingFullCover 
-                        ? "Creating Full Cover..." 
+                        ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Creating...</> 
                         : "Full Cover (Front, Spine, Back)"}
                     </TabsTrigger>
                   </TabsList>
