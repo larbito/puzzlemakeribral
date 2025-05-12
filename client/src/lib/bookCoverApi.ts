@@ -1,7 +1,9 @@
 import { toast } from 'sonner';
 
 // Use environment variable for API URL with a fallback
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Directly use the proxy path since we're using Vite's proxy
+const API_URL = '/api';
 
 /**
  * Calculate the dimensions for a book cover based on KDP specifications
@@ -20,6 +22,8 @@ export async function calculateCoverDimensions({
   includeBleed?: boolean;
 }) {
   try {
+    console.log('Calculating dimensions with:', { trimSize, pageCount, paperColor, bookType, includeBleed });
+    
     const response = await fetch(`${API_URL}/book-cover/calculate-dimensions`, {
       method: 'POST',
       headers: {
@@ -39,7 +43,9 @@ export async function calculateCoverDimensions({
       throw new Error(errorData.error || 'Failed to calculate dimensions');
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Dimension calculation response:', data);
+    return data;
   } catch (error) {
     console.error('Error calculating cover dimensions:', error);
     toast.error('Failed to calculate cover dimensions');

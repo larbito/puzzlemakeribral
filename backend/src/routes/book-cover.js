@@ -50,6 +50,8 @@ router.get('/test', (req, res) => {
  */
 router.post('/calculate-dimensions', express.json(), async (req, res) => {
   try {
+    console.log('Received calculate-dimensions request with body:', req.body);
+    
     const { 
       trimSize, 
       pageCount, 
@@ -59,6 +61,7 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
     } = req.body;
 
     if (!trimSize || !pageCount) {
+      console.log('Missing required parameters:', { trimSize, pageCount });
       return res.status(400).json({ error: 'Trim size and page count are required' });
     }
 
@@ -68,6 +71,7 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
     const trimHeight = parseFloat(heightStr);
 
     if (isNaN(trimWidth) || isNaN(trimHeight)) {
+      console.log('Invalid trim size format:', trimSize);
       return res.status(400).json({ error: 'Invalid trim size format' });
     }
 
@@ -91,7 +95,7 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
     const fullCoverPixelWidth = Math.round(fullCoverWidth * dpi);
     const fullCoverPixelHeight = Math.round(coverHeight * dpi);
 
-    res.json({
+    const response = {
       dimensions: {
         frontCover: {
           width: coverWidth,
@@ -112,7 +116,10 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
         bleed,
         dpi
       }
-    });
+    };
+    
+    console.log('Sending dimensions response:', response);
+    res.json(response);
   } catch (error) {
     console.error('Error calculating dimensions:', error);
     res.status(500).json({ error: 'Failed to calculate cover dimensions' });
