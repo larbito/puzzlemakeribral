@@ -135,28 +135,50 @@ const AIBookCoverGenerator = () => {
     }
     
     if (!dimensions) {
-      await calculateDimensions();
+      try {
+        await calculateDimensions();
+      } catch (error) {
+        console.error('Failed to calculate dimensions:', error);
+        toast.error('Please make sure book specifications are valid');
+        return;
+      }
     }
     
     setIsGenerating(true);
     
     try {
+      console.log('Starting cover generation with prompt:', coverDescription);
+      console.log('Dimensions:', dimensions?.frontCover);
+      
+      // Show a toast for better user feedback
+      toast.loading('Generating your book cover...');
+      
       const result = await generateFrontCover({
         prompt: coverDescription,
         width: dimensions.frontCover.widthPx,
         height: dimensions.frontCover.heightPx
       });
       
+      console.log('Generation result:', result);
+      
+      if (!result || !result.url) {
+        throw new Error('No image URL returned from the server');
+      }
+      
       setFrontCoverUrl(result.url);
       setFrontCoverGenerated(true);
+      
+      // Dismiss the loading toast and show success
+      toast.dismiss();
       toast.success('Front cover generated successfully!');
       
       // Extract dominant colors from the generated image
       // This would ideally be done on the server, but for simplicity we'll just use some placeholder colors
       setDominantColors(['#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784']);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating front cover:', error);
-      toast.error('Failed to generate front cover');
+      toast.dismiss();
+      toast.error(`Failed to generate front cover: ${error.message || 'Unknown error'}`);
     } finally {
       setIsGenerating(false);
     }

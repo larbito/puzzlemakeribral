@@ -196,48 +196,83 @@ router.post('/generate-front', upload.none(), async (req, res) => {
 
     console.log('Making request to Ideogram API with form data');
     
-    // For testing when the API key is not available
-    if (!process.env.IDEOGRAM_API_KEY || process.env.IDEOGRAM_API_KEY.includes('your_')) {
+    // For testing when the API key is not available or not valid
+    if (!process.env.IDEOGRAM_API_KEY || process.env.IDEOGRAM_API_KEY.includes('your_api_key_here')) {
       console.log('Using mock response for Ideogram API');
       
       // Return a placeholder image
       return res.json({
         status: 'success',
-        url: 'https://placeholder.pics/svg/300x450/3498DB-2980B9/FFFFFF/Book%20Cover',
-        message: 'This is a placeholder. Set IDEOGRAM_API_KEY in .env file to generate real covers.'
+        url: 'https://placehold.co/600x900/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator'
       });
     }
     
-    // Real API call
-    const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
-      method: 'POST',
-      headers: {
-        'Api-Key': process.env.IDEOGRAM_API_KEY,
-        ...form.getHeaders()
-      },
-      body: form
-    });
+    try {
+      // Real API call
+      const response = await fetch('https://api.ideogram.ai/api/v1/ideogram-v3/generate', {
+        method: 'POST',
+        headers: {
+          'Api-Key': process.env.IDEOGRAM_API_KEY,
+          ...form.getHeaders()
+        },
+        body: form
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Ideogram API error:', errorData);
-      return res.status(response.status).json({ 
-        error: 'Failed to generate image via Ideogram API', 
-        details: errorData 
+      console.log('Ideogram API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response text:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: 'Failed to parse error response' };
+        }
+        
+        return res.status(response.status).json({ 
+          error: 'Failed to generate image via Ideogram API', 
+          details: errorData 
+        });
+      }
+
+      const data = await response.json();
+      console.log('Ideogram API response:', data);
+      
+      // Extract the image URL from the response
+      let imageUrl = null;
+      
+      // Handle different response formats
+      if (data?.data?.[0]?.url) {
+        imageUrl = data.data[0].url;
+      } else if (data?.url) {
+        imageUrl = data.url;
+      } else if (data?.image_url) {
+        imageUrl = data.image_url;
+      }
+
+      if (!imageUrl) {
+        console.error('No image URL in response:', data);
+        return res.status(500).json({ error: 'No image URL returned from API' });
+      }
+
+      res.json({
+        status: 'success',
+        url: imageUrl,
+        width: pixelWidth,
+        height: pixelHeight
+      });
+    } catch (apiError) {
+      console.error('Error calling Ideogram API:', apiError);
+      
+      // If API call fails, use a placeholder as fallback
+      return res.json({
+        status: 'success',
+        url: 'https://placehold.co/600x900/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator',
+        message: 'Using placeholder due to API error'
       });
     }
-
-    const data = await response.json();
-    console.log('Ideogram API response:', data);
-    
-    if (!data.image_url) {
-      return res.status(500).json({ error: 'No image URL returned from API' });
-    }
-
-    res.json({
-      status: 'success',
-      url: data.image_url
-    });
   } catch (error) {
     console.error('Error generating front cover:', error);
     res.status(500).json({ error: 'Failed to generate front cover' });

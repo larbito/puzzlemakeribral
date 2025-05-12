@@ -67,6 +67,9 @@ export async function generateFrontCover({
   negative_prompt?: string;
 }) {
   try {
+    console.log('Generating front cover with params:', { prompt, width, height });
+    console.log('API URL for generation:', `${API_URL}/book-cover/generate-front`);
+    
     const formData = new FormData();
     formData.append('prompt', prompt);
     formData.append('width', width.toString());
@@ -81,12 +84,39 @@ export async function generateFrontCover({
       body: formData
     });
 
+    console.log('Response status:', response.status);
+    
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorText = await response.text();
+      console.error('Error response text:', errorText);
+      
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { error: 'Failed to parse error response' };
+      }
+      
       throw new Error(errorData.error || 'Failed to generate cover');
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Generation response data:', data);
+    
+    // Handle different response formats
+    if (data.status === 'success' && data.url) {
+      // Format from the mock response in the updated backend
+      return { url: data.url };
+    } else if (data.url) {
+      // Direct URL format
+      return { url: data.url };
+    } else if (data.image_url) {
+      // Format from Ideogram API
+      return { url: data.image_url };
+    } else {
+      console.error('Unexpected response format:', data);
+      throw new Error('Unexpected response format from the API');
+    }
   } catch (error) {
     console.error('Error generating front cover:', error);
     toast.error('Failed to generate front cover');
