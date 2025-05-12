@@ -143,30 +143,38 @@ const AIBookCoverGenerator = () => {
   const handleGenerateFrontCover = async () => {
     console.log("Button clicked with prompt:", coverDescription);
     console.log("Prompt length:", coverDescription.length, "Trimmed length:", coverDescription.trim().length);
+    console.log("Button state:", {
+      isGenerating,
+      descriptionLength: coverDescription.length,
+      trimmedLength: coverDescription.trim().length,
+      isDisabled: isGenerating || coverDescription.trim().length < 5
+    });
     
     if (coverDescription.trim().length < 5) {
       toast.error('Please enter a more detailed description for your cover');
       return;
     }
     
-    if (!dimensions) {
-      try {
-        await calculateDimensions();
-      } catch (error) {
-        console.error('Failed to calculate dimensions:', error);
-        toast.error('Please make sure book specifications are valid');
-        return;
-      }
-    }
-    
+    // Set generating state immediately to provide feedback
     setIsGenerating(true);
+    toast.loading('Generating your book cover...', { id: 'cover-generation' });
     
     try {
       console.log('Starting cover generation with prompt:', coverDescription);
-      console.log('Dimensions:', dimensions?.frontCover);
       
-      // Show a toast for better user feedback
-      toast.loading('Generating your book cover...');
+      // Try to calculate dimensions if not already done
+      if (!dimensions) {
+        try {
+          await calculateDimensions();
+        } catch (error) {
+          console.error('Failed to calculate dimensions:', error);
+          toast.error('Please make sure book specifications are valid');
+          setIsGenerating(false);
+          return;
+        }
+      }
+      
+      console.log('Dimensions:', dimensions?.frontCover);
       
       const imageUrl = await generateBookCover({
         prompt: coverDescription,
@@ -185,7 +193,7 @@ const AIBookCoverGenerator = () => {
       setFrontCoverGenerated(true);
       
       // Dismiss the loading toast and show success
-      toast.dismiss();
+      toast.dismiss('cover-generation');
       toast.success('Front cover generated successfully!');
       
       // Extract dominant colors from the generated image
@@ -193,7 +201,7 @@ const AIBookCoverGenerator = () => {
       setDominantColors(['#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784']);
     } catch (error: any) {
       console.error('Error generating front cover:', error);
-      toast.dismiss();
+      toast.dismiss('cover-generation');
       toast.error(`Failed to generate front cover: ${error.message || 'Unknown error'}`);
     } finally {
       setIsGenerating(false);
@@ -441,9 +449,13 @@ const AIBookCoverGenerator = () => {
                       <Button 
                         className="generate-button" 
                         onClick={handleGenerateFrontCover}
-                        disabled={isGenerating || (coverDescription.trim().length < 5)}
+                        disabled={isGenerating || coverDescription.trim().length < 5}
                         variant={coverDescription.trim().length >= 5 ? "default" : "secondary"}
-                        style={{ cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer' }}
+                        style={{ 
+                          cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
+                          opacity: isGenerating ? 0.7 : 1
+                        }}
+                        type="button"
                       >
                         {isGenerating ? (
                           <>🔄 Generating...</>

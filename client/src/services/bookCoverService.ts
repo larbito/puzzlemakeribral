@@ -66,12 +66,18 @@ async function generateWithProxy(
       negative_prompt
     };
 
-    const response = await fetch(`${API_URL}/api/book-cover/generate-front`, {
+    // Ensure the URL is correctly formed with the /api prefix
+    const apiUrl = `${API_URL}/api/book-cover/generate-front`;
+    console.log("Full API URL:", apiUrl);
+
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      credentials: 'omit'
     });
 
     console.log("Response status:", response.status);
@@ -95,12 +101,14 @@ async function generateWithProxy(
     const data = await response.json();
     console.log("API response data:", data);
 
-    if (!data.url) {
+    if (data.url) {
+      return data.url;
+    } else if (data.status === 'success' && data.url) {
+      return data.url;
+    } else {
       console.error("Could not extract image URL from response:", data);
       throw new Error("Could not extract image URL from API response");
     }
-
-    return data.url;
   } catch (error: unknown) {
     console.error("Error calling API:", error);
     if (error instanceof Error) {
