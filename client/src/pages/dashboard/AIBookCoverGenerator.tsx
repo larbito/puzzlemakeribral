@@ -446,16 +446,45 @@ const AIBookCoverGenerator = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div style={{ width: '100%' }}>
-                      <Button 
-                        className="generate-button" 
-                        onClick={handleGenerateFrontCover}
-                        disabled={isGenerating || coverDescription.trim().length < 5}
-                        variant={coverDescription.trim().length >= 5 ? "default" : "secondary"}
-                        style={{ 
-                          cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
-                          opacity: isGenerating ? 0.7 : 1
+                      <button 
+                        className="generate-direct-button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("Direct button clicked");
+                          if (!isGenerating && coverDescription.trim().length >= 5) {
+                            handleGenerateFrontCover();
+                          } else {
+                            console.log("Button click ignored - conditions not met:", {
+                              isGenerating,
+                              promptLength: coverDescription.trim().length
+                            });
+                            if (coverDescription.trim().length < 5) {
+                              toast.error('Please enter a more detailed description (at least 5 characters)');
+                            }
+                          }
                         }}
-                        type="button"
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          backgroundColor: isGenerating || coverDescription.trim().length < 5 
+                            ? '#a0a0a0' 
+                            : '#4ade80',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          cursor: isGenerating || coverDescription.trim().length < 5 
+                            ? 'not-allowed' 
+                            : 'pointer',
+                          transition: 'all 0.2s ease-in-out',
+                          marginTop: '16px',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px'
+                        }}
                       >
                         {isGenerating ? (
                           <>🔄 Generating...</>
@@ -464,7 +493,7 @@ const AIBookCoverGenerator = () => {
                         ) : (
                           <>🎨 Generate Front Cover</>
                         )}
-                      </Button>
+                      </button>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>

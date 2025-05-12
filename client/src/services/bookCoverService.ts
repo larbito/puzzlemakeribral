@@ -20,7 +20,7 @@ export async function generateBookCover({
   negative_prompt
 }: GenerateBookCoverParams): Promise<string | null> {
   try {
-    console.log("Generating book cover with params:", { prompt, width, height });
+    console.log("Direct generateBookCover call with params:", { prompt, width, height });
     
     // If using placeholders for testing, return immediately
     if (USE_PLACEHOLDERS) {
@@ -28,36 +28,8 @@ export async function generateBookCover({
       return getPlaceholderImage(prompt, width, height);
     }
 
-    console.log("Making API call for book cover generation");
+    console.log("Making direct API call for book cover generation");
 
-    try {
-      const imageUrl = await generateWithProxy(prompt, width, height, negative_prompt);
-      console.log("Successfully generated book cover");
-      return imageUrl;
-    } catch (error) {
-      console.error("Error with book cover generation from proxy:", error);
-      
-      // Fallback to placeholder
-      console.log("Using placeholder as fallback");
-      return getPlaceholderImage(prompt, width, height);
-    }
-  } catch (error) {
-    console.error("Error in generateBookCover:", error);
-    return getPlaceholderImage(prompt, width, height);
-  }
-}
-
-// Generate with our backend proxy
-async function generateWithProxy(
-  prompt: string,
-  width: number,
-  height: number,
-  negative_prompt?: string
-): Promise<string> {
-  console.log("Making API call with params:", { prompt, width, height, negative_prompt });
-  console.log("API URL being used:", API_URL);
-
-  try {
     // Create the request payload
     const payload = {
       prompt,
@@ -66,55 +38,88 @@ async function generateWithProxy(
       negative_prompt
     };
 
-    // Ensure the URL is correctly formed with the /api prefix
-    const apiUrl = `${API_URL}/api/book-cover/generate-front`;
+    console.log("API URL being used:", API_URL);
+    
+    // Full URL for the API endpoint - try without the /api prefix as Railway might be configured differently
+    const apiUrl = `${API_URL}/book-cover/generate-front`;
     console.log("Full API URL:", apiUrl);
+    
+    try {
+      // Make the direct API call
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        credentials: 'omit'
+      });
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload),
-      credentials: 'omit'
-    });
+      console.log("Direct API response status:", response.status);
+      console.log("Direct API response headers:", Object.fromEntries(response.headers.entries()));
 
-    console.log("Response status:", response.status);
-    console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API error response text:", errorText);
+        throw new Error(`API error: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Raw error response:", errorText);
+      const data = await response.json();
+      console.log("Direct API response data:", data);
+
+      // Try different response formats
+      const imageUrl = data.url || (data.status === 'success' && data.url) || data.image_url;
       
-      let errorData;
+      if (imageUrl) {
+        console.log("Successfully extracted image URL:", imageUrl);
+        return imageUrl;
+      } else {
+        console.error("No image URL found in response:", data);
+        return getPlaceholderImage(prompt, width, height);
+      }
+    } catch (fetchError) {
+      console.error("Direct API fetch error:", fetchError);
+      
+      // Try alternative API URL with /api prefix
+      console.log("Trying alternative API URL with /api prefix");
       try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { error: errorText || 'Failed to parse error response' };
+        const altApiUrl = `${API_URL}/api/book-cover/generate-front`;
+        console.log("Alternative API URL:", altApiUrl);
+        
+        const altResponse = await fetch(altApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload),
+          credentials: 'omit'
+        });
+        
+        if (!altResponse.ok) {
+          throw new Error(`Alternative API error: ${altResponse.status}`);
+        }
+        
+        const altData = await altResponse.json();
+        console.log("Alternative API response data:", altData);
+        
+        const altImageUrl = altData.url || (altData.status === 'success' && altData.url) || altData.image_url;
+        
+        if (altImageUrl) {
+          console.log("Successfully extracted image URL from alternative API:", altImageUrl);
+          return altImageUrl;
+        }
+      } catch (altError) {
+        console.error("Alternative API error:", altError);
       }
       
-      console.error("API error response:", errorData);
-      throw new Error(errorData.error || `API error: ${response.status}`);
+      // Fall back to placeholder if both attempts fail
+      return getPlaceholderImage(prompt, width, height);
     }
-
-    const data = await response.json();
-    console.log("API response data:", data);
-
-    if (data.url) {
-      return data.url;
-    } else if (data.status === 'success' && data.url) {
-      return data.url;
-    } else {
-      console.error("Could not extract image URL from response:", data);
-      throw new Error("Could not extract image URL from API response");
-    }
-  } catch (error: unknown) {
-    console.error("Error calling API:", error);
-    if (error instanceof Error) {
-      throw new Error(`API call failed: ${error.message}`);
-    }
-    throw error;
+  } catch (error) {
+    console.error("Error in generateBookCover:", error);
+    return getPlaceholderImage(prompt, width, height);
   }
 }
 
