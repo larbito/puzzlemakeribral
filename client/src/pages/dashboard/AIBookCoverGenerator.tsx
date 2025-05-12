@@ -197,16 +197,19 @@ const AIBookCoverGenerator = () => {
 
       // Check if the URL contains "placehold.co" which indicates a placeholder
       if (imageUrl.includes('placehold.co')) {
+        // Remove any previous warning toasts
+        toast.dismiss('api-key-warning');
+        
+        // Show warning with details about setting up the API key
         toast.warning(
-          'Using a placeholder image because the IDEOGRAM_API_KEY is not configured on the server. ' +
-          'Please add this environment variable to your Railway deployment to generate real images.'
+          'Using a placeholder image. To generate real AI images, ensure the IDEOGRAM_API_KEY is properly configured on your Railway backend.',
+          { id: 'api-key-warning', duration: 6000 }
         );
       } else {
         toast.success('Front cover generated successfully!');
       }
       
       // Extract dominant colors from the generated image
-      // This would ideally be done on the server, but for simplicity we'll just use some placeholder colors
       setDominantColors(['#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784']);
     } catch (error: any) {
       console.error('Error generating front cover:', error);

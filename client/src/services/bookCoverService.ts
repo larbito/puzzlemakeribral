@@ -30,70 +30,78 @@ export async function generateBookCover({
 
     console.log("Making direct API call for book cover generation");
 
-    // Create the request payload
-    const payload = {
-      prompt,
-      width: width.toString(),
-      height: height.toString(),
-      negative_prompt
-    };
-
-    console.log("API URL being used:", API_URL);
-    
-    // Full URL for the API endpoint
-    const apiUrl = `${API_URL}/api/book-cover/generate-front`;
-    console.log("Full API URL:", apiUrl);
+    // Build the enhanced prompt for book cover
+    const enhancedPrompt = `Book cover design: ${prompt}, high resolution, professional print-ready quality`;
     
     try {
-      // Make the direct API call
+      // Simulate a short delay for UX feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Create form data for the request - similar to the working T-shirt generator
+      const formData = new FormData();
+      formData.append('prompt', enhancedPrompt);
+      formData.append('width', width.toString());
+      formData.append('height', height.toString());
+      
+      if (negative_prompt) {
+        formData.append('negative_prompt', negative_prompt);
+      } else {
+        formData.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
+      }
+      
+      // Log the form data entries for debugging
+      console.log("Form data entries:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+      
+      // Use the ideogram/generate-custom endpoint that works for the T-shirt service
+      const apiUrl = `${API_URL}/api/ideogram/generate-custom`;
+      console.log("Full API URL:", apiUrl);
+      
+      // Make the API call using FormData instead of JSON
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        credentials: 'omit'
+        body: formData // Send FormData directly
       });
-
+      
       console.log("Direct API response status:", response.status);
-      console.log("Direct API response headers:", Object.fromEntries(response.headers.entries()));
-
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.error("API error response text:", errorText);
         throw new Error(`API error: ${response.status} - ${errorText.substring(0, 100)}`);
       }
-
+      
       const data = await response.json();
       console.log("Direct API response data:", data);
-
-      // Extract the image URL
-      if (data.url) {
+      
+      // Extract the image URL - T-shirt service returns { url: "..." }
+      if (data && data.url) {
         console.log("Successfully extracted image URL:", data.url);
-        
-        // Check if it's a placeholder response (contains message about API error)
-        if (data.message && data.message.includes('placeholder')) {
-          console.log("Backend returned a placeholder due to API key issue:", data.message);
-          toast.warning("Using a placeholder image because the API key is not configured on the server");
-        }
-        
-        // Even if it's a placeholder, return the URL so the UI can show something
         return data.url;
       } else {
         console.error("No image URL found in response:", data);
         return getPlaceholderImage(prompt, width, height);
       }
-    } catch (fetchError) {
-      console.error("Direct API fetch error:", fetchError);
+    } catch (apiError) {
+      console.error("Error calling Ideogram API:", apiError);
       
-      // Try alternative API URL with /api prefix
-      console.log("Trying alternative API URL with /api prefix");
+      // Try the book-cover/generate-front endpoint as fallback
+      console.log("Trying book-cover endpoint as fallback");
       try {
-        const altApiUrl = `${API_URL}/api/book-cover/generate-front`;
-        console.log("Alternative API URL:", altApiUrl);
+        const payload = {
+          prompt,
+          width: width.toString(),
+          height: height.toString(),
+          negative_prompt
+        };
         
-        const altResponse = await fetch(altApiUrl, {
+        const fallbackApiUrl = `${API_URL}/api/book-cover/generate-front`;
+        console.log("Fallback API URL:", fallbackApiUrl);
+        
+        const fallbackResponse = await fetch(fallbackApiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -103,24 +111,29 @@ export async function generateBookCover({
           credentials: 'omit'
         });
         
-        if (!altResponse.ok) {
-          throw new Error(`Alternative API error: ${altResponse.status}`);
+        if (!fallbackResponse.ok) {
+          throw new Error(`Fallback API error: ${fallbackResponse.status}`);
         }
         
-        const altData = await altResponse.json();
-        console.log("Alternative API response data:", altData);
+        const fallbackData = await fallbackResponse.json();
+        console.log("Fallback API response data:", fallbackData);
         
-        const altImageUrl = altData.url || (altData.status === 'success' && altData.url) || altData.image_url;
-        
-        if (altImageUrl) {
-          console.log("Successfully extracted image URL from alternative API:", altImageUrl);
-          return altImageUrl;
+        if (fallbackData.url) {
+          console.log("Successfully extracted image URL from fallback:", fallbackData.url);
+          
+          // Check if it's a placeholder response
+          if (fallbackData.message && fallbackData.message.includes('placeholder')) {
+            console.log("Backend returned a placeholder:", fallbackData.message);
+            toast.warning("Using a placeholder image - API key might be configured but has another issue");
+          }
+          
+          return fallbackData.url;
         }
-      } catch (altError) {
-        console.error("Alternative API error:", altError);
+      } catch (fallbackError) {
+        console.error("Fallback API error:", fallbackError);
       }
       
-      // Fall back to placeholder if both attempts fail
+      // If both attempts fail, return a placeholder
       return getPlaceholderImage(prompt, width, height);
     }
   } catch (error) {
