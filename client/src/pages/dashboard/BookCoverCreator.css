@@ -141,4 +141,226 @@
 
 .dark .preview-image {
   @apply shadow-2xl shadow-primary/20;
+}
+
+.book-cover-creator {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .book-cover-creator {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left Panel Styles */
+.left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.auto-size-preview {
+  background-color: hsl(var(--card) / 0.5);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.auto-size-preview h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.size-info p {
+  margin: 0.25rem 0;
+  font-size: 0.85rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.toggle-group {
+  margin: 1rem 0;
+}
+
+.toggle-with-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.generate-button {
+  width: 100%;
+  margin-top: 1rem;
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.generate-button:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+/* Uploaded Images */
+.uploader-container {
+  margin-top: 1rem;
+}
+
+.uploaded-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.image-thumbnail {
+  position: relative;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+.image-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.remove-image {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background-color: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Color Swatches */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.color-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.05);
+}
+
+.color-swatch.selected {
+  box-shadow: 0 0 0 3px hsl(var(--primary));
+  transform: scale(1.05);
+}
+
+/* Right Panel Styles */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.preview-tabs {
+  width: 100%;
+}
+
+.preview-container {
+  position: relative;
+  width: 100%;
+  margin-top: 1rem;
+  background-color: hsl(var(--muted) / 0.3);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  aspect-ratio: 2/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  color: hsl(var(--muted-foreground));
+}
+
+.zoom-controls {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  gap: 0.25rem;
+  background-color: hsl(var(--background) / 0.8);
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+}
+
+.zoom-controls button {
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+}
+
+.zoom-controls button.active {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.regenerate-button {
+  flex: 0 0 auto;
+}
+
+.create-full-button,
+.download-button {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .action-buttons {
+    flex-direction: column;
+  }
 } 
