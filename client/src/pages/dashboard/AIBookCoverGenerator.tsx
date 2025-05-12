@@ -147,43 +147,57 @@ const AIBookCoverGenerator = () => {
 
   // Handle generate front cover button click
   const handleGenerateFrontCover = async () => {
-    console.log("Button clicked with prompt:", coverDescription);
-    console.log("Prompt length:", coverDescription.length, "Trimmed length:", coverDescription.trim().length);
-    console.log("Button state:", {
-      isGenerating,
-      descriptionLength: coverDescription.length,
-      trimmedLength: coverDescription.trim().length,
-      isDisabled: isGenerating || coverDescription.trim().length < 5
-    });
-    
-    // Clear previous debug info
-    setDebugInfo(null);
-    
-    if (coverDescription.trim().length < 5) {
-      toast.error('Please enter a more detailed description for your cover');
-      return;
-    }
-    
-    // Set generating state immediately to provide feedback
-    setIsGenerating(true);
-    toast.loading('Generating your book cover...', { id: 'cover-generation' });
+    // Add very clear logging to identify this exact function execution
+    console.log("======== GENERATE BUTTON CLICKED ========");
+    console.log(`Timestamp: ${new Date().toISOString()}`);
     
     try {
+      // Log the click handler state
+      console.log("Button clicked with prompt:", coverDescription);
+      console.log("Prompt length:", coverDescription.length, "Trimmed length:", coverDescription.trim().length);
+      console.log("Button state:", {
+        isGenerating,
+        descriptionLength: coverDescription.length,
+        trimmedLength: coverDescription.trim().length,
+        isDisabled: isGenerating || coverDescription.trim().length < 5
+      });
+      
+      // Clear previous debug info
+      setDebugInfo(null);
+      
+      if (coverDescription.trim().length < 5) {
+        console.log("ERROR: Prompt too short");
+        toast.error('Please enter a more detailed description for your cover');
+        return;
+      }
+      
+      // Set generating state immediately to provide feedback
+      console.log("Setting isGenerating to true");
+      setIsGenerating(true);
+      toast.loading('Generating your book cover...', { id: 'cover-generation' });
+      
       console.log('Starting cover generation with prompt:', coverDescription);
       
       // Try to calculate dimensions if not already done
       if (!dimensions) {
+        console.log("No dimensions yet, calculating...");
         try {
           await calculateDimensions();
+          console.log("Dimensions calculated successfully:", dimensions);
         } catch (error) {
           console.error('Failed to calculate dimensions:', error);
           toast.error('Please make sure book specifications are valid');
           setIsGenerating(false);
           return;
         }
+      } else {
+        console.log("Using existing dimensions:", dimensions);
       }
       
-      console.log('Dimensions:', dimensions?.frontCover);
+      console.log('Using dimensions for generation:', dimensions?.frontCover);
+      
+      // Add a direct DOM event to test if the button might be capturing events incorrectly
+      console.log("Calling generateBookCover service...");
       
       const imageUrl = await generateBookCover({
         prompt: coverDescription,
@@ -195,17 +209,21 @@ const AIBookCoverGenerator = () => {
       console.log('Generation result:', imageUrl);
       
       if (!imageUrl) {
+        console.error("ERROR: No image URL returned");
         throw new Error('No image URL returned from the service');
       }
       
+      console.log("Setting frontCoverUrl and frontCoverGenerated");
       setFrontCoverUrl(imageUrl);
       setFrontCoverGenerated(true);
       
       // Dismiss the loading toast and show success
+      console.log("Dismissing loading toast");
       toast.dismiss('cover-generation');
 
       // Check if the URL contains "placehold.co" which indicates a placeholder
       if (imageUrl.includes('placehold.co')) {
+        console.log("Detected placeholder image URL");
         // Remove any previous warning toasts
         toast.dismiss('api-key-warning');
         
@@ -218,12 +236,14 @@ const AIBookCoverGenerator = () => {
         // Set debug info
         setDebugInfo(`Using placeholder image: ${imageUrl}\n\nThis indicates that the IDEOGRAM_API_KEY environment variable is not properly configured on your Railway deployment.`);
       } else {
+        console.log("Generated real image successfully");
         toast.success('Front cover generated successfully!');
         setDebugInfo(null);
       }
       
       // Extract dominant colors from the generated image
       setDominantColors(['#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784']);
+      console.log("Generation completed successfully");
     } catch (error: any) {
       console.error('Error generating front cover:', error);
       toast.dismiss('cover-generation');
@@ -232,7 +252,9 @@ const AIBookCoverGenerator = () => {
       // Set detailed debug info
       setDebugInfo(`Generation Error: ${error.message || 'Unknown error'}\n\nAPI URL: ${API_URL}\n\nPlease check the browser console for more details.`);
     } finally {
+      console.log("Setting isGenerating back to false");
       setIsGenerating(false);
+      console.log("======== GENERATE FUNCTION COMPLETED ========");
     }
   };
 
@@ -298,6 +320,36 @@ const AIBookCoverGenerator = () => {
       toast.error('Failed to download cover');
     }
   };
+
+  // Add direct DOM button handler as a backup to ensure we have a clickable element
+  useEffect(() => {
+    // After component mount, add a direct click handler to the button
+    const generateButton = document.getElementById('generate-cover-button');
+    if (generateButton) {
+      console.log("Adding direct click handler to button element");
+      generateButton.addEventListener('click', (e) => {
+        console.log("Direct DOM click event fired on generate button");
+      });
+      
+      // Add a debug method to the window to force click the button
+      (window as any).forceClickGenerateButton = () => {
+        console.log("Force clicking generate button from console");
+        generateButton.click();
+      };
+      
+      console.log("You can use window.forceClickGenerateButton() in the console to trigger a click");
+    }
+    
+    return () => {
+      // Clean up event listener on unmount
+      const button = document.getElementById('generate-cover-button');
+      if (button) {
+        button.removeEventListener('click', () => {});
+      }
+      // Remove the debug method
+      delete (window as any).forceClickGenerateButton;
+    };
+  }, []);
 
   return (
     <PageLayout
@@ -474,52 +526,42 @@ const AIBookCoverGenerator = () => {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div style={{ width: '100%' }}>
+                      {/* Super simple native HTML button - guaranteed to be clickable */}
                       <button 
-                        className="generate-direct-button"
+                        id="generate-cover-button"
                         onClick={(e) => {
                           e.preventDefault();
-                          e.stopPropagation();
-                          console.log("Direct button clicked");
+                          console.log("Button native click handler fired");
                           if (!isGenerating && coverDescription.trim().length >= 5) {
                             handleGenerateFrontCover();
-                          } else {
-                            console.log("Button click ignored - conditions not met:", {
-                              isGenerating,
-                              promptLength: coverDescription.trim().length
-                            });
-                            if (coverDescription.trim().length < 5) {
-                              toast.error('Please enter a more detailed description (at least 5 characters)');
-                            }
                           }
                         }}
+                        disabled={isGenerating || coverDescription.trim().length < 5}
                         style={{
                           width: '100%',
-                          padding: '10px 16px',
-                          borderRadius: '6px',
+                          padding: '12px 16px',
+                          borderRadius: '8px',
                           border: 'none',
-                          backgroundColor: isGenerating || coverDescription.trim().length < 5 
-                            ? '#a0a0a0' 
-                            : '#4ade80',
+                          backgroundColor: 
+                            isGenerating ? '#a0a0a0' : 
+                            coverDescription.trim().length < 5 ? '#d4d4d4' : 
+                            '#4ade80',
                           color: 'white',
                           fontWeight: 'bold',
-                          cursor: isGenerating || coverDescription.trim().length < 5 
-                            ? 'not-allowed' 
-                            : 'pointer',
-                          transition: 'all 0.2s ease-in-out',
-                          marginTop: '16px',
+                          cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
                           fontSize: '16px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px'
+                          textAlign: 'center',
+                          marginTop: '16px',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                         }}
                       >
                         {isGenerating ? (
-                          <>🔄 Generating...</>
+                          '🔄 Generating...'
                         ) : coverDescription.trim().length < 5 ? (
-                          <>✏️ Enter at least 5 characters</>
+                          '✏️ Enter at least 5 characters'
                         ) : (
-                          <>🎨 Generate Front Cover</>
+                          '🎨 Generate Front Cover'
                         )}
                       </button>
                     </div>

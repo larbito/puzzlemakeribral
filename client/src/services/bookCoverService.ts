@@ -20,6 +20,7 @@ export async function generateBookCover({
   negative_prompt
 }: GenerateBookCoverParams): Promise<string | null> {
   try {
+    console.log("======== BOOK COVER SERVICE START ========");
     console.log("Direct generateBookCover call with params:", { prompt, width, height });
     
     // First test the server connectivity
@@ -58,14 +59,17 @@ export async function generateBookCover({
     
     // Try both endpoints, first book-cover then ideogram
     const endpoints = [
-      `/api/book-cover/generate-front`, 
-      `/book-cover/generate-front`
+      `/api/book-cover/generate-front`
     ];
     
     for (const endpoint of endpoints) {
       try {
         const apiUrl = `${API_URL}${endpoint}`;
         console.log(`Trying endpoint: ${apiUrl}`);
+        
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
         // Make the direct API call with JSON
         const response = await fetch(apiUrl, {
@@ -74,10 +78,14 @@ export async function generateBookCover({
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
+        
         console.log(`Response status for ${endpoint}:`, response.status);
+        console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
         
         if (!response.ok) {
           const errorText = await response.text();
@@ -90,13 +98,7 @@ export async function generateBookCover({
         
         if (data && data.url) {
           console.log("Successfully extracted image URL:", data.url);
-          
-          // Check if it's a placeholder response
-          if (data.message && data.message.includes('placeholder')) {
-            console.log("Backend returned a placeholder:", data.message);
-            toast.warning("Using a placeholder image - Ideogram API key is missing or has an issue");
-          }
-          
+          console.log("======== BOOK COVER SERVICE END ========");
           return data.url;
         }
       } catch (endpointError) {
@@ -107,9 +109,12 @@ export async function generateBookCover({
     
     // If all endpoints fail, fall back to placeholder
     console.error("All API endpoints failed");
+    console.log("Using placeholder as fallback");
+    console.log("======== BOOK COVER SERVICE END (FALLBACK) ========");
     return getPlaceholderImage(prompt, width, height);
   } catch (error) {
     console.error("Error in generateBookCover:", error);
+    console.log("======== BOOK COVER SERVICE END (ERROR) ========");
     return getPlaceholderImage(prompt, width, height);
   }
 }
