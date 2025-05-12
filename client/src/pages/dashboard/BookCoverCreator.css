@@ -43,7 +43,7 @@
 }
 
 .generate-button {
-  @apply w-full mt-4 bg-primary hover:bg-primary/90 text-primary-foreground;
+  @apply w-full mt-4 bg-primary hover:bg-primary/90 text-white;
 }
 
 /* Uploaded Images */
@@ -65,7 +65,7 @@
 }
 
 .remove-image {
-  @apply absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center border-none cursor-pointer text-base leading-none;
+  @apply absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center border-none cursor-pointer text-base leading-none;
 }
 
 /* Color Swatches */
@@ -112,7 +112,7 @@
 }
 
 .zoom-controls button.active {
-  @apply bg-primary text-primary-foreground;
+  @apply bg-primary text-white;
 }
 
 .action-buttons {
