@@ -21,6 +21,9 @@ import { generateBookCover } from '@/services/bookCoverService';
 import './AIBookCoverGenerator.css';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// Import API_URL from bookCoverService to use in debug info
+import { API_URL } from '@/services/bookCoverService';
+
 const MAX_PROMPT_CHARS = 500;
 
 // KDP supported trim sizes
@@ -70,6 +73,9 @@ const AIBookCoverGenerator = () => {
   const [isAssembling, setIsAssembling] = useState(false);
   const [frontCoverGenerated, setFrontCoverGenerated] = useState(false);
   const [fullCoverGenerated, setFullCoverGenerated] = useState(false);
+
+  // Add debug state
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
 
   // Add debug logging for button state
   useEffect(() => {
@@ -150,6 +156,9 @@ const AIBookCoverGenerator = () => {
       isDisabled: isGenerating || coverDescription.trim().length < 5
     });
     
+    // Clear previous debug info
+    setDebugInfo(null);
+    
     if (coverDescription.trim().length < 5) {
       toast.error('Please enter a more detailed description for your cover');
       return;
@@ -205,8 +214,12 @@ const AIBookCoverGenerator = () => {
           'Using a placeholder image. To generate real AI images, ensure the IDEOGRAM_API_KEY is properly configured on your Railway backend.',
           { id: 'api-key-warning', duration: 6000 }
         );
+        
+        // Set debug info
+        setDebugInfo(`Using placeholder image: ${imageUrl}\n\nThis indicates that the IDEOGRAM_API_KEY environment variable is not properly configured on your Railway deployment.`);
       } else {
         toast.success('Front cover generated successfully!');
+        setDebugInfo(null);
       }
       
       // Extract dominant colors from the generated image
@@ -215,6 +228,9 @@ const AIBookCoverGenerator = () => {
       console.error('Error generating front cover:', error);
       toast.dismiss('cover-generation');
       toast.error(`Failed to generate front cover: ${error.message || 'Unknown error'}`);
+      
+      // Set detailed debug info
+      setDebugInfo(`Generation Error: ${error.message || 'Unknown error'}\n\nAPI URL: ${API_URL}\n\nPlease check the browser console for more details.`);
     } finally {
       setIsGenerating(false);
     }
@@ -599,6 +615,18 @@ const AIBookCoverGenerator = () => {
                     />
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Debug info panel */}
+          {debugInfo && (
+            <Card className="debug-info">
+              <CardHeader>
+                <CardTitle>Debug Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <pre style={{ whiteSpace: 'pre-wrap', fontSize: '12px' }}>{debugInfo}</pre>
               </CardContent>
             </Card>
           )}

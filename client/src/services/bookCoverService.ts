@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
 // API base URL - ensure it's always the production URL when deployed
-const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // For development/debugging - set to true to use placeholder images instead of real API
 const USE_PLACEHOLDERS = false; // Set to false to use the real API service
@@ -22,6 +22,19 @@ export async function generateBookCover({
   try {
     console.log("Direct generateBookCover call with params:", { prompt, width, height });
     
+    // First test the server connectivity
+    try {
+      console.log("Testing backend connectivity with health check");
+      const healthResponse = await fetch(`${API_URL}/health`, {
+        method: 'GET'
+      });
+      console.log("Health check status:", healthResponse.status);
+      console.log("Health check response:", await healthResponse.text());
+    } catch (healthError) {
+      console.error("Health check failed:", healthError);
+      // Continue anyway
+    }
+    
     // If using placeholders for testing, return immediately
     if (USE_PLACEHOLDERS) {
       console.log("Using placeholder by configuration");
@@ -41,52 +54,60 @@ export async function generateBookCover({
       negative_prompt: negative_prompt || 'text, watermark, signature, blurry, low quality, distorted, deformed'
     };
 
-    // Use the book-cover/generate-front endpoint that we know exists
-    const apiUrl = `${API_URL}/api/book-cover/generate-front`;
-    console.log("Full API URL:", apiUrl);
+    console.log("Request payload:", JSON.stringify(payload));
     
-    try {
-      // Make the direct API call with JSON
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        credentials: 'omit'
-      });
-      
-      console.log("Direct API response status:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("API error response text:", errorText);
-        throw new Error(`API error: ${response.status} - ${errorText.substring(0, 100)}`);
-      }
-      
-      const data = await response.json();
-      console.log("Direct API response data:", data);
-      
-      if (data && data.url) {
-        console.log("Successfully extracted image URL:", data.url);
+    // Try both endpoints, first book-cover then ideogram
+    const endpoints = [
+      `/api/book-cover/generate-front`, 
+      `/book-cover/generate-front`
+    ];
+    
+    for (const endpoint of endpoints) {
+      try {
+        const apiUrl = `${API_URL}${endpoint}`;
+        console.log(`Trying endpoint: ${apiUrl}`);
         
-        // Check if it's a placeholder response
-        if (data.message && data.message.includes('placeholder')) {
-          console.log("Backend returned a placeholder:", data.message);
-          toast.warning("Using a placeholder image - API key might be configured but has another issue");
+        // Make the direct API call with JSON
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        console.log(`Response status for ${endpoint}:`, response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`API error from ${endpoint}:`, errorText);
+          continue; // Try next endpoint
         }
         
-        return data.url;
-      } else {
-        console.error("No image URL found in response:", data);
-        return getPlaceholderImage(prompt, width, height);
+        const data = await response.json();
+        console.log(`Response data from ${endpoint}:`, data);
+        
+        if (data && data.url) {
+          console.log("Successfully extracted image URL:", data.url);
+          
+          // Check if it's a placeholder response
+          if (data.message && data.message.includes('placeholder')) {
+            console.log("Backend returned a placeholder:", data.message);
+            toast.warning("Using a placeholder image - Ideogram API key is missing or has an issue");
+          }
+          
+          return data.url;
+        }
+      } catch (endpointError) {
+        console.error(`Error with endpoint ${endpoint}:`, endpointError);
+        // Continue to next endpoint
       }
-    } catch (apiError) {
-      console.error("Error calling API:", apiError);
-      return getPlaceholderImage(prompt, width, height);
     }
+    
+    // If all endpoints fail, fall back to placeholder
+    console.error("All API endpoints failed");
+    return getPlaceholderImage(prompt, width, height);
   } catch (error) {
     console.error("Error in generateBookCover:", error);
     return getPlaceholderImage(prompt, width, height);
