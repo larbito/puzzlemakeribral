@@ -81,6 +81,31 @@
 .generate-button {
   width: 100%;
   margin-top: 16px;
+  transition: all 0.2s ease-in-out;
+}
+
+.generate-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed !important;
+}
+
+.generate-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Character count and validation */
+.min-length-warning {
+  color: #f43f5e;
+  margin-left: 8px;
+}
+
+.character-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
 }
 
 /* Upload area */

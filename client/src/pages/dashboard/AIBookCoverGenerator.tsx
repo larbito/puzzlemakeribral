@@ -71,6 +71,16 @@ const AIBookCoverGenerator = () => {
   const [frontCoverGenerated, setFrontCoverGenerated] = useState(false);
   const [fullCoverGenerated, setFullCoverGenerated] = useState(false);
 
+  // Add debug logging for button state
+  useEffect(() => {
+    console.log('Button state:', {
+      isGenerating,
+      descriptionLength: coverDescription.length,
+      trimmedLength: coverDescription.trim().length,
+      isDisabled: isGenerating || coverDescription.trim().length < 5
+    });
+  }, [isGenerating, coverDescription]);
+
   // Calculate dimensions when specifications change
   useEffect(() => {
     calculateDimensions();
@@ -431,8 +441,9 @@ const AIBookCoverGenerator = () => {
                       <Button 
                         className="generate-button" 
                         onClick={handleGenerateFrontCover}
-                        disabled={isGenerating || coverDescription.trim().length < 5}
+                        disabled={isGenerating || (coverDescription.trim().length < 5)}
                         variant={coverDescription.trim().length >= 5 ? "default" : "secondary"}
+                        style={{ cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer' }}
                       >
                         {isGenerating ? (
                           <>🔄 Generating...</>
