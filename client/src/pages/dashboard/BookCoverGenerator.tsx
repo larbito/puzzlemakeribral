@@ -439,7 +439,6 @@ const BookCoverGenerator = () => {
   
   // Handle download
   const handleDownload = async () => {
-    console.log('[DEBUG] handleDownload called', { activeTab, fullCoverUrl, frontCoverUrl });
     const imageToDownload = activeTab === "full-cover" ? fullCoverUrl : frontCoverUrl;
     
     if (!imageToDownload) {
@@ -448,6 +447,12 @@ const BookCoverGenerator = () => {
     }
     
     setIsDownloading(true);
+    
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      setIsDownloading(false);
+      toast.error("Download timed out. Please try again.");
+    }, 30000); // 30 second timeout
     
     try {
       // Create a descriptive filename using date instead of title
@@ -472,20 +477,50 @@ const BookCoverGenerator = () => {
       link.click();
       document.body.removeChild(link);
       
+      clearTimeout(timeoutId);
+      setIsDownloading(false);
       toast.success(`${activeTab === "full-cover" ? "Full cover" : "Front cover"} downloaded successfully`);
     } catch (error) {
       console.error('Error downloading image:', error);
-      toast.error('Failed to download cover');
-    } finally {
+      clearTimeout(timeoutId);
       setIsDownloading(false);
+      toast.error('Failed to download cover');
     }
   };
 
-  // Generate full cover from front cover
+  // Handle regeneration with timeout protection
+  const handleRegenerate = () => {
+    if (isGenerating) {
+      toast.error("Already generating. Please wait...");
+      return;
+    }
+    
+    // Reset the full cover if regenerating
+    setFullCoverUrl(null);
+    
+    // Add timeout protection for generation
+    const timeoutId = setTimeout(() => {
+      setIsGenerating(false);
+      toast.error("Generation timed out. Please try again.");
+    }, 60000); // 60 second timeout
+    
+    // Use existing inputs to regenerate
+    handleSubmit(new Event('submit') as any)
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setIsGenerating(false);
+      });
+  };
+
+  // Generate full cover from front cover with improved error handling
   const handleCreateFullCover = async () => {
-    console.log('[DEBUG] handleCreateFullCover called', { frontCoverUrl, dimensions, interiorPreviews, spineText, spineColor });
     if (!frontCoverUrl) {
       toast.error("Please generate a front cover first");
+      return;
+    }
+    
+    if (isCreatingFullCover) {
+      toast.error("Already creating full cover. Please wait...");
       return;
     }
     
@@ -494,113 +529,46 @@ const BookCoverGenerator = () => {
     const authorToUse = "Author Name";
     
     // Show loading toast
-    toast.loading("Creating full cover...", { id: "create-full-cover" });
+    const toastId = "create-full-cover";
+    toast.loading("Creating full cover...", { id: toastId });
     setIsCreatingFullCover(true);
     
-    // Helper function to retry the full cover creation
-    const retryCreateFullCover = async (maxRetries = 2) => {
-      let retryCount = 0;
-      let lastError: any = null;
-      
-      while (retryCount <= maxRetries) {
-        try {
-          // Validate and potentially recalculate dimensions
-          const validDimensions = validateDimensions();
-          if (!validDimensions) {
-            throw new Error("Invalid dimensions. Please adjust book specifications.");
-          }
-          
-          // Use the dimensions (either existing or newly calculated)
-          const dimensionsToUse = typeof validDimensions === 'object' ? validDimensions : dimensions;
-          console.log("Using dimensions:", dimensionsToUse);
-          
-          // Make a local copy of the interior previews and validate files
-          const previewsToUse = showInteriorPreviews ? interiorPreviews.filter(file => 
-            file && file instanceof File && file.type.startsWith('image/')
-          ) : [];
-          
-          // Handle different URL types
-          let coverUrlToUse = frontCoverUrl;
-          
-          // If it's a data URL or blob URL, we can use it directly
-          if (frontCoverUrl.startsWith('data:') || frontCoverUrl.startsWith('blob:')) {
-            console.log("Using direct URL for front cover");
-          } else if (frontCoverUrl.startsWith('http')) {
-            // For HTTP URLs, try to fetch and convert to data URL first
-            try {
-              console.log("Converting HTTP URL to data URL...");
-              const response = await fetch(frontCoverUrl);
-              const blob = await response.blob();
-              coverUrlToUse = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-              });
-              console.log("Successfully converted to data URL");
-            } catch (error) {
-              console.error("Error converting to data URL:", error);
-              // Continue with original URL, the createFullBookCover function will handle it
-            }
-          }
-          
-          // Create the full cover with timeout protection
-          const coverPromise = createFullBookCover({
-            frontCoverUrl: coverUrlToUse,
-            title: titleToUse,
-            author: authorToUse,
-            spineText: dimensionsToUse.spineWidth >= 0.1 ? spineText : undefined,
-            spineColor,
-            dimensions: dimensionsToUse,
-            interiorPreviewImages: previewsToUse,
-            showGuides
-          });
-          
-          // Set up a timeout in case the createFullBookCover promise hangs
-          const timeoutPromise = new Promise<string>((_, reject) => {
-            setTimeout(() => reject(new Error("Cover generation timed out")), 30000); // 30 second timeout
-          });
-          
-          // Race the promises
-          const fullCoverResult = await Promise.race([coverPromise, timeoutPromise]);
-          
-          if (!fullCoverResult) {
-            throw new Error("No full cover image was returned");
-          }
-          
-          return fullCoverResult; // Success - return the result
-        } catch (error) {
-          lastError = error;
-          retryCount++;
-          
-          if (retryCount <= maxRetries) {
-            console.log(`Retrying full cover creation (attempt ${retryCount} of ${maxRetries})...`);
-            toast.info(`Retrying full cover creation (${retryCount}/${maxRetries})...`, { id: "create-full-cover" });
-            
-            // Small delay before retrying
-            await new Promise(resolve => setTimeout(resolve, 1500));
-          }
-        }
-      }
-      
-      // If we've exhausted all retries, throw the last error
-      throw lastError;
-    };
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      setIsCreatingFullCover(false);
+      toast.error("Full cover creation timed out. Please try again.", { id: toastId });
+    }, 60000); // 60 second timeout
     
     try {
-      console.log("Creating full cover...");
-      console.log("Front cover URL:", frontCoverUrl);
-      console.log("Using interior previews:", interiorPreviews.length, "files");
-      console.log("Show guides:", showGuides);
-      
-      // If spine is too narrow for text, warn the user
-      if (spineText && dimensions.spineWidth < 0.1) {
-        toast.warning("Note: Spine is too narrow for text. Text will not appear.");
+      // Validate and potentially recalculate dimensions
+      const validDimensions = validateDimensions();
+      if (!validDimensions) {
+        throw new Error("Invalid dimensions. Please adjust book specifications.");
       }
       
-      // Try to create the full cover with retries
-      const fullCoverResult = await retryCreateFullCover();
+      // Use the dimensions (either existing or newly calculated)
+      const dimensionsToUse = typeof validDimensions === 'object' ? validDimensions : dimensions;
       
-      console.log("Full cover created successfully");
+      // Make a local copy of the interior previews and validate files
+      const previewsToUse = showInteriorPreviews ? interiorPreviews.filter(file => 
+        file && file instanceof File && file.type.startsWith('image/')
+      ) : [];
+      
+      // Create the full cover
+      const fullCoverResult = await createFullBookCover({
+        frontCoverUrl,
+        title: titleToUse,
+        author: authorToUse,
+        spineText: dimensionsToUse.spineWidth >= 0.1 ? spineText : undefined,
+        spineColor,
+        dimensions: dimensionsToUse,
+        interiorPreviewImages: previewsToUse,
+        showGuides
+      });
+      
+      if (!fullCoverResult) {
+        throw new Error("No full cover image was returned");
+      }
       
       // Set the full cover URL state
       setFullCoverUrl(fullCoverResult);
@@ -613,35 +581,17 @@ const BookCoverGenerator = () => {
       );
       
       // Clear loading toast and show success
-      toast.dismiss("create-full-cover");
-      toast.success("Full book cover created successfully!");
+      clearTimeout(timeoutId);
+      toast.success("Full book cover created successfully!", { id: toastId });
       
       // Switch to full cover tab
       setActiveTab("full-cover");
     } catch (error) {
       console.error("Error creating full cover:", error);
-      
-      // Dismiss loading toast
-      toast.dismiss("create-full-cover");
+      clearTimeout(timeoutId);
       
       // Show detailed error message
-      toast.error(`Failed to create full cover: ${error instanceof Error ? error.message : "Unknown error"}`);
-      
-      // Try to provide more helpful error information if available
-      if (error instanceof Error) {
-        const errorMessage = error.message.toLowerCase();
-        if (errorMessage.includes("cors") || errorMessage.includes("origin")) {
-          toast.error("Having trouble accessing the cover image. Trying to fix it automatically...", { duration: 5000 });
-          // Try regenerating the front cover
-          handleRegenerate();
-        } else if (errorMessage.includes("load") || errorMessage.includes("network")) {
-          toast.error("Network issue detected. Please check your internet connection and try again.", { duration: 5000 });
-        } else if (errorMessage.includes("timeout") || errorMessage.includes("timed out")) {
-          toast.error("The operation took too long. Please try again with fewer interior preview images.", { duration: 5000 });
-        } else if (errorMessage.includes("dimension")) {
-          toast.error("There was a problem with the book dimensions. Try changing the trim size or page count.", { duration: 5000 });
-        }
-      }
+      toast.error(`Failed to create full cover: ${error instanceof Error ? error.message : "Unknown error"}`, { id: toastId });
     } finally {
       setIsCreatingFullCover(false);
     }
@@ -651,94 +601,55 @@ const BookCoverGenerator = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Debug form submission
-    console.log("=== FORM SUBMISSION STARTED ===");
-    console.log("Form data:", {
-      prompt,
-      style,
-      trimSize,
-      pageCount,
-      paperColor,
-      bookType,
-      dimensions
-    });
-    
     // Validation - only require the prompt
     if (!prompt.trim()) {
       toast.error("Cover description is required");
       return;
     }
     
+    if (isGenerating) {
+      toast.error("Already generating. Please wait...");
+      return;
+    }
+    
     setIsGenerating(true);
+    const toastId = "generate-cover";
+    toast.loading("Generating your book cover...", { id: toastId });
+    
+    // Add timeout protection
+    const timeoutId = setTimeout(() => {
+      setIsGenerating(false);
+      toast.error("Generation timed out. Please try again.", { id: toastId });
+    }, 60000); // 60 second timeout
     
     try {
       // Generate the final prompt
       const formattedPrompt = generateFormattedPrompt();
-      console.log("Formatted prompt:", formattedPrompt);
-      console.log("Dimensions:", dimensions);
       
       // Call the API to generate the image
-      let retryCount = 0;
-      const maxRetries = 2;
+      const imageUrl = await generateBookCover({
+        prompt: formattedPrompt,
+        style,
+        width: dimensions.widthPixels / 2,
+        height: dimensions.heightPixels
+      });
       
-      while (retryCount <= maxRetries) {
-        try {
-          console.log(`Attempt ${retryCount + 1} to generate book cover`);
-          const imageUrl = await generateBookCover({
-            prompt: formattedPrompt,
-            style,
-            width: dimensions.widthPixels / 2, // Only generate the front cover now
-            height: dimensions.heightPixels
-          });
-          
-          if (imageUrl) {
-            console.log("Successfully generated front cover image:", imageUrl);
-            setGeneratedImage(imageUrl);
-            setFrontCoverUrl(imageUrl);
-            
-            toast.success("Front cover generated successfully!");
-            break; // Exit the loop on success
-          } else {
-            throw new Error("Empty image URL returned");
-          }
-        } catch (error) {
-          console.error(`Error attempt ${retryCount + 1}:`, error);
-          retryCount++;
-          
-          if (retryCount > maxRetries) {
-            // Only show error after all retries have failed
-            toast.error("Failed to generate cover after multiple attempts. Try a different prompt.");
-            
-            // Create a placeholder image as absolute last resort
-            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels / 2}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate cover')}`;
-            setGeneratedImage(placeholderUrl);
-            setFrontCoverUrl(placeholderUrl);
-          } else {
-            // Show retry message
-            toast.info(`Retrying... (${retryCount}/${maxRetries})`);
-            // Wait a moment before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+      if (!imageUrl) {
+        throw new Error("No image URL returned from generation");
       }
+      
+      setGeneratedImage(imageUrl);
+      setFrontCoverUrl(imageUrl);
+      
+      clearTimeout(timeoutId);
+      toast.success("Front cover generated successfully!", { id: toastId });
     } catch (error) {
       console.error("Error in handleSubmit:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate book cover");
+      clearTimeout(timeoutId);
+      toast.error(error instanceof Error ? error.message : "Failed to generate book cover", { id: toastId });
     } finally {
       setIsGenerating(false);
     }
-  };
-  
-  // Handle regeneration
-  const handleRegenerate = () => {
-    console.log('[DEBUG] handleRegenerate called');
-    if (isGenerating) return;
-    
-    // Reset the full cover if regenerating
-    setFullCoverUrl(null);
-    
-    // Use existing inputs to regenerate
-    handleSubmit(new Event('submit') as any);
   };
   
   // Handle updating settings from history item
