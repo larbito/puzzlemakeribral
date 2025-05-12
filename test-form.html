@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 8px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            min-height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Textarea Test</h1>
+    <form id="testForm">
+        <div>
+            <label for="testTextarea">Test Textarea:</label>
+            <textarea id="testTextarea" placeholder="Type something here to test..."></textarea>
+        </div>
+        <button type="submit">Submit</button>
+    </form>
+    <div id="result">
+        <p>Result will appear here</p>
+    </div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const text = document.getElementById('testTextarea').value;
+            document.getElementById('result').innerHTML = `<p>You entered: "${text}"</p>`;
+            console.log('Form submitted with text:', text);
+        });
+
+        // Add input monitoring
+        document.getElementById('testTextarea').addEventListener('input', function(e) {
+            console.log('Input event:', e.target.value);
+        });
+
+        document.getElementById('testTextarea').addEventListener('keydown', function(e) {
+            console.log('Keydown event:', e.key);
+        });
+    </script>
+</body>
+</html> 

@@ -129,7 +129,10 @@ const AIBookCoverGenerator = () => {
 
   // Handle generate front cover button click
   const handleGenerateFrontCover = async () => {
-    if (coverDescription.length < 10) {
+    console.log("Button clicked with prompt:", coverDescription);
+    console.log("Prompt length:", coverDescription.length, "Trimmed length:", coverDescription.trim().length);
+    
+    if (coverDescription.trim().length < 5) {
       toast.error('Please enter a more detailed description for your cover');
       return;
     }
@@ -367,6 +370,7 @@ const AIBookCoverGenerator = () => {
                     value={coverDescription}
                     onChange={(e) => {
                       const newText = e.target.value;
+                      console.log("Prompt length:", newText.length, "Trimmed length:", newText.trim().length);
                       if (newText.length <= MAX_PROMPT_CHARS) {
                         setCoverDescription(newText);
                       } else {
@@ -415,7 +419,7 @@ const AIBookCoverGenerator = () => {
               <Button 
                 className="generate-button" 
                 onClick={handleGenerateFrontCover}
-                disabled={isGenerating || coverDescription.length < 10}
+                disabled={isGenerating || coverDescription.trim().length < 5}
               >
                 {isGenerating ? '🔄 Generating...' : '🎨 Generate Front Cover'}
               </Button>
