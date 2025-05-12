@@ -1125,3 +1125,8 @@ export async function generateBookCover({
     return getPlaceholderImage(prompt, 'bookcover', width, height);
   }
 } 
+
+console.log('BookCoverGenerator rendered');
+console.log('Download clicked');
+console.log('Regenerate clicked');
+console.log('Create Full Cover clicked'); 
