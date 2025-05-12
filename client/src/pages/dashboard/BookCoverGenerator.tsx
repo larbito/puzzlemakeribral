@@ -101,6 +101,7 @@ const BookCoverGenerator = () => {
   const [prompt, setPrompt] = useState("");
   const [style, setStyle] = useState("realistic");
   const [showGuides, setShowGuides] = useState(true);
+  const [showInteriorPreviews, setShowInteriorPreviews] = useState(true);
   
   // New state for spine settings
   const [spineText, setSpineText] = useState("");
@@ -223,29 +224,7 @@ const BookCoverGenerator = () => {
   const handleInteriorPreviewUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log("File input change event triggered");
     if (e.target.files && e.target.files.length > 0) {
-      console.log(`Selected ${e.target.files.length} files`);
-      
-      const newFiles = Array.from(e.target.files);
-      
-      // Check max files (max 6)
-      if (interiorPreviews.length + newFiles.length > 6) {
-        toast.error("Maximum 6 interior preview images allowed");
-        return;
-      }
-      
-      // Check file sizes (max 2MB each)
-      const oversizedFiles = newFiles.filter(file => file.size > 2 * 1024 * 1024);
-      if (oversizedFiles.length > 0) {
-        toast.error("Some files exceed the 2MB limit and will be skipped");
-      }
-      
-      // Filter out oversized files
-      const validFiles = newFiles.filter(file => file.size <= 2 * 1024 * 1024);
-      console.log(`Adding ${validFiles.length} valid files`);
-      
-      // Add new files to existing previews
-      setInteriorPreviews(prev => [...prev, ...validFiles]);
-      toast.success(`Added ${validFiles.length} interior preview images`);
+      processUploadedFiles(Array.from(e.target.files));
       
       // Reset the input
       if (fileInputRef.current) {
@@ -253,6 +232,63 @@ const BookCoverGenerator = () => {
       }
     } else {
       console.log("No files selected or file input is null");
+    }
+  };
+  
+  // Process uploaded files (for both input and drag-drop)
+  const processUploadedFiles = (files: File[]) => {
+    console.log(`Processing ${files.length} files`);
+    
+    // Check max files (max 6)
+    if (interiorPreviews.length + files.length > 6) {
+      toast.error("Maximum 6 interior preview images allowed");
+      return;
+    }
+    
+    // Check file sizes (max 2MB each)
+    const oversizedFiles = files.filter(file => file.size > 2 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      toast.error("Some files exceed the 2MB limit and will be skipped");
+    }
+    
+    // Filter out oversized files
+    const validFiles = files.filter(file => file.size <= 2 * 1024 * 1024);
+    console.log(`Adding ${validFiles.length} valid files`);
+    
+    // Add new files to existing previews
+    setInteriorPreviews(prev => [...prev, ...validFiles]);
+    toast.success(`Added ${validFiles.length} interior preview images`);
+  };
+  
+  // Handle drag events for file upload
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.add('bg-primary/5');
+  };
+  
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('bg-primary/5');
+  };
+  
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('bg-primary/5');
+    
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const imageFiles = Array.from(e.dataTransfer.files).filter(
+        file => file.type.startsWith('image/')
+      );
+      
+      if (imageFiles.length === 0) {
+        toast.error("Please drop image files only");
+        return;
+      }
+      
+      processUploadedFiles(imageFiles);
     }
   };
   
@@ -398,7 +434,7 @@ const BookCoverGenerator = () => {
         spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined, // Only use spine text if book is thick enough
         spineColor,
         dimensions,
-        interiorPreviewImages: interiorPreviews,
+        interiorPreviewImages: showInteriorPreviews ? interiorPreviews : [],
         showGuides
       });
       
@@ -774,9 +810,19 @@ const BookCoverGenerator = () => {
           {frontCoverUrl && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center text-base">
-                  <FileText className="mr-2 h-4 w-4 text-primary" />
-                  Interior Preview Images
+                <CardTitle className="flex items-center justify-between text-base">
+                  <div className="flex items-center">
+                    <FileText className="mr-2 h-4 w-4 text-primary" />
+                    Interior Preview Images
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Show on Back Cover</span>
+                    <Switch
+                      checked={showInteriorPreviews}
+                      onCheckedChange={setShowInteriorPreviews}
+                      aria-label="Show interior previews"
+                    />
+                  </div>
                 </CardTitle>
                 <CardDescription>
                   Add up to 6 interior pages to show on back cover
@@ -784,52 +830,60 @@ const BookCoverGenerator = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* File input for preview images */}
-                <div className="space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    {interiorPreviews.map((file, index) => (
-                      <div 
-                        key={index} 
-                        className="relative aspect-[4/5] border rounded-md overflow-hidden group"
-                      >
-                        <img 
-                          src={URL.createObjectURL(file)} 
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePreview(index)}
-                          className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          aria-label="Remove image"
+                {showInteriorPreviews && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {interiorPreviews.map((file, index) => (
+                        <div 
+                          key={index} 
+                          className="relative aspect-[4/5] border rounded-md overflow-hidden group"
                         >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                    
-                    {interiorPreviews.length < 6 && (
-                      <div className="aspect-[4/5] border border-dashed rounded-md flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-muted/50 transition-colors">
-                        <input
-                          type="file"
-                          id="interior-preview-upload"
-                          ref={fileInputRef}
-                          onChange={handleInteriorPreviewUpload}
-                          className="hidden"
-                          accept="image/jpeg,image/png,image/webp"
-                          multiple
-                        />
-                        <label 
-                          htmlFor="interior-preview-upload"
-                          className="w-full h-full flex flex-col items-center justify-center cursor-pointer"
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePreview(index)}
+                            className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            aria-label="Remove image"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      {interiorPreviews.length < 6 && (
+                        <div 
+                          className="aspect-[4/5] border border-dashed rounded-md flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
                         >
-                          <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                          <span className="text-xs text-center text-muted-foreground">Add Image</span>
-                        </label>
-                      </div>
-                    )}
+                          <input
+                            type="file"
+                            id="interior-preview-upload"
+                            ref={fileInputRef}
+                            onChange={handleInteriorPreviewUpload}
+                            className="hidden"
+                            accept="image/jpeg,image/png,image/webp"
+                            multiple
+                          />
+                          <label 
+                            htmlFor="interior-preview-upload"
+                            className="w-full h-full flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                            <span className="text-xs text-center text-muted-foreground">Add Image</span>
+                            <span className="text-xs text-center text-muted-foreground mt-1">or drag & drop</span>
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Max 6 images, 2MB each (JPG, PNG, WebP)</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Max 6 images, 2MB each (JPG, PNG, WebP)</p>
-                </div>
+                )}
                 
                 {/* Spine color selection */}
                 {extractedColors.colors.length > 0 && (
