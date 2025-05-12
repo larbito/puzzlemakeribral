@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -18,12 +18,23 @@ import {
   ZoomIn, 
   ZoomOut,
   Sparkles,
-  Info
+  Info,
+  X,
+  Upload,
+  Palette,
+  Brush,
+  ImageOff,
+  FileText
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { generateBookCover } from "@/services/ideogramService";
+import { 
+  generateBookCover, 
+  createFullBookCover, 
+  extractColorsFromImage,
+  type ExtractedColors 
+} from "@/services/ideogramService";
 
 // Trim size options for Amazon KDP
 const trimSizeOptions = [
@@ -55,6 +66,8 @@ const BOOK_COVER_HISTORY_KEY = 'book-cover-history';
 interface BookCoverHistoryItem {
   id: string;
   imageUrl: string;
+  fullCoverUrl?: string; // New field for the full wrap-around cover
+  frontCoverUrl?: string; // New field for just the front cover
   bookTitle: string;
   authorName: string;
   prompt: string;
@@ -63,6 +76,10 @@ interface BookCoverHistoryItem {
   pageCount: number;
   paperColor: string;
   bookType: string;
+  spineText?: string; // New field for spine text
+  spineColor?: string; // New field for spine color
+  colors?: string[]; // New field for extracted colors
+  interiorPreviewUrls?: string[]; // New field for interior preview URLs
   dimensions: {
     widthInches: number;
     heightInches: number;
@@ -85,11 +102,29 @@ const BookCoverGenerator = () => {
   const [style, setStyle] = useState("realistic");
   const [showGuides, setShowGuides] = useState(true);
   
-  // State for generated image
+  // New state for spine settings
+  const [spineText, setSpineText] = useState("");
+  const [spineColor, setSpineColor] = useState("");
+  const [selectedColorIndex, setSelectedColorIndex] = useState<number>(-1);
+  
+  // State for interior preview images
+  const [interiorPreviews, setInteriorPreviews] = useState<File[]>([]);
+  
+  // State for generated images
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [frontCoverUrl, setFrontCoverUrl] = useState<string | null>(null);
+  const [fullCoverUrl, setFullCoverUrl] = useState<string | null>(null);
+  const [extractedColors, setExtractedColors] = useState<ExtractedColors>({ colors: [], dominantColor: "" });
+  
+  // UI state
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreatingFullCover, setIsCreatingFullCover] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [activeTab, setActiveTab] = useState("front-cover");
+  
+  // References
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // State for calculated dimensions
   const [dimensions, setDimensions] = useState({
@@ -151,9 +186,94 @@ const BookCoverGenerator = () => {
     }
   }, [trimSize, pageCount, paperColor, bookType]);
 
+  // Effect to extract colors when front cover is generated
+  useEffect(() => {
+    const extractColors = async () => {
+      if (frontCoverUrl) {
+        try {
+          // Show loading indicator
+          toast.loading("Analyzing cover colors...", { id: "extract-colors" });
+          
+          const colors = await extractColorsFromImage(frontCoverUrl);
+          setExtractedColors(colors);
+          
+          // If no spine color is selected yet, use the dominant color
+          if (!spineColor) {
+            setSpineColor(colors.dominantColor);
+          }
+          
+          // Dismiss loading indicator on success
+          toast.dismiss("extract-colors");
+        } catch (error) {
+          console.error("Error extracting colors:", error);
+          toast.error("Couldn't extract colors. Using default color.", { id: "extract-colors" });
+        }
+      }
+    };
+    
+    extractColors();
+  }, [frontCoverUrl, spineColor]);
+
+  // Validate spine text based on spine width
+  useEffect(() => {
+    // Only warn if spine is too narrow and text is present
+    if (spineText && dimensions.spineWidth < 0.1) {
+      toast.warning("Spine is too narrow for text. Increase page count for text to appear.", { 
+        duration: 5000,
+        id: "spine-warning"
+      });
+    }
+  }, [spineText, dimensions.spineWidth]);
+
+  // Handler for interior preview upload
+  const handleInteriorPreviewUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      
+      // Check max files (max 6)
+      if (interiorPreviews.length + newFiles.length > 6) {
+        toast.error("Maximum 6 interior preview images allowed");
+        return;
+      }
+      
+      // Check file sizes (max 2MB each)
+      const oversizedFiles = newFiles.filter(file => file.size > 2 * 1024 * 1024);
+      if (oversizedFiles.length > 0) {
+        toast.error("Some files exceed the 2MB limit and will be skipped");
+      }
+      
+      // Filter out oversized files
+      const validFiles = newFiles.filter(file => file.size <= 2 * 1024 * 1024);
+      
+      // Add new files to existing previews
+      setInteriorPreviews(prev => [...prev, ...validFiles]);
+      
+      // Reset the input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+  
+  // Handler to remove an interior preview
+  const handleRemovePreview = (index: number) => {
+    setInteriorPreviews(prev => {
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+  };
+  
+  // Handler for spine color selection
+  const handleSpineColorSelect = (color: string, index: number) => {
+    setSpineColor(color);
+    setSelectedColorIndex(index);
+  };
+
   // Generate a prompt based on user inputs
   const generateFormattedPrompt = () => {
-    let basePrompt = `A professional book cover for a book titled "${bookTitle}" by ${authorName}, showing the full layout: back cover on the left, spine in the center, and front cover on the right. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" x ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
+    // If we're generating a full cover with front-back-spine, just focus on the front cover in the prompt
+    let basePrompt = `A professional book cover for a book titled "${bookTitle}" by ${authorName}. ${prompt}. Print-ready design for a ${trimSize.replace('x', '" x ')}″ ${bookType} book, with clean layout and clear readable fonts.`;
     
     // Add style information if selected
     if (style && style !== "realistic") {
@@ -164,11 +284,20 @@ const BookCoverGenerator = () => {
   };
   
   // Save to history
-  const saveToHistory = (imageUrl: string) => {
+  const saveToHistory = (
+    frontImageUrl: string, 
+    fullCoverUrl: string | null = null,
+    colors: string[] = []
+  ): BookCoverHistoryItem => {
     try {
+      // Convert null to undefined for the interface
+      const fullCoverUrlForHistory: string | undefined = fullCoverUrl || undefined;
+      
       const newItem: BookCoverHistoryItem = {
         id: Math.random().toString(36).substring(2) + Date.now().toString(36),
-        imageUrl,
+        imageUrl: fullCoverUrl || frontImageUrl, // Use full cover as primary image if available
+        frontCoverUrl: frontImageUrl,
+        fullCoverUrl: fullCoverUrlForHistory,
         bookTitle,
         authorName,
         prompt,
@@ -177,6 +306,9 @@ const BookCoverGenerator = () => {
         pageCount,
         paperColor,
         bookType,
+        spineText,
+        spineColor,
+        colors,
         dimensions,
         createdAt: new Date().toISOString()
       };
@@ -195,8 +327,10 @@ const BookCoverGenerator = () => {
   
   // Handle download
   const handleDownload = async () => {
-    if (!generatedImage) {
-      toast.error('No image to download');
+    const imageToDownload = activeTab === "full-cover" ? fullCoverUrl : frontCoverUrl;
+    
+    if (!imageToDownload) {
+      toast.error(`No ${activeTab === "full-cover" ? "full cover" : "front cover"} to download`);
       return;
     }
     
@@ -205,17 +339,18 @@ const BookCoverGenerator = () => {
     try {
       // Create a descriptive filename
       const safeTitle = bookTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      const filename = `${safeTitle}-${trimSize}-${Date.now()}`;
+      const coverType = activeTab === "full-cover" ? "full-cover" : "front-cover";
+      const filename = `${safeTitle}-${trimSize}-${coverType}-${Date.now()}`;
       
       // Create link element and trigger download
       const link = document.createElement('a');
       
       // If it's a data URL, use it directly
-      if (generatedImage.startsWith('data:')) {
-        link.href = generatedImage;
+      if (imageToDownload.startsWith('data:')) {
+        link.href = imageToDownload;
       } else {
         // For URLs, fetch the image as a blob
-        const response = await fetch(generatedImage);
+        const response = await fetch(imageToDownload);
         const blob = await response.blob();
         link.href = URL.createObjectURL(blob);
       }
@@ -225,12 +360,82 @@ const BookCoverGenerator = () => {
       link.click();
       document.body.removeChild(link);
       
-      toast.success('Book cover downloaded successfully');
+      toast.success(`${activeTab === "full-cover" ? "Full cover" : "Front cover"} downloaded successfully`);
     } catch (error) {
       console.error('Error downloading image:', error);
-      toast.error('Failed to download book cover');
+      toast.error('Failed to download cover');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Generate full cover from front cover
+  const handleCreateFullCover = async () => {
+    if (!frontCoverUrl) {
+      toast.error("Please generate a front cover first");
+      return;
+    }
+    
+    // Validate inputs
+    if (!bookTitle.trim()) {
+      toast.error("Book title is required for the full cover");
+      return;
+    }
+    
+    if (!authorName.trim()) {
+      toast.error("Author name is required for the full cover");
+      return;
+    }
+    
+    setIsCreatingFullCover(true);
+    
+    try {
+      console.log("Creating full cover...");
+      
+      // If spine is too narrow for text, warn the user
+      if (spineText && dimensions.spineWidth < 0.1) {
+        toast.warning("Note: Spine is too narrow for text. Text will not appear.");
+      }
+      
+      const fullCoverImage = await createFullBookCover({
+        frontCoverUrl,
+        title: bookTitle,
+        author: authorName,
+        spineText: dimensions.spineWidth >= 0.1 ? spineText : undefined, // Only use spine text if book is thick enough
+        spineColor,
+        dimensions,
+        interiorPreviewImages: interiorPreviews,
+        showGuides
+      });
+      
+      setFullCoverUrl(fullCoverImage);
+      
+      // Save both front and full cover to history
+      saveToHistory(
+        frontCoverUrl, 
+        fullCoverImage,
+        extractedColors.colors
+      );
+      
+      toast.success("Full book cover created successfully!");
+      
+      // Switch to full cover tab
+      setActiveTab("full-cover");
+    } catch (error) {
+      console.error("Error creating full cover:", error);
+      toast.error("Failed to create full book cover. Please try again.");
+      
+      // Try to provide more helpful error information if available
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+        if (errorMessage.includes("CORS")) {
+          toast.error("CORS issue detected. Try using a different image or refreshing.");
+        } else if (errorMessage.includes("load")) {
+          toast.error("Failed to load images. Try generating a new front cover.");
+        }
+      }
+    } finally {
+      setIsCreatingFullCover(false);
     }
   };
 
@@ -286,15 +491,16 @@ const BookCoverGenerator = () => {
           const imageUrl = await generateBookCover({
             prompt: formattedPrompt,
             style,
-            width: dimensions.widthPixels,
+            width: dimensions.widthPixels / 2, // Only generate the front cover now
             height: dimensions.heightPixels
           });
           
           if (imageUrl) {
-            console.log("Successfully generated image:", imageUrl);
+            console.log("Successfully generated front cover image:", imageUrl);
             setGeneratedImage(imageUrl);
-            saveToHistory(imageUrl);
-            toast.success("Book cover generated successfully!");
+            setFrontCoverUrl(imageUrl);
+            
+            toast.success("Front cover generated successfully!");
             break; // Exit the loop on success
           } else {
             throw new Error("Empty image URL returned");
@@ -308,8 +514,9 @@ const BookCoverGenerator = () => {
             toast.error("Failed to generate cover after multiple attempts. Try a different prompt.");
             
             // Create a placeholder image as absolute last resort
-            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate: ' + bookTitle)}`;
+            const placeholderUrl = `https://placehold.co/${dimensions.widthPixels / 2}x${dimensions.heightPixels}/252A37/FFFFFF?text=${encodeURIComponent('Could not generate: ' + bookTitle)}`;
             setGeneratedImage(placeholderUrl);
+            setFrontCoverUrl(placeholderUrl);
           } else {
             // Show retry message
             toast.info(`Retrying... (${retryCount}/${maxRetries})`);
@@ -330,6 +537,9 @@ const BookCoverGenerator = () => {
   const handleRegenerate = () => {
     if (isGenerating) return;
     
+    // Reset the full cover if regenerating
+    setFullCoverUrl(null);
+    
     // Use existing inputs to regenerate
     handleSubmit(new Event('submit') as any);
   };
@@ -344,7 +554,34 @@ const BookCoverGenerator = () => {
     setPageCount(item.pageCount);
     setPaperColor(item.paperColor);
     setBookType(item.bookType);
-    setGeneratedImage(item.imageUrl);
+    
+    // Set new fields
+    if (item.spineText) setSpineText(item.spineText);
+    if (item.spineColor) setSpineColor(item.spineColor);
+    if (item.frontCoverUrl) {
+      setGeneratedImage(item.frontCoverUrl);
+      setFrontCoverUrl(item.frontCoverUrl);
+    } else {
+      setGeneratedImage(item.imageUrl);
+      setFrontCoverUrl(item.imageUrl);
+    }
+    
+    if (item.fullCoverUrl) {
+      setFullCoverUrl(item.fullCoverUrl);
+      setActiveTab("full-cover");
+    } else {
+      setActiveTab("front-cover");
+    }
+    
+    if (item.colors && item.colors.length > 0) {
+      setExtractedColors({
+        colors: item.colors,
+        dominantColor: item.colors[0]
+      });
+    }
+    
+    // Clear interior previews since we can't store those
+    setInteriorPreviews([]);
     
     toast.info("Settings loaded from history");
   };
@@ -452,6 +689,23 @@ const BookCoverGenerator = () => {
                   </Select>
                 </div>
                 
+                {/* Spine text - only show if page count is sufficient */}
+                {pageCount >= 100 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="spine-text">Spine Text (Optional)</Label>
+                    <Input
+                      id="spine-text"
+                      value={spineText}
+                      onChange={(e) => setSpineText(e.target.value)}
+                      placeholder="Text to appear on the spine"
+                      maxLength={50}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Max 50 characters, vertical on spine
+                    </p>
+                  </div>
+                )}
+                
                 {/* Calculated dimensions info */}
                 <div className="rounded-lg bg-primary/5 p-3 space-y-1">
                   <div className="flex justify-between text-sm">
@@ -509,7 +763,7 @@ const BookCoverGenerator = () => {
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
-                            <p>Describe what you want on your full book cover. Remember this includes the front cover, spine, and back cover.</p>
+                            <p>Describe what you want on your book cover. Focus on the front cover design - the spine and back cover will be automatically generated.</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -521,7 +775,7 @@ const BookCoverGenerator = () => {
                         console.log("Textarea changed:", e.target.value);
                         setPrompt(e.target.value);
                       }}
-                      placeholder="Describe your book cover in detail (front, spine, and back). Be specific about imagery, colors, and mood."
+                      placeholder="Describe your book cover design. Focus on imagery, colors, style, and mood."
                       className="min-h-[120px] relative z-20"
                     />
                   </div>
@@ -578,12 +832,127 @@ const BookCoverGenerator = () => {
               </form>
             </CardContent>
           </Card>
+          
+          {/* Interior Preview Images Section - Only show after front cover is generated */}
+          {frontCoverUrl && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center text-base">
+                  <FileText className="mr-2 h-4 w-4 text-primary" />
+                  Interior Preview Images
+                </CardTitle>
+                <CardDescription>
+                  Add up to 6 interior pages to show on back cover
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* File input for preview images */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    {interiorPreviews.map((file, index) => (
+                      <div 
+                        key={index} 
+                        className="relative aspect-[4/5] border rounded-md overflow-hidden group"
+                      >
+                        <img 
+                          src={URL.createObjectURL(file)} 
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePreview(index)}
+                          className="absolute top-1 right-1 bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          aria-label="Remove image"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {interiorPreviews.length < 6 && (
+                      <label 
+                        className="aspect-[4/5] border border-dashed rounded-md flex flex-col items-center justify-center p-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                      >
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleInteriorPreviewUpload}
+                          className="hidden"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                        />
+                        <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-center text-muted-foreground">Add Image</span>
+                      </label>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Max 6 images, 2MB each (JPG, PNG, WebP)</p>
+                </div>
+                
+                {/* Spine color selection */}
+                {extractedColors.colors.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-sm">Spine Color</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {extractedColors.colors.map((color, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          className={`h-8 w-8 rounded-full transition-all ${selectedColorIndex === index ? 'ring-2 ring-primary ring-offset-2' : 'ring-1 ring-muted'}`}
+                          style={{ backgroundColor: color }}
+                          onClick={() => handleSpineColorSelect(color, index)}
+                          aria-label={`Select color ${color}`}
+                        />
+                      ))}
+                      
+                      {/* Custom color option */}
+                      <div className="relative">
+                        <input
+                          type="color"
+                          value={spineColor}
+                          onChange={(e) => {
+                            setSpineColor(e.target.value);
+                            setSelectedColorIndex(-1);
+                          }}
+                          className="opacity-0 absolute inset-0 w-8 h-8 cursor-pointer"
+                        />
+                        <div className="h-8 w-8 rounded-full border flex items-center justify-center">
+                          <Palette className="h-4 w-4" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Create Full Cover button */}
+                <Button 
+                  type="button"
+                  className="w-full"
+                  disabled={isCreatingFullCover || !frontCoverUrl}
+                  onClick={handleCreateFullCover}
+                >
+                  {isCreatingFullCover ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Full Cover...
+                    </>
+                  ) : (
+                    <>
+                      <Book className="mr-2 h-4 w-4" />
+                      Create Full Cover
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
         
         {/* Right side - Preview */}
         <div className="w-full lg:w-2/3 space-y-4">
           <Card className="h-full">
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center">
                   <ImageIcon className="mr-2 h-5 w-5 text-primary" />
@@ -621,6 +990,21 @@ const BookCoverGenerator = () => {
                   </div>
                 )}
               </CardTitle>
+              
+              {/* Tabs for Front Cover and Full Cover */}
+              {frontCoverUrl && (
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-2">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="front-cover">Front Cover Only</TabsTrigger>
+                    <TabsTrigger 
+                      value="full-cover"
+                      disabled={!fullCoverUrl}
+                    >
+                      Full Cover (Front, Spine, Back)
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              )}
             </CardHeader>
             <CardContent className="flex justify-center items-center bg-gray-50 dark:bg-gray-900/20 min-h-[600px] rounded-lg relative">
               {isGenerating ? (
@@ -629,7 +1013,13 @@ const BookCoverGenerator = () => {
                   <p className="text-center">Generating your book cover...</p>
                   <p className="text-sm text-muted-foreground text-center">This may take 15-30 seconds</p>
                 </div>
-              ) : !generatedImage ? (
+              ) : isCreatingFullCover ? (
+                <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                  <p className="text-center">Creating full cover layout...</p>
+                  <p className="text-sm text-muted-foreground text-center">Combining front cover, spine, and back</p>
+                </div>
+              ) : !frontCoverUrl ? (
                 <div className="text-center p-8 max-w-lg">
                   <Book className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
                   <p className="text-xl font-medium mb-2">Your book cover will appear here</p>
@@ -656,29 +1046,46 @@ const BookCoverGenerator = () => {
                       transition: 'transform 0.2s ease'
                     }}
                   >
-                    <img 
-                      src={generatedImage} 
-                      alt="Generated book cover" 
-                      className="max-w-full max-h-[600px] object-contain"
-                    />
+                    {/* Show the appropriate image based on active tab */}
+                    {activeTab === "front-cover" && frontCoverUrl && (
+                      <img 
+                        src={frontCoverUrl} 
+                        alt="Generated book cover front" 
+                        className="max-w-full max-h-[600px] object-contain"
+                      />
+                    )}
                     
-                    {showGuides && (
-                      <div className="absolute inset-0 pointer-events-none">
-                        {/* Spine guide */}
-                        <div 
-                          className="absolute top-0 bottom-0 border-l-2 border-r-2 border-blue-500/50 border-dashed" 
-                          style={{
-                            left: `calc(50% - ${(dimensions.spineWidth / dimensions.widthInches * 100) / 2}%)`,
-                            right: `calc(50% - ${(dimensions.spineWidth / dimensions.widthInches * 100) / 2}%)`,
-                          }}
-                        />
-                        
-                        {/* Trim lines */}
-                        <div className="absolute inset-0 border-2 border-red-500/50 border-dashed" style={{ margin: '2%' }} />
-                        
-                        {/* Center line */}
-                        <div className="absolute left-1/2 top-0 bottom-0 border-l border-blue-500/30" style={{ transform: 'translateX(-50%)' }} />
+                    {activeTab === "full-cover" && fullCoverUrl && (
+                      <img 
+                        src={fullCoverUrl} 
+                        alt="Generated full book cover" 
+                        className="max-w-full max-h-[600px] object-contain"
+                      />
+                    )}
+                    
+                    {activeTab === "full-cover" && !fullCoverUrl && (
+                      <div className="p-8 text-center">
+                        <ImageOff className="mx-auto h-12 w-12 text-muted-foreground/30 mb-2" />
+                        <p className="text-lg font-medium mb-2">Full cover not generated yet</p>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Click "Create Full Cover" to generate the complete book cover with spine and back.
+                        </p>
+                        <Button 
+                          onClick={handleCreateFullCover}
+                          disabled={isCreatingFullCover}
+                        >
+                          {isCreatingFullCover ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <Book className="mr-2 h-4 w-4" />
+                          )}
+                          Create Full Cover
+                        </Button>
                       </div>
+                    )}
+                    
+                    {showGuides && activeTab === "front-cover" && (
+                      <div className="absolute inset-0 pointer-events-none border-2 border-red-500/50 border-dashed" style={{ margin: '2%' }} />
                     )}
                   </div>
                   

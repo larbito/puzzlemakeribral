@@ -700,6 +700,424 @@ export interface GenerateBookCoverParams {
   height: number;
 }
 
+export interface ExtractedColors {
+  colors: string[];
+  dominantColor: string;
+}
+
+// Extract dominant colors from an image
+export async function extractColorsFromImage(imageUrl: string): Promise<ExtractedColors> {
+  console.log("Extracting colors from image:", imageUrl.slice(0, 50) + "...");
+  
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "Anonymous";
+      
+      // Add a timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        console.warn("Color extraction timed out");
+        resolve({ colors: [], dominantColor: "#333333" });
+      }, 5000);
+      
+      // Save the original onload handler
+      const originalOnLoad = img.onload;
+      
+      // Set up the onload handler that clears the timeout
+      img.onload = function(ev: Event) {
+        console.log("Image loaded for color extraction, dimensions:", img.width, "x", img.height);
+        clearTimeout(timeout);
+        
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        if (!ctx) {
+          console.error("Failed to get canvas context for color extraction");
+          resolve({ colors: [], dominantColor: "#333333" });
+          return;
+        }
+        
+        try {
+          ctx.drawImage(img, 0, 0);
+          console.log("Image drawn to canvas for color extraction");
+          
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+          console.log("Image data retrieved, processing", imageData.length / 4, "pixels");
+          
+          // Simple color extraction - more sophisticated algorithms could be used
+          const colorMap: {[key: string]: number} = {};
+          const step = 4; // Sample every few pixels for performance
+          
+          for (let i = 0; i < imageData.length; i += 4 * step) {
+            // Skip transparent pixels
+            if (imageData[i + 3] < 128) continue;
+            
+            // Convert to hex and round to reduce color variations
+            const r = Math.round(imageData[i] / 16) * 16;
+            const g = Math.round(imageData[i + 1] / 16) * 16;
+            const b = Math.round(imageData[i + 2] / 16) * 16;
+            
+            const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+            colorMap[hex] = (colorMap[hex] || 0) + 1;
+          }
+          
+          // Sort colors by frequency and get top colors
+          const sortedColors = Object.entries(colorMap)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6)
+            .map(([color]) => color);
+          
+          console.log("Extracted colors:", sortedColors);
+          
+          // Determine dominant color (first color from the extracted set)
+          const dominantColor = sortedColors.length > 0 ? sortedColors[0] : "#333333";
+          console.log("Dominant color:", dominantColor);
+            
+          resolve({ 
+            colors: sortedColors,
+            dominantColor
+          });
+        } catch (error) {
+          console.error("Error processing image for color extraction:", error);
+          resolve({ colors: [], dominantColor: "#333333" });
+        }
+      };
+      
+      img.onerror = (error) => {
+        clearTimeout(timeout);
+        console.error("Error loading image for color extraction:", error);
+        resolve({ colors: [], dominantColor: "#333333" });
+      };
+      
+      console.log("Starting to load image for color extraction");
+      img.src = imageUrl;
+    } catch (error) {
+      console.error("Error in color extraction:", error);
+      resolve({ colors: [], dominantColor: "#333333" });
+    }
+  });
+}
+
+export interface CreateFullBookCoverParams {
+  frontCoverUrl: string;
+  title: string;
+  author: string;
+  spineText?: string;
+  spineColor?: string;
+  dimensions: {
+    widthInches: number;
+    heightInches: number;
+    widthPixels: number;
+    heightPixels: number;
+    spineWidth: number;
+  };
+  interiorPreviewImages?: File[];
+  showGuides?: boolean;
+}
+
+export async function createFullBookCover({
+  frontCoverUrl,
+  title,
+  author,
+  spineText,
+  spineColor,
+  dimensions,
+  interiorPreviewImages = [],
+  showGuides = true
+}: CreateFullBookCoverParams): Promise<string> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log("Creating full book cover layout");
+      
+      // 1. Create a canvas with the total cover dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = dimensions.widthPixels;
+      canvas.height = dimensions.heightPixels;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error("Could not create canvas context"));
+        return;
+      }
+      
+      // Calculate regions for each part of the cover
+      const DPI = 300;
+      
+      // Add 0.125" bleed on each side
+      const bleedInches = 0.125;
+      const bleedPixels = bleedInches * DPI;
+      
+      // Convert spine width to pixels
+      const spineWidthPixels = Math.round(dimensions.spineWidth * DPI);
+      
+      // Calculate trim size width and height in pixels
+      const trimWidthInches = (dimensions.widthInches - (bleedInches * 2) - dimensions.spineWidth) / 2;
+      const trimHeightInches = dimensions.heightInches - (bleedInches * 2);
+      
+      const trimWidthPixels = Math.round(trimWidthInches * DPI);
+      const trimHeightPixels = Math.round(trimHeightInches * DPI);
+      
+      // Calculate regions
+      const leftCoverX = 0;
+      const spineX = leftCoverX + trimWidthPixels + bleedPixels;
+      const rightCoverX = spineX + spineWidthPixels;
+      
+      // Set white background for the whole canvas
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 2. Load the front cover image
+      const frontCoverImg = new Image();
+      frontCoverImg.crossOrigin = "anonymous";
+      
+      // Set up the onload handler for the front cover image
+      frontCoverImg.onload = async function() {
+        try {
+          console.log("Front cover image loaded");
+          
+          // Draw the front cover (right side)
+          ctx.drawImage(
+            frontCoverImg, 
+            rightCoverX, // x position
+            0,          // y position
+            trimWidthPixels + bleedPixels, // width
+            canvas.height  // height
+          );
+          
+          // 3. Extract colors from the front cover for the spine
+          const { colors, dominantColor } = await extractColorsFromImage(frontCoverUrl);
+          console.log("Extracted colors:", colors);
+          
+          // Use provided spine color or the dominant color
+          const finalSpineColor = spineColor || dominantColor;
+          console.log("Using spine color:", finalSpineColor);
+          
+          // 4. Draw the spine
+          ctx.fillStyle = finalSpineColor;
+          ctx.fillRect(spineX, 0, spineWidthPixels, canvas.height);
+          
+          // Add spine text if provided and spine is thick enough
+          if (spineText && dimensions.spineWidth >= 0.1) {
+            // Draw the spine text vertically
+            ctx.save();
+            
+            // Text style
+            ctx.fillStyle = "#FFFFFF"; // White text
+            ctx.font = `bold ${Math.min(spineWidthPixels * 0.8, 36)}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            // Rotate and position for vertical text
+            ctx.translate(spineX + spineWidthPixels / 2, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2); // Rotate 90 degrees counter-clockwise
+            
+            // Draw the text
+            ctx.fillText(spineText, 0, 0);
+            
+            // Restore canvas context
+            ctx.restore();
+          }
+          
+          // 5. Create the back cover (left side) - blurred version of front cover
+          console.log("Creating back cover (blurred version)");
+          
+          // Create a temporary canvas for the blur effect
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = trimWidthPixels + bleedPixels;
+          tempCanvas.height = canvas.height;
+          const tempCtx = tempCanvas.getContext('2d');
+          
+          if (!tempCtx) {
+            throw new Error("Could not create temporary canvas context");
+          }
+          
+          // Draw the front cover on the temporary canvas
+          tempCtx.drawImage(frontCoverImg, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Apply a blur effect (if supported)
+          try {
+            tempCtx.filter = 'blur(15px) brightness(0.8)';
+            tempCtx.drawImage(tempCanvas, 0, 0);
+          } catch (error) {
+            console.warn("Blur filter not supported:", error);
+            // If blur filter is not supported, just darken the image
+            tempCtx.fillStyle = "rgba(0, 0, 0, 0.3)";
+            tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          }
+          
+          // Draw the blurred image as the back cover
+          ctx.drawImage(tempCanvas, leftCoverX, 0);
+          
+          // 6. Add interior preview images to the back cover if provided
+          if (interiorPreviewImages && interiorPreviewImages.length > 0) {
+            console.log(`Adding ${interiorPreviewImages.length} interior preview images`);
+            
+            // Calculate grid layout based on number of images
+            const maxImagesPerRow = interiorPreviewImages.length > 4 ? 3 : 2;
+            const rows = Math.ceil(interiorPreviewImages.length / maxImagesPerRow);
+            const cols = Math.min(maxImagesPerRow, interiorPreviewImages.length);
+            
+            // Calculate image size and padding
+            const padding = 40; // Padding between images in pixels
+            const maxImageWidth = (trimWidthPixels - (padding * (cols + 1))) / cols;
+            const maxImageHeight = (trimHeightPixels - (padding * (rows + 1))) / rows;
+            
+            const imageSize = Math.min(maxImageWidth, maxImageHeight);
+            
+            // Starting position for the grid
+            const gridStartX = leftCoverX + padding;
+            const gridStartY = padding + (canvas.height - (rows * imageSize + (rows + 1) * padding)) / 2;
+            
+            // Create a promise for each image
+            const imageLoadPromises = interiorPreviewImages.map((imageFile, i) => {
+              return new Promise<void>((resolveImage) => {
+                const row = Math.floor(i / cols);
+                const col = i % cols;
+                
+                const imageX = gridStartX + col * (imageSize + padding);
+                const imageY = gridStartY + row * (imageSize + padding);
+                
+                try {
+                  // Create an object URL for the image file
+                  const imageUrl = URL.createObjectURL(imageFile);
+                  
+                  // Load the image
+                  const img = new Image();
+                  img.onload = () => {
+                    // Draw the image with a white background and shadow
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillRect(imageX - 2, imageY - 2, imageSize + 4, imageSize + 4);
+                    
+                    // Draw shadow
+                    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+                    ctx.shadowBlur = 10;
+                    ctx.shadowOffsetX = 3;
+                    ctx.shadowOffsetY = 3;
+                    
+                    // Calculate aspect ratio to maintain proportions
+                    const aspectRatio = img.height / img.width;
+                    let drawWidth = imageSize;
+                    let drawHeight = imageSize * aspectRatio;
+                    
+                    if (drawHeight > imageSize) {
+                      drawHeight = imageSize;
+                      drawWidth = imageSize / aspectRatio;
+                    }
+                    
+                    // Center the image in its cell
+                    const offsetX = (imageSize - drawWidth) / 2;
+                    const offsetY = (imageSize - drawHeight) / 2;
+                    
+                    // Draw the image
+                    ctx.drawImage(img, imageX + offsetX, imageY + offsetY, drawWidth, drawHeight);
+                    
+                    // Reset shadow
+                    ctx.shadowColor = "transparent";
+                    ctx.shadowBlur = 0;
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                    
+                    // Revoke the object URL to free memory
+                    URL.revokeObjectURL(imageUrl);
+                    
+                    resolveImage();
+                  };
+                  
+                  img.onerror = () => {
+                    console.error("Error loading interior preview image");
+                    resolveImage(); // Resolve anyway to continue with other images
+                  };
+                  
+                  img.src = imageUrl;
+                } catch (error) {
+                  console.error("Error processing interior preview image:", error);
+                  resolveImage(); // Resolve anyway to continue with other images
+                }
+              });
+            });
+            
+            // Wait for all images to load
+            try {
+              await Promise.all(imageLoadPromises);
+              console.log("All interior preview images loaded successfully");
+            } catch (error) {
+              console.error("Error loading interior preview images:", error);
+              // Continue execution even if some images failed to load
+            }
+          }
+          
+          // 7. Add title and author to back cover
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 40px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "top";
+          
+          // Add a semi-transparent background for text readability
+          const textBgY = canvas.height - 180;
+          ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+          ctx.fillRect(leftCoverX, textBgY, trimWidthPixels + bleedPixels, 160);
+          
+          // Add title and author
+          ctx.fillStyle = "#FFFFFF";
+          ctx.font = "bold 40px Arial";
+          ctx.fillText(title, leftCoverX + (trimWidthPixels + bleedPixels) / 2, textBgY + 40);
+          
+          ctx.font = "30px Arial";
+          ctx.fillText(author, leftCoverX + (trimWidthPixels + bleedPixels) / 2, textBgY + 100);
+          
+          // 8. Add trim guidelines if requested
+          if (showGuides) {
+            // Draw guides for front cover
+            ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
+            ctx.setLineDash([10, 10]);
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+              rightCoverX + bleedPixels, 
+              bleedPixels, 
+              trimWidthPixels - bleedPixels * 2, 
+              trimHeightPixels
+            );
+            
+            // Draw guides for back cover
+            ctx.strokeRect(
+              leftCoverX + bleedPixels, 
+              bleedPixels, 
+              trimWidthPixels - bleedPixels * 2, 
+              trimHeightPixels
+            );
+            
+            // Draw spine guides
+            ctx.strokeStyle = "rgba(0, 0, 255, 0.6)";
+            ctx.strokeRect(spineX, 0, spineWidthPixels, canvas.height);
+          }
+          
+          // 9. Finalize and return the complete cover
+          console.log("Full book cover created successfully");
+          const finalImageUrl = canvas.toDataURL('image/png');
+          resolve(finalImageUrl);
+          
+        } catch (error) {
+          console.error("Error creating full book cover:", error);
+          reject(error);
+        }
+      };
+      
+      frontCoverImg.onerror = (error) => {
+        console.error("Error loading front cover image:", error);
+        reject(new Error("Failed to load front cover image"));
+      };
+      
+      frontCoverImg.src = frontCoverUrl;
+      
+    } catch (error) {
+      console.error("Error in createFullBookCover:", error);
+      reject(error);
+    }
+  });
+}
+
 export async function generateBookCover({
   prompt,
   style = "realistic",
