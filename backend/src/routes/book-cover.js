@@ -130,12 +130,19 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
  * Generate front cover using Ideogram API
  * POST /api/book-cover/generate-front
  */
-router.post('/generate-front', upload.none(), async (req, res) => {
+router.post('/generate-front', express.json(), async (req, res) => {
   try {
-    console.log('Received generate-front request body:', req.body);
+    console.log('Received generate-front request:', {
+      body: req.body,
+      headers: req.headers,
+      contentType: req.get('content-type')
+    });
     
     // Check if API key is configured
-    if (!process.env.IDEOGRAM_API_KEY) {
+    const apiKey = process.env.IDEOGRAM_API_KEY;
+    console.log('API key status:', apiKey ? 'Present' : 'Missing');
+    
+    if (!apiKey) {
       console.error('Ideogram API key is not set in the environment');
       return res.status(500).json({ error: 'API key not configured' });
     }
@@ -147,11 +154,20 @@ router.post('/generate-front', upload.none(), async (req, res) => {
       negative_prompt 
     } = req.body;
     
+    console.log('Parsed request parameters:', {
+      prompt,
+      width,
+      height,
+      negative_prompt
+    });
+    
     if (!prompt) {
+      console.error('Missing required parameter: prompt');
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
     if (!width || !height) {
+      console.error('Missing required parameters: width and/or height');
       return res.status(400).json({ error: 'Width and height are required' });
     }
 
@@ -177,6 +193,11 @@ router.post('/generate-front', upload.none(), async (req, res) => {
       }
     }
     
+    console.log('Calculated dimensions:', {
+      original: { width: pixelWidth, height: pixelHeight },
+      target: { width: targetWidth, height: targetHeight }
+    });
+    
     // Format as "WxH"
     const aspectRatio = `${targetWidth}x${targetHeight}`;
     
@@ -194,16 +215,23 @@ router.post('/generate-front', upload.none(), async (req, res) => {
     form.append('num_images', '1');
     form.append('seed', Math.floor(Math.random() * 1000000));
 
-    console.log('Making request to Ideogram API with form data');
+    console.log('Making request to Ideogram API with form data:', {
+      prompt,
+      aspect_ratio: aspectRatio,
+      rendering_speed: 'TURBO',
+      negative_prompt: negative_prompt || 'None'
+    });
     
     // For testing when the API key is not available or not valid
-    if (!process.env.IDEOGRAM_API_KEY || process.env.IDEOGRAM_API_KEY.includes('your_api_key_here')) {
+    if (!apiKey || apiKey.includes('your_api_key_here')) {
       console.log('Using mock response for Ideogram API');
       
-      // Return a placeholder image
+      // Return a placeholder image with the correct dimensions
       return res.json({
         status: 'success',
-        url: 'https://placehold.co/600x900/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator'
+        url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
+        width: pixelWidth,
+        height: pixelHeight
       });
     }
     
@@ -212,7 +240,7 @@ router.post('/generate-front', upload.none(), async (req, res) => {
       const response = await fetch('https://api.ideogram.ai/api/v1/ideogram-v3/generate', {
         method: 'POST',
         headers: {
-          'Api-Key': process.env.IDEOGRAM_API_KEY,
+          'Api-Key': apiKey,
           ...form.getHeaders()
         },
         body: form
@@ -222,7 +250,7 @@ router.post('/generate-front', upload.none(), async (req, res) => {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response text:', errorText);
+        console.error('Error response from Ideogram API:', errorText);
         
         let errorData;
         try {
@@ -231,9 +259,13 @@ router.post('/generate-front', upload.none(), async (req, res) => {
           errorData = { error: 'Failed to parse error response' };
         }
         
-        return res.status(response.status).json({ 
-          error: 'Failed to generate image via Ideogram API', 
-          details: errorData 
+        // If API fails, use placeholder as fallback
+        return res.json({
+          status: 'success',
+          url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
+          width: pixelWidth,
+          height: pixelHeight,
+          message: 'Using placeholder due to API error'
         });
       }
 
@@ -254,7 +286,14 @@ router.post('/generate-front', upload.none(), async (req, res) => {
 
       if (!imageUrl) {
         console.error('No image URL in response:', data);
-        return res.status(500).json({ error: 'No image URL returned from API' });
+        // Return placeholder if no URL found
+        return res.json({
+          status: 'success',
+          url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
+          width: pixelWidth,
+          height: pixelHeight,
+          message: 'Using placeholder due to missing image URL'
+        });
       }
 
       res.json({
@@ -269,7 +308,9 @@ router.post('/generate-front', upload.none(), async (req, res) => {
       // If API call fails, use a placeholder as fallback
       return res.json({
         status: 'success',
-        url: 'https://placehold.co/600x900/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator',
+        url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
+        width: pixelWidth,
+        height: pixelHeight,
         message: 'Using placeholder due to API error'
       });
     }

@@ -67,24 +67,31 @@ export async function generateFrontCover({
   negative_prompt?: string;
 }) {
   try {
-    console.log('Generating front cover with params:', { prompt, width, height });
+    console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt });
     console.log('API URL for generation:', `${API_URL}/book-cover/generate-front`);
     
-    const formData = new FormData();
-    formData.append('prompt', prompt);
-    formData.append('width', width.toString());
-    formData.append('height', height.toString());
-    
-    if (negative_prompt) {
-      formData.append('negative_prompt', negative_prompt);
-    }
+    // Create JSON payload instead of FormData
+    const payload = {
+      prompt,
+      width: width.toString(),
+      height: height.toString(),
+      negative_prompt
+    };
 
+    console.log('Sending request to backend with payload:', payload);
     const response = await fetch(`${API_URL}/book-cover/generate-front`, {
       method: 'POST',
-      body: formData
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
     });
 
-    console.log('Response status:', response.status);
+    console.log('Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
     
     if (!response.ok) {
       const errorText = await response.text();
