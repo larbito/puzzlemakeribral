@@ -35,6 +35,7 @@ import {
   extractColorsFromImage,
   type ExtractedColors 
 } from "@/services/ideogramService";
+import { DEBUG_MODE, APP_VERSION, DEBUG_CONFIG } from "@/config";
 
 // Trim size options for Amazon KDP
 const trimSizeOptions = [
@@ -110,6 +111,37 @@ const calculateFullCoverDimensions = (trimSize: string, pageCount: number) => {
 };
 
 const BookCoverGenerator = () => {
+  console.log("BOOKCOVER GENERATOR COMPONENT RENDERED - NEW VERSION");
+  
+  // Add a visible version marker at the top
+  useEffect(() => {
+    console.log("RUNNING NEW VERSION WITH DEBUG BANNER - V1");
+    // Add a debug element to the top of the page
+    const debugBanner = document.createElement('div');
+    debugBanner.style.background = 'red';
+    debugBanner.style.color = 'white';
+    debugBanner.style.padding = '10px';
+    debugBanner.style.textAlign = 'center';
+    debugBanner.style.fontWeight = 'bold';
+    debugBanner.style.position = 'fixed';
+    debugBanner.style.top = '0';
+    debugBanner.style.left = '0';
+    debugBanner.style.right = '0';
+    debugBanner.style.zIndex = '9999';
+    debugBanner.innerText = 'DEBUG MODE: NEW VERSION WITH PROXY FIX ACTIVATED';
+    document.body.prepend(debugBanner);
+    
+    // Also log every second to make sure it's visible in console
+    const interval = setInterval(() => {
+      console.log("DEBUG BANNER ACTIVE - NEW CODE RUNNING");
+    }, 5000);
+    
+    return () => {
+      clearInterval(interval);
+      debugBanner.remove();
+    };
+  }, []);
+  
   // State for form inputs
   const [bookType, setBookType] = useState("paperback");
   const [trimSize, setTrimSize] = useState("6x9");
@@ -458,6 +490,12 @@ const BookCoverGenerator = () => {
   
   // Handle download
   const handleDownload = async () => {
+    console.log("==== DOWNLOAD BUTTON CLICKED ====");
+    console.log("isDownloading:", isDownloading);
+    console.log("activeTab:", activeTab);
+    console.log("frontCoverUrl:", frontCoverUrl?.substring(0, 50));
+    console.log("fullCoverUrl:", fullCoverUrl?.substring(0, 50));
+    
     const imageToDownload = activeTab === "full-cover" ? fullCoverUrl : frontCoverUrl;
     
     if (!imageToDownload) {
@@ -509,6 +547,9 @@ const BookCoverGenerator = () => {
 
   // Handle regeneration with timeout protection
   const handleRegenerate = () => {
+    console.log("==== REGENERATE BUTTON CLICKED ====");
+    console.log("isGenerating:", isGenerating);
+    
     if (isGenerating) {
       toast.error("Already generating. Please wait...");
       return;
@@ -533,6 +574,10 @@ const BookCoverGenerator = () => {
 
   // Generate full cover from front cover
   const handleCreateFullCover = async () => {
+    console.log("==== CREATE FULL COVER BUTTON CLICKED ====");
+    console.log("isCreatingFullCover:", isCreatingFullCover);
+    console.log("frontCoverUrl:", frontCoverUrl?.substring(0, 50));
+    
     if (!frontCoverUrl) {
       toast.error("Please generate a front cover first");
       return;
@@ -577,6 +622,10 @@ const BookCoverGenerator = () => {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log("==== GENERATE COVER BUTTON CLICKED ====");
+    console.log("isGenerating:", isGenerating);
+    console.log("prompt:", prompt);
     
     // Validation - only require the prompt
     if (!prompt.trim()) {
