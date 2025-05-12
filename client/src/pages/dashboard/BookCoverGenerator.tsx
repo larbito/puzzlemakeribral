@@ -114,10 +114,10 @@ const calculateFullCoverDimensions = (trimSize: string, pageCount: number) => {
 const BookCoverGenerator = () => {
   console.log("BOOKCOVER GENERATOR COMPONENT RENDERED - NEW VERSION");
   
-  // Add a visible version marker at the top
+  // Add a simpler version marker
   useEffect(() => {
-    console.log("RUNNING NEW VERSION WITH DEBUG BANNER - V1");
-    // Add a debug element to the top of the page
+    console.log("RUNNING NEW VERSION - V1");
+    
     const debugBanner = document.createElement('div');
     debugBanner.style.background = 'red';
     debugBanner.style.color = 'white';
@@ -132,13 +132,7 @@ const BookCoverGenerator = () => {
     debugBanner.innerText = 'DEBUG MODE: NEW VERSION WITH PROXY FIX ACTIVATED';
     document.body.prepend(debugBanner);
     
-    // Also log every second to make sure it's visible in console
-    const interval = setInterval(() => {
-      console.log("DEBUG BANNER ACTIVE - NEW CODE RUNNING");
-    }, 5000);
-    
     return () => {
-      clearInterval(interval);
       debugBanner.remove();
     };
   }, []);
@@ -720,33 +714,6 @@ const BookCoverGenerator = () => {
     toast.info("Settings loaded from history");
   };
 
-  // Add state monitoring
-  useEffect(() => {
-    console.log("State change detected:");
-    console.log("frontCoverUrl:", frontCoverUrl ? frontCoverUrl.substring(0, 50) + "..." : null);
-    console.log("fullCoverUrl:", fullCoverUrl ? fullCoverUrl.substring(0, 50) + "..." : null);
-    console.log("isGenerating:", isGenerating);
-    console.log("isCreatingFullCover:", isCreatingFullCover);
-    console.log("isDownloading:", isDownloading);
-    
-    // Force proxy for any existing image URL
-    if (frontCoverUrl && frontCoverUrl.includes('ideogram.ai')) {
-      const proxiedUrl = forceProxyForIdeogramUrl(frontCoverUrl);
-      if (proxiedUrl !== frontCoverUrl) {
-        console.log("Forcing proxy for frontCoverUrl");
-        setFrontCoverUrl(proxiedUrl);
-      }
-    }
-    
-    if (fullCoverUrl && fullCoverUrl.includes('ideogram.ai')) {
-      const proxiedUrl = forceProxyForIdeogramUrl(fullCoverUrl);
-      if (proxiedUrl !== fullCoverUrl) {
-        console.log("Forcing proxy for fullCoverUrl");
-        setFullCoverUrl(proxiedUrl);
-      }
-    }
-  }, [frontCoverUrl, fullCoverUrl, isGenerating, isCreatingFullCover, isDownloading]);
-
   return (
     <PageLayout
       title="Book Cover Generator"
@@ -928,28 +895,28 @@ const BookCoverGenerator = () => {
                   </div>
                   
                   {/* Generate button */}
-                  <Button 
+                  <button 
+                    id="generate-cover-button"
                     type="button" 
-                    className="w-full relative z-10"
+                    className="w-full relative z-10 px-4 py-2 font-medium text-white bg-teal-500 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                     disabled={isGenerating}
                     onClick={(e) => {
                       console.log("Direct Generate click handler");
-                      window.alert("Generate Book Cover button clicked!");
                       handleSubmit(e);
                     }}
                   >
                     {isGenerating ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <span className="mr-2">⏳</span>
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="mr-2 h-4 w-4" />
+                        <span className="mr-2">✨</span>
                         Generate Book Cover
                       </>
                     )}
-                  </Button>
+                  </button>
                 </div>
               </form>
             </CardContent>
@@ -1076,7 +1043,6 @@ const BookCoverGenerator = () => {
                   disabled={isCreatingFullCover}
                   onClick={() => {
                     console.log("Direct Create Full Cover click handler");
-                    window.alert("Create Full Cover button clicked!");
                     handleCreateFullCover();
                   }}
                 >
@@ -1120,7 +1086,6 @@ const BookCoverGenerator = () => {
                       disabled={isDownloading}
                       onClick={() => {
                         console.log("Direct download click handler");
-                        window.alert("Download button clicked!");
                         handleDownload();
                       }}
                     >
@@ -1137,7 +1102,6 @@ const BookCoverGenerator = () => {
                       disabled={isGenerating}
                       onClick={() => {
                         console.log("Direct regenerate click handler");
-                        window.alert("Regenerate button clicked!");
                         handleRegenerate();
                       }}
                     >

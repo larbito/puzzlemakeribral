@@ -6,23 +6,29 @@ const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
-  console.log("Original URL:", url);
+  // Basic validation to prevent errors
+  if (!url || typeof url !== 'string') {
+    console.error("Invalid URL provided to proxy", url);
+    return url || '';
+  }
   
-  // If it's already a data URL or blob URL, return as is
-  if (url.startsWith('data:') || url.startsWith('blob:')) {
-    console.log("URL is already a data or blob URL, skipping proxy");
+  try {
+    // If it's already a data URL or blob URL, return as is
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      return url;
+    }
+    
+    // If it's an ideogram.ai URL, proxy it
+    if (url.includes('ideogram.ai')) {
+      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+    }
+    
+    // Otherwise return the original URL
+    return url;
+  } catch (error) {
+    console.error("Error in proxy function:", error);
     return url;
   }
-  
-  // If it's an ideogram.ai URL, proxy it
-  if (url.includes('ideogram.ai')) {
-    const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
-    console.log("Using proxy URL:", proxyUrl);
-    return proxyUrl;
-  }
-  
-  // Otherwise return the original URL
-  return url;
 }
 
 // For development/debugging - set to true to use placeholder images instead of real API
@@ -728,101 +734,97 @@ export interface ExtractedColors {
 
 // Extract dominant colors from an image
 export async function extractColorsFromImage(imageUrl: string): Promise<ExtractedColors> {
-  console.log("Extracting colors from image:", imageUrl.slice(0, 50) + "...");
-  
-  // Use our proxy for ideogram URLs
-  const proxiedUrl = forceProxyForIdeogramUrl(imageUrl);
-  console.log("Using URL for color extraction:", proxiedUrl.slice(0, 50) + "...");
-  
-  return new Promise((resolve, reject) => {
-    try {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      
-      // Add a timeout to prevent hanging
-      const timeout = setTimeout(() => {
-        console.warn("Color extraction timed out");
-        resolve({ colors: [], dominantColor: "#333333" });
-      }, 5000);
-      
-      // Save the original onload handler
-      const originalOnLoad = img.onload;
-      
-      // Set up the onload handler that clears the timeout
-      img.onload = function(ev: Event) {
-        console.log("Image loaded for color extraction, dimensions:", img.width, "x", img.height);
-        clearTimeout(timeout);
+  try {
+    // Use our proxy for ideogram URLs
+    const proxiedUrl = forceProxyForIdeogramUrl(imageUrl);
+    
+    return new Promise((resolve, reject) => {
+      try {
+        const img = new Image();
+        img.crossOrigin = "Anonymous";
         
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        
-        if (!ctx) {
-          console.error("Failed to get canvas context for color extraction");
+        // Add a timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          console.warn("Color extraction timed out");
           resolve({ colors: [], dominantColor: "#333333" });
-          return;
-        }
+        }, 5000);
         
-        try {
-          ctx.drawImage(img, 0, 0);
-          console.log("Image drawn to canvas for color extraction");
+        // Set up the onload handler
+        img.onload = function() {
+          clearTimeout(timeout);
           
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-          console.log("Image data retrieved, processing", imageData.length / 4, "pixels");
-          
-          // Simple color extraction - more sophisticated algorithms could be used
-          const colorMap: {[key: string]: number} = {};
-          const step = 4; // Sample every few pixels for performance
-          
-          for (let i = 0; i < imageData.length; i += 4 * step) {
-            // Skip transparent pixels
-            if (imageData[i + 3] < 128) continue;
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
             
-            // Convert to hex and round to reduce color variations
-            const r = Math.round(imageData[i] / 16) * 16;
-            const g = Math.round(imageData[i + 1] / 16) * 16;
-            const b = Math.round(imageData[i + 2] / 16) * 16;
+            if (!ctx) {
+              resolve({ colors: [], dominantColor: "#333333" });
+              return;
+            }
             
-            const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-            colorMap[hex] = (colorMap[hex] || 0) + 1;
+            ctx.drawImage(img, 0, 0);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+            console.log("Image data retrieved, processing", imageData.length / 4, "pixels");
+            
+            // Simple color extraction - more sophisticated algorithms could be used
+            const colorMap: {[key: string]: number} = {};
+            const step = 4; // Sample every few pixels for performance
+            
+            for (let i = 0; i < imageData.length; i += 4 * step) {
+              // Skip transparent pixels
+              if (imageData[i + 3] < 128) continue;
+              
+              // Convert to hex and round to reduce color variations
+              const r = Math.round(imageData[i] / 16) * 16;
+              const g = Math.round(imageData[i + 1] / 16) * 16;
+              const b = Math.round(imageData[i + 2] / 16) * 16;
+              
+              const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+              colorMap[hex] = (colorMap[hex] || 0) + 1;
+            }
+            
+            // Sort colors by frequency and get top colors
+            const sortedColors = Object.entries(colorMap)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 6)
+              .map(([color]) => color);
+            
+            console.log("Extracted colors:", sortedColors);
+            
+            // Determine dominant color (first color from the extracted set)
+            const dominantColor = sortedColors.length > 0 ? sortedColors[0] : "#333333";
+            console.log("Dominant color:", dominantColor);
+            
+            resolve({ 
+              colors: sortedColors,
+              dominantColor
+            });
+          } catch (error) {
+            console.error("Error processing image for color extraction:", error);
+            resolve({ colors: [], dominantColor: "#333333" });
           }
-          
-          // Sort colors by frequency and get top colors
-          const sortedColors = Object.entries(colorMap)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 6)
-            .map(([color]) => color);
-          
-          console.log("Extracted colors:", sortedColors);
-          
-          // Determine dominant color (first color from the extracted set)
-          const dominantColor = sortedColors.length > 0 ? sortedColors[0] : "#333333";
-          console.log("Dominant color:", dominantColor);
-            
-          resolve({ 
-            colors: sortedColors,
-            dominantColor
-          });
-        } catch (error) {
-          console.error("Error processing image for color extraction:", error);
+        };
+        
+        img.onerror = (error) => {
+          clearTimeout(timeout);
+          console.error("Error loading image for color extraction:", error);
           resolve({ colors: [], dominantColor: "#333333" });
-        }
-      };
-      
-      img.onerror = (error) => {
-        clearTimeout(timeout);
-        console.error("Error loading image for color extraction:", error);
+        };
+        
+        console.log("Starting to load image for color extraction");
+        img.src = proxiedUrl;
+      } catch (error) {
+        console.error("Error in color extraction:", error);
         resolve({ colors: [], dominantColor: "#333333" });
-      };
-      
-      console.log("Starting to load image for color extraction");
-      img.src = proxiedUrl;
-    } catch (error) {
-      console.error("Error in color extraction:", error);
-      resolve({ colors: [], dominantColor: "#333333" });
-    }
-  });
+      }
+    });
+  } catch (error) {
+    console.error("Error in extractColorsFromImage:", error);
+    return { colors: [], dominantColor: "#333333" };
+  }
 }
 
 export interface CreateFullBookCoverParams {
