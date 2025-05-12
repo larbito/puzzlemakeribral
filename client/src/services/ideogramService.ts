@@ -842,20 +842,193 @@ export async function createFullBookCover({
       }
 
       // Use our proxy endpoint for loading the front cover
-      const proxyUrl = `${API_URL}/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
+      const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
       
       // Create a new image element
       const frontCoverImg = new Image();
       frontCoverImg.crossOrigin = "anonymous"; // Enable CORS
       
-      // Load the front cover through our proxy
-      await new Promise((resolve, reject) => {
-        frontCoverImg.onload = resolve;
-        frontCoverImg.onerror = () => reject(new Error("Failed to load front cover image"));
-        frontCoverImg.src = proxyUrl;
-      });
-
-      // ... existing code ...
+      // Create a canvas with the total cover dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = dimensions.widthPixels;
+      canvas.height = dimensions.heightPixels;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error("Could not create canvas context"));
+        return;
+      }
+      
+      // Calculate regions for each part of the cover
+      const DPI = 300;
+      
+      // Add 0.125" bleed on each side
+      const bleedInches = 0.125;
+      const bleedPixels = bleedInches * DPI;
+      
+      // Convert spine width to pixels
+      const spineWidthPixels = Math.round(dimensions.spineWidth * DPI);
+      
+      // Calculate trim size width and height in pixels
+      const trimWidthInches = (dimensions.widthInches - (bleedInches * 2) - dimensions.spineWidth) / 2;
+      const trimHeightInches = dimensions.heightInches - (bleedInches * 2);
+      
+      const trimWidthPixels = Math.round(trimWidthInches * DPI);
+      const trimHeightPixels = Math.round(trimHeightInches * DPI);
+      
+      // Calculate regions
+      const leftCoverX = 0;
+      const spineX = leftCoverX + trimWidthPixels + bleedPixels;
+      const rightCoverX = spineX + spineWidthPixels;
+      
+      // Set white background for the whole canvas
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      try {
+        // Load the front cover through our proxy
+        await new Promise((resolve, reject) => {
+          frontCoverImg.onload = resolve;
+          frontCoverImg.onerror = () => reject(new Error("Failed to load front cover image"));
+          frontCoverImg.src = proxyUrl;
+        });
+        
+        console.log("Front cover image loaded successfully");
+        
+        // Draw the front cover (right side)
+        ctx.drawImage(
+          frontCoverImg, 
+          rightCoverX, // x position
+          0,          // y position
+          trimWidthPixels + bleedPixels, // width
+          canvas.height  // height
+        );
+        
+        // Extract colors from the front cover for the spine
+        let extractedColors: ExtractedColors = { colors: [], dominantColor: "#333333" };
+        
+        try {
+          extractedColors = await extractColorsFromImage(frontCoverUrl);
+          console.log("Extracted colors:", extractedColors.colors);
+        } catch (colorError) {
+          console.error("Error extracting colors:", colorError);
+          // Continue with default color
+        }
+        
+        // Use provided spine color or the dominant color
+        const finalSpineColor = spineColor || extractedColors.dominantColor || "#333333";
+        console.log("Using spine color:", finalSpineColor);
+        
+        // Draw the spine
+        ctx.fillStyle = finalSpineColor;
+        ctx.fillRect(spineX, 0, spineWidthPixels, canvas.height);
+        
+        // Add spine text if provided and spine is thick enough
+        if (spineText && dimensions.spineWidth >= 0.1) {
+          // Draw the spine text vertically
+          ctx.save();
+          
+          // Text style
+          ctx.fillStyle = "#FFFFFF"; // White text
+          ctx.font = `bold ${Math.min(spineWidthPixels * 0.8, 36)}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          
+          // Rotate and position for vertical text
+          ctx.translate(spineX + spineWidthPixels / 2, canvas.height / 2);
+          ctx.rotate(-Math.PI / 2); // Rotate 90 degrees counter-clockwise
+          
+          // Draw the text
+          ctx.fillText(spineText, 0, 0);
+          
+          // Restore canvas context
+          ctx.restore();
+        }
+        
+        // Create the back cover (left side) - blurred version of front cover
+        console.log("Creating back cover (blurred version)");
+        
+        // Create a temporary canvas for the blur effect
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = trimWidthPixels + bleedPixels;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        if (!tempCtx) {
+          throw new Error("Could not create temporary canvas context");
+        }
+        
+        // Draw the front cover on the temporary canvas
+        tempCtx.drawImage(frontCoverImg, 0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Apply a blur effect (if supported)
+        try {
+          tempCtx.filter = 'blur(15px) brightness(0.8)';
+          tempCtx.drawImage(tempCanvas, 0, 0);
+        } catch (error) {
+          console.warn("Blur filter not supported:", error);
+          // If blur filter is not supported, just darken the image
+          tempCtx.fillStyle = "rgba(0, 0, 0, 0.3)";
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        }
+        
+        // Draw the blurred image as the back cover
+        ctx.drawImage(tempCanvas, leftCoverX, 0);
+        
+        // Add title and author to back cover
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 40px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        
+        // Add a semi-transparent background for text readability
+        const textBgY = canvas.height - 180;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(leftCoverX, textBgY, trimWidthPixels + bleedPixels, 160);
+        
+        // Add title and author
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 40px Arial";
+        ctx.fillText(title, leftCoverX + (trimWidthPixels + bleedPixels) / 2, textBgY + 40);
+        
+        ctx.font = "30px Arial";
+        ctx.fillText(author, leftCoverX + (trimWidthPixels + bleedPixels) / 2, textBgY + 100);
+        
+        // Add trim guidelines if requested
+        if (showGuides) {
+          // Draw guides for front cover
+          ctx.strokeStyle = "rgba(255, 0, 0, 0.6)";
+          ctx.setLineDash([10, 10]);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(
+            rightCoverX + bleedPixels, 
+            bleedPixels, 
+            trimWidthPixels - bleedPixels * 2, 
+            trimHeightPixels
+          );
+          
+          // Draw guides for back cover
+          ctx.strokeRect(
+            leftCoverX + bleedPixels, 
+            bleedPixels, 
+            trimWidthPixels - bleedPixels * 2, 
+            trimHeightPixels
+          );
+          
+          // Draw spine guides
+          ctx.strokeStyle = "rgba(0, 0, 255, 0.6)";
+          ctx.strokeRect(spineX, 0, spineWidthPixels, canvas.height);
+        }
+        
+        // Finalize and return the complete cover
+        console.log("Full book cover created successfully");
+        const finalImageUrl = canvas.toDataURL('image/png');
+        
+        resolve(finalImageUrl);
+      } catch (error) {
+        console.error("Error creating full cover:", error);
+        reject(error);
+      }
     } catch (error) {
       console.error("Error in createFullBookCover:", error);
       reject(error);

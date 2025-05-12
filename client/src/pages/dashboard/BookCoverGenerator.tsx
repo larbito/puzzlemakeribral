@@ -992,7 +992,7 @@ const BookCoverGenerator = () => {
                   type="button"
                   className="w-full"
                   onClick={handleCreateFullCover}
-                  variant={isCreatingFullCover ? "outline" : "default"}
+                  disabled={isCreatingFullCover}
                 >
                   {isCreatingFullCover ? (
                     <>
@@ -1032,16 +1032,26 @@ const BookCoverGenerator = () => {
                       variant="outline" 
                       size="sm"
                       onClick={handleDownload}
+                      disabled={isDownloading}
                     >
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isDownloading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                      )}
                       Download Cover
                     </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
                       onClick={handleRegenerate}
+                      disabled={isGenerating}
                     >
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isGenerating ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                      )}
                       Regenerate
                     </Button>
                   </div>
