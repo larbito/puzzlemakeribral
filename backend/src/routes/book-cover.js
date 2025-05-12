@@ -193,49 +193,43 @@ router.post('/generate-front', express.json(), async (req, res) => {
       }
     }
     
-    console.log('Calculated dimensions:', {
-      original: { width: pixelWidth, height: pixelHeight },
-      target: { width: targetWidth, height: targetHeight }
-    });
-    
-    // Format as "WxH"
-    const aspectRatio = `${targetWidth}x${targetHeight}`;
-    
-    // Create form data for the Ideogram API
-    const form = new FormData();
-    form.append('prompt', prompt);
-    form.append('aspect_ratio', aspectRatio);
-    form.append('rendering_speed', 'TURBO');
-
-    if (negative_prompt) {
-      form.append('negative_prompt', negative_prompt);
-    }
-
-    // Add some default parameters
-    form.append('num_images', '1');
-    form.append('seed', Math.floor(Math.random() * 1000000));
-
-    console.log('Making request to Ideogram API with form data:', {
-      prompt,
-      aspect_ratio: aspectRatio,
-      rendering_speed: 'TURBO',
-      negative_prompt: negative_prompt || 'None'
-    });
+    console.log('Using scaled dimensions:', { targetWidth, targetHeight });
     
     // For testing when the API key is not available or not valid
     if (!apiKey || apiKey.includes('your_api_key_here')) {
-      console.log('Using mock response for Ideogram API');
+      console.log('Using mock response for Ideogram API (no valid API key)');
       
       // Return a placeholder image with the correct dimensions
       return res.json({
         status: 'success',
         url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
         width: pixelWidth,
-        height: pixelHeight
+        height: pixelHeight,
+        message: 'Using placeholder due to missing API key'
       });
     }
     
     try {
+      // Create form data for the Ideogram API
+      const form = new FormData();
+      form.append('prompt', prompt);
+      form.append('width', targetWidth.toString());
+      form.append('height', targetHeight.toString());
+      
+      // Add negative prompt if provided
+      if (negative_prompt) {
+        form.append('negative_prompt', negative_prompt);
+      } else {
+        form.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
+      }
+      
+      // Add some default parameters
+      form.append('num_images', '1');
+      form.append('seed', Math.floor(Math.random() * 1000000));
+      form.append('rendering_speed', 'STANDARD');
+      
+      console.log('Form data prepared for Ideogram API');
+      
       // Real API call
       const response = await fetch('https://api.ideogram.ai/api/v1/ideogram-v3/generate', {
         method: 'POST',
