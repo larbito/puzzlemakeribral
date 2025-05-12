@@ -23,7 +23,11 @@ app.use((req, res, next) => {
 
 // Configure CORS
 const corsOptions = {
-  origin: true, // Reflect the request origin
+  origin: [
+    'https://puzzlemakeribral.vercel.app',
+    'http://localhost:5177',
+    'http://localhost:3000'
+  ],
   credentials: false,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Origin', 'X-Requested-With'],
@@ -40,7 +44,10 @@ app.use(cors(corsOptions));
 
 // Add custom headers middleware
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (corsOptions.origin.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Origin, X-Requested-With');
   res.header('Access-Control-Max-Age', '86400');
