@@ -265,11 +265,33 @@ const BookCoverCreator = () => {
                     id="coverDescription"
                     value={coverDescription}
                     onChange={(e) => {
-                      if (e.target.value.length <= MAX_PROMPT_CHARS) {
-                        setCoverDescription(e.target.value);
+                      const newText = e.target.value;
+                      if (newText.length <= MAX_PROMPT_CHARS) {
+                        setCoverDescription(newText);
+                      } else {
+                        setCoverDescription(newText.slice(0, MAX_PROMPT_CHARS));
+                        toast.info(`Text limited to ${MAX_PROMPT_CHARS} characters`);
                       }
                     }}
-                    placeholder="Describe your book cover concept..."
+                    onPaste={(e) => {
+                      e.persist();
+                      const pastedText = e.clipboardData.getData('text');
+                      const currentText = coverDescription;
+                      const cursorPosition = e.currentTarget.selectionStart || 0;
+                      const textBeforeCursor = currentText.slice(0, cursorPosition);
+                      const textAfterCursor = currentText.slice(cursorPosition);
+                      const newText = textBeforeCursor + pastedText + textAfterCursor;
+                      
+                      if (newText.length <= MAX_PROMPT_CHARS) {
+                        // Let the default paste happen
+                      } else {
+                        e.preventDefault();
+                        const allowedText = newText.slice(0, MAX_PROMPT_CHARS);
+                        setCoverDescription(allowedText);
+                        toast.info(`Text limited to ${MAX_PROMPT_CHARS} characters`);
+                      }
+                    }}
+                    placeholder="Describe your book cover concept... (paste or type your description)"
                     rows={4}
                   />
                   <div className="character-count">
@@ -317,23 +339,44 @@ const BookCoverCreator = () => {
 
               {addInteriorImages && (
                 <div className="uploader-container">
-                  <Label htmlFor="imageUpload">🖼️ Add Interior Pages to Back (up to 6 images)</Label>
-                  <Input
-                    id="imageUpload"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp"
-                    onChange={handleFileUpload}
-                    multiple
-                    disabled={uploadedImages.length >= 6}
-                  />
-                  <div className="uploaded-images">
-                    {uploadedImages.map((file, index) => (
-                      <div key={index} className="image-thumbnail">
-                        <img src={URL.createObjectURL(file)} alt={`Uploaded ${index + 1}`} />
-                        <button className="remove-image" onClick={() => removeImage(index)}>×</button>
-                      </div>
-                    ))}
+                  <div className="upload-instructions">
+                    <div className="upload-icon">🖼️</div>
+                    <div className="upload-text">
+                      <h4>Add Interior Pages to Back Cover</h4>
+                      <p>Select up to 6 images (JPG, PNG, WebP - max 2MB each)</p>
+                    </div>
                   </div>
+                  
+                  <div className="file-upload-button">
+                    <label htmlFor="imageUpload" className="custom-file-upload">
+                      📁 Choose Files
+                    </label>
+                    <Input
+                      id="imageUpload"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp"
+                      onChange={handleFileUpload}
+                      multiple
+                      disabled={uploadedImages.length >= 6}
+                      className="hidden-input"
+                    />
+                    <span className="file-count">{uploadedImages.length}/6 images</span>
+                  </div>
+                  
+                  {uploadedImages.length > 0 && (
+                    <div className="uploaded-images">
+                      {uploadedImages.map((file, index) => (
+                        <div key={index} className="image-thumbnail">
+                          <img src={URL.createObjectURL(file)} alt={`Uploaded ${index + 1}`} />
+                          <button 
+                            className="remove-image" 
+                            onClick={() => removeImage(index)}
+                            title="Remove image"
+                          >×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
