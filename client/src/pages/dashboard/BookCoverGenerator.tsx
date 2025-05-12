@@ -90,6 +90,25 @@ interface BookCoverHistoryItem {
   createdAt: string;
 }
 
+// Calculate full cover dimensions based on trim size and page count
+const calculateFullCoverDimensions = (trimSize: string, pageCount: number) => {
+  // Parse trim size (e.g., "6x9" to { width: 6, height: 9 })
+  const [width, height] = trimSize.split('x').map(Number);
+  
+  // Calculate spine width based on page count (assuming standard white paper)
+  // Formula: (page count * 0.002252) inches for white paper
+  const spineWidth = pageCount * 0.002252;
+  
+  // Return dimensions object
+  return {
+    widthInches: (width * 2) + spineWidth, // Front + Back + Spine
+    heightInches: height,
+    spineWidth,
+    widthPixels: Math.round(((width * 2) + spineWidth) * 300), // Convert to pixels at 300 DPI
+    heightPixels: Math.round(height * 300)
+  };
+};
+
 const BookCoverGenerator = () => {
   // State for form inputs
   const [bookType, setBookType] = useState("paperback");
@@ -512,86 +531,44 @@ const BookCoverGenerator = () => {
       });
   };
 
-  // Generate full cover from front cover with improved error handling
+  // Generate full cover from front cover
   const handleCreateFullCover = async () => {
     if (!frontCoverUrl) {
       toast.error("Please generate a front cover first");
       return;
     }
-    
-    if (isCreatingFullCover) {
-      toast.error("Already creating full cover. Please wait...");
-      return;
-    }
-    
-    // Always use default values since fields have been removed
-    const titleToUse = "Book Title";
-    const authorToUse = "Author Name";
-    
+
     // Show loading toast
     const toastId = "create-full-cover";
     toast.loading("Creating full cover...", { id: toastId });
     setIsCreatingFullCover(true);
-    
-    // Add timeout protection
-    const timeoutId = setTimeout(() => {
-      setIsCreatingFullCover(false);
-      toast.error("Full cover creation timed out. Please try again.", { id: toastId });
-    }, 60000); // 60 second timeout
-    
+
     try {
-      // Validate and potentially recalculate dimensions
-      const validDimensions = validateDimensions();
-      if (!validDimensions) {
-        throw new Error("Invalid dimensions. Please adjust book specifications.");
-      }
-      
-      // Use the dimensions (either existing or newly calculated)
-      const dimensionsToUse = typeof validDimensions === 'object' ? validDimensions : dimensions;
-      
-      // Make a local copy of the interior previews and validate files
-      const previewsToUse = showInteriorPreviews ? interiorPreviews.filter(file => 
-        file && file instanceof File && file.type.startsWith('image/')
-      ) : [];
-      
+      // Get the dimensions for the full cover
+      const dimensions = calculateFullCoverDimensions(trimSize, pageCount);
+
       // Create the full cover
-      const fullCoverResult = await createFullBookCover({
+      const fullCoverDataUrl = await createFullBookCover({
         frontCoverUrl,
-        title: titleToUse,
-        author: authorToUse,
-        spineText: dimensionsToUse.spineWidth >= 0.1 ? spineText : undefined,
-        spineColor,
-        dimensions: dimensionsToUse,
-        interiorPreviewImages: previewsToUse,
-        showGuides
+        title: "Book Title", // Default title
+        author: "Author Name", // Default author
+        spineText: "Book Title", // Default spine text
+        spineColor: undefined, // Let it be extracted from the cover
+        dimensions,
+        showGuides: true
       });
-      
-      if (!fullCoverResult) {
-        throw new Error("No full cover image was returned");
-      }
-      
-      // Set the full cover URL state
-      setFullCoverUrl(fullCoverResult);
-      
-      // Save to history
-      saveToHistory(
-        frontCoverUrl, 
-        fullCoverResult,
-        extractedColors.colors
-      );
-      
-      // Clear loading toast and show success
-      clearTimeout(timeoutId);
-      toast.success("Full book cover created successfully!", { id: toastId });
+
+      // Update the state with the new full cover
+      setFullCoverUrl(fullCoverDataUrl);
       
       // Switch to full cover tab
       setActiveTab("full-cover");
+      
+      // Show success message
+      toast.success("Full cover created successfully!", { id: toastId });
     } catch (error) {
       console.error("Error creating full cover:", error);
-      clearTimeout(timeoutId);
-      
-      // Show detailed error message
-      toast.error(`Failed to create full cover: ${error instanceof Error ? error.message : "Unknown error"}`, { id: toastId });
+      toast.error(error instanceof Error ? error.message : "Failed to create full cover", { id: toastId });
     } finally {
       setIsCreatingFullCover(false);
     }
