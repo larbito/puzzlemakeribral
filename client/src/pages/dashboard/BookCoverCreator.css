@@ -42,8 +42,13 @@
   @apply flex justify-between items-center;
 }
 
+/* Button Styling */
 .generate-button {
-  @apply w-full mt-4 bg-primary hover:bg-primary/90 text-white font-medium;
+  @apply w-full mt-4 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-2.5 rounded-lg transition-all;
+}
+
+.generate-button:disabled {
+  @apply bg-muted text-muted-foreground opacity-50 cursor-not-allowed;
 }
 
 /* Uploaded Images */
@@ -96,7 +101,7 @@
 
 /* Tab styles with active highlight */
 .preview-tabs [data-state="active"] {
-  @apply border-b-2 border-primary text-primary;
+  @apply border-b-2 border-primary text-primary font-medium;
 }
 
 .preview-tabs [data-state="inactive"] {
@@ -129,13 +134,23 @@
 }
 
 .regenerate-button {
-  @apply flex-none text-foreground font-medium hover:text-primary;
+  @apply flex-none bg-muted hover:bg-muted/80 text-foreground font-semibold px-4 py-2 rounded-lg transition-all;
+}
+
+.regenerate-button:disabled {
+  @apply bg-muted/50 text-muted-foreground opacity-50 cursor-not-allowed;
 }
 
 .create-full-button,
 .download-button,
 .download-pdf-button {
-  @apply flex-1 text-white font-medium;
+  @apply flex-1 bg-primary hover:bg-primary/90 text-white font-semibold px-6 py-2.5 rounded-lg transition-all;
+}
+
+.create-full-button:disabled,
+.download-button:disabled,
+.download-pdf-button:disabled {
+  @apply bg-muted text-muted-foreground opacity-50 cursor-not-allowed;
 }
 
 /* Character counter for text areas */
@@ -145,6 +160,16 @@
 
 .character-count {
   @apply absolute bottom-2 right-2 text-xs text-muted-foreground;
+}
+
+/* Preview image container */
+.preview-image-container {
+  @apply w-full h-full relative;
+}
+
+.trim-guides {
+  @apply absolute inset-0 border-2 border-dashed border-primary/60 pointer-events-none;
+  border-width: 1px;
 }
 
 @media (max-width: 640px) {

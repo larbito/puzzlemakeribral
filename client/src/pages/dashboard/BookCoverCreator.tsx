@@ -16,6 +16,25 @@ import './BookCoverCreator.css';
 
 const MAX_PROMPT_CHARS = 500;
 
+// KDP supported trim sizes
+const KDP_TRIM_SIZES = [
+  { label: '5" x 8"', value: '5x8', width: 5, height: 8 },
+  { label: '5.06" x 7.81"', value: '5.06x7.81', width: 5.06, height: 7.81 },
+  { label: '5.25" x 8"', value: '5.25x8', width: 5.25, height: 8 },
+  { label: '5.5" x 8.5"', value: '5.5x8.5', width: 5.5, height: 8.5 },
+  { label: '6" x 9"', value: '6x9', width: 6, height: 9 },
+  { label: '6.14" x 9.21"', value: '6.14x9.21', width: 6.14, height: 9.21 },
+  { label: '6.69" x 9.61"', value: '6.69x9.61', width: 6.69, height: 9.61 },
+  { label: '7" x 10"', value: '7x10', width: 7, height: 10 },
+  { label: '7.44" x 9.69"', value: '7.44x9.69', width: 7.44, height: 9.69 },
+  { label: '7.5" x 9.25"', value: '7.5x9.25', width: 7.5, height: 9.25 },
+  { label: '8" x 10"', value: '8x10', width: 8, height: 10 },
+  { label: '8.25" x 6"', value: '8.25x6', width: 8.25, height: 6 },
+  { label: '8.25" x 8.25"', value: '8.25x8.25', width: 8.25, height: 8.25 },
+  { label: '8.5" x 8.5"', value: '8.5x8.5', width: 8.5, height: 8.5 },
+  { label: '8.5" x 11"', value: '8.5x11', width: 8.5, height: 11 }
+];
+
 const BookCoverCreator = () => {
   // State variables for book specifications
   const [bookType, setBookType] = useState('paperback');
@@ -38,6 +57,11 @@ const BookCoverCreator = () => {
   const [frontCoverGenerated, setFrontCoverGenerated] = useState(false);
   const [fullCoverGenerated, setFullCoverGenerated] = useState(false);
 
+  // Find the current trim size dimensions
+  const getCurrentTrimSize = () => {
+    return KDP_TRIM_SIZES.find(size => size.value === trimSize) || KDP_TRIM_SIZES[4]; // Default to 6x9
+  };
+
   // Calculate spine width based on page count
   const calculateSpineWidth = () => {
     const pagesPerInch = paperColor === 'white' ? 434 : 370;
@@ -46,15 +70,24 @@ const BookCoverCreator = () => {
 
   // Calculate final dimensions with bleed
   const calculateDimensions = () => {
-    const [width, height] = trimSize.split('x').map(Number);
+    const currentSize = getCurrentTrimSize();
     return {
-      width: width + 0.25,
-      height: height + 0.25,
+      width: currentSize.width + 0.25,
+      height: currentSize.height + 0.25,
       spineWidth: calculateSpineWidth()
     };
   };
 
   const dimensions = calculateDimensions();
+
+  // Calculate resolution based on trim size
+  useEffect(() => {
+    const currentSize = getCurrentTrimSize();
+    setImageResolution({
+      width: Math.round(currentSize.width * 300), // 300 DPI
+      height: Math.round(currentSize.height * 300)
+    });
+  }, [trimSize]);
 
   // Extract dominant colors from the cover image
   useEffect(() => {
@@ -167,10 +200,11 @@ const BookCoverCreator = () => {
                     <SelectValue placeholder="Select trim size" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="6x9">6" x 9"</SelectItem>
-                    <SelectItem value="5.5x8.5">5.5" x 8.5"</SelectItem>
-                    <SelectItem value="5x8">5" x 8"</SelectItem>
-                    <SelectItem value="8x10">8" x 10"</SelectItem>
+                    {KDP_TRIM_SIZES.map((size) => (
+                      <SelectItem key={size.value} value={size.value}>
+                        {size.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
