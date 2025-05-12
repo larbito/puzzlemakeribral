@@ -65,7 +65,7 @@
 }
 
 .remove-image {
-  @apply absolute top-1 right-1 w-6 h-6 rounded-full bg-destructive text-white flex items-center justify-center border-none cursor-pointer text-base leading-none;
+  @apply absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center border-none cursor-pointer text-base leading-none;
 }
 
 /* Color Swatches */
