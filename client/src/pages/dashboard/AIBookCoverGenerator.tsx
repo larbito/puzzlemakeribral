@@ -19,6 +19,7 @@ import {
 } from '@/lib/bookCoverApi';
 import { generateBookCover } from '@/services/bookCoverService';
 import './AIBookCoverGenerator.css';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const MAX_PROMPT_CHARS = 500;
 
@@ -403,6 +404,11 @@ const AIBookCoverGenerator = () => {
                   />
                   <div className="character-count">
                     {coverDescription.length}/{MAX_PROMPT_CHARS}
+                    {coverDescription.trim().length < 5 && coverDescription.trim().length > 0 && (
+                      <span className="min-length-warning">
+                        (Need {5 - coverDescription.trim().length} more characters)
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -418,13 +424,37 @@ const AIBookCoverGenerator = () => {
                 </div>
               </div>
 
-              <Button 
-                className="generate-button" 
-                onClick={handleGenerateFrontCover}
-                disabled={isGenerating || coverDescription.trim().length < 5}
-              >
-                {isGenerating ? '🔄 Generating...' : '🎨 Generate Front Cover'}
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div style={{ width: '100%' }}>
+                      <Button 
+                        className="generate-button" 
+                        onClick={handleGenerateFrontCover}
+                        disabled={isGenerating || coverDescription.trim().length < 5}
+                        variant={coverDescription.trim().length >= 5 ? "default" : "secondary"}
+                      >
+                        {isGenerating ? (
+                          <>🔄 Generating...</>
+                        ) : coverDescription.trim().length < 5 ? (
+                          <>✏️ Enter at least 5 characters</>
+                        ) : (
+                          <>🎨 Generate Front Cover</>
+                        )}
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isGenerating ? (
+                      "Please wait while your cover is being generated..."
+                    ) : coverDescription.trim().length < 5 ? (
+                      "Please enter a more detailed description for your cover (at least 5 characters)"
+                    ) : (
+                      "Click to generate your book cover"
+                    )}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardContent>
           </Card>
 
