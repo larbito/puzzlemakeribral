@@ -17,6 +17,7 @@ import {
   assembleFullCover,
   downloadCover
 } from '@/lib/bookCoverApi';
+import { generateBookCover } from '@/services/bookCoverService';
 import './AIBookCoverGenerator.css';
 
 const MAX_PROMPT_CHARS = 500;
@@ -156,19 +157,20 @@ const AIBookCoverGenerator = () => {
       // Show a toast for better user feedback
       toast.loading('Generating your book cover...');
       
-      const result = await generateFrontCover({
+      const imageUrl = await generateBookCover({
         prompt: coverDescription,
         width: dimensions.frontCover.widthPx,
-        height: dimensions.frontCover.heightPx
+        height: dimensions.frontCover.heightPx,
+        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed'
       });
       
-      console.log('Generation result:', result);
+      console.log('Generation result:', imageUrl);
       
-      if (!result || !result.url) {
-        throw new Error('No image URL returned from the server');
+      if (!imageUrl) {
+        throw new Error('No image URL returned from the service');
       }
       
-      setFrontCoverUrl(result.url);
+      setFrontCoverUrl(imageUrl);
       setFrontCoverGenerated(true);
       
       // Dismiss the loading toast and show success
