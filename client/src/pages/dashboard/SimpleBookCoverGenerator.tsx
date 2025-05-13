@@ -74,10 +74,38 @@ const SimpleBookCoverGenerator = () => {
     };
   };
 
+  // Handle trim size change
+  const handleTrimSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    console.log('Changing trim size to:', e.target.value);
+    setTrimSize(e.target.value);
+  };
+
+  // Handle paper type change
+  const handlePaperTypeChange = (type: string) => {
+    console.log('Changing paper type to:', type);
+    setPaperType(type);
+  };
+
+  // Handle page count change
+  const handlePageCountChange = (value: number) => {
+    console.log('Changing page count to:', value);
+    if (value >= 24 && value <= 800) {
+      setPageCount(value);
+    }
+  };
+
+  // Handle prompt change
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    console.log('Updating prompt:', e.target.value);
+    setPrompt(e.target.value);
+  };
+
   // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted with:', { prompt, trimSize, paperType, pageCount });
+    
     try {
-      e.preventDefault();
       await handleGenerate();
     } catch (err) {
       console.error('Error in form submission:', err);
@@ -92,6 +120,7 @@ const SimpleBookCoverGenerator = () => {
       return;
     }
 
+    console.log('Starting generation process...');
     setIsGenerating(true);
     setError('');
 
@@ -106,6 +135,7 @@ const SimpleBookCoverGenerator = () => {
     try {
       // Enhanced prompt with specs
       const enhancedPrompt = `Professional book cover design for Amazon KDP: ${prompt}. High resolution 300 DPI.`;
+      console.log('Sending request with prompt:', enhancedPrompt);
       
       const formData = new FormData();
       formData.append('prompt', enhancedPrompt);
@@ -113,6 +143,7 @@ const SimpleBookCoverGenerator = () => {
       formData.append('height', (parseFloat(dimensions.height) * 300).toString());
       formData.append('negative_prompt', 'text, watermark, low quality, distorted');
       
+      console.log('Making API request...');
       const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/ideogram/generate', {
         method: 'POST',
         body: formData
@@ -123,6 +154,7 @@ const SimpleBookCoverGenerator = () => {
       }
 
       const data = await response.json();
+      console.log('Received response:', data);
       
       if (data.url) {
         setCoverUrl(data.url);
@@ -172,7 +204,7 @@ const SimpleBookCoverGenerator = () => {
                   <div className="relative">
                     <textarea
                       value={prompt}
-                      onChange={(e) => setPrompt(e.target.value)}
+                      onChange={handlePromptChange}
                       className="w-full min-h-[120px] rounded-lg border border-primary/20 bg-card p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
                       placeholder="Describe your ideal book cover in detail. Include mood, style, main elements, colors, etc."
                     />
@@ -191,7 +223,7 @@ const SimpleBookCoverGenerator = () => {
                     </label>
                     <select
                       value={trimSize}
-                      onChange={(e) => setTrimSize(e.target.value)}
+                      onChange={handleTrimSizeChange}
                       className="w-full rounded-md border border-primary/20 bg-card p-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                     >
                       {trimSizeOptions.map((option) => (
@@ -212,7 +244,7 @@ const SimpleBookCoverGenerator = () => {
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => setPaperType(option.value)}
+                          onClick={() => handlePaperTypeChange(option.value)}
                           className={`px-4 py-2 rounded-md text-sm transition-colors ${
                             paperType === option.value 
                               ? "bg-primary text-primary-foreground font-medium" 
@@ -236,7 +268,7 @@ const SimpleBookCoverGenerator = () => {
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
+                        onChange={(e) => handlePageCountChange(parseInt(e.target.value))}
                         className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-primary/20"
                       />
                       <input
@@ -244,7 +276,7 @@ const SimpleBookCoverGenerator = () => {
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
+                        onChange={(e) => handlePageCountChange(parseInt(e.target.value))}
                         className="w-20 rounded-md border border-primary/20 bg-card p-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
