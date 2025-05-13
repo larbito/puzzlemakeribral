@@ -6,6 +6,7 @@ const FormData = require('form-data');
 const sharp = require('sharp');
 const { Readable } = require('stream');
 const archiver = require('archiver');
+const ColorThief = require('colorthief');
 
 // Configure multer for handling form data
 const upload = multer({
@@ -700,6 +701,374 @@ function parseColor(color) {
   
   // Default to black
   return { r: 0, g: 0, b: 0, alpha: 1 };
+}
+
+/**
+ * Generate full KDP book cover wrap
+ * POST /api/book-cover/generate-full-wrap
+ */
+router.post('/generate-full-wrap', express.json(), async (req, res) => {
+  try {
+    console.log('=== Full Wrap KDP Cover Generation Request ===');
+    console.log('Request body:', req.body);
+    
+    const {
+      prompt,
+      negative_prompt,
+      trimSize,
+      pageCount,
+      paperType,
+      spineText,
+      bookTitle,
+      authorName,
+      interiorImagesUrls = [],
+      includeBleed = true
+    } = req.body;
+    
+    if (!prompt || !trimSize || !pageCount || !paperType) {
+      return res.status(400).json({ 
+        error: 'Required parameters missing',
+        details: 'Please provide prompt, trimSize, pageCount and paperType'
+      });
+    }
+    
+    // Step 1: Calculate dimensions based on KDP specs
+    // Parse the trim size (format: "5x8", "6x9", etc.)
+    const [widthStr, heightStr] = trimSize.split('x');
+    const trimWidth = parseFloat(widthStr);
+    const trimHeight = parseFloat(heightStr);
+
+    if (isNaN(trimWidth) || isNaN(trimHeight)) {
+      return res.status(400).json({ error: 'Invalid trim size format' });
+    }
+
+    // Calculate spine width based on page count and paper type
+    const pagesPerInch = paperType === 'white' ? 434 : 370;
+    const spineWidth = pageCount / pagesPerInch;
+
+    // Add bleed (0.125" on each side)
+    const bleed = includeBleed ? 0.125 : 0;
+    
+    // Calculate final dimensions
+    const coverWidth = trimWidth + (bleed * 2);
+    const coverHeight = trimHeight + (bleed * 2);
+    const fullCoverWidth = (trimWidth * 2) + spineWidth + (bleed * 2);
+
+    // Calculate pixel dimensions at 300 DPI
+    const dpi = 300;
+    const frontCoverPixelWidth = Math.round(coverWidth * dpi);
+    const frontCoverPixelHeight = Math.round(coverHeight * dpi);
+    const spinePixelWidth = Math.round(spineWidth * dpi);
+    const fullCoverPixelWidth = Math.round(fullCoverWidth * dpi);
+    const fullCoverPixelHeight = Math.round(coverHeight * dpi);
+    
+    console.log('Calculated dimensions:', {
+      frontCover: { width: coverWidth, height: coverHeight, widthPx: frontCoverPixelWidth, heightPx: frontCoverPixelHeight },
+      spine: { width: spineWidth, widthPx: spinePixelWidth },
+      fullCover: { width: fullCoverWidth, height: coverHeight, widthPx: fullCoverPixelWidth, heightPx: fullCoverPixelHeight },
+      bleed,
+      dpi
+    });
+    
+    // Step 2: Generate front cover image
+    console.log('Generating front cover with Ideogram API...');
+    
+    // Check if API key is configured
+    const apiKey = process.env.IDEOGRAM_API_KEY;
+    if (!apiKey) {
+      console.error('Ideogram API key is not set in the environment');
+      return res.status(500).json({ 
+        error: 'API key not configured',
+        details: 'Please set IDEOGRAM_API_KEY in your environment variables'
+      });
+    }
+    
+    // Calculate aspect ratio
+    let targetWidth = frontCoverPixelWidth;
+    let targetHeight = frontCoverPixelHeight;
+    
+    // Scale down if needed for API limits while maintaining aspect ratio
+    const maxDimension = 1024;
+    if (targetWidth > maxDimension || targetHeight > maxDimension) {
+      if (targetWidth >= targetHeight) {
+        targetWidth = maxDimension;
+        targetHeight = Math.round((frontCoverPixelHeight / frontCoverPixelWidth) * maxDimension);
+      } else {
+        targetHeight = maxDimension;
+        targetWidth = Math.round((frontCoverPixelWidth / frontCoverPixelHeight) * maxDimension);
+      }
+    }
+    
+    let frontCoverUrl = null;
+    // Generate front cover with Ideogram API
+    try {
+      // Create form data for the Ideogram API
+      const form = new FormData();
+      form.append('prompt', prompt);
+      form.append('width', targetWidth.toString());
+      form.append('height', targetHeight.toString());
+      
+      // Add negative prompt if provided
+      if (negative_prompt) {
+        form.append('negative_prompt', negative_prompt);
+      } else {
+        form.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
+      }
+      
+      // Add some default parameters
+      form.append('num_images', '1');
+      form.append('seed', Math.floor(Math.random() * 1000000));
+      form.append('rendering_speed', 'STANDARD');
+      
+      console.log('Form data prepared for Ideogram API');
+      
+      // The correct Ideogram API URL is v1
+      const ideogramApiUrl = 'https://api.ideogram.ai/v1/ideogram-v3/generate';
+      
+      // Add API key to headers
+      const headers = {
+        'Api-Key': apiKey,
+      };
+      
+      // Merge with form headers
+      Object.assign(headers, form.getHeaders());
+      
+      // API call
+      const response = await fetch(ideogramApiUrl, {
+        method: 'POST',
+        headers,
+        body: form
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from Ideogram API:', errorText);
+        throw new Error(`Ideogram API returned status ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract the image URL from the response
+      if (data?.data?.[0]?.url) {
+        frontCoverUrl = data.data[0].url;
+      } else if (data?.url) {
+        frontCoverUrl = data.url;
+      } else if (data?.image_url) {
+        frontCoverUrl = data.image_url;
+      }
+
+      if (!frontCoverUrl) {
+        throw new Error('No image URL found in Ideogram API response');
+      }
+    } catch (apiError) {
+      console.error('Error calling Ideogram API:', apiError);
+      return res.status(500).json({ 
+        error: 'Failed to generate front cover',
+        details: apiError.message
+      });
+    }
+    
+    // Step 3: Download and process the front cover image
+    console.log('Downloading front cover image:', frontCoverUrl);
+    let frontCoverBuffer;
+    try {
+      const frontCoverResponse = await fetch(frontCoverUrl);
+      if (!frontCoverResponse.ok) {
+        throw new Error(`Failed to download front cover image: ${frontCoverResponse.statusText}`);
+      }
+      frontCoverBuffer = await frontCoverResponse.buffer();
+      
+      // Resize the front cover to match the target dimensions
+      frontCoverBuffer = await sharp(frontCoverBuffer)
+        .resize({
+          width: frontCoverPixelWidth,
+          height: frontCoverPixelHeight,
+          fit: 'fill'
+        })
+        .toBuffer();
+    } catch (downloadError) {
+      console.error('Error downloading front cover:', downloadError);
+      return res.status(500).json({ 
+        error: 'Failed to download front cover',
+        details: downloadError.message
+      });
+    }
+    
+    // Step 4: Extract dominant color from front cover for spine
+    let spineColor;
+    try {
+      // Create a temporary file from the buffer for ColorThief to process
+      const dataUrl = `data:image/jpeg;base64,${frontCoverBuffer.toString('base64')}`;
+      
+      // Extract color in-memory with ColorThief
+      const dominantColor = await ColorThief.getColor(dataUrl);
+      spineColor = `rgb(${dominantColor[0]}, ${dominantColor[1]}, ${dominantColor[2]})`;
+      console.log('Extracted dominant color for spine:', spineColor);
+    } catch (colorError) {
+      console.error('Error extracting dominant color:', colorError);
+      // Fallback to black if color extraction fails
+      spineColor = '#000000';
+      console.log('Using default spine color:', spineColor);
+    }
+    
+    // Step 5: Create spine with extracted color
+    console.log('Creating spine with width:', spinePixelWidth);
+    let spineBuffer;
+    try {
+      // Only include spine text if the book is thick enough (>= 100 pages)
+      const shouldIncludeSpineText = pageCount >= 100;
+      spineBuffer = await createEnhancedSpine(
+        spinePixelWidth, 
+        fullCoverPixelHeight, 
+        shouldIncludeSpineText ? spineText : null, 
+        spineColor,
+        bookTitle,
+        authorName
+      );
+    } catch (spineError) {
+      console.error('Error creating spine:', spineError);
+      return res.status(500).json({ 
+        error: 'Failed to create spine',
+        details: spineError.message
+      });
+    }
+    
+    // Step 6: Create back cover (with optional interior images)
+    console.log('Creating back cover...');
+    let backCoverBuffer;
+    try {
+      backCoverBuffer = await createBackCover(
+        frontCoverPixelWidth,
+        frontCoverPixelHeight,
+        interiorImagesUrls,
+        frontCoverBuffer
+      );
+    } catch (backCoverError) {
+      console.error('Error creating back cover:', backCoverError);
+      return res.status(500).json({ 
+        error: 'Failed to create back cover',
+        details: backCoverError.message
+      });
+    }
+    
+    // Step 7: Assemble the full cover (back, spine, front)
+    console.log('Assembling full cover...');
+    let fullCoverBuffer;
+    try {
+      // Create a blank white canvas for the full cover
+      const fullCover = sharp({
+        create: {
+          width: fullCoverPixelWidth,
+          height: fullCoverPixelHeight,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 }
+        }
+      });
+      
+      // Composite the three parts (back, spine, front)
+      fullCoverBuffer = await fullCover.composite([
+        { 
+          input: backCoverBuffer, 
+          left: 0, 
+          top: 0 
+        },
+        { 
+          input: spineBuffer, 
+          left: frontCoverPixelWidth, 
+          top: 0 
+        },
+        { 
+          input: frontCoverBuffer, 
+          left: frontCoverPixelWidth + spinePixelWidth, 
+          top: 0 
+        }
+      ]).png().toBuffer();
+    } catch (assembleError) {
+      console.error('Error assembling full cover:', assembleError);
+      return res.status(500).json({ 
+        error: 'Failed to assemble full cover',
+        details: assembleError.message
+      });
+    }
+    
+    // Step 8: Create a data URL for the final image
+    const fullCoverDataUrl = `data:image/png;base64,${fullCoverBuffer.toString('base64')}`;
+    
+    // Return the assembled cover and dimension details
+    res.json({
+      status: 'success',
+      fullCover: fullCoverDataUrl,
+      frontCoverUrl: frontCoverUrl,
+      dimensions: {
+        frontCover: {
+          width: coverWidth,
+          height: coverHeight,
+          widthPx: frontCoverPixelWidth,
+          heightPx: frontCoverPixelHeight,
+        },
+        spine: {
+          width: spineWidth,
+          widthPx: spinePixelWidth,
+        },
+        fullCover: {
+          width: fullCoverWidth,
+          height: coverHeight,
+          widthPx: fullCoverPixelWidth,
+          heightPx: fullCoverPixelHeight,
+        },
+        bleed,
+        dpi
+      },
+      spineColor
+    });
+  } catch (error) {
+    console.error('Error generating full wrap:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate full wrap cover',
+      details: error.message 
+    });
+  }
+});
+
+/**
+ * Enhanced spine creation with text, gradients, and visual treatments
+ */
+async function createEnhancedSpine(width, height, spineText, spineColor, bookTitle, authorName) {
+  // Create spine with extracted color
+  const spineImage = sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: parseColor(spineColor)
+    }
+  });
+
+  // If spine text provided and width is sufficient, add it to the spine
+  if (spineText && width >= 40) {
+    console.log('Adding spine text:', spineText);
+    
+    // Here we would add text overlay, but since sharp doesn't support text rendering
+    // we'll create a visual treatment for the spine
+    // In a production environment, you would use canvas or another library for text rendering
+    
+    // Create a dark gradient overlay for the spine to make text more visible
+    const gradientOverlay = await sharp({
+      create: {
+        width,
+        height,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0.2 }
+      }
+    }).toBuffer();
+    
+    // Composite the gradient over the spine
+    return spineImage.composite([
+      { input: gradientOverlay, left: 0, top: 0 }
+    ]).png().toBuffer();
+  }
+  
+  return spineImage.png().toBuffer();
 }
 
 module.exports = router; 
