@@ -55,16 +55,27 @@ router.get('/test', (req, res) => {
 router.post('/create-pdf', express.json(), async (req, res) => {
   try {
     console.log('PDF creation request received');
+    console.log('Request content-type:', req.get('content-type'));
+    console.log('Request body:', typeof req.body === 'object' ? Object.keys(req.body) : typeof req.body);
     
+    // Parse the data parameter if it exists
     let data = req.body;
-    if (typeof req.body.data === 'string') {
+    if (req.body && req.body.data) {
       try {
-        data = JSON.parse(req.body.data);
+        if (typeof req.body.data === 'string') {
+          data = JSON.parse(req.body.data);
+          console.log('Successfully parsed data from string');
+        } else {
+          data = req.body.data;
+          console.log('Using data object directly');
+        }
       } catch (error) {
         console.error('Error parsing form data:', error);
         return res.status(400).json({ error: 'Invalid data format' });
       }
     }
+    
+    console.log('Processing data:', data);
     
     const {
       pageUrls,
@@ -78,10 +89,13 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
       return res.status(400).json({ error: 'Page URLs are required' });
     }
+
+    console.log(`Creating PDF with ${pageUrls.length} pages`);
     
     // Set response headers for PDF download
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${bookTitle}.pdf"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
     
     // Create PDF document
     const doc = new PDFKit({
@@ -96,6 +110,8 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     // Add pages to PDF
     for (let i = 0; i < pageUrls.length; i++) {
       try {
+        console.log(`Processing page ${i + 1} of ${pageUrls.length}`);
+        
         // Add blank page before if requested
         if (addBlankPages && i > 0) {
           doc.addPage();
@@ -105,10 +121,16 @@ router.post('/create-pdf', express.json(), async (req, res) => {
         doc.addPage();
         
         // Download and add image
+        console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
         const imageResponse = await fetch(pageUrls[i]);
-        if (!imageResponse.ok) throw new Error(`Failed to fetch image ${i + 1}`);
+        if (!imageResponse.ok) {
+          console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+          continue;
+        }
         
         const buffer = await imageResponse.buffer();
+        console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
+        
         doc.image(buffer, {
           fit: [doc.page.width - (includeBleed ? 72 : 144), doc.page.height - (includeBleed ? 72 : 144)],
           align: 'center',
@@ -122,13 +144,129 @@ router.post('/create-pdf', express.json(), async (req, res) => {
                align: 'center'
              });
         }
+        
+        console.log(`Added page ${i + 1} to PDF`);
       } catch (error) {
         console.error(`Error processing page ${i + 1}:`, error);
       }
     }
     
     // Finalize PDF
+    console.log('Finalizing PDF');
     doc.end();
+    console.log('PDF sent to client');
+    
+  } catch (error) {
+    console.error('Error creating PDF:', error);
+    // Only send error if headers haven't been sent
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to create PDF' });
+    }
+  }
+});
+
+/**
+ * Generate a coloring book PDF from individual pages - GET version
+ * GET /api/coloring-book/create-pdf
+ */
+router.get('/create-pdf', async (req, res) => {
+  try {
+    console.log('PDF creation GET request received');
+    console.log('Query params:', req.query);
+    
+    // Parse the data from the query parameter
+    let data;
+    try {
+      if (!req.query.data) {
+        return res.status(400).json({ error: 'Missing data parameter' });
+      }
+      data = JSON.parse(decodeURIComponent(req.query.data));
+      console.log('Successfully parsed data from query parameter');
+    } catch (error) {
+      console.error('Error parsing query data:', error);
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+    
+    console.log('Processing data:', data);
+    
+    const {
+      pageUrls,
+      trimSize,
+      addBlankPages,
+      showPageNumbers,
+      includeBleed,
+      bookTitle = 'coloring-book'
+    } = data;
+    
+    if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
+      return res.status(400).json({ error: 'Page URLs are required' });
+    }
+
+    console.log(`Creating PDF with ${pageUrls.length} pages`);
+    
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${bookTitle}.pdf"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
+    // Create PDF document
+    const doc = new PDFKit({
+      autoFirstPage: false,
+      size: trimSize || 'LETTER',
+      margin: includeBleed ? 36 : 72 // 0.5 inch or 1 inch margins
+    });
+    
+    // Pipe PDF to response
+    doc.pipe(res);
+    
+    // Add pages to PDF
+    for (let i = 0; i < pageUrls.length; i++) {
+      try {
+        console.log(`Processing page ${i + 1} of ${pageUrls.length}`);
+        
+        // Add blank page before if requested
+        if (addBlankPages && i > 0) {
+          doc.addPage();
+        }
+        
+        // Add content page
+        doc.addPage();
+        
+        // Download and add image
+        console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
+        const imageResponse = await fetch(pageUrls[i]);
+        if (!imageResponse.ok) {
+          console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+          continue;
+        }
+        
+        const buffer = await imageResponse.buffer();
+        console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
+        
+        doc.image(buffer, {
+          fit: [doc.page.width - (includeBleed ? 72 : 144), doc.page.height - (includeBleed ? 72 : 144)],
+          align: 'center',
+          valign: 'center'
+        });
+        
+        // Add page number if requested
+        if (showPageNumbers) {
+          doc.fontSize(12)
+             .text(`${i + 1}`, doc.page.width / 2, doc.page.height - 40, {
+               align: 'center'
+             });
+        }
+        
+        console.log(`Added page ${i + 1} to PDF`);
+      } catch (error) {
+        console.error(`Error processing page ${i + 1}:`, error);
+      }
+    }
+    
+    // Finalize PDF
+    console.log('Finalizing PDF');
+    doc.end();
+    console.log('PDF sent to client');
     
   } catch (error) {
     console.error('Error creating PDF:', error);

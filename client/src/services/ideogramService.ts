@@ -1,10 +1,14 @@
 import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
-// API base URL - ensure it's always the production URL when deployed
+// API base URL - ensure it's used consistently
 const API_URL = process.env.NODE_ENV === 'production' 
   ? 'https://puzzlemakeribral-production.up.railway.app'
-  : window.location.origin;
+  : 'http://localhost:3000';
+
+// Debug logging for API URL
+console.log('API_URL configured as:', API_URL);
+console.log('Current environment:', process.env.NODE_ENV || 'not set');
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
@@ -1244,67 +1248,6 @@ export async function generateColoringBook({
 }
 
 /**
- * Download all coloring pages as a ZIP file
- */
-export async function downloadColoringPages(
-  pageUrls: string[],
-  bookTitle?: string
-): Promise<void> {
-  try {
-    if (pageUrls.length === 0) {
-      toast.error("No pages to download");
-      return;
-    }
-    
-    // Debug logging for API URL
-    console.log("Using API URL for downloads:", API_URL);
-    
-    // For single images, use the existing download function
-    if (pageUrls.length === 1) {
-      await downloadImage(pageUrls[0], 'png', 'coloring-page');
-      return;
-    }
-    
-    // For multiple images, use our backend to create a ZIP
-    const requestData = {
-      pageUrls,
-      bookTitle: bookTitle || 'coloring-pages'
-    };
-    
-    const toastId = toast.loading("Preparing ZIP file...");
-    
-    try {
-      // First attempt: GET method with query parameters
-      const encodedData = encodeURIComponent(JSON.stringify(requestData));
-      const downloadUrl = `${API_URL}/api/coloring-book/download-zip?data=${encodedData}`;
-      
-      console.log("Making GET request for ZIP download to:", downloadUrl);
-      
-      // Create an iframe for download
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = downloadUrl;
-      document.body.appendChild(iframe);
-      
-      // Clean up after a delay
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-        toast.dismiss(toastId);
-        toast.success("Download started");
-      }, 2000);
-      
-    } catch (error) {
-      console.error("Download failed:", error);
-      toast.dismiss(toastId);
-      toast.error("Failed to download ZIP file. Please try again later.");
-    }
-  } catch (error) {
-    console.error("Error downloading coloring pages:", error);
-    toast.error("Failed to download pages");
-  }
-}
-
-/**
  * Create a PDF from generated coloring pages
  */
 export async function createColoringBookPDF(
@@ -1328,39 +1271,23 @@ export async function createColoringBookPDF(
       return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
     }
 
-    // Create form data for the request
-    const requestData = {
-      pageUrls,
-      ...options
-    };
-    
-    const toastId = toast.loading("Creating PDF...");
-    
+    const toastId = toast.loading("Creating PDF. Opening in new tab...");
+
     try {
-      // Create a form to submit the request
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = `${API_URL}/api/coloring-book/create-pdf`;
-      form.target = '_blank'; // Open in new tab
+      // Direct method - open in new tab
+      const encodedData = encodeURIComponent(JSON.stringify({
+        pageUrls,
+        ...options
+      }));
       
-      // Add the data as a hidden input
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = 'data';
-      input.value = JSON.stringify(requestData);
-      form.appendChild(input);
+      // Open a new tab with the PDF URL
+      window.open(
+        `${API_URL}/api/coloring-book/create-pdf?data=${encodedData}`,
+        '_blank'
+      );
       
-      // Submit the form
-      document.body.appendChild(form);
-      form.submit();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(form);
-        toast.dismiss(toastId);
-        toast.success("PDF opened in new tab");
-      }, 1000);
-      
+      toast.dismiss(toastId);
+      toast.success("PDF opened in new tab");
       return "success";
     } catch (error) {
       console.error("Error creating PDF:", error);
@@ -1372,5 +1299,65 @@ export async function createColoringBookPDF(
     console.error("Error in createColoringBookPDF:", error);
     toast.error(`Failed to create PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     throw error;
+  }
+}
+
+/**
+ * Download all coloring pages as a ZIP file
+ */
+export async function downloadColoringPages(
+  pageUrls: string[],
+  bookTitle?: string
+): Promise<void> {
+  try {
+    if (pageUrls.length === 0) {
+      toast.error("No pages to download");
+      return;
+    }
+    
+    // Debug logging for API URL
+    console.log("Using API URL for downloads:", API_URL);
+    
+    // For single images, use the existing download function
+    if (pageUrls.length === 1) {
+      await downloadImage(pageUrls[0], 'png', 'coloring-page');
+      return;
+    }
+    
+    const toastId = toast.loading("Downloading images as ZIP...");
+    
+    try {
+      // Encode the data as a query parameter
+      const encodedData = encodeURIComponent(JSON.stringify({
+        pageUrls, 
+        bookTitle: bookTitle || 'coloring-pages'
+      }));
+      
+      // Create a direct download link
+      const downloadUrl = `${API_URL}/api/coloring-book/download-zip?data=${encodedData}`;
+      console.log("ZIP download URL:", downloadUrl);
+      
+      // Create a link element and trigger a download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${bookTitle || 'coloring-pages'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+      }, 100);
+      
+      toast.dismiss(toastId);
+      toast.success("ZIP download started");
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.dismiss(toastId);
+      toast.error("Failed to download ZIP file. Please try again later.");
+    }
+  } catch (error) {
+    console.error("Error downloading coloring pages:", error);
+    toast.error("Failed to download pages");
   }
 } 
