@@ -353,6 +353,135 @@ router.post('/download-zip', express.json(), async (req, res) => {
   }
 });
 
+/**
+ * Download all images as a ZIP file (GET version)
+ * GET /api/coloring-book/download-zip
+ */
+router.get('/download-zip', async (req, res) => {
+  try {
+    console.log('ZIP creation GET request received');
+    
+    let data;
+    try {
+      // Parse the data from the query parameter
+      data = JSON.parse(req.query.data || '{}');
+    } catch (error) {
+      console.error('Error parsing query data:', error);
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+    
+    const { pageUrls, bookTitle } = data;
+    
+    console.log('ZIP creation GET options:', {
+      pageCount: pageUrls?.length,
+      bookTitle
+    });
+    
+    if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
+      return res.status(400).json({ error: 'Page URLs are required' });
+    }
+    
+    // Set up the response headers for a ZIP file
+    const filename = `${bookTitle || 'coloring-pages'}.zip`.replace(/[^a-zA-Z0-9\-_.]/g, '_');
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    
+    // Create a ZIP archive
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Maximum compression
+    });
+    
+    // Handle archive warnings
+    archive.on('warning', function(err) {
+      if (err.code === 'ENOENT') {
+        console.warn('Archive warning:', err);
+      } else {
+        console.error('Archive error:', err);
+        throw err;
+      }
+    });
+    
+    // Handle archive errors
+    archive.on('error', function(err) {
+      console.error('Archive error:', err);
+      throw err;
+    });
+    
+    // Pipe the archive data to the response
+    archive.pipe(res);
+    
+    // Process each image and add to the ZIP
+    for (let i = 0; i < pageUrls.length; i++) {
+      try {
+        console.log(`Processing ZIP image ${i + 1} of ${pageUrls.length} (GET)`);
+        
+        const imageUrl = pageUrls[i];
+        let imageBuffer;
+        
+        if (imageUrl.startsWith('data:')) {
+          // Handle data URLs
+          console.log(`ZIP image ${i + 1} is a data URL (GET)`);
+          const base64Data = imageUrl.split(',')[1];
+          imageBuffer = Buffer.from(base64Data, 'base64');
+        } else {
+          // Download from URL
+          console.log(`Downloading ZIP image ${i + 1} from URL (GET): ${imageUrl.substring(0, 50)}...`);
+          const imageResponse = await fetch(imageUrl);
+          
+          if (!imageResponse.ok) {
+            console.error(`Failed to download image ${i + 1}: ${imageResponse.status}`);
+            continue;
+          }
+          
+          imageBuffer = await imageResponse.buffer();
+          console.log(`Downloaded ZIP image ${i + 1}, buffer size: ${imageBuffer.length} bytes (GET)`);
+        }
+        
+        // Process with sharp to ensure it's a PNG
+        const processedImageBuffer = await sharp(imageBuffer)
+          .png()
+          .toBuffer();
+        
+        console.log(`Processed ZIP image ${i + 1}, buffer size: ${processedImageBuffer.length} bytes (GET)`);
+        
+        // Create a readable stream from the buffer
+        const stream = new Readable();
+        stream.push(processedImageBuffer);
+        stream.push(null); // End of stream
+        
+        // Add the image to the ZIP file
+        archive.append(stream, { name: `coloring-page-${i + 1}.png` });
+        console.log(`Added image ${i + 1} to ZIP file (GET)`);
+      } catch (error) {
+        console.error(`Error processing ZIP image ${i + 1} (GET):`, error);
+        // Continue with next image
+      }
+    }
+    
+    // Log when archive is finalized
+    archive.on('end', function() {
+      console.log('ZIP archive has been finalized (GET). Total bytes:', archive.pointer());
+    });
+    
+    // Finalize the ZIP file
+    console.log('Finalizing ZIP file (GET)');
+    await archive.finalize();
+    console.log('ZIP file sent to client (GET)');
+  } catch (error) {
+    console.error('Error creating ZIP (GET):', error);
+    
+    // If the response has already been sent or finalized, we can't send an error response
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        error: error.message || 'Failed to create ZIP file',
+        type: error.name
+      });
+    }
+  }
+});
+
 // Image modification options
 router.post('/process-image', upload.single('image'), async (req, res) => {
   try {

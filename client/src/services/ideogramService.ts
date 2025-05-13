@@ -1257,6 +1257,7 @@ export async function createColoringBookPDF(
   try {
     console.log("Creating PDF with options:", options);
     console.log("Number of pages:", pageUrls.length);
+    console.log("Using API URL for PDF generation:", API_URL);
     
     // For client-side only implementation, return a mock PDF URL
     if (USE_PLACEHOLDERS || !API_URL) {
@@ -1273,36 +1274,60 @@ export async function createColoringBookPDF(
     
     console.log("Making PDF request to:", `${API_URL}/api/coloring-book/create-pdf`);
     
-    // Make a POST request to our backend
-    const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestData)
-    });
-    
-    console.log("PDF response status:", response.status);
-    console.log("PDF response headers:", Object.fromEntries(response.headers.entries()));
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Error creating PDF:", errorText);
-      throw new Error(`Failed to create PDF: ${response.status} - ${errorText}`);
+    // CORS check - add additional headers to help with CORS issues
+    try {
+      // Make a POST request to our backend
+      const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/pdf'
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      console.log("PDF response status:", response.status);
+      console.log("PDF response headers:", Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error creating PDF:", errorText);
+        
+        // If we get a 404, the route might be incorrect
+        if (response.status === 404) {
+          console.error("Route not found. Check the API URL and route path.");
+          console.log("Attempted URL:", `${API_URL}/api/coloring-book/create-pdf`);
+        }
+        
+        throw new Error(`Failed to create PDF: ${response.status} - ${errorText}`);
+      }
+      
+      // Get content type to verify we received a PDF
+      const contentType = response.headers.get('content-type');
+      console.log("Content type of response:", contentType);
+      
+      // Create and return a blob URL for the PDF
+      const pdfBlob = await response.blob();
+      console.log("PDF blob size:", pdfBlob.size, "bytes");
+      console.log("PDF blob type:", pdfBlob.type);
+      
+      if (pdfBlob.size === 0) {
+        throw new Error("Received empty PDF blob from server");
+      }
+      
+      // Verify it's a PDF (or at least has a PDF-like content type)
+      if (!pdfBlob.type.includes('pdf') && !contentType?.includes('pdf')) {
+        console.warn("Response may not be a PDF. Content type:", pdfBlob.type || contentType);
+      }
+      
+      const pdfUrl = URL.createObjectURL(pdfBlob);
+      console.log("Created PDF URL:", pdfUrl);
+      
+      return pdfUrl;
+    } catch (fetchError) {
+      console.error("Error fetching PDF:", fetchError);
+      throw fetchError;
     }
-    
-    // Create and return a blob URL for the PDF
-    const pdfBlob = await response.blob();
-    console.log("PDF blob size:", pdfBlob.size, "bytes");
-    
-    if (pdfBlob.size === 0) {
-      throw new Error("Received empty PDF blob from server");
-    }
-    
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    console.log("Created PDF URL:", pdfUrl);
-    
-    return pdfUrl;
   } catch (error) {
     console.error("Error creating coloring book PDF:", error);
     toast.error(`Failed to create PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1323,6 +1348,9 @@ export async function downloadColoringPages(
       return;
     }
     
+    // Debug logging for API URL
+    console.log("Using API URL for downloads:", API_URL);
+    
     // For single images, use the existing download function
     if (pageUrls.length === 1) {
       await downloadImage(pageUrls[0], 'png', 'coloring-page');
@@ -1338,7 +1366,8 @@ export async function downloadColoringPages(
     toast.loading("Preparing ZIP file...");
     
     try {
-      // Make a POST request to our backend with proper headers
+      // First attempt: POST request to our backend with proper headers
+      console.log("Making POST request for ZIP download to:", `${API_URL}/api/coloring-book/download-zip`);
       const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
         method: 'POST',
         headers: {
@@ -1348,13 +1377,19 @@ export async function downloadColoringPages(
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error downloading ZIP:", errorText);
-        throw new Error(`Failed to download ZIP: ${response.status}`);
+        console.log("POST request failed with status:", response.status);
+        throw new Error(`Failed to download ZIP via POST: ${response.status}`);
       }
       
       // Get the ZIP blob and create a download link
       const zipBlob = await response.blob();
+      
+      // Check if we received a valid zip file
+      if (zipBlob.size === 0 || zipBlob.type !== "application/zip") {
+        console.warn("Received invalid ZIP blob:", zipBlob.size, zipBlob.type);
+        throw new Error("Received invalid ZIP file");
+      }
+      
       const downloadUrl = URL.createObjectURL(zipBlob);
       
       const link = document.createElement('a');
@@ -1371,9 +1406,34 @@ export async function downloadColoringPages(
       
       toast.dismiss();
       toast.success("Downloading coloring pages as ZIP");
-    } catch (error) {
-      toast.dismiss();
-      throw error;
+    } catch (postError) {
+      console.error("POST download failed, trying GET method:", postError);
+      
+      try {
+        // Fallback to GET method with query parameters if POST fails
+        const encodedData = encodeURIComponent(JSON.stringify(requestData));
+        console.log("Making GET request for ZIP download to:", `${API_URL}/api/coloring-book/download-zip?data=${encodedData.substring(0, 50)}...`);
+        
+        // Create a download link with query parameters
+        const link = document.createElement('a');
+        link.href = `${API_URL}/api/coloring-book/download-zip?data=${encodedData}`;
+        link.download = `${bookTitle || 'coloring-pages'}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 100);
+        
+        toast.dismiss();
+        toast.success("Downloading coloring pages as ZIP");
+      } catch (getError) {
+        toast.dismiss();
+        console.error("All download methods failed:", getError);
+        toast.error("Failed to download ZIP file. Please try again later.");
+        throw getError;
+      }
     }
   } catch (error) {
     console.error("Error downloading coloring pages:", error);
