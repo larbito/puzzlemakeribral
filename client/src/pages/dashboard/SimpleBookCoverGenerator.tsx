@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { BookOpenCheck, Download, Sparkles } from 'lucide-react';
 
 // KDP Book cover generator component
 const SimpleBookCoverGenerator = () => {
@@ -165,492 +168,278 @@ const SimpleBookCoverGenerator = () => {
   };
 
   return (
-    <div className="kdp-generator" style={{ 
-      padding: '24px', 
-      maxWidth: '1200px', 
-      margin: '0 auto',
-      color: 'white'
-    }}>
+    <div className="container max-w-6xl mx-auto py-8 px-4">
       {/* Header Section */}
-      <div style={{ marginBottom: '32px', textAlign: 'center' }}>
-        <h1 style={{ 
-          fontSize: '32px', 
-          fontWeight: '700', 
-          marginBottom: '12px',
-          background: 'linear-gradient(90deg, #8b5cf6, #3b82f6)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}>
-          Amazon KDP Book Cover Generator
-        </h1>
-        <p style={{ fontSize: '16px', color: '#a1a1aa', maxWidth: '700px', margin: '0 auto' }}>
+      <div className="text-center mb-8">
+        <div className="flex items-center justify-center mb-4">
+          <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center mr-3 animate-pulse-glow">
+            <BookOpenCheck className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-text-shimmer">
+            Amazon KDP Book Cover Generator
+          </h1>
+        </div>
+        <p className="text-muted-foreground max-w-2xl mx-auto">
           Generate professional book covers optimized for Kindle Direct Publishing
         </p>
       </div>
       
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 0.8fr)', 
-        gap: '32px',
-        alignItems: 'start'
-      }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Controls */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '24px',
-          backgroundColor: '#1e1e2d',
-          padding: '24px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-        }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            {/* Cover Type Selection */}
-            <div>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontWeight: '500', 
-                fontSize: '15px',
-                color: '#e4e4e7'
-              }}>
-                Cover Type
-              </label>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '1fr 1fr', 
-                gap: '8px',
-                backgroundColor: '#161622',
-                padding: '4px',
-                borderRadius: '8px'
-              }}>
-                {coverTypes.map((type) => (
-                  <button
-                    key={type.value}
-                    type="button"
-                    onClick={() => setCoverType(type.value)}
-                    style={{
-                      padding: '10px',
-                      backgroundColor: coverType === type.value ? '#8b5cf6' : 'transparent',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontWeight: coverType === type.value ? '500' : 'normal',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {type.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          
-            {/* Prompt Input */}
-            <div>
-              <label htmlFor="prompt" style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontWeight: '500',
-                fontSize: '15px',
-                color: '#e4e4e7'
-              }}>
-                Describe your book cover
-              </label>
-              <textarea
-                id="prompt"
-                value={prompt}
-                onChange={handlePromptChange}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  minHeight: '140px',
-                  backgroundColor: '#161622',
-                  color: 'white',
-                  border: '1px solid #2e2e40',
-                  borderRadius: '8px',
-                  resize: 'vertical',
-                  fontSize: '15px',
-                  lineHeight: '1.5',
-                  transition: 'border-color 0.2s'
-                }}
-                placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
-              />
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                marginTop: '8px', 
-                fontSize: '14px',
-                color: '#94a3b8'
-              }}>
-                <span>Characters: {prompt.length}</span>
-                <span style={{ 
-                  color: prompt.length < 5 ? '#ef4444' : '#10b981',
-                  fontWeight: '500'
-                }}>
-                  {prompt.length < 5 ? 'Add more details (min 5 characters)' : '✓ Ready to generate'}
-                </span>
-              </div>
-            </div>
-            
-            {/* Style options */}
-            <div>
-              <label htmlFor="style" style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontWeight: '500',
-                fontSize: '15px',
-                color: '#e4e4e7'
-              }}>
-                Cover Style
-              </label>
-              <div style={{ 
-                display: 'flex', 
-                flexWrap: 'wrap', 
-                gap: '8px'
-              }}>
-                {styleOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setStyle(option.value)}
-                    style={{
-                      padding: '10px 14px',
-                      backgroundColor: style === option.value ? '#8b5cf6' : '#161622',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: style === option.value ? '500' : 'normal',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Size selection */}
-            <div>
-              <label htmlFor="size" style={{ 
-                display: 'block', 
-                marginBottom: '8px', 
-                fontWeight: '500',
-                fontSize: '15px',
-                color: '#e4e4e7'
-              }}>
-                Cover Size
-              </label>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-                gap: '8px'
-              }}>
-                {Object.entries(sizePresets).map(([key, preset]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setSize(key)}
-                    style={{
-                      padding: '10px',
-                      backgroundColor: size === key ? '#8b5cf6' : '#161622',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: size === key ? '500' : 'normal',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            {/* Generate Button */}
-            <button
-              type="submit"
-              disabled={isGenerating || prompt.trim().length < 5}
-              style={{
-                padding: '16px 24px',
-                backgroundColor: isGenerating || prompt.trim().length < 5 ? '#4b5563' : '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: isGenerating || prompt.trim().length < 5 ? 'not-allowed' : 'pointer',
-                fontSize: '16px',
-                fontWeight: '600',
-                marginTop: '8px',
-                position: 'relative',
-                overflow: 'hidden',
-                transition: 'all 0.2s',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-              }}
-            >
-              {isGenerating ? 'Generating...' : 'Generate Cover'}
-              {isGenerating && (
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  height: '4px',
-                  width: '100%',
-                  backgroundColor: '#22d3ee',
-                  animation: 'loadingAnimation 2s infinite linear',
-                }} />
-              )}
-            </button>
-          </form>
-
-          {/* Example prompts */}
-          <div>
-            <h3 style={{ 
-              fontSize: '15px', 
-              marginBottom: '12px', 
-              fontWeight: '500',
-              color: '#e4e4e7'
-            }}>
-              Example Prompts
-            </h3>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '8px', 
-              maxHeight: '200px', 
-              overflowY: 'auto',
-              padding: '4px'
-            }}>
-              {examplePrompts.map((example, index) => (
-                <button
-                  key={index}
-                  onClick={() => applyExamplePrompt(example)}
-                  className="example-prompt-button"
-                  style={{
-                    padding: '12px',
-                    backgroundColor: '#161622',
-                    color: '#d1d5db',
-                    border: '1px solid #2e2e40',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    textAlign: 'left',
-                    transition: 'all 0.2s'
-                  }}
+        <div className="lg:col-span-2">
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
+            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/5 to-secondary/5">
+              <CardTitle className="flex items-center">
+                <Sparkles className="mr-2 h-5 w-5 text-primary" />
+                <span>Create Your Book Cover</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Cover Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Cover Type
+                  </label>
+                  <div className="bg-muted rounded-lg p-1 grid grid-cols-2 gap-1">
+                    {coverTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setCoverType(type.value)}
+                        className={`rounded-md px-3 py-2 text-sm transition-all ${
+                          coverType === type.value 
+                            ? "bg-primary text-background font-medium" 
+                            : "hover:bg-primary/10 text-foreground"
+                        }`}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              
+                {/* Prompt Input */}
+                <div className="space-y-2">
+                  <label htmlFor="prompt" className="text-sm font-medium text-foreground">
+                    Describe your book cover
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      id="prompt"
+                      value={prompt}
+                      onChange={handlePromptChange}
+                      className="w-full min-h-[150px] rounded-lg border border-primary/20 bg-muted p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
+                      placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
+                    />
+                    <div className="absolute bottom-3 right-3 rounded-full bg-primary/10 px-2 py-1 text-xs">
+                      {prompt.length} chars
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Min 5 characters</span>
+                    <span className={prompt.length < 5 ? "text-red-400" : "text-primary"}>
+                      {prompt.length < 5 ? 'Add more details' : '✓ Ready to generate'}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Style options */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Cover Style
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {styleOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setStyle(option.value)}
+                        className={`px-4 py-2 rounded-md text-sm ${
+                          style === option.value 
+                            ? "bg-primary text-background font-medium" 
+                            : "bg-muted hover:bg-primary/10 text-foreground"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Size selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Cover Size
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {Object.entries(sizePresets).map(([key, preset]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSize(key)}
+                        className={`px-3 py-2 rounded-md text-sm ${
+                          size === key 
+                            ? "bg-primary text-background font-medium" 
+                            : "bg-muted hover:bg-primary/10 text-foreground"
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Generate Button */}
+                <Button
+                  type="submit"
+                  disabled={isGenerating || prompt.trim().length < 5}
+                  className={`w-full ${
+                    isGenerating || prompt.trim().length < 5 
+                      ? "opacity-70" 
+                      : "animate-pulse-glow"
+                  }`}
                 >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
+                  {isGenerating ? (
+                    <>
+                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>Generate Cover</>
+                  )}
+                </Button>
+              </form>
+
+              {/* Example prompts */}
+              <div className="mt-6 pt-6 border-t border-primary/10">
+                <h3 className="text-sm font-medium text-foreground mb-3 flex items-center">
+                  <span className="mr-2">📝</span> Example Prompts
+                </h3>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
+                  {examplePrompts.map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => applyExamplePrompt(example)}
+                      className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column: Preview */}
-        <div style={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px'
-        }}>
+        <div className="space-y-4">
           {/* Error display */}
           {error && (
-            <div style={{ 
-              width: '100%',
-              backgroundColor: 'rgba(220, 38, 38, 0.15)', 
-              border: '1px solid #ef4444',
-              padding: '12px',
-              borderRadius: '8px'
-            }}>
-              <p style={{ color: '#fca5a5', margin: 0 }}>{error}</p>
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
+              {error}
             </div>
           )}
           
-          {/* Image preview container */}
-          <div style={{ 
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            backgroundColor: '#1e1e2d',
-            borderRadius: '12px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            overflow: 'hidden'
-          }}>
-            {/* Preview header */}
-            <div style={{
-              width: '100%',
-              backgroundColor: '#161622',
-              padding: '12px 16px',
-              borderBottom: '1px solid #2e2e40'
-            }}>
-              <h2 style={{ 
-                fontSize: '16px', 
-                fontWeight: '600',
-                margin: 0,
-                textAlign: 'center'
-              }}>
+          {/* Image preview */}
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
+            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-secondary/5 to-primary/5">
+              <CardTitle className="text-center">
                 {coverUrl ? 'Generated Cover' : 'Cover Preview'}
-              </h2>
-            </div>
-            
-            {/* Preview content */}
-            <div style={{ 
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '24px',
-              minHeight: '450px',
-              width: '100%'
-            }}>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
               {coverUrl ? (
-                <img 
-                  src={coverUrl} 
-                  alt="Generated Book Cover"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '450px',
-                    border: '1px solid #2e2e40',
-                    borderRadius: '6px',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.2)'
-                  }}
-                />
+                <div className="relative group">
+                  <img 
+                    src={coverUrl} 
+                    alt="Generated Book Cover"
+                    className="max-w-full max-h-[450px] rounded-md border border-primary/20 shadow-lg"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                    <a 
+                      href={coverUrl} 
+                      download="kdp-book-cover.png"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Cover
+                    </a>
+                  </div>
+                </div>
               ) : (
-                <div style={{
-                  width: '280px',
-                  height: '400px',
-                  backgroundColor: '#161622',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#9ca3af',
-                  fontSize: '14px',
-                  textAlign: 'center',
-                  padding: '20px',
-                  border: '1px dashed #2e2e40'
-                }}>
+                <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-muted border border-dashed border-primary/20 text-muted-foreground p-6 text-center">
                   <div>
-                    <div style={{ 
-                      marginBottom: '12px', 
-                      opacity: 0.7, 
-                      fontSize: '32px',
-                      textAlign: 'center'
-                    }}>
-                      📚
-                    </div>
-                    <p>Your generated book cover will appear here</p>
+                    <div className="text-4xl mb-4 opacity-70">📚</div>
+                    <p className="text-sm">Your generated book cover will appear here</p>
                   </div>
                 </div>
               )}
               
-              {/* Download button */}
+              {/* Download button (visible when not hovering) */}
               {coverUrl && (
-                <div style={{ marginTop: '20px', width: '100%', textAlign: 'center' }}>
-                  <a 
-                    href={coverUrl} 
-                    download="kdp-book-cover.png"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      display: 'inline-block',
-                      padding: '12px 20px',
-                      backgroundColor: '#3b82f6',
-                      color: 'white',
-                      textDecoration: 'none',
-                      borderRadius: '8px',
-                      fontWeight: '600',
-                      fontSize: '14px',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    Download Cover
-                  </a>
-                </div>
+                <a 
+                  href={coverUrl} 
+                  download="kdp-book-cover.png"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Cover
+                </a>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
           {/* Selected options summary */}
-          <div style={{
-            width: '100%',
-            backgroundColor: '#1e1e2d',
-            padding: '16px',
-            borderRadius: '12px',
-            fontSize: '14px',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-          }}>
-            <h3 style={{ 
-              fontSize: '16px', 
-              margin: '0 0 12px 0', 
-              fontWeight: '600',
-              color: '#e4e4e7',
-              borderBottom: '1px solid #2e2e40',
-              paddingBottom: '8px'
-            }}>
-              Selected Options
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Cover Type:</span>
-                <span>{coverTypes.find(type => type.value === coverType)?.label || 'Front Cover'}</span>
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Selected Options</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cover Type:</span>
+                  <span>{coverTypes.find(type => type.value === coverType)?.label || 'Front Cover'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Style:</span>
+                  <span>{styleOptions.find(opt => opt.value === style)?.label || style}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Size:</span>
+                  <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className={`
+                    ${isGenerating ? "text-amber-400" : ""} 
+                    ${!isGenerating && coverUrl ? "text-primary" : ""}
+                    ${!isGenerating && !coverUrl ? "text-muted-foreground" : ""}
+                  `}>
+                    {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
+                  </span>
+                </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Style:</span>
-                <span>{styleOptions.find(opt => opt.value === style)?.label || style}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Size:</span>
-                <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#94a3b8' }}>Status:</span>
-                <span style={{
-                  color: isGenerating ? '#f59e0b' : (coverUrl ? '#10b981' : '#94a3b8')
-                }}>
-                  {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
-                </span>
-              </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* Add a style tag for animations */}
       <style>
         {`
-          @keyframes loadingAnimation {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
+          @keyframes text-shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
           }
           
-          .example-prompt-button:hover {
-            background-color: #262636;
-            border-color: #3e3e50;
-          }
-          
-          /* Scrollbar styling */
-          ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-          }
-          
-          ::-webkit-scrollbar-track {
-            background: #161622;
-            border-radius: 8px;
-          }
-          
-          ::-webkit-scrollbar-thumb {
-            background: #3e3e50;
-            border-radius: 8px;
-          }
-          
-          ::-webkit-scrollbar-thumb:hover {
-            background: #4b4b60;
+          .animate-text-shimmer {
+            background-size: 200% auto;
+            animation: text-shimmer 5s infinite linear;
           }
         `}
       </style>
