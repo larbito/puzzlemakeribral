@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BookOpenCheck, Download, Calculator, ChevronDown } from 'lucide-react';
@@ -22,6 +22,9 @@ const SimpleBookCoverGenerator = () => {
 
   // Ref for the range input
   const rangeInputRef = useRef<HTMLInputElement>(null);
+
+  // Create a direct reference to the slider element
+  const sliderRef = useRef<HTMLInputElement>(null);
 
   // KDP trim size options
   const trimSizeOptions = [
@@ -76,41 +79,48 @@ const SimpleBookCoverGenerator = () => {
   const handlePaperTypeChange = (type: string) => {
     console.log('Changing paper type to:', type);
     // Force update to ensure UI changes
-    document.activeElement?.blur(); // Remove focus from current element
+    // Handle blur correctly to avoid TypeScript error
+    if (document.activeElement && 'blur' in document.activeElement) {
+      (document.activeElement as HTMLElement).blur();
+    }
     setPaperType(type);
   };
 
-  // Function to handle page count change from slider
-  const handlePageCountSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newCount = parseInt(e.target.value);
-    console.log('Changing page count from slider to:', newCount);
-    
-    // Force update to UI
-    e.target.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${(newCount-24)/(800-24)*100}%, #2e2e3d ${(newCount-24)/(800-24)*100}%, #2e2e3d 100%)`;
-    
-    // Update the state
-    setPageCount(newCount);
-  };
+  // Update the slider appearance whenever page count changes
+  useEffect(() => {
+    if (sliderRef.current) {
+      const percentage = ((pageCount - 24) / (800 - 24)) * 100;
+      sliderRef.current.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${percentage}%, #2e2e3d ${percentage}%, #2e2e3d 100%)`;
+      sliderRef.current.value = pageCount.toString();
+    }
+  }, [pageCount]);
 
-  // Function to handle page count change from input
-  const handlePageCountInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let newCount = parseInt(e.target.value);
-    
-    // Enforce min/max constraints
-    if (isNaN(newCount)) return;
+  // Function to directly update page count
+  const updatePageCount = useCallback((newCount: number) => {
+    // Enforce limits
     if (newCount < 24) newCount = 24;
     if (newCount > 800) newCount = 800;
     
-    console.log('Changing page count from input to:', newCount);
-    setPageCount(newCount);
+    console.log('Setting page count to:', newCount);
     
-    // Update the range slider if it exists
-    if (rangeInputRef.current) {
-      rangeInputRef.current.value = newCount.toString();
-      rangeInputRef.current.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${(newCount-24)/(800-24)*100}%, #2e2e3d ${(newCount-24)/(800-24)*100}%, #2e2e3d 100%)`;
+    // Update state
+    setPageCount(newCount);
+  }, []);
+
+  // Handle slider change with direct update
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newCount = parseInt(e.target.value);
+    updatePageCount(newCount);
+  };
+
+  // Handle input change with direct update
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newCount = parseInt(e.target.value);
+    if (!isNaN(newCount)) {
+      updatePageCount(newCount);
     }
   };
-  
+
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
@@ -389,35 +399,44 @@ const SimpleBookCoverGenerator = () => {
                       <span className="text-green-500 font-medium">{pageCount} pages</span>
                     </label>
                     <div className="flex gap-4 items-center">
-                      <input
-                        id="pageCountSlider"
-                        ref={rangeInputRef}
-                        type="range"
-                        min="24"
-                        max="800"
-                        step="1"
-                        value={pageCount}
-                        onChange={handlePageCountSliderChange}
-                        onClick={(e) => e.currentTarget.focus()}
-                        className="flex-1 h-3 rounded-lg appearance-none cursor-pointer bg-muted accent-green-500 focus:outline-none"
-                        style={{
-                          background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(pageCount-24)/(800-24)*100}%, #2e2e3d ${(pageCount-24)/(800-24)*100}%, #2e2e3d 100%)`
-                        }}
-                      />
+                      <div className="flex-1 relative h-3">
+                        <input
+                          id="pageCountSlider"
+                          ref={sliderRef}
+                          type="range"
+                          min="24"
+                          max="800"
+                          step="1"
+                          value={pageCount}
+                          onChange={handleSliderChange}
+                          onMouseDown={() => console.log('Slider mouse down')}
+                          onMouseUp={() => console.log('Slider mouse up')}
+                          onClick={() => console.log('Slider clicked')}
+                          className="absolute inset-0 w-full h-full opacity-100 cursor-pointer z-10"
+                        />
+                        <div className="absolute inset-0 rounded-lg bg-muted overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-lg" 
+                            style={{ width: `${((pageCount-24)/(800-24))*100}%` }}
+                          ></div>
+                        </div>
+                      </div>
                       <input
                         id="pageCountInput"
                         type="number"
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={handlePageCountInputChange}
+                        onChange={handleInputChange}
                         onBlur={(e) => {
-                          // Extra validation on blur
-                          let val = parseInt(e.target.value);
-                          if (isNaN(val) || val < 24) val = 24;
-                          if (val > 800) val = 800;
-                          setPageCount(val);
+                          const val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 24) {
+                            updatePageCount(24);
+                          } else if (val > 800) {
+                            updatePageCount(800);
+                          }
                         }}
+                        onClick={(e) => e.currentTarget.select()}
                         className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
                       />
                     </div>
