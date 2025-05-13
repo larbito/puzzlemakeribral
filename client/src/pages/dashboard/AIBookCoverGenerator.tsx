@@ -538,61 +538,48 @@ const AIBookCoverGenerator = () => {
                 </div>
               </div>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div style={{ width: '100%' }}>
-                      {/* Super simple native HTML button - guaranteed to be clickable */}
-                      <button 
-                        id="generate-cover-button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          console.log("Button native click handler fired");
-                          if (!isGenerating && coverDescription.trim().length >= 5) {
-                            handleGenerateFrontCover();
-                          }
-                        }}
-                        disabled={isGenerating || coverDescription.trim().length < 5}
-                        style={{
-                          width: '100%',
-                          padding: '12px 16px',
-                          borderRadius: '8px',
-                          border: 'none',
-                          backgroundColor: 
-                            isGenerating ? '#a0a0a0' : 
-                            coverDescription.trim().length < 5 ? '#d4d4d4' : 
-                            '#4ade80',
-                          color: 'white',
-                          fontWeight: 'bold',
-                          cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
-                          fontSize: '16px',
-                          textAlign: 'center',
-                          marginTop: '16px',
-                          transition: 'all 0.2s ease',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-                        }}
-                      >
-                        {isGenerating ? (
-                          '🔄 Generating...'
-                        ) : coverDescription.trim().length < 5 ? (
-                          '✏️ Enter at least 5 characters'
-                        ) : (
-                          '🎨 Generate Front Cover'
-                        )}
-                      </button>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isGenerating ? (
-                      "Please wait while your cover is being generated..."
-                    ) : coverDescription.trim().length < 5 ? (
-                      "Please enter a more detailed description for your cover (at least 5 characters)"
-                    ) : (
-                      "Click to generate your book cover"
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <button 
+                id="generate-cover-button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("Button native click handler fired");
+                  if (!isGenerating && coverDescription.trim().length >= 5) {
+                    handleGenerateFrontCover();
+                  }
+                }}
+                disabled={isGenerating || coverDescription.trim().length < 5}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor: 
+                    isGenerating ? '#a0a0a0' : 
+                    coverDescription.trim().length < 5 ? '#d4d4d4' : 
+                    '#4ade80',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  marginTop: '16px',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                {isGenerating ? (
+                  '🔄 Generating...'
+                ) : coverDescription.trim().length < 5 ? (
+                  '✏️ Enter at least 5 characters'
+                ) : (
+                  '🎨 Generate Front Cover'
+                )}
+              </button>
+              {coverDescription.trim().length >= 5 && !isGenerating && (
+                <div style={{ textAlign: 'center', fontSize: '12px', marginTop: '4px', color: '#666' }}>
+                  Click to generate your book cover
+                </div>
+              )}
             </CardContent>
           </Card>
 
