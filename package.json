@@ -1,0 +1,15 @@
+{
+  "name": "puzzle-craft-forge",
+  "version": "1.0.0",
+  "description": "Puzzle Craft Forge - Full Stack Application",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "cd backend && node src/index.js",
+    "install": "cd backend && npm install",
+    "dev": "cd backend && npm run dev",
+    "build": "cd backend && npm install"
+  },
+  "private": true
+} 
