@@ -63,6 +63,24 @@ const SimpleBookCoverGenerator = () => {
     setPrompt(e.target.value);
   };
   
+  // Functions to handle settings changes
+  const handleTrimSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setTrimSize(e.target.value);
+    console.log('Trim size changed to:', e.target.value);
+  };
+
+  const handlePaperTypeChange = (type: string) => {
+    setPaperType(type);
+    console.log('Paper type changed to:', type);
+  };
+
+  const handlePageCountChange = (value: number) => {
+    if (value >= 24 && value <= 800) {
+      setPageCount(value);
+      console.log('Page count changed to:', value);
+    }
+  };
+  
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
@@ -296,8 +314,8 @@ const SimpleBookCoverGenerator = () => {
                     </label>
                     <select
                       value={trimSize}
-                      onChange={(e) => setTrimSize(e.target.value)}
-                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                      onChange={handleTrimSizeChange}
+                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
                     >
                       {trimSizeOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -317,8 +335,8 @@ const SimpleBookCoverGenerator = () => {
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => setPaperType(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 ${
+                          onClick={() => handlePaperTypeChange(option.value)}
+                          className={`px-4 py-2 rounded-md text-sm flex-1 cursor-pointer ${
                             paperType === option.value 
                               ? "bg-primary text-background font-medium" 
                               : "bg-muted hover:bg-primary/10 text-foreground"
@@ -341,7 +359,7 @@ const SimpleBookCoverGenerator = () => {
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
+                        onChange={(e) => handlePageCountChange(parseInt(e.target.value))}
                         className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-primary/20"
                       />
                       <input
@@ -349,7 +367,12 @@ const SimpleBookCoverGenerator = () => {
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
+                        onChange={(e) => handlePageCountChange(parseInt(e.target.value))}
+                        onBlur={(e) => {
+                          const value = parseInt(e.target.value);
+                          if (value < 24) handlePageCountChange(24);
+                          if (value > 800) handlePageCountChange(800);
+                        }}
                         className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
@@ -413,7 +436,7 @@ const SimpleBookCoverGenerator = () => {
                       <button
                         key={index}
                         onClick={() => applyExamplePrompt(example)}
-                        className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
+                        className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm cursor-pointer"
                       >
                         {example}
                       </button>
@@ -522,6 +545,24 @@ const SimpleBookCoverGenerator = () => {
           .animate-text-shimmer {
             background-size: 200% auto;
             animation: text-shimmer 5s infinite linear;
+          }
+          
+          input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: hsl(var(--primary));
+            cursor: pointer;
+          }
+          
+          input[type=range]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: hsl(var(--primary));
+            cursor: pointer;
           }
         `}
       </style>
