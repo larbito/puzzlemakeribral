@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { BookOpenCheck, Download, Sparkles, Info } from 'lucide-react';
 
 // KDP Book cover generator component
@@ -263,239 +263,215 @@ const SimpleBookCoverGenerator = () => {
   };
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4">
-      {/* Header Section */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center mb-4">
-          <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center mr-3 animate-pulse-glow">
-            <BookOpenCheck className="h-6 w-6 text-primary" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-text-shimmer">
-            Amazon KDP Book Cover Creator
-          </h1>
-        </div>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Generate professional book covers optimized for Kindle Direct Publishing
-        </p>
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Controls */}
-        <div className="lg:col-span-2">
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
-            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/5 to-secondary/5">
-              <CardTitle className="flex items-center">
-                <Sparkles className="mr-2 h-5 w-5 text-primary" />
-                <span>Create Your Book Cover</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Cover Type Selection */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Cover Type
-                  </label>
-                  <div className="bg-muted rounded-lg p-1 grid grid-cols-2 gap-1">
-                    {coverTypes.map((type) => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setCoverType(type.value)}
-                        className={`rounded-md px-3 py-2 text-sm transition-all ${
-                          coverType === type.value 
-                            ? "bg-primary text-background font-medium" 
-                            : "hover:bg-primary/10 text-foreground"
-                        }`}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Book Specifications - only show when full cover is selected */}
-                {coverType === 'full' && (
-                  <div className="space-y-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-medium">Book Specifications</h3>
-                      <div className="bg-secondary/20 rounded-full p-1">
-                        <Info className="h-3.5 w-3.5 text-secondary" />
-                      </div>
-                    </div>
-                    
-                    {/* Trim Size */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Trim Size
-                      </label>
-                      <select
-                        value={trimSize}
-                        onChange={(e) => setTrimSize(e.target.value)}
-                        className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary"
-                      >
-                        {trimSizeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    {/* Page Count */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <label className="text-sm font-medium text-foreground">
-                          Page Count
-                        </label>
-                        <span className="text-xs text-muted-foreground">
-                          {pageCount} pages
-                        </span>
-                      </div>
-                      <div className="flex gap-4 items-center">
-                        <input
-                          type="range"
-                          min="24"
-                          max="800"
-                          value={pageCount}
-                          onChange={(e) => setPageCount(parseInt(e.target.value))}
-                          className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-muted"
-                        />
-                        <input 
-                          type="number"
-                          min="24"
-                          max="800"
-                          value={pageCount}
-                          onChange={(e) => setPageCount(Math.min(800, Math.max(24, parseInt(e.target.value) || 24)))}
-                          className="w-16 p-1 text-sm text-center rounded border border-primary/20 bg-muted"
-                        />
-                      </div>
-                    </div>
-                    
-                    {/* Paper Type */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-foreground">
-                        Paper Type
-                      </label>
-                      <div className="flex gap-2">
-                        {paperTypeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setPaperType(option.value)}
-                            className={`flex-1 px-3 py-2 rounded-md text-sm ${
-                              paperType === option.value 
-                                ? "bg-primary text-background font-medium" 
-                                : "bg-muted hover:bg-primary/10 text-foreground"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Spine Text - only show if page count is 100 or more */}
-                    {bookSpecs.showSpineText && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
-                          Spine Text (optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={spineText}
-                          onChange={(e) => setSpineText(e.target.value)}
-                          placeholder="Title and author for spine"
-                          className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary"
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Auto-calculated output box */}
-                    <div className="mt-3 p-3 border border-secondary/20 rounded-md bg-secondary/5">
-                      <h4 className="text-xs font-medium text-foreground mb-2">
-                        Auto Size Preview
-                      </h4>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                        <div className="text-muted-foreground">Final size with bleed:</div>
-                        <div className="text-right">{bookSpecs.finalWidthInches}" x {bookSpecs.finalHeightInches}"</div>
-                        
-                        <div className="text-muted-foreground">Spine width:</div>
-                        <div className="text-right">{bookSpecs.spineWidthInches}"</div>
-                        
-                        <div className="text-muted-foreground">Resolution:</div>
-                        <div className="text-right">{bookSpecs.pixelWidth} x {bookSpecs.pixelHeight} px</div>
-                        
-                        <div className="text-muted-foreground">DPI:</div>
-                        <div className="text-right">300</div>
-                      </div>
-                    </div>
-                  </div>
+    <div className="min-h-screen bg-gradient-to-b from-background to-background/80">
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-b border-primary/10 z-50">
+        <div className="container max-w-7xl mx-auto py-4 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                <BookOpenCheck className="h-5 w-5 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                KDP Cover Generator
+              </h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              {coverUrl && (
+                <a 
+                  href={coverUrl} 
+                  download="kdp-book-cover.png"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-primary/10 hover:bg-primary/20 text-primary px-4 py-2 rounded-full flex items-center text-sm transition-colors"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Cover
+                </a>
+              )}
+              <Button
+                onClick={() => handleGenerate()}
+                disabled={isGenerating || prompt.trim().length < 5}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Generate Cover
+                  </>
                 )}
-                
-                {/* Prompt Input */}
-                <div className="space-y-2">
-                  <label htmlFor="prompt" className="text-sm font-medium text-foreground">
-                    Describe your book cover
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      id="prompt"
-                      value={prompt}
-                      onChange={handlePromptChange}
-                      className="w-full min-h-[150px] rounded-lg border border-primary/20 bg-muted p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
-                      placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
-                    />
-                    <div className="absolute bottom-3 right-3 rounded-full bg-primary/10 px-2 py-1 text-xs">
-                      {prompt.length} chars
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="container max-w-7xl mx-auto pt-24 pb-8 px-4">
+        <div className="flex gap-6">
+          {/* Left Panel - Controls */}
+          <div className="w-[400px] space-y-4">
+            {/* Cover Type Toggle */}
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Cover Type</h3>
+                  <div className="bg-primary/10 rounded-full px-2 py-1 text-xs text-primary">
+                    {coverType === 'full' ? 'Full Wrap' : 'Front Only'}
+                  </div>
+                </div>
+                <div className="bg-muted rounded-lg p-1 grid grid-cols-2 gap-1">
+                  {coverTypes.map((type) => (
+                    <button
+                      key={type.value}
+                      onClick={() => setCoverType(type.value)}
+                      className={`rounded-md px-3 py-2 text-sm transition-all ${
+                        coverType === type.value 
+                          ? "bg-primary text-background font-medium" 
+                          : "hover:bg-primary/10"
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            {/* Book Specifications */}
+            {coverType === 'full' && (
+              <Card className="overflow-hidden">
+                <div className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">Book Specifications</h3>
+                    <div className="bg-primary/10 rounded-full p-1">
+                      <Info className="h-4 w-4 text-primary" />
                     </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Min 5 characters</span>
-                    <span className={prompt.length < 5 ? "text-red-400" : "text-primary"}>
-                      {prompt.length < 5 ? 'Add more details' : '✓ Ready to generate'}
-                    </span>
+
+                  {/* Trim Size */}
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Trim Size</label>
+                    <select
+                      value={trimSize}
+                      onChange={(e) => setTrimSize(e.target.value)}
+                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm"
+                    >
+                      {trimSizeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Page Count */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <label className="text-sm text-muted-foreground">Page Count</label>
+                      <span className="text-xs bg-primary/10 rounded-full px-2 py-1 text-primary">
+                        {pageCount} pages
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="24"
+                      max="800"
+                      value={pageCount}
+                      onChange={(e) => setPageCount(parseInt(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* Paper Type */}
+                  <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Paper Type</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {paperTypeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          onClick={() => setPaperType(option.value)}
+                          className={`px-3 py-2 rounded-md text-sm ${
+                            paperType === option.value 
+                              ? "bg-primary text-background" 
+                              : "bg-muted hover:bg-primary/10"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Spine Text */}
+                  {bookSpecs.showSpineText && (
+                    <div className="space-y-2">
+                      <label className="text-sm text-muted-foreground">Spine Text</label>
+                      <input
+                        type="text"
+                        value={spineText}
+                        onChange={(e) => setSpineText(e.target.value)}
+                        placeholder="Title and author for spine"
+                        className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Calculated Specs */}
+                  <div className="bg-primary/5 rounded-lg p-3 space-y-2">
+                    <h4 className="text-xs font-medium">Final Specifications</h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="text-muted-foreground">Dimensions:</div>
+                      <div className="text-right">{bookSpecs.finalWidthInches}" × {bookSpecs.finalHeightInches}"</div>
+                      <div className="text-muted-foreground">Spine Width:</div>
+                      <div className="text-right">{bookSpecs.spineWidthInches}"</div>
+                      <div className="text-muted-foreground">Resolution:</div>
+                      <div className="text-right">{bookSpecs.pixelWidth} × {bookSpecs.pixelHeight}px</div>
+                    </div>
                   </div>
                 </div>
-                
-                {/* Style options */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Cover Style
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {styleOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setStyle(option.value)}
-                        className={`px-4 py-2 rounded-md text-sm ${
-                          style === option.value 
-                            ? "bg-primary text-background font-medium" 
-                            : "bg-muted hover:bg-primary/10 text-foreground"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+              </Card>
+            )}
+
+            {/* Style Selection */}
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-3">
+                <h3 className="text-sm font-medium">Cover Style</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {styleOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => setStyle(option.value)}
+                      className={`px-3 py-2 rounded-md text-sm ${
+                        style === option.value 
+                          ? "bg-primary text-background" 
+                          : "bg-muted hover:bg-primary/10"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
                 </div>
-                
-                {/* Size selection */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
-                    Cover Size
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              </div>
+            </Card>
+
+            {/* Size Selection (Front Cover Only) */}
+            {coverType === 'front' && (
+              <Card className="overflow-hidden">
+                <div className="p-4 space-y-3">
+                  <h3 className="text-sm font-medium">Cover Size</h3>
+                  <div className="grid grid-cols-2 gap-2">
                     {Object.entries(sizePresets).map(([key, preset]) => (
                       <button
                         key={key}
-                        type="button"
                         onClick={() => setSize(key)}
                         className={`px-3 py-2 rounded-md text-sm ${
                           size === key 
-                            ? "bg-primary text-background font-medium" 
-                            : "bg-muted hover:bg-primary/10 text-foreground"
+                            ? "bg-primary text-background" 
+                            : "bg-muted hover:bg-primary/10"
                         }`}
                       >
                         {preset.label}
@@ -503,185 +479,136 @@ const SimpleBookCoverGenerator = () => {
                     ))}
                   </div>
                 </div>
-                
-                {/* Generate Button */}
-                <Button
-                  type="submit"
-                  disabled={isGenerating || prompt.trim().length < 5}
-                  className={`w-full ${
-                    isGenerating || prompt.trim().length < 5 
-                      ? "opacity-70" 
-                      : "animate-pulse-glow"
-                  }`}
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
-                      Generating...
-                    </>
-                  ) : (
-                    <>Generate Cover</>
-                  )}
-                </Button>
-              </form>
+              </Card>
+            )}
+          </div>
 
-              {/* Example prompts */}
-              <div className="mt-6 pt-6 border-t border-primary/10">
-                <h3 className="text-sm font-medium text-foreground mb-3 flex items-center">
-                  <span className="mr-2">📝</span> Example Prompts
-                </h3>
-                <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
+          {/* Center Panel - Preview and Prompt */}
+          <div className="flex-1 space-y-4">
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Preview Area */}
+            <Card className="overflow-hidden bg-muted/50">
+              <div className="aspect-[3/4] relative flex items-center justify-center p-6">
+                {coverUrl ? (
+                  <img 
+                    src={coverUrl} 
+                    alt="Generated Book Cover"
+                    className="max-h-full rounded-lg shadow-xl transition-transform hover:scale-[1.02]"
+                  />
+                ) : (
+                  <div className="text-center space-y-4 text-muted-foreground">
+                    <div className="text-6xl">📚</div>
+                    <p className="text-sm">Your cover will appear here</p>
+                  </div>
+                )}
+                {isGenerating && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto"></div>
+                      <p className="text-sm font-medium">Creating your cover...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Prompt Input */}
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Describe Your Cover</h3>
+                  <div className="text-xs text-muted-foreground">
+                    {prompt.length} characters
+                  </div>
+                </div>
+                <textarea
+                  value={prompt}
+                  onChange={handlePromptChange}
+                  placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
+                  className="w-full h-32 rounded-lg border border-primary/20 bg-muted p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">
+                    Min 5 characters required
+                  </span>
+                  <Button
+                    onClick={() => handleGenerate()}
+                    disabled={isGenerating || prompt.length < 5}
+                    size="sm"
+                  >
+                    Generate
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Example Prompts */}
+            <Card className="overflow-hidden">
+              <div className="p-4 space-y-3">
+                <h3 className="text-sm font-medium">Example Prompts</h3>
+                <div className="space-y-2">
                   {examplePrompts.map((example, index) => (
                     <button
                       key={index}
                       onClick={() => applyExamplePrompt(example)}
-                      className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
+                      className="w-full text-left p-3 rounded-md bg-muted hover:bg-primary/10 text-sm transition-colors"
                     >
                       {example}
                     </button>
                   ))}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Preview */}
-        <div className="space-y-4">
-          {/* Error display */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
-              {error}
-            </div>
-          )}
-          
-          {/* Image preview */}
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
-            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-secondary/5 to-primary/5">
-              <CardTitle className="text-center">
-                {coverUrl ? 'Generated Cover' : 'Cover Preview'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
-              {coverUrl ? (
-                <div className="relative group">
-                  <img 
-                    src={coverUrl} 
-                    alt="Generated Book Cover"
-                    className="max-w-full max-h-[450px] rounded-md border border-primary/20 shadow-lg"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-                    <a 
-                      href={coverUrl} 
-                      download="kdp-book-cover.png"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Cover
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-muted border border-dashed border-primary/20 text-muted-foreground p-6 text-center">
-                  <div>
-                    <div className="text-4xl mb-4 opacity-70">📚</div>
-                    <p className="text-sm">Your generated book cover will appear here</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Download button (visible when not hovering) */}
-              {coverUrl && (
-                <a 
-                  href={coverUrl} 
-                  download="kdp-book-cover.png"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-4 bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Download Cover
-                </a>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Selected options summary */}
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Selected Options</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Cover Type:</span>
-                  <span>{coverTypes.find(type => type.value === coverType)?.label || 'Front Cover'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Style:</span>
-                  <span>{styleOptions.find(opt => opt.value === style)?.label || style}</span>
-                </div>
-                
-                {coverType === 'front' && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Size:</span>
-                    <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
-                  </div>
-                )}
-                
-                {coverType === 'full' && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Trim Size:</span>
-                      <span>{trimSizeOptions.find(opt => opt.value === trimSize)?.label}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Pages:</span>
-                      <span>{pageCount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Paper:</span>
-                      <span>{paperTypeOptions.find(opt => opt.value === paperType)?.label}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Final Size:</span>
-                      <span>{bookSpecs.finalWidthInches}" × {bookSpecs.finalHeightInches}"</span>
-                    </div>
-                  </>
-                )}
-                
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className={`
-                    ${isGenerating ? "text-amber-400" : ""} 
-                    ${!isGenerating && coverUrl ? "text-primary" : ""}
-                    ${!isGenerating && !coverUrl ? "text-muted-foreground" : ""}
-                  `}>
-                    {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
 
-      {/* Add a style tag for animations */}
-      <style>
-        {`
-          @keyframes text-shimmer {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
-          }
-          
-          .animate-text-shimmer {
-            background-size: 200% auto;
-            animation: text-shimmer 5s infinite linear;
-          }
-        `}
-      </style>
+      {/* Custom Styles */}
+      <style>{`
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: hsl(var(--primary) / 0.2);
+          border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--primary) / 0.3);
+        }
+        
+        /* Range input styling */
+        input[type="range"] {
+          -webkit-appearance: none;
+          width: 100%;
+          height: 6px;
+          background: hsl(var(--primary) / 0.2);
+          border-radius: 3px;
+          outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 16px;
+          height: 16px;
+          background: hsl(var(--primary));
+          border-radius: 50%;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+          transform: scale(1.1);
+        }
+      `}</style>
     </div>
   );
 };
