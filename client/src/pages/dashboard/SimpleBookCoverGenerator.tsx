@@ -271,7 +271,7 @@ const SimpleBookCoverGenerator = () => {
             <BookOpenCheck className="h-6 w-6 text-primary" />
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-text-shimmer">
-            Amazon KDP Book Cover Generator
+            Amazon KDP Book Cover Creator
           </h1>
         </div>
         <p className="text-muted-foreground max-w-2xl mx-auto">
