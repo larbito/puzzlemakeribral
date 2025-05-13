@@ -206,11 +206,18 @@ router.post('/create-pdf', express.json(), async (req, res) => {
  */
 router.post('/download-zip', express.json(), async (req, res) => {
   try {
+    console.log('Received POST request to download-zip');
+    console.log('Content-Type:', req.get('content-type'));
+    console.log('Request body:', JSON.stringify(req.body).substring(0, 150) + '...');
+    
     const { pageUrls, bookTitle } = req.body;
     
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
+      console.error('Invalid pageUrls:', pageUrls);
       return res.status(400).json({ error: 'Page URLs are required' });
     }
+    
+    console.log(`Processing ${pageUrls.length} pages for download as ZIP`);
     
     // Set up the response headers for a ZIP file
     const filename = `${bookTitle || 'coloring-pages'}.zip`.replace(/[^a-zA-Z0-9\-_.]/g, '_');
@@ -224,6 +231,14 @@ router.post('/download-zip', express.json(), async (req, res) => {
       zlib: { level: 9 } // Maximum compression
     });
     
+    // Handle archive errors
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error creating ZIP archive: ' + err.message });
+      }
+    });
+    
     // Pipe the archive data to the response
     archive.pipe(res);
     
@@ -231,26 +246,34 @@ router.post('/download-zip', express.json(), async (req, res) => {
     for (let i = 0; i < pageUrls.length; i++) {
       try {
         const imageUrl = pageUrls[i];
+        console.log(`Processing image ${i + 1}/${pageUrls.length}`);
+        
         let imageBuffer;
         
         if (imageUrl.startsWith('data:')) {
           // Handle data URLs
           const base64Data = imageUrl.split(',')[1];
           imageBuffer = Buffer.from(base64Data, 'base64');
+          console.log(`Image ${i + 1} is a data URL, decoded successfully`);
         } else {
           // Download from URL
+          console.log(`Downloading image ${i + 1} from URL`);
           const imageResponse = await fetch(imageUrl);
           if (!imageResponse.ok) {
             console.error(`Failed to download image ${i + 1}: ${imageResponse.status}`);
             continue;
           }
           imageBuffer = await imageResponse.buffer();
+          console.log(`Downloaded image ${i + 1} successfully, size: ${imageBuffer.length} bytes`);
         }
         
         // Process with sharp to ensure it's a PNG
+        console.log(`Converting image ${i + 1} to PNG`);
         const processedImageBuffer = await sharp(imageBuffer)
           .png()
           .toBuffer();
+        
+        console.log(`Processed image ${i + 1} to PNG, size: ${processedImageBuffer.length} bytes`);
         
         // Create a readable stream from the buffer
         const stream = new Readable();
@@ -259,14 +282,19 @@ router.post('/download-zip', express.json(), async (req, res) => {
         
         // Add the image to the ZIP file
         archive.append(stream, { name: `coloring-page-${i + 1}.png` });
+        console.log(`Added image ${i + 1} to ZIP`);
       } catch (error) {
         console.error(`Error processing image ${i + 1}:`, error);
         // Continue with next image
       }
     }
     
+    // Log before finalizing
+    console.log('Finalizing ZIP archive...');
+    
     // Finalize the ZIP file
     await archive.finalize();
+    console.log('ZIP archive finalized and sent');
   } catch (error) {
     console.error('Error creating ZIP:', error);
     

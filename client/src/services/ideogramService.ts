@@ -1346,26 +1346,56 @@ export async function downloadColoringPages(
       bookTitle: bookTitle || 'coloring-pages'
     };
     
-    // Use a fetch request with the POST endpoint to avoid URL length limitations
+    // Use a fetch request with the POST endpoint
     try {
+      console.log("Sending request to download ZIP with", pageUrls.length, "pages");
+      
       const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/zip'
         },
         body: JSON.stringify(requestData)
       });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error downloading ZIP:", errorText);
+        let errorMessage = `Server responded with status: ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If response isn't JSON, try to get text
+          const errorText = await response.text();
+          errorMessage = errorText || errorMessage;
+        }
+        
+        console.error("Error downloading ZIP:", errorMessage);
         toast.dismiss(loadingToast);
-        toast.error("Failed to download images");
+        toast.error(`Failed to download images: ${errorMessage}`);
         return;
+      }
+      
+      // Check content type
+      const contentType = response.headers.get('content-type');
+      console.log("Response content type:", contentType);
+      
+      if (!contentType || !contentType.includes('application/zip')) {
+        console.warn("Expected application/zip but got:", contentType);
       }
       
       // Create a blob URL and trigger download
       const zipBlob = await response.blob();
+      
+      if (zipBlob.size === 0) {
+        console.error("Received empty blob");
+        toast.dismiss(loadingToast);
+        toast.error("Received empty response from server");
+        return;
+      }
+      
+      console.log("Received ZIP blob of size", zipBlob.size, "bytes");
+      
       const zipUrl = URL.createObjectURL(zipBlob);
       
       const link = document.createElement('a');
@@ -1381,7 +1411,7 @@ export async function downloadColoringPages(
       toast.dismiss(loadingToast);
       toast.success("Images downloaded as ZIP");
     } catch (error) {
-      console.error("Error with POST download method:", error);
+      console.error("Error with download method:", error);
       toast.dismiss(loadingToast);
       toast.error("Failed to download images");
     }

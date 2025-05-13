@@ -257,11 +257,23 @@ export const AIColoringGenerator = () => {
       return;
     }
 
+    const toastId = toast('Preparing download...', {
+      description: 'Getting your coloring pages ready',
+      duration: 5000
+    });
+
     try {
+      console.log('Starting download of', generatedPages.length, 'coloring pages');
+      
+      // Call the downloadColoringPages function with proper error handling
       await downloadColoringPages(generatedPages, coloringOptions.bookTitle);
+      
+      toast.dismiss(toastId);
+      toast.success('Images downloaded successfully');
     } catch (error) {
       console.error('Error downloading images:', error);
-      toast.error('Failed to download images');
+      toast.dismiss(toastId);
+      toast.error('Failed to download images. Please try again.');
     }
   };
 
