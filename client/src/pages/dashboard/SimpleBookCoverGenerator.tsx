@@ -63,23 +63,6 @@ const SimpleBookCoverGenerator = () => {
     setPrompt(e.target.value);
   };
   
-  // Functions to handle settings changes
-  const handleTrimSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setTrimSize(e.target.value);
-  };
-  
-  const handlePaperTypeChange = (type: string) => (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent form submission
-    setPaperType(type);
-  };
-  
-  const handlePageCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value >= 24 && value <= 800) {
-      setPageCount(value);
-    }
-  };
-  
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
@@ -308,14 +291,13 @@ const SimpleBookCoverGenerator = () => {
                 <div className="space-y-4">
                   {/* Trim Size */}
                   <div className="space-y-2">
-                    <label htmlFor="trim-size" className="text-sm font-medium text-foreground">
+                    <label className="text-sm font-medium text-foreground">
                       Book Trim Size
                     </label>
                     <select
-                      id="trim-size"
                       value={trimSize}
-                      onChange={handleTrimSizeChange}
-                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
+                      onChange={(e) => setTrimSize(e.target.value)}
+                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                     >
                       {trimSizeOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -335,8 +317,8 @@ const SimpleBookCoverGenerator = () => {
                         <button
                           key={option.value}
                           type="button"
-                          onClick={handlePaperTypeChange(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 cursor-pointer ${
+                          onClick={() => setPaperType(option.value)}
+                          className={`px-4 py-2 rounded-md text-sm flex-1 ${
                             paperType === option.value 
                               ? "bg-primary text-background font-medium" 
                               : "bg-muted hover:bg-primary/10 text-foreground"
@@ -350,28 +332,24 @@ const SimpleBookCoverGenerator = () => {
 
                   {/* Page Count */}
                   <div className="space-y-2">
-                    <label htmlFor="page-count" className="text-sm font-medium text-foreground flex justify-between">
-                      <span>Page Count</span>
-                      <span className="text-primary font-medium">{pageCount}</span>
+                    <label className="text-sm font-medium text-foreground">
+                      Page Count
                     </label>
                     <div className="flex gap-4 items-center">
                       <input
-                        id="page-count-slider"
                         type="range"
                         min="24"
                         max="800"
-                        step="1"
                         value={pageCount}
-                        onChange={handlePageCountChange}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-primary/20 focus:outline-none"
+                        onChange={(e) => setPageCount(parseInt(e.target.value))}
+                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-primary/20"
                       />
                       <input
-                        id="page-count"
                         type="number"
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={handlePageCountChange}
+                        onChange={(e) => setPageCount(parseInt(e.target.value))}
                         className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
@@ -434,7 +412,6 @@ const SimpleBookCoverGenerator = () => {
                     {examplePrompts.map((example, index) => (
                       <button
                         key={index}
-                        type="button"
                         onClick={() => applyExamplePrompt(example)}
                         className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
                       >
@@ -545,49 +522,6 @@ const SimpleBookCoverGenerator = () => {
           .animate-text-shimmer {
             background-size: 200% auto;
             animation: text-shimmer 5s infinite linear;
-          }
-          
-          /* Improved range slider styling */
-          input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            height: 8px;
-            border-radius: 4px;
-            background: hsl(var(--muted));
-            outline: none;
-            overflow: hidden;
-          }
-          
-          input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: hsl(var(--primary));
-            cursor: pointer;
-            border: none;
-            box-shadow: -200px 0 0 190px hsl(var(--primary));
-          }
-          
-          input[type="range"]::-moz-range-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: hsl(var(--primary));
-            cursor: pointer;
-            border: none;
-            box-shadow: -200px 0 0 190px hsl(var(--primary));
-          }
-          
-          input[type="range"]::-ms-thumb {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: hsl(var(--primary));
-            cursor: pointer;
-            border: none;
-            box-shadow: -200px 0 0 190px hsl(var(--primary));
           }
         `}
       </style>
