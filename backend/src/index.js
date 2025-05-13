@@ -3,39 +3,18 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 
+// Debug logging for startup
+console.log('Starting server...');
+console.log('Node version:', process.version);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Current directory:', process.cwd());
+
 const ideogramRoutes = require('./routes/ideogram');
 const bookCoverRoutes = require('./routes/book-cover');
 const coloringBookRoutes = require('./routes/coloring-book');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// CRITICAL: Health check endpoint for Railway
-// This MUST be defined before any other middleware to ensure it's always accessible
-app.get('/health', (req, res) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Health check request received from ${req.ip}`);
-  
-  // Log headers for debugging
-  console.log('Request headers:', req.headers);
-  
-  // Include detailed environment information
-  const healthData = {
-    status: 'healthy',
-    timestamp: timestamp,
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV,
-    port: process.env.PORT || 3000,
-    nodeVersion: process.version,
-    memoryUsage: process.memoryUsage(),
-    pid: process.pid
-  };
-  
-  console.log('Responding with health data:', healthData);
-  
-  // Send a 200 OK response
-  res.status(200).json(healthData);
-});
 
 // Debug logging for all requests
 app.use((req, res, next) => {
@@ -110,6 +89,17 @@ app.use((req, res, next) => {
   }
 });
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    port: PORT
+  });
+});
+
 // Debug log routes
 console.log('Registered routes:');
 app._router.stack.forEach(function(r){
@@ -127,6 +117,12 @@ console.log('Book cover routes registered at /api/book-cover');
 
 app.use('/api/coloring-book', coloringBookRoutes);
 console.log('Coloring book routes registered at /api/coloring-book');
+
+// Debug logging for route registration
+console.log('Routes registered:');
+console.log('- /api/ideogram');
+console.log('- /api/book-cover');
+console.log('- /api/coloring-book');
 
 // Basic route
 app.get('/', (req, res) => {
@@ -159,24 +155,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  // Keep the process running
-});
-
-// Handle unhandled rejections
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Keep the process running
-});
-
 // Start server
-const serverPort = process.env.PORT || 3000;
-app.listen(serverPort, '0.0.0.0', () => {
-  console.log(`Server running on port ${serverPort}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
   console.log('Environment:', process.env.NODE_ENV);
   console.log('Ideogram API Key configured:', !!process.env.IDEOGRAM_API_KEY);
-  console.log('Server URL:', `http://0.0.0.0:${serverPort}`);
-  console.log('Health check path available at: /health');
+  console.log('Server URL:', `http://0.0.0.0:${PORT}`);
+  console.log('Server startup complete!');
 }); 
