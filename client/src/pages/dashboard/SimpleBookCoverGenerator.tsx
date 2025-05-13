@@ -365,20 +365,36 @@ const SimpleBookCoverGenerator = () => {
                       Paper Type
                     </label>
                     <div className="flex gap-2">
-                      {paperTypeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => handlePaperTypeClick(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 border ${
-                            paperType === option.value 
-                              ? "bg-green-500 hover:bg-green-600 text-white font-medium border-green-600" 
-                              : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
-                          } transition-all focus:outline-none focus:ring-2 focus:ring-green-500/50`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                      <div 
+                        onClick={() => setPaperType('white')}
+                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                          paperType === 'white' 
+                            ? "bg-green-500 text-white font-medium border-green-600" 
+                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                        }`}
+                      >
+                        White
+                      </div>
+                      <div
+                        onClick={() => setPaperType('cream')}
+                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                          paperType === 'cream' 
+                            ? "bg-green-500 text-white font-medium border-green-600" 
+                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                        }`}
+                      >
+                        Cream
+                      </div>
+                      <div
+                        onClick={() => setPaperType('color')}
+                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                          paperType === 'color' 
+                            ? "bg-green-500 text-white font-medium border-green-600" 
+                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                        }`}
+                      >
+                        Color
+                      </div>
                     </div>
                   </div>
 
@@ -390,26 +406,27 @@ const SimpleBookCoverGenerator = () => {
                     </label>
                     <div className="flex gap-4 items-center">
                       <input
-                        id="pageCountSlider"
-                        ref={rangeInputRef}
                         type="range"
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={handlePageCountSlider}
+                        onChange={(e) => setPageCount(parseInt(e.target.value))}
                         className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-slate-700"
                         style={{
                           background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(pageCount-24)/(800-24)*100}%, #333 ${(pageCount-24)/(800-24)*100}%, #333 100%)`
                         }}
                       />
                       <input
-                        id="pageCountInput"
-                        ref={numberInputRef}
                         type="number"
                         min="24"
                         max="800"
                         value={pageCount}
-                        onChange={handlePageCountInput}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value);
+                          if (!isNaN(newValue) && newValue >= 24 && newValue <= 800) {
+                            setPageCount(newValue);
+                          }
+                        }}
                         className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
                       />
                     </div>
