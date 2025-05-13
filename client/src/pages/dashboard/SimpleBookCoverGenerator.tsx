@@ -75,13 +75,20 @@ const SimpleBookCoverGenerator = () => {
   // Function to handle paper type change
   const handlePaperTypeChange = (type: string) => {
     console.log('Changing paper type to:', type);
+    // Force update to ensure UI changes
+    document.activeElement?.blur(); // Remove focus from current element
     setPaperType(type);
   };
 
   // Function to handle page count change from slider
   const handlePageCountSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newCount = parseInt(e.target.value);
-    console.log('Changing page count to:', newCount);
+    console.log('Changing page count from slider to:', newCount);
+    
+    // Force update to UI
+    e.target.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${(newCount-24)/(800-24)*100}%, #2e2e3d ${(newCount-24)/(800-24)*100}%, #2e2e3d 100%)`;
+    
+    // Update the state
     setPageCount(newCount);
   };
 
@@ -94,12 +101,13 @@ const SimpleBookCoverGenerator = () => {
     if (newCount < 24) newCount = 24;
     if (newCount > 800) newCount = 800;
     
-    console.log('Changing page count to:', newCount);
+    console.log('Changing page count from input to:', newCount);
     setPageCount(newCount);
     
     // Update the range slider if it exists
     if (rangeInputRef.current) {
       rangeInputRef.current.value = newCount.toString();
+      rangeInputRef.current.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${(newCount-24)/(800-24)*100}%, #2e2e3d ${(newCount-24)/(800-24)*100}%, #2e2e3d 100%)`;
     }
   };
   
@@ -362,11 +370,11 @@ const SimpleBookCoverGenerator = () => {
                           key={option.value}
                           type="button"
                           onClick={() => handlePaperTypeChange(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 ${
+                          className={`px-4 py-2 rounded-md text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                             paperType === option.value 
-                              ? "bg-green-500 hover:bg-green-600 text-white font-medium" 
-                              : "bg-muted hover:bg-muted/80 text-foreground"
-                          } transition-colors`}
+                              ? "bg-green-500 hover:bg-green-600 text-white font-medium shadow-lg" 
+                              : "bg-muted hover:bg-muted/80 text-foreground hover:text-foreground/80"
+                          } transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]`}
                         >
                           {option.label}
                         </button>
@@ -378,7 +386,7 @@ const SimpleBookCoverGenerator = () => {
                   <div className="space-y-2">
                     <label htmlFor="pageCount" className="text-sm font-medium text-foreground flex justify-between">
                       <span>Page Count</span>
-                      <span className="text-primary">{pageCount} pages</span>
+                      <span className="text-green-500 font-medium">{pageCount} pages</span>
                     </label>
                     <div className="flex gap-4 items-center">
                       <input
@@ -387,9 +395,11 @@ const SimpleBookCoverGenerator = () => {
                         type="range"
                         min="24"
                         max="800"
+                        step="1"
                         value={pageCount}
                         onChange={handlePageCountSliderChange}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-muted accent-primary"
+                        onClick={(e) => e.currentTarget.focus()}
+                        className="flex-1 h-3 rounded-lg appearance-none cursor-pointer bg-muted accent-green-500 focus:outline-none"
                         style={{
                           background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(pageCount-24)/(800-24)*100}%, #2e2e3d ${(pageCount-24)/(800-24)*100}%, #2e2e3d 100%)`
                         }}
@@ -401,7 +411,14 @@ const SimpleBookCoverGenerator = () => {
                         max="800"
                         value={pageCount}
                         onChange={handlePageCountInputChange}
-                        className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                        onBlur={(e) => {
+                          // Extra validation on blur
+                          let val = parseInt(e.target.value);
+                          if (isNaN(val) || val < 24) val = 24;
+                          if (val > 800) val = 800;
+                          setPageCount(val);
+                        }}
+                        className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
                       />
                     </div>
                   </div>
@@ -578,28 +595,92 @@ const SimpleBookCoverGenerator = () => {
           /* Custom range slider styling */
           input[type=range] {
             -webkit-appearance: none;
-            height: 8px;
+            appearance: none;
+            height: 10px;
             border-radius: 5px;
+            outline: none;
+          }
+          
+          input[type=range]:focus {
+            outline: none;
           }
           
           input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background: #22c55e;
             cursor: pointer;
             border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: all 0.2s ease-in-out;
+          }
+          
+          input[type=range]::-webkit-slider-thumb:hover {
+            background: #16a34a;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+            transform: scale(1.1);
           }
           
           input[type=range]::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             background: #22c55e;
             cursor: pointer;
             border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: all 0.2s ease-in-out;
+          }
+          
+          input[type=range]::-moz-range-thumb:hover {
+            background: #16a34a;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.5);
+          }
+          
+          input[type=range]::-ms-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #22c55e;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          }
+          
+          /* Track styling */
+          input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+          }
+          
+          input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+          }
+          
+          input[type=range]::-ms-track {
+            width: 100%;
+            height: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+          }
+          
+          /* Number input styling */
+          input[type=number] {
+            appearance: textfield;
+          }
+          
+          input[type=number]::-webkit-inner-spin-button, 
+          input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
           }
           
           /* Fix select element in Firefox */
@@ -607,6 +688,12 @@ const SimpleBookCoverGenerator = () => {
             -moz-appearance: none;
             text-indent: 0.01px;
             text-overflow: '';
+          }
+          
+          /* Enhance paper type buttons */
+          button[type=button] {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
           }
         `}
       </style>
