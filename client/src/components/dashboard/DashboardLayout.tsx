@@ -13,8 +13,7 @@ import {
   BookOpen,
   FolderKanban,
   PencilRuler,
-  Sparkles,
-  BookOpenCheck
+  Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -26,7 +25,6 @@ const navigation = [
   { name: 'All Projects', href: '/dashboard/projects', icon: FolderKanban },
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
-  { name: 'Book Cover Generator', href: '/dashboard/covers', icon: BookOpenCheck },
   { name: 'Simple Book Cover', href: '/dashboard/simple-covers', icon: BookOpen },
   { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
   
