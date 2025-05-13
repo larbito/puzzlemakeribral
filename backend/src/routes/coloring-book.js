@@ -21,6 +21,61 @@ try {
   sharp = null;
 }
 
+// Helper function to convert image buffer to format compatible with PDFKit
+async function ensurePDFCompatibleImage(buffer) {
+  // If Sharp is available, use it to convert to PNG
+  if (sharp) {
+    try {
+      return await sharp(buffer).png().toBuffer();
+    } catch (error) {
+      console.error('Sharp conversion error:', error);
+      // Fall through to the fallback method
+    }
+  }
+  
+  // Fallback method if Sharp is not available or fails
+  try {
+    // Try to use a data URL approach
+    const dataUrl = `data:image/png;base64,${buffer.toString('base64')}`;
+    console.log('Created data URL for image');
+    return Buffer.from(dataUrl);
+  } catch (error) {
+    console.error('Data URL conversion failed:', error);
+    return buffer; // Return the original buffer as last resort
+  }
+}
+
+// Additional fallback function to handle image loading failures in PDFKit
+function addImageToPDF(doc, buffer, options) {
+  try {
+    // First attempt: Try to add the image directly
+    return doc.image(buffer, options.x, options.y, options);
+  } catch (error) {
+    console.error('Error adding image to PDF:', error);
+    
+    try {
+      // Second attempt: Create a placeholder for the image
+      doc.rect(options.x, options.y, options.fit[0], options.fit[1])
+         .stroke('#cccccc')
+         .fillColor('#eeeeee')
+         .fill();
+      
+      // Add text explaining the issue
+      doc.fillColor('#333333')
+         .fontSize(12)
+         .text('Image could not be displayed', 
+               options.x + 20, 
+               options.y + options.fit[1]/2 - 10,
+               { width: options.fit[0] - 40 });
+      
+      return doc; // Return the doc for chaining
+    } catch (fallbackError) {
+      console.error('Even fallback drawing failed:', fallbackError);
+      return doc; // Return the doc without changes
+    }
+  }
+}
+
 // Configure handling for form data (without using multer, which depends on Sharp)
 const jsonParser = express.json();
 const urlEncodedParser = express.urlencoded({ extended: true });
@@ -151,6 +206,10 @@ router.get('/create-pdf', async (req, res) => {
           const buffer = await imageResponse.buffer();
           console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
           
+          // Convert the image to a PDF-compatible format
+          const pdfCompatibleBuffer = await ensurePDFCompatibleImage(buffer);
+          console.log(`Converted image ${i + 1} to PDF-compatible format`);
+          
           // Define image size with safe margins
           const pageWidth = pdfSize[0];
           const pageHeight = pdfSize[1];
@@ -158,8 +217,10 @@ router.get('/create-pdf', async (req, res) => {
           const imageWidth = pageWidth - (margin * 2);
           const imageHeight = pageHeight - (margin * 2);
           
-          // Add the image to the PDF
-          doc.image(buffer, margin, margin, {
+          // Add the image to the PDF using our robust helper
+          addImageToPDF(doc, pdfCompatibleBuffer, {
+            x: margin,
+            y: margin,
             fit: [imageWidth, imageHeight],
             align: 'center',
             valign: 'center'
@@ -299,6 +360,10 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
           const buffer = await imageResponse.buffer();
           console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
           
+          // Convert the image to a PDF-compatible format
+          const pdfCompatibleBuffer = await ensurePDFCompatibleImage(buffer);
+          console.log(`Converted image ${i + 1} to PDF-compatible format`);
+          
           // Define image size with safe margins
           const pageWidth = pdfSize[0];
           const pageHeight = pdfSize[1];
@@ -306,8 +371,10 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
           const imageWidth = pageWidth - (margin * 2);
           const imageHeight = pageHeight - (margin * 2);
           
-          // Add the image to the PDF
-          doc.image(buffer, margin, margin, {
+          // Add the image to the PDF using our robust helper
+          addImageToPDF(doc, pdfCompatibleBuffer, {
+            x: margin,
+            y: margin,
             fit: [imageWidth, imageHeight],
             align: 'center',
             valign: 'center'
