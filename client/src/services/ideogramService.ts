@@ -3,12 +3,15 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL - ensure it's used consistently
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://puzzlemakeribral-production.up.railway.app'
+  ? window.location.origin.includes('vercel.app') 
+    ? 'https://puzzlemakeribral-production.up.railway.app'
+    : window.location.origin
   : 'http://localhost:3000';
 
 // Debug logging for API URL
 console.log('API_URL configured as:', API_URL);
 console.log('Current environment:', process.env.NODE_ENV || 'not set');
+console.log('Window location origin:', window.location.origin);
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
