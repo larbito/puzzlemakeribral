@@ -21,9 +21,11 @@ const SimpleBookCoverGenerator = () => {
     
     setLoading(true);
     setError('');
+    console.log('Starting API calls to:', API_URL);
     
     try {
       // First check if the API is healthy
+      console.log('Checking API health...');
       const healthCheck = await fetch(`${API_URL}/health`, {
         method: 'GET',
         headers: {
@@ -31,8 +33,19 @@ const SimpleBookCoverGenerator = () => {
         }
       });
       
+      const healthData = await healthCheck.json();
+      console.log('Health check response:', healthData);
+      
       if (!healthCheck.ok) {
         throw new Error('API server is not responding. Please try again later.');
+      }
+      
+      // Check if API has Ideogram key configured
+      const hasApiKey = healthData.ideogramApiKeyConfigured === true;
+      console.log('API has Ideogram key configured:', hasApiKey);
+      if (!hasApiKey) {
+        console.warn('⚠️ Ideogram API key is not configured on the server');
+        setError('Warning: Ideogram API key is not configured on the server. A placeholder will be used.');
       }
       
       // Calculate dimensions first
@@ -57,32 +70,58 @@ const SimpleBookCoverGenerator = () => {
       console.log('Dimensions calculated:', dimensions);
       
       // Then generate the cover
+      console.log('Sending generation request with params:', {
+        prompt: prompt,
+        width: dimensions.dimensions.frontCover.widthPx,
+        height: dimensions.dimensions.frontCover.heightPx
+      });
+      
       const generateResponse = await fetch(`${API_URL}/api/book-cover/generate-front`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Origin': window.location.origin,
+          'X-Requested-With': 'XMLHttpRequest'
         },
         body: JSON.stringify({
           prompt: prompt,
           width: dimensions.dimensions.frontCover.widthPx,
           height: dimensions.dimensions.frontCover.heightPx,
           negative_prompt: 'text, watermark, signature, blurry, low quality'
-        })
+        }),
+        credentials: 'include'
       });
       
-      if (!generateResponse.ok) {
-        const errorData = await generateResponse.json();
-        throw new Error(errorData.error || 'Failed to generate cover');
+      console.log('Generate response status:', generateResponse.status);
+      console.log('Generate response headers:', Object.fromEntries([...generateResponse.headers]));
+      
+      const responseText = await generateResponse.text();
+      console.log('Raw response:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Parsed response data:', data);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error('Invalid response format from server');
       }
       
-      const data = await generateResponse.json();
-      console.log('Generated cover:', data);
+      if (!generateResponse.ok) {
+        throw new Error(data.error || 'Failed to generate cover');
+      }
       
       if (data.imageUrl) {
         setCoverImage(data.imageUrl);
         toast.success('Cover generated successfully!');
       } else {
-        throw new Error('No image URL returned');
+        console.warn('No imageUrl in response, using placeholder');
+        // Use placeholder if no image URL is returned
+        const placeholderUrl = `https://placehold.co/${dimensions.dimensions.frontCover.widthPx}x${dimensions.dimensions.frontCover.heightPx}/4ade80/FFFFFF?text=Cover+Placeholder`;
+        setCoverImage(placeholderUrl);
+        toast.warning('Using placeholder image - API key may not be configured');
+        setError('No image URL returned from API - using placeholder');
       }
     } catch (err: any) {
       console.error('Error generating cover:', err);
@@ -93,6 +132,49 @@ const SimpleBookCoverGenerator = () => {
     }
   };
   
+  // Add test function to diagnose API
+  const testApiConnection = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Check API health
+      const healthResponse = await fetch(`${API_URL}/health`, {
+        method: 'GET'
+      });
+      
+      const healthText = await healthResponse.text();
+      let healthData;
+      
+      try {
+        healthData = JSON.parse(healthText);
+      } catch (e) {
+        healthData = { text: healthText };
+      }
+      
+      // Display API status
+      console.log('API Health Check:', healthData);
+      
+      const diagReport = `
+API Connection Test:
+- Status: ${healthResponse.status}
+- API URL: ${API_URL}
+- API Key Configured: ${healthData.ideogramApiKeyConfigured === true ? 'Yes' : 'No'}
+- Environment: ${healthData.environment || 'Unknown'}
+- Timestamp: ${healthData.timestamp || new Date().toISOString()}
+      `;
+      
+      setError(diagReport);
+      toast.info('API connection test completed');
+    } catch (err: any) {
+      console.error('API test failed:', err);
+      setError(`API Test Error: ${err.message || 'Connection failed'}`);
+      toast.error('API connection test failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -168,6 +250,17 @@ const SimpleBookCoverGenerator = () => {
                 Form Submit: Generate Cover
               </button>
             </form>
+            
+            {/* API Test Button */}
+            <button
+              onClick={testApiConnection}
+              disabled={loading}
+              className={`w-full py-3 px-4 rounded-lg font-medium ${
+                loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600'
+              }`}
+            >
+              Test API Connection
+            </button>
             
             {error && (
               <div className="p-4 bg-red-900/50 border border-red-800 rounded-lg">
