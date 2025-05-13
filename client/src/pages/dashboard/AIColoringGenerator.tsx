@@ -227,7 +227,10 @@ export const AIColoringGenerator = () => {
 
     setIsCreatingPdf(true);
     try {
-      toast.info('Creating PDF...');
+      toast('Creating PDF...', { 
+        description: 'Please wait while we prepare your PDF',
+        icon: <Sparkles className="h-4 w-4 animate-pulse" />
+      });
       
       const pdfUrlResult = await createColoringBookPDF(generatedPages, {
         trimSize: coloringOptions.trimSize,
@@ -238,16 +241,7 @@ export const AIColoringGenerator = () => {
       });
       
       setPdfUrl(pdfUrlResult);
-      toast.success('PDF created successfully!');
-      
-      // Auto-download the PDF
-      const link = document.createElement('a');
-      link.href = pdfUrlResult;
-      link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Toast notification is now handled in the createColoringBookPDF function
     } catch (error) {
       console.error('Error creating PDF:', error);
       toast.error('Failed to create PDF');
@@ -264,7 +258,6 @@ export const AIColoringGenerator = () => {
     }
 
     try {
-      toast.info('Preparing to download images...');
       await downloadColoringPages(generatedPages, coloringOptions.bookTitle);
     } catch (error) {
       console.error('Error downloading images:', error);

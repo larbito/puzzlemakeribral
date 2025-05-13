@@ -1262,6 +1262,11 @@ export async function createColoringBookPDF(
       return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
     }
 
+    const loadingToast = toast('Creating PDF...', {
+      description: 'Preparing your coloring book PDF',
+      duration: Infinity
+    });
+
     // Create form data for the request
     const requestData = {
       pageUrls,
@@ -1280,12 +1285,28 @@ export async function createColoringBookPDF(
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error creating PDF:", errorText);
+      toast.dismiss(loadingToast);
+      toast.error("Failed to create PDF");
       throw new Error(`Failed to create PDF: ${response.status}`);
     }
     
-    // Create and return a blob URL for the PDF
+    // Create a blob URL for the PDF
     const pdfBlob = await response.blob();
     const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = pdfUrl;
+    link.download = `${options.bookTitle || 'coloring-book'}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up the blob URL after download
+    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
+    
+    toast.dismiss(loadingToast);
+    toast.success("PDF created and downloaded successfully");
     
     return pdfUrl;
   } catch (error) {
@@ -1314,25 +1335,56 @@ export async function downloadColoringPages(
       return;
     }
     
+    const loadingToast = toast('Preparing ZIP download...', {
+      description: 'Gathering all your coloring pages',
+      duration: Infinity
+    });
+    
     // For multiple images, use our backend to create a ZIP
     const requestData = {
       pageUrls,
       bookTitle: bookTitle || 'coloring-pages'
     };
     
-    // Create a form with the request data
-    const formData = new FormData();
-    formData.append('data', JSON.stringify(requestData));
-    
-    // Create a download link
-    const link = document.createElement('a');
-    link.href = `${API_URL}/api/coloring-book/download-zip?data=${encodeURIComponent(JSON.stringify(requestData))}`;
-    link.download = `${bookTitle || 'coloring-pages'}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast.success("Downloading coloring pages as ZIP");
+    // Use a fetch request with the POST endpoint to avoid URL length limitations
+    try {
+      const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error downloading ZIP:", errorText);
+        toast.dismiss(loadingToast);
+        toast.error("Failed to download images");
+        return;
+      }
+      
+      // Create a blob URL and trigger download
+      const zipBlob = await response.blob();
+      const zipUrl = URL.createObjectURL(zipBlob);
+      
+      const link = document.createElement('a');
+      link.href = zipUrl;
+      link.download = `${bookTitle || 'coloring-pages'}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the blob URL after download
+      setTimeout(() => URL.revokeObjectURL(zipUrl), 100);
+      
+      toast.dismiss(loadingToast);
+      toast.success("Images downloaded as ZIP");
+    } catch (error) {
+      console.error("Error with POST download method:", error);
+      toast.dismiss(loadingToast);
+      toast.error("Failed to download images");
+    }
   } catch (error) {
     console.error("Error downloading coloring pages:", error);
     toast.error("Failed to download pages");
