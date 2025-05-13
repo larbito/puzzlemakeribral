@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { BookOpenCheck, Download, Calculator, ChevronDown } from 'lucide-react';
+import { BookOpenCheck, Download, Sparkles, Ruler, Book, FileText } from 'lucide-react';
 
 // KDP Book cover generator component
 const SimpleBookCoverGenerator = () => {
@@ -10,33 +10,56 @@ const SimpleBookCoverGenerator = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [coverUrl, setCoverUrl] = useState('');
   const [error, setError] = useState('');
-  
-  // We keep these states in the code but they're no longer exposed in the UI
   const [style, setStyle] = useState('realistic');
+  const [size, setSize] = useState('standard');
   const [coverType, setCoverType] = useState('front');
   
-  // KDP specification state
+  // KDP specific states
   const [trimSize, setTrimSize] = useState('6x9');
   const [pageCount, setPageCount] = useState(100);
   const [paperType, setPaperType] = useState('white');
+  const [spineText, setSpineText] = useState('');
 
-  // KDP trim size options
+  // Available style options
+  const styleOptions = [
+    { value: 'realistic', label: 'Realistic' },
+    { value: 'artistic', label: 'Artistic' },
+    { value: 'vintage', label: 'Vintage' },
+    { value: 'minimalist', label: 'Minimalist' },
+    { value: 'fantasy', label: 'Fantasy' }
+  ];
+
+  // Size presets (width x height)
+  const sizePresets = {
+    standard: { width: 1500, height: 2100, label: 'Standard (1500×2100)' },
+    large: { width: 2000, height: 3000, label: 'Large (2000×3000)' },
+    square: { width: 2000, height: 2000, label: 'Square (2000×2000)' },
+    wide: { width: 2400, height: 1800, label: 'Wide (2400×1800)' }
+  };
+
+  // Cover type options
+  const coverTypes = [
+    { value: 'front', label: 'Front Cover Only' },
+    { value: 'full', label: 'Full Cover (Front, Spine, Back)' }
+  ];
+
+  // KDP Trim Size options
   const trimSizeOptions = [
-    { value: '5x8', label: '5" x 8"', width: 5, height: 8 },
-    { value: '5.06x7.81', label: '5.06" x 7.81"', width: 5.06, height: 7.81 },
-    { value: '5.25x8', label: '5.25" x 8"', width: 5.25, height: 8 },
-    { value: '5.5x8.5', label: '5.5" x 8.5"', width: 5.5, height: 8.5 },
-    { value: '6x9', label: '6" x 9"', width: 6, height: 9 },
-    { value: '6.14x9.21', label: '6.14" x 9.21"', width: 6.14, height: 9.21 },
-    { value: '6.69x9.61', label: '6.69" x 9.61"', width: 6.69, height: 9.61 },
-    { value: '7x10', label: '7" x 10"', width: 7, height: 10 },
-    { value: '7.44x9.69', label: '7.44" x 9.69"', width: 7.44, height: 9.69 },
-    { value: '7.5x9.25', label: '7.5" x 9.25"', width: 7.5, height: 9.25 },
-    { value: '8x10', label: '8" x 10"', width: 8, height: 10 },
-    { value: '8.25x6', label: '8.25" x 6"', width: 8.25, height: 6 },
-    { value: '8.25x8.25', label: '8.25" x 8.25"', width: 8.25, height: 8.25 },
-    { value: '8.5x8.5', label: '8.5" x 8.5"', width: 8.5, height: 8.5 },
-    { value: '8.5x11', label: '8.5" x 11"', width: 8.5, height: 11 }
+    { value: '5x8', label: '5" x 8"' },
+    { value: '5.06x7.81', label: '5.06" x 7.81"' },
+    { value: '5.25x8', label: '5.25" x 8"' },
+    { value: '5.5x8.5', label: '5.5" x 8.5"' },
+    { value: '6x9', label: '6" x 9"' },
+    { value: '6.14x9.21', label: '6.14" x 9.21"' },
+    { value: '6.69x9.61', label: '6.69" x 9.61"' },
+    { value: '7x10', label: '7" x 10"' },
+    { value: '7.44x9.69', label: '7.44" x 9.69"' },
+    { value: '7.5x9.25', label: '7.5" x 9.25"' },
+    { value: '8x10', label: '8" x 10"' },
+    { value: '8.25x6', label: '8.25" x 6"' },
+    { value: '8.25x8.25', label: '8.25" x 8.25"' },
+    { value: '8.5x8.5', label: '8.5" x 8.5"' },
+    { value: '8.5x11', label: '8.5" x 11"' }
   ];
 
   // Paper type options
@@ -58,24 +81,72 @@ const SimpleBookCoverGenerator = () => {
   // API URL
   const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
-  // Direct event handlers
-  const handlePromptChange = (e) => setPrompt(e.target.value);
-  const handleTrimSizeChange = (e) => setTrimSize(e.target.value);
-  const handlePaperTypeSelect = (type) => {
-    console.log("Setting paper type to:", type);
-    setPaperType(type);
+  // Function to handle prompt input change
+  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setPrompt(e.target.value);
   };
-  const handlePageCountChange = (e) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value >= 24 && value <= 800) {
-      setPageCount(value);
+  
+  // Handle page count change
+  const handlePageCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const count = parseInt(e.target.value);
+    if (count >= 24 && count <= 800) {
+      setPageCount(count);
     }
   };
+
+  // Handle spine text change
+  const handleSpineTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSpineText(e.target.value);
+  };
+
+  // Calculate spine width based on page count and paper type
+  const calculateSpineWidth = (pages: number, paper: string): number => {
+    // For white paper: pages * 0.002252" (KDP's formula)
+    // For cream paper: pages * 0.0025" (KDP's formula)
+    // For color paper: pages * 0.002347" (approximate)
+    const multiplier = paper === 'cream' ? 0.0025 : paper === 'color' ? 0.002347 : 0.002252;
+    return pages * multiplier;
+  };
+
+  // Calculate final dimensions with bleed
+  const coverDimensions = useMemo(() => {
+    if (coverType === 'front') {
+      return {
+        width: sizePresets[size as keyof typeof sizePresets].width,
+        height: sizePresets[size as keyof typeof sizePresets].height,
+      };
+    }
+    
+    // For full cover (front, spine, back), calculate based on trim size
+    const [widthInches, heightInches] = trimSize.split('x').map(Number);
+    
+    // Add bleed (0.125" on all sides)
+    const bleedInches = 0.125;
+    const spineWidthInches = calculateSpineWidth(pageCount, paperType);
+    
+    // Calculate total width: front + spine + back + bleed
+    const totalWidthInches = (widthInches * 2) + spineWidthInches + (bleedInches * 2);
+    const totalHeightInches = heightInches + (bleedInches * 2);
+    
+    // Convert to pixels at 300 DPI
+    const dpi = 300;
+    const widthPixels = Math.round(totalWidthInches * dpi);
+    const heightPixels = Math.round(totalHeightInches * dpi);
+    
+    return {
+      width: widthPixels,
+      height: heightPixels,
+      totalWidthInches: totalWidthInches.toFixed(2),
+      totalHeightInches: totalHeightInches.toFixed(2),
+      spineWidthInches: spineWidthInches.toFixed(3),
+      dpi
+    };
+  }, [coverType, size, trimSize, pageCount, paperType]);
   
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
-    window.generateBookCover = (testPrompt) => {
+    window.generateBookCover = (testPrompt?: string) => {
       const promptToUse = testPrompt || prompt;
       if (promptToUse.trim().length < 5) {
         console.log('Prompt too short, need at least 5 characters');
@@ -94,12 +165,12 @@ const SimpleBookCoverGenerator = () => {
   }, [prompt]);
 
   // Apply example prompt
-  const applyExamplePrompt = (example) => {
+  const applyExamplePrompt = (example: string) => {
     setPrompt(example);
   };
 
   // Form submission handler
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     try {
       e.preventDefault();
       console.log('Form submitted');
@@ -110,47 +181,8 @@ const SimpleBookCoverGenerator = () => {
     }
   };
   
-  // Calculate spine width based on page count and paper type
-  const calculateSpineWidth = (pages, paper) => {
-    // KDP spine width calculation formulas
-    const ppi = {
-      white: 0.002252,
-      cream: 0.0025,
-      color: 0.002252
-    };
-    return pages * (ppi[paper]);
-  };
-
-  // Calculate final dimensions including bleed
-  const calculateFinalDimensions = () => {
-    const selectedTrim = trimSizeOptions.find(t => t.value === trimSize);
-    if (!selectedTrim) return null;
-
-    const bleed = 0.125; // 0.125" bleed on each side
-    const spineWidth = calculateSpineWidth(pageCount, paperType);
-    
-    // For full cover (front + spine + back)
-    const fullWidth = coverType === 'full' 
-      ? (selectedTrim.width * 2) + spineWidth + (bleed * 2)
-      : selectedTrim.width + (bleed * 2);
-    
-    const fullHeight = selectedTrim.height + (bleed * 2);
-
-    // Calculate pixels at 300 DPI
-    const pixelWidth = Math.ceil(fullWidth * 300);
-    const pixelHeight = Math.ceil(fullHeight * 300);
-
-    return {
-      width: fullWidth.toFixed(3),
-      height: fullHeight.toFixed(3),
-      spineWidth: spineWidth.toFixed(3),
-      pixels: `${pixelWidth} x ${pixelHeight}`,
-      dpi: 300
-    };
-  };
-
-  // The generate function - preserving existing API logic
-  const handleGenerate = async (manualPrompt) => {
+  // Minimal generate function with basic fetch
+  const handleGenerate = async (manualPrompt?: string) => {
     const promptToUse = manualPrompt || prompt;
     
     if (promptToUse.trim().length < 5) {
@@ -162,34 +194,30 @@ const SimpleBookCoverGenerator = () => {
     setIsGenerating(true);
     setError('');
 
-    // Calculate dimensions based on KDP specs
-    const dimensions = calculateFinalDimensions();
-    if (!dimensions) {
-      setError('Invalid trim size selected');
-      setIsGenerating(false);
-      return;
-    }
-
     try {
-      // Enhanced prompt with style - keeping the API call structure the same
+      // Enhanced prompt with style
       const enhancedPrompt = `Professional book cover design for Amazon KDP in ${style} style: ${promptToUse}. High resolution 300 DPI.`;
       
       // Basic FormData approach that works with the API
       const formData = new FormData();
       formData.append('prompt', enhancedPrompt);
-      formData.append('width', (parseFloat(dimensions.width) * 300).toString());
-      formData.append('height', (parseFloat(dimensions.height) * 300).toString());
+      formData.append('width', coverDimensions.width.toString());
+      formData.append('height', coverDimensions.height.toString());
       formData.append('negative_prompt', 'text, watermark, low quality, distorted');
+      
+      if (coverType === 'full' && pageCount >= 100) {
+        // Add spine text information for full covers
+        formData.append('spine_text', spineText || promptToUse.substring(0, 30));
+        formData.append('spine_width', coverDimensions.spineWidthInches || '0.25');
+      }
 
       // Log form data for debugging
       console.log("Form data created:", {
         prompt: enhancedPrompt,
-        width: dimensions.width,
-        height: dimensions.height,
-        style,
-        spineWidth: dimensions.spineWidth,
-        paperType,
-        pageCount
+        width: coverDimensions.width,
+        height: coverDimensions.height,
+        coverType,
+        style
       });
       
       console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
@@ -218,30 +246,18 @@ const SimpleBookCoverGenerator = () => {
         setCoverUrl(data.url);
       } else {
         console.log('No URL found in response, using placeholder');
-        setCoverUrl(`https://placehold.co/${dimensions.width}x${dimensions.height}/4ade80/FFFFFF?text=Placeholder+Cover`);
+        setCoverUrl(`https://placehold.co/${coverDimensions.width}x${coverDimensions.height}/4ade80/FFFFFF?text=Placeholder+Cover`);
         setError('No image URL returned - using placeholder');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error during generation:", err);
       setError(err.message || "Failed to generate cover");
-      const dimensions = calculateFinalDimensions();
-      if (dimensions) {
-        setCoverUrl(`https://placehold.co/${parseFloat(dimensions.width) * 300}x${parseFloat(dimensions.height) * 300}/ff5555/FFFFFF?text=Error:+Generation+Failed`);
-      }
+      setCoverUrl(`https://placehold.co/${coverDimensions.width}x${coverDimensions.height}/ff5555/FFFFFF?text=Error:+Generation+Failed`);
     } finally {
       console.log('Generation process completed');
       setIsGenerating(false);
     }
   };
-
-  // Calculate current dimensions
-  const dimensions = calculateFinalDimensions();
-  
-  // Get the selected trim size label
-  const selectedTrimSize = trimSizeOptions.find(t => t.value === trimSize)?.label || '';
-  
-  // Get the selected paper type label
-  const selectedPaperType = paperTypeOptions.find(p => p.value === paperType)?.label || '';
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4">
@@ -260,23 +276,165 @@ const SimpleBookCoverGenerator = () => {
         </p>
       </div>
       
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left Column: KDP Cover Setup */}
-        <div>
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Controls */}
+        <div className="lg:col-span-2">
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
             <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/5 to-secondary/5">
               <CardTitle className="flex items-center">
-                <Calculator className="mr-2 h-5 w-5 text-primary" />
-                <span>Book Cover Details (KDP Compliant)</span>
+                <Sparkles className="mr-2 h-5 w-5 text-primary" />
+                <span>Create Your Book Cover</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Cover Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Cover Type
+                  </label>
+                  <div className="bg-muted rounded-lg p-1 grid grid-cols-2 gap-1">
+                    {coverTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setCoverType(type.value)}
+                        className={`rounded-md px-3 py-2 text-sm transition-all ${
+                          coverType === type.value 
+                            ? "bg-primary text-background font-medium" 
+                            : "hover:bg-primary/10 text-foreground"
+                        }`}
+                      >
+                        {type.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              
+                {/* Book Specification Fields - Only visible for full covers */}
+                {coverType === 'full' && (
+                  <div className="space-y-6 rounded-lg bg-muted/50 p-4 border border-primary/10">
+                    <h3 className="font-medium flex items-center text-sm">
+                      <Book className="h-4 w-4 mr-2 text-primary" />
+                      Book Specifications
+                    </h3>
+                    
+                    {/* Trim Size Selection */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground flex items-center">
+                        <Ruler className="h-4 w-4 mr-1 text-primary" />
+                        Trim Size
+                      </label>
+                      <select 
+                        value={trimSize} 
+                        onChange={(e) => setTrimSize(e.target.value)}
+                        className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary"
+                      >
+                        {trimSizeOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    {/* Page Count */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground flex items-center">
+                        <FileText className="h-4 w-4 mr-1 text-primary" />
+                        Page Count
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="range"
+                          min="24"
+                          max="800"
+                          value={pageCount}
+                          onChange={handlePageCountChange}
+                          className="flex-1 h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <input
+                          type="number"
+                          min="24"
+                          max="800"
+                          value={pageCount}
+                          onChange={handlePageCountChange}
+                          className="w-16 rounded-md border border-primary/20 bg-muted p-1 text-center text-sm"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Minimum: 24, Maximum: 800
+                      </p>
+                    </div>
+                    
+                    {/* Paper Type */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-foreground">
+                        Paper Type
+                      </label>
+                      <div className="flex space-x-2">
+                        {paperTypeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setPaperType(option.value)}
+                            className={`flex-1 px-3 py-2 rounded-md text-sm ${
+                              paperType === option.value 
+                                ? "bg-primary text-background font-medium" 
+                                : "bg-muted hover:bg-primary/10 text-foreground"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Spine Text - Only if page count >= 100 */}
+                    {pageCount >= 100 && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                          Spine Text (optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={spineText}
+                          onChange={handleSpineTextChange}
+                          placeholder="Text to display on the spine"
+                          className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm"
+                        />
+                      </div>
+                    )}
+
+                    {/* Auto-Calculated Output Box */}
+                    <div className="rounded-md bg-primary/5 p-3 space-y-1">
+                      <h4 className="text-sm font-medium text-primary">Auto Size Preview</h4>
+                      <ul className="text-xs space-y-1 text-muted-foreground">
+                        <li className="flex justify-between">
+                          <span>Final size with bleed:</span> 
+                          <span className="font-medium text-foreground">{coverDimensions.totalWidthInches}" x {coverDimensions.totalHeightInches}"</span>
+                        </li>
+                        <li className="flex justify-between">
+                          <span>Spine width:</span> 
+                          <span className="font-medium text-foreground">{coverDimensions.spineWidthInches}"</span>
+                        </li>
+                        <li className="flex justify-between">
+                          <span>Resolution:</span> 
+                          <span className="font-medium text-foreground">{coverDimensions.width} x {coverDimensions.height} px</span>
+                        </li>
+                        <li className="flex justify-between">
+                          <span>DPI:</span> 
+                          <span className="font-medium text-foreground">300</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              
                 {/* Prompt Input */}
                 <div className="space-y-2">
                   <label htmlFor="prompt" className="text-sm font-medium text-foreground">
-                    Describe your cover
+                    Describe your book cover
                   </label>
                   <div className="relative">
                     <textarea
@@ -284,7 +442,7 @@ const SimpleBookCoverGenerator = () => {
                       value={prompt}
                       onChange={handlePromptChange}
                       className="w-full min-h-[150px] rounded-lg border border-primary/20 bg-muted p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
-                      placeholder="Describe your ideal book cover in detail. Include mood, main elements, colors, etc."
+                      placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
                     />
                     <div className="absolute bottom-3 right-3 rounded-full bg-primary/10 px-2 py-1 text-xs">
                       {prompt.length} chars
@@ -298,144 +456,53 @@ const SimpleBookCoverGenerator = () => {
                   </div>
                 </div>
                 
-                {/* Book Specification Section */}
-                <div className="space-y-4 bg-black/20 p-4 rounded-lg border border-slate-700">
-                  {/* Trim Size */}
-                  <div className="space-y-2">
-                    <label htmlFor="trimSize" className="text-sm font-medium text-foreground">
-                      Book Trim Size
-                    </label>
-                    <select
-                      id="trimSize"
-                      value={trimSize}
-                      onChange={handleTrimSizeChange}
-                      className="w-full rounded-md border border-primary/20 bg-black/30 p-2 text-sm text-foreground"
-                    >
-                      {trimSizeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Paper Type */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground block mb-2">Paper Type</label>
-                    <div className="flex gap-2">
-                      <label 
-                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
-                          paperType === 'white' 
-                            ? 'bg-green-500 text-white border-green-600' 
-                            : 'bg-black/40 text-gray-300 border-slate-700'
+                {/* Style options */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Cover Style
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {styleOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setStyle(option.value)}
+                        className={`px-4 py-2 rounded-md text-sm ${
+                          style === option.value 
+                            ? "bg-primary text-background font-medium" 
+                            : "bg-muted hover:bg-primary/10 text-foreground"
                         }`}
                       >
-                        <input 
-                          type="radio" 
-                          name="paperType" 
-                          value="white" 
-                          checked={paperType === 'white'}
-                          onChange={() => handlePaperTypeSelect('white')} 
-                          className="sr-only" 
-                        />
-                        White
-                      </label>
-                      
-                      <label 
-                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
-                          paperType === 'cream' 
-                            ? 'bg-green-500 text-white border-green-600' 
-                            : 'bg-black/40 text-gray-300 border-slate-700'
-                        }`}
-                      >
-                        <input 
-                          type="radio" 
-                          name="paperType" 
-                          value="cream" 
-                          checked={paperType === 'cream'}
-                          onChange={() => handlePaperTypeSelect('cream')} 
-                          className="sr-only" 
-                        />
-                        Cream
-                      </label>
-                      
-                      <label 
-                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
-                          paperType === 'color' 
-                            ? 'bg-green-500 text-white border-green-600' 
-                            : 'bg-black/40 text-gray-300 border-slate-700'
-                        }`}
-                      >
-                        <input 
-                          type="radio" 
-                          name="paperType" 
-                          value="color" 
-                          checked={paperType === 'color'}
-                          onChange={() => handlePaperTypeSelect('color')} 
-                          className="sr-only" 
-                        />
-                        Color
-                      </label>
-                    </div>
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
-
-                  {/* Page Count */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label htmlFor="pageCount" className="text-sm font-medium text-foreground">
-                        Page Count
-                      </label>
-                      <span className="text-green-500 font-medium text-sm">{pageCount} pages</span>
-                    </div>
-                    <div className="flex gap-4 items-center">
-                      <input 
-                        type="range" 
-                        name="pageCountSlider"
-                        min="24" 
-                        max="800" 
-                        value={pageCount} 
-                        onChange={handlePageCountChange}
-                        className="w-full h-2 rounded-lg appearance-none bg-slate-700" 
-                      />
-                      <input 
-                        type="number" 
-                        name="pageCountInput"
-                        min="24" 
-                        max="800" 
-                        value={pageCount} 
-                        onChange={handlePageCountChange}
-                        className="w-20 rounded-md border border-primary/20 bg-black/30 p-2 text-sm text-foreground" 
-                      />
-                    </div>
-                  </div>
-
-                  {/* Auto-Calculated Dimensions */}
-                  {dimensions && (
-                    <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-primary/10">
-                      <h4 className="text-sm font-medium text-foreground mb-2">
-                        Auto-Calculated Dimensions
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Final size with bleed:</span>
-                          <div className="font-medium">{dimensions.width}" x {dimensions.height}"</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Spine width:</span>
-                          <div className="font-medium">{dimensions.spineWidth}"</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Resolution:</span>
-                          <div className="font-medium">{dimensions.pixels} px</div>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">DPI:</span>
-                          <div className="font-medium">{dimensions.dpi}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
+                
+                {/* Size selection - Only show for front covers */}
+                {coverType === 'front' && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-foreground">
+                      Cover Size
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      {Object.entries(sizePresets).map(([key, preset]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => setSize(key)}
+                          className={`px-3 py-2 rounded-md text-sm ${
+                            size === key 
+                              ? "bg-primary text-background font-medium" 
+                              : "bg-muted hover:bg-primary/10 text-foreground"
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Generate Button */}
                 <Button
@@ -456,30 +523,30 @@ const SimpleBookCoverGenerator = () => {
                     <>Generate Cover</>
                   )}
                 </Button>
-                
-                {/* Example Prompts Section */}
-                <div className="mt-6 pt-6 border-t border-primary/10">
-                  <h3 className="text-sm font-medium text-foreground mb-3 flex items-center">
-                    <span className="mr-2">📝</span> Example Prompts
-                  </h3>
-                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
-                    {examplePrompts.map((example, index) => (
-                      <button
-                        key={index}
-                        onClick={() => applyExamplePrompt(example)}
-                        className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </form>
+
+              {/* Example prompts */}
+              <div className="mt-6 pt-6 border-t border-primary/10">
+                <h3 className="text-sm font-medium text-foreground mb-3 flex items-center">
+                  <span className="mr-2">📝</span> Example Prompts
+                </h3>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
+                  {examplePrompts.map((example, index) => (
+                    <button
+                      key={index}
+                      onClick={() => applyExamplePrompt(example)}
+                      className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right Column: Generated Cover Preview */}
+        {/* Right Column: Preview */}
         <div className="space-y-4">
           {/* Error display */}
           {error && (
@@ -492,28 +559,29 @@ const SimpleBookCoverGenerator = () => {
           <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
             <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-secondary/5 to-primary/5">
               <CardTitle className="text-center">
-                Generated Cover
+                {coverUrl ? 'Generated Cover' : 'Cover Preview'}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
               {coverUrl ? (
-                <div className="relative">
+                <div className="relative group">
                   <img 
                     src={coverUrl} 
                     alt="Generated Book Cover"
                     className="max-w-full max-h-[450px] rounded-md border border-primary/20 shadow-lg"
                   />
-                  
-                  <a 
-                    href={coverUrl} 
-                    download="kdp-book-cover.png"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm justify-center w-full"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download Cover
-                  </a>
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                    <a 
+                      href={coverUrl} 
+                      download="kdp-book-cover.png"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Cover
+                    </a>
+                  </div>
                 </div>
               ) : (
                 <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-muted border border-dashed border-primary/20 text-muted-foreground p-6 text-center">
@@ -523,37 +591,69 @@ const SimpleBookCoverGenerator = () => {
                   </div>
                 </div>
               )}
+              
+              {/* Download button (visible when not hovering) */}
+              {coverUrl && (
+                <a 
+                  href={coverUrl} 
+                  download="kdp-book-cover.png"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 bg-primary hover:bg-primary/90 text-background font-medium rounded-md px-4 py-2 flex items-center text-sm"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Cover
+                </a>
+              )}
             </CardContent>
           </Card>
 
-          {/* Cover Specifications Summary */}
+          {/* Selected options summary */}
           <Card className="bg-card/50 backdrop-blur-sm border border-primary/10">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Cover Specifications</CardTitle>
+              <CardTitle className="text-sm">Selected Options</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trim Size:</span>
-                  <span>{selectedTrimSize}</span>
+                  <span className="text-muted-foreground">Cover Type:</span>
+                  <span>{coverTypes.find(type => type.value === coverType)?.label || 'Front Cover'}</span>
                 </div>
+                {coverType === 'full' && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Trim Size:</span>
+                      <span>{trimSizeOptions.find(opt => opt.value === trimSize)?.label}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Page Count:</span>
+                      <span>{pageCount} pages</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Paper Type:</span>
+                      <span>{paperTypeOptions.find(opt => opt.value === paperType)?.label}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Spine Width:</span>
+                      <span>{coverDimensions.spineWidthInches}"</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Paper Type:</span>
-                  <span>{selectedPaperType}</span>
+                  <span className="text-muted-foreground">Style:</span>
+                  <span>{styleOptions.find(opt => opt.value === style)?.label || style}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Page Count:</span>
-                  <span>{pageCount} pages</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Spine Width:</span>
-                  <span>{dimensions?.spineWidth}" thick</span>
-                </div>
+                {coverType === 'front' && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Size:</span>
+                    <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status:</span>
                   <span className={`
                     ${isGenerating ? "text-amber-400" : ""} 
-                    ${!isGenerating && coverUrl ? "text-green-500" : ""}
+                    ${!isGenerating && coverUrl ? "text-primary" : ""}
                     ${!isGenerating && !coverUrl ? "text-muted-foreground" : ""}
                   `}>
                     {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
@@ -565,7 +665,7 @@ const SimpleBookCoverGenerator = () => {
         </div>
       </div>
 
-      {/* Add a style tag for animations and custom element styling */}
+      {/* Add a style tag for animations */}
       <style>
         {`
           @keyframes text-shimmer {
@@ -576,62 +676,6 @@ const SimpleBookCoverGenerator = () => {
           .animate-text-shimmer {
             background-size: 200% auto;
             animation: text-shimmer 5s infinite linear;
-          }
-          
-          /* Custom range slider styling */
-          input[type=range] {
-            -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-          }
-          
-          input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 0 4px rgba(0,0,0,0.3);
-          }
-          
-          input[type=range]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 0 4px rgba(0,0,0,0.3);
-          }
-          
-          input[type=range]:focus {
-            outline: none;
-          }
-          
-          input[type=range]:focus::-webkit-slider-thumb {
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
-          }
-          
-          input[type=range]:focus::-moz-range-thumb {
-            box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
-          }
-          
-          /* Fix select element in Firefox */
-          select {
-            -moz-appearance: none;
-            text-indent: 0.01px;
-            text-overflow: '';
-          }
-          
-          /* Change number input spinners */
-          input[type=number]::-webkit-inner-spin-button, 
-          input[type=number]::-webkit-outer-spin-button { 
-            opacity: 1;
-            background: transparent;
-            cursor: pointer;
           }
         `}
       </style>
