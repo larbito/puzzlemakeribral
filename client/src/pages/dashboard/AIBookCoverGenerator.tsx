@@ -283,14 +283,38 @@ const AIBookCoverGenerator = () => {
       console.log("You can use window.forceClickGenerateButton() in the console to trigger a click");
     }
     
+    // Add global function to trigger cover generation from anywhere
+    (window as any).generateCover = () => {
+      console.log("Global generateCover function called");
+      handleGenerateFrontCover();
+    };
+    
+    // Add event listener to document for clicks on specific targets
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.id === 'generate-link' || 
+          target.id === 'pure-html-link' || 
+          target.closest('#generate-link') || 
+          target.closest('#pure-html-link')) {
+        console.log("Document-level click handler caught click on", target.id || target.tagName);
+        e.preventDefault();
+        (window as any).generateCover();
+      }
+    });
+    
     return () => {
       // Clean up event listener on unmount
       const button = document.getElementById('generate-cover-button');
       if (button) {
         button.removeEventListener('click', () => {});
       }
-      // Remove the debug method
+      
+      // Remove the global methods
       delete (window as any).forceClickGenerateButton;
+      delete (window as any).generateCover;
+      
+      // Remove document click listener
+      document.removeEventListener('click', () => {});
     };
   }, []);
 
@@ -464,18 +488,21 @@ const AIBookCoverGenerator = () => {
                 </div>
               </div>
 
+              {/* Replace with direct link buttons for absolute compatibility */}
               <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-                <button 
-                  id="generate-cover-button-debug"
-                  type="button"
-                  onClick={() => {
-                    console.log("BUTTON CLICKED: Basic Debug Button");
-                    alert("Button clicked successfully!");
-                    if (!isGenerating && coverDescription.trim().length >= 5) {
-                      handleGenerateFrontCover();
-                    }
+                <a 
+                  href="/api/generate-cover?prompt=direct-link"
+                  id="generate-link"
+                  target="_blank"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    console.log("DIRECT LINK CLICKED");
+                    alert("Direct link clicked!");
+                    handleGenerateFrontCover();
+                    return false;
                   }}
                   style={{
+                    display: 'block',
                     width: '100%',
                     padding: '12px 16px',
                     borderRadius: '8px',
@@ -484,23 +511,22 @@ const AIBookCoverGenerator = () => {
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     fontSize: '16px',
-                    border: '2px solid #2e7d32'
+                    border: '2px solid #2e7d32',
+                    textAlign: 'center',
+                    textDecoration: 'none'
                   }}
                 >
-                  TEST: Generate Front Cover
-                </button>
+                  DIRECT LINK: Generate Front Cover
+                </a>
               </div>
 
+              {/* Add an absolutely minimal HTML link with no React handlers */}
               <div style={{ marginTop: '8px', marginBottom: '16px' }}>
-                <button 
-                  id="emergency-button"
-                  type="button"
-                  onClick={() => {
-                    console.log("EMERGENCY BUTTON CLICKED");
-                    alert("Emergency button clicked!");
-                    handleGenerateFrontCover();
-                  }}
+                <a 
+                  href="#generate"
+                  id="pure-html-link"
                   style={{
+                    display: 'block',
                     width: '100%',
                     padding: '8px 12px',
                     backgroundColor: '#ff5722',
@@ -509,11 +535,55 @@ const AIBookCoverGenerator = () => {
                     cursor: 'pointer',
                     fontSize: '14px',
                     border: '2px solid #d84315',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                    textDecoration: 'none'
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    console.log('PURE HTML LINK CLICKED');
+                    alert('Pure HTML link clicked!');
+                    handleGenerateFrontCover();
+                    return false;
                   }}
                 >
-                  EMERGENCY GENERATE BUTTON
-                </button>
+                  PURE HTML LINK
+                </a>
+              </div>
+
+              {/* Add a direct form submission approach as a last resort */}
+              <div style={{ marginTop: '8px', marginBottom: '16px' }}>
+                <form 
+                  action="/api/generate-cover" 
+                  method="post"
+                  target="_blank"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    console.log("FORM SUBMITTED");
+                    alert("Form submitted!");
+                    handleGenerateFrontCover();
+                    return false;
+                  }}
+                >
+                  <input type="hidden" name="prompt" value={coverDescription} />
+                  <button 
+                    type="submit"
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      backgroundColor: '#2196f3',
+                      color: 'white',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      border: '2px solid #1976d2',
+                      borderRadius: '4px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    FORM SUBMIT APPROACH
+                  </button>
+                </form>
               </div>
             </CardContent>
           </Card>
