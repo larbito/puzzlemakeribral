@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 
-// API base URL - ensure it's always the production URL when deployed
-export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+// API base URL from environment variable
+export const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
 
 // For development/debugging - set to true to use placeholder images instead of real API
 const USE_PLACEHOLDERS = false; // Set to false to use the real API service
@@ -21,19 +21,29 @@ export async function generateBookCover({
 }: GenerateBookCoverParams): Promise<string | null> {
   try {
     console.log("======== BOOK COVER SERVICE START ========");
+    console.log("API URL:", API_URL);
     console.log("Direct generateBookCover call with params:", { prompt, width, height });
     
     // First test the server connectivity
     try {
       console.log("Testing backend connectivity with health check");
       const healthResponse = await fetch(`${API_URL}/health`, {
-        method: 'GET'
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
       console.log("Health check status:", healthResponse.status);
-      console.log("Health check response:", await healthResponse.text());
+      const healthData = await healthResponse.text();
+      console.log("Health check response:", healthData);
+      
+      if (!healthResponse.ok) {
+        throw new Error(`Health check failed: ${healthData}`);
+      }
     } catch (healthError) {
       console.error("Health check failed:", healthError);
-      // Continue anyway
+      toast.error("Backend service is not available. Please try again later.");
+      return getPlaceholderImage(prompt, width, height);
     }
     
     // If using placeholders for testing, return immediately
@@ -76,10 +86,12 @@ export async function generateBookCover({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'Origin': window.location.origin
           },
           body: JSON.stringify(payload),
-          signal: controller.signal
+          signal: controller.signal,
+          credentials: 'include'
         });
         
         clearTimeout(timeoutId);
@@ -90,6 +102,15 @@ export async function generateBookCover({
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`API error from ${endpoint}:`, errorText);
+          let errorMessage = 'Failed to generate book cover';
+          try {
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch (e) {
+            // If we can't parse the error as JSON, use the raw text
+            errorMessage = errorText;
+          }
+          toast.error(errorMessage);
           continue; // Try next endpoint
         }
         
@@ -100,9 +121,13 @@ export async function generateBookCover({
           console.log("Successfully extracted image URL:", data.url);
           console.log("======== BOOK COVER SERVICE END ========");
           return data.url;
+        } else {
+          console.error("No image URL in response:", data);
+          toast.error("No image URL received from the server");
         }
-      } catch (endpointError) {
+      } catch (endpointError: any) {
         console.error(`Error with endpoint ${endpoint}:`, endpointError);
+        toast.error(endpointError.message || "Failed to generate book cover");
         // Continue to next endpoint
       }
     }
@@ -111,10 +136,12 @@ export async function generateBookCover({
     console.error("All API endpoints failed");
     console.log("Using placeholder as fallback");
     console.log("======== BOOK COVER SERVICE END (FALLBACK) ========");
+    toast.error("Using placeholder image due to API failure");
     return getPlaceholderImage(prompt, width, height);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in generateBookCover:", error);
     console.log("======== BOOK COVER SERVICE END (ERROR) ========");
+    toast.error(error.message || "An unexpected error occurred");
     return getPlaceholderImage(prompt, width, height);
   }
 }

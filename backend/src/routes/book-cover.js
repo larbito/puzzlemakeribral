@@ -132,11 +132,9 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
  */
 router.post('/generate-front', express.json(), async (req, res) => {
   try {
-    console.log('Received generate-front request:', {
-      body: req.body,
-      headers: req.headers,
-      contentType: req.get('content-type')
-    });
+    console.log('=== Book Cover Generation Request ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request body:', req.body);
     
     // Check if API key is configured
     const apiKey = process.env.IDEOGRAM_API_KEY;
@@ -144,7 +142,10 @@ router.post('/generate-front', express.json(), async (req, res) => {
     
     if (!apiKey) {
       console.error('Ideogram API key is not set in the environment');
-      return res.status(500).json({ error: 'API key not configured' });
+      return res.status(500).json({ 
+        error: 'API key not configured',
+        details: 'Please set IDEOGRAM_API_KEY in your environment variables'
+      });
     }
 
     const { 

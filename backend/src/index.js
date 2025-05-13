@@ -23,12 +23,28 @@ app.use((req, res, next) => {
 
 // Configure CORS
 const corsOptions = {
-  origin: [
-    'https://puzzlemakeribral.vercel.app',
-    'http://localhost:5177',
-    'http://localhost:3000'
-  ],
-  credentials: false,
+  origin: function(origin, callback) {
+    const allowedOrigins = [
+      'https://puzzlemakeribral.vercel.app',
+      'https://puzzle-craft-forge.vercel.app',
+      'http://localhost:5177',
+      'http://localhost:3000',
+      'http://localhost:5173'
+    ];
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Length', 'Content-Type'],
@@ -45,7 +61,7 @@ app.use(cors(corsOptions));
 // Add custom headers middleware
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (corsOptions.origin.includes(origin)) {
+  if (origin) {
     res.header('Access-Control-Allow-Origin', origin);
   }
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
