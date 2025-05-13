@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { toast } from 'sonner';
+import { Loader2, Download, Sparkles, BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 // Constants
 const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
@@ -8,47 +12,33 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-produc
 const SimpleBookCoverGenerator = () => {
   // State
   const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [coverImage, setCoverImage] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
   const [error, setError] = useState('');
   
-  // Simplified API call
+  // Generate book cover function - using the approach from T-shirt generator
   const generateCover = async () => {
     if (prompt.trim().length < 5) {
-      setError('Please enter at least 5 characters');
+      toast.error('Please enter at least 5 characters for your prompt');
       return;
     }
     
-    setLoading(true);
+    setIsGenerating(true);
     setError('');
-    console.log('Starting API calls to:', API_URL);
+    console.log('Starting cover generation with prompt:', prompt);
     
     try {
-      // First check if the API is healthy
+      // Check if API is healthy
       console.log('Checking API health...');
-      const healthCheck = await fetch(`${API_URL}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
+      const healthResponse = await fetch(`${API_URL}/health`);
       
-      const healthData = await healthCheck.json();
-      console.log('Health check response:', healthData);
-      
-      if (!healthCheck.ok) {
+      if (!healthResponse.ok) {
         throw new Error('API server is not responding. Please try again later.');
       }
       
-      // Check if API has Ideogram key configured
-      const hasApiKey = healthData.ideogramApiKeyConfigured === true;
-      console.log('API has Ideogram key configured:', hasApiKey);
-      if (!hasApiKey) {
-        console.warn('⚠️ Ideogram API key is not configured on the server');
-        setError('Warning: Ideogram API key is not configured on the server. A placeholder will be used.');
-      }
-      
       // Calculate dimensions first
+      console.log('Calculating cover dimensions...');
       const dimensionsResponse = await fetch(`${API_URL}/api/book-cover/calculate-dimensions`, {
         method: 'POST',
         headers: {
@@ -69,241 +59,216 @@ const SimpleBookCoverGenerator = () => {
       const dimensions = await dimensionsResponse.json();
       console.log('Dimensions calculated:', dimensions);
       
-      // Then generate the cover
-      console.log('Sending generation request with params:', {
-        prompt: prompt,
-        width: dimensions.dimensions.frontCover.widthPx,
-        height: dimensions.dimensions.frontCover.heightPx
-      });
+      // Similar to T-shirt generator, use FormData for the API call
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      formData.append('width', dimensions.dimensions.frontCover.widthPx.toString());
+      formData.append('height', dimensions.dimensions.frontCover.heightPx.toString());
+      formData.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
       
-      const generateResponse = await fetch(`${API_URL}/api/book-cover/generate-front`, {
+      console.log('Sending generation request to Ideogram API endpoint...');
+      
+      // Use ideogram endpoint similar to T-shirt generator
+      const generateResponse = await fetch(`${API_URL}/api/ideogram/generate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin,
-          'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          width: dimensions.dimensions.frontCover.widthPx,
-          height: dimensions.dimensions.frontCover.heightPx,
-          negative_prompt: 'text, watermark, signature, blurry, low quality'
-        }),
-        credentials: 'include'
+        body: formData
       });
       
-      console.log('Generate response status:', generateResponse.status);
-      console.log('Generate response headers:', Object.fromEntries([...generateResponse.headers]));
-      
-      const responseText = await generateResponse.text();
-      console.log('Raw response:', responseText);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-        console.log('Parsed response data:', data);
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        throw new Error('Invalid response format from server');
-      }
+      console.log('Response status:', generateResponse.status);
       
       if (!generateResponse.ok) {
-        throw new Error(data.error || 'Failed to generate cover');
+        const errorText = await generateResponse.text();
+        console.error('Error response:', errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (e) {
+          errorData = { error: errorText };
+        }
+        
+        throw new Error(errorData.error || `API Error: ${generateResponse.status}`);
       }
+      
+      // Parse the successful response
+      const data = await generateResponse.json();
+      console.log('Generation successful:', data);
       
       if (data.imageUrl) {
         setCoverImage(data.imageUrl);
         toast.success('Cover generated successfully!');
       } else {
-        console.warn('No imageUrl in response, using placeholder');
-        // Use placeholder if no image URL is returned
+        console.warn('No image URL in response, using placeholder');
+        // If no image URL is returned, use a placeholder
         const placeholderUrl = `https://placehold.co/${dimensions.dimensions.frontCover.widthPx}x${dimensions.dimensions.frontCover.heightPx}/4ade80/FFFFFF?text=Cover+Placeholder`;
         setCoverImage(placeholderUrl);
-        toast.warning('Using placeholder image - API key may not be configured');
-        setError('No image URL returned from API - using placeholder');
+        toast.warning('Using placeholder - API key may not be configured');
       }
     } catch (err: any) {
       console.error('Error generating cover:', err);
-      setError(err.message || 'Something went wrong');
+      setError(err.message || 'Failed to generate cover');
       toast.error(err.message || 'Failed to generate cover');
+      
+      // Set a placeholder on error
+      setCoverImage('https://placehold.co/600x800/ff5555/FFFFFF?text=Error:+' + encodeURIComponent(err.message || 'Generation+Failed'));
     } finally {
-      setLoading(false);
+      setIsGenerating(false);
     }
   };
-  
-  // Add test function to diagnose API
-  const testApiConnection = async () => {
-    setLoading(true);
-    setError('');
+
+  // Download the generated cover
+  const handleDownload = async (imageUrl: string) => {
+    if (!imageUrl) return;
     
+    setIsDownloading(true);
     try {
-      // Check API health
-      const healthResponse = await fetch(`${API_URL}/health`, {
-        method: 'GET'
-      });
+      // Create a direct download link
+      const link = document.createElement('a');
       
-      const healthText = await healthResponse.text();
-      let healthData;
-      
-      try {
-        healthData = JSON.parse(healthText);
-      } catch (e) {
-        healthData = { text: healthText };
+      // If it's a data URL, download directly
+      if (imageUrl.startsWith('data:')) {
+        link.href = imageUrl;
+      } else {
+        // Otherwise use our proxy endpoint like the T-shirt generator
+        link.href = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}&filename=book-cover.png`;
       }
       
-      // Display API status
-      console.log('API Health Check:', healthData);
+      link.download = 'book-cover.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
-      const diagReport = `
-API Connection Test:
-- Status: ${healthResponse.status}
-- API URL: ${API_URL}
-- API Key Configured: ${healthData.ideogramApiKeyConfigured === true ? 'Yes' : 'No'}
-- Environment: ${healthData.environment || 'Unknown'}
-- Timestamp: ${healthData.timestamp || new Date().toISOString()}
-      `;
-      
-      setError(diagReport);
-      toast.info('API connection test completed');
+      toast.success('Cover downloaded successfully!');
     } catch (err: any) {
-      console.error('API test failed:', err);
-      setError(`API Test Error: ${err.message || 'Connection failed'}`);
-      toast.error('API connection test failed');
+      console.error('Error downloading cover:', err);
+      toast.error('Failed to download cover');
     } finally {
-      setLoading(false);
+      setIsDownloading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-green-400 mb-6">Simple Book Cover Generator</h1>
-        <p className="mb-8 text-gray-300">Generate AI book covers with minimal UI and direct API calls.</p>
+      <div className="max-w-5xl mx-auto">
+        <h1 className="text-3xl font-bold text-green-400 mb-6">Book Cover Generator</h1>
+        <p className="mb-8 text-gray-300">Create professional book covers using AI with direct API integration.</p>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Left Panel - Controls */}
           <div className="space-y-6">
-            <div>
-              <label className="block mb-2 font-medium">Describe your book cover</label>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg text-white"
-                rows={6}
-                placeholder="Describe what you want on your book cover... (min 5 characters)"
-              />
-              {prompt.trim().length > 0 && prompt.trim().length < 5 && (
-                <p className="text-red-400 mt-1">Please enter at least 5 characters</p>
-              )}
-            </div>
-            
-            {/* Use regular HTML button */}
-            <button
-              onClick={generateCover}
-              disabled={loading || prompt.trim().length < 5}
-              className={`w-full py-3 px-4 rounded-lg font-medium ${
-                loading || prompt.trim().length < 5
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-green-500 hover:bg-green-600'
-              }`}
-            >
-              {loading ? 'Generating...' : 'Generate Cover'}
-            </button>
-            
-            {/* Fallback link approach */}
-            <a 
-              href="#generate"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!loading && prompt.trim().length >= 5) {
-                  generateCover();
-                }
-              }}
-              className={`block w-full py-3 px-4 rounded-lg font-medium text-center ${
-                loading || prompt.trim().length < 5
-                  ? 'bg-gray-600 cursor-not-allowed'
-                  : 'bg-orange-500 hover:bg-orange-600'
-              }`}
-            >
-              Alternate: Generate Cover
-            </a>
-            
-            {/* Direct form with native browser behavior */}
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!loading && prompt.trim().length >= 5) {
-                  generateCover();
-                }
-              }}
-            >
-              <input type="hidden" name="prompt" value={prompt} />
-              <button
-                type="submit"
-                disabled={loading || prompt.trim().length < 5}
-                className={`w-full py-3 px-4 rounded-lg font-medium ${
-                  loading || prompt.trim().length < 5
-                    ? 'bg-gray-600 cursor-not-allowed'
-                    : 'bg-blue-500 hover:bg-blue-600'
-                }`}
-              >
-                Form Submit: Generate Cover
-              </button>
-            </form>
-            
-            {/* API Test Button */}
-            <button
-              onClick={testApiConnection}
-              disabled={loading}
-              className={`w-full py-3 px-4 rounded-lg font-medium ${
-                loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-purple-500 hover:bg-purple-600'
-              }`}
-            >
-              Test API Connection
-            </button>
-            
-            {error && (
-              <div className="p-4 bg-red-900/50 border border-red-800 rounded-lg">
-                <h3 className="font-medium text-red-400">Error</h3>
-                <p>{error}</p>
-              </div>
-            )}
-            
-            {/* Debug information */}
-            <div className="p-4 bg-gray-800 rounded-lg text-xs">
-              <h3 className="font-medium mb-2">Debug Info:</h3>
-              <p>API URL: {API_URL}</p>
-              <p>Prompt Length: {prompt.length}</p>
-              <p>Loading State: {loading ? 'True' : 'False'}</p>
-              <p>Has Result: {coverImage ? 'Yes' : 'No'}</p>
-            </div>
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <BookOpen className="w-5 h-5" />
+                  Design Your Cover
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="coverPrompt" className="text-gray-300 mb-2 block">Describe your book cover</Label>
+                  <textarea
+                    id="coverPrompt"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-white min-h-[150px]"
+                    placeholder="Describe what you want on your book cover... (min 5 characters)"
+                  />
+                  {prompt.trim().length > 0 && prompt.trim().length < 5 && (
+                    <p className="text-red-400 mt-1 text-sm">Please enter at least 5 characters</p>
+                  )}
+                  <p className="text-gray-500 mt-2 text-sm">
+                    {prompt.length}/500 characters
+                  </p>
+                </div>
+                
+                <Button 
+                  onClick={generateCover}
+                  disabled={isGenerating || prompt.trim().length < 5}
+                  className="w-full"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Cover
+                    </>
+                  )}
+                </Button>
+                
+                {error && (
+                  <div className="p-4 bg-red-900/50 border border-red-800 rounded-lg">
+                    <h3 className="font-medium text-red-400">Error</h3>
+                    <p className="text-sm">{error}</p>
+                  </div>
+                )}
+                
+                <div className="text-xs text-gray-500 mt-4">
+                  <h4 className="font-medium text-gray-400">API Information:</h4>
+                  <p>API URL: {API_URL}</p>
+                  <p>Using Ideogram integration</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
-          <div className="bg-gray-800 rounded-lg overflow-hidden">
-            {coverImage ? (
-              <div className="relative">
-                <img 
-                  src={coverImage} 
-                  alt="Generated Book Cover" 
-                  className="w-full h-auto"
-                />
-                <a
-                  href={coverImage}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg"
-                >
-                  Download
-                </a>
+          {/* Right Panel - Preview */}
+          <div>
+            <Card className="bg-gray-800 border-gray-700 overflow-hidden h-full flex flex-col">
+              <CardHeader className="border-b border-gray-700">
+                <CardTitle className="text-white flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    Cover Preview
+                  </span>
+                  
+                  {coverImage && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownload(coverImage)}
+                      disabled={isDownloading}
+                    >
+                      {isDownloading ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Download className="w-4 h-4 mr-1" />
+                      )}
+                      Download
+                    </Button>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              
+              <div className="flex-1 flex items-center justify-center bg-gray-900 p-6">
+                {isGenerating ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="w-12 h-12 animate-spin text-green-400" />
+                    <p className="font-medium">Creating your book cover</p>
+                    <p className="text-sm text-gray-400">This may take 10-20 seconds...</p>
+                  </div>
+                ) : coverImage ? (
+                  <div className="relative">
+                    <img 
+                      src={coverImage}
+                      alt="Generated Book Cover"
+                      className="max-w-full max-h-[500px] object-contain shadow-lg rounded"
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center max-w-md">
+                    <BookOpen className="w-16 h-16 mx-auto text-gray-600 mb-4" />
+                    <p className="text-xl font-medium mb-2">Create your book cover</p>
+                    <p className="text-sm text-gray-400">
+                      Enter your prompt on the left and click "Generate Cover" to create a unique book cover with AI.
+                    </p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex items-center justify-center h-96 text-gray-500">
-                <div className="text-center">
-                  <div className="text-5xl mb-4">📚</div>
-                  <p>Your generated cover will appear here</p>
-                </div>
-              </div>
-            )}
+            </Card>
           </div>
         </div>
       </div>
