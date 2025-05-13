@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BookOpenCheck, Download, Sparkles, Ruler, Book, FileText } from 'lucide-react';
@@ -81,16 +81,49 @@ const SimpleBookCoverGenerator = () => {
   // API URL
   const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
+  // Create refs for the page count inputs
+  const sliderRef = useRef<HTMLInputElement>(null);
+  const numberInputRef = useRef<HTMLInputElement>(null);
+
   // Function to handle prompt input change
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
   };
   
-  // Handle page count change
-  const handlePageCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const count = parseInt(e.target.value);
-    if (count >= 24 && count <= 800) {
-      setPageCount(count);
+  // Function to handle page count change from slider or input
+  const handlePageCountChange = (value: number) => {
+    // Clamp value between min and max
+    const clampedValue = Math.min(Math.max(value, 24), 800);
+    
+    // Update state
+    setPageCount(clampedValue);
+    
+    // Log for debugging
+    console.log(`Page count changed to: ${clampedValue}`);
+    
+    // Update DOM elements directly if needed
+    if (sliderRef.current) {
+      sliderRef.current.value = clampedValue.toString();
+    }
+    
+    if (numberInputRef.current) {
+      numberInputRef.current.value = clampedValue.toString();
+    }
+  };
+
+  // Event handler for slider input
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = parseInt(e.target.value);
+    if (!isNaN(newValue)) {
+      handlePageCountChange(newValue);
+    }
+  };
+  
+  // Event handler for number input
+  const handleNumberInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = parseInt(e.target.value);
+    if (!isNaN(newValue)) {
+      handlePageCountChange(newValue);
     }
   };
 
@@ -98,6 +131,18 @@ const SimpleBookCoverGenerator = () => {
   const handleSpineTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSpineText(e.target.value);
   };
+
+  // Handle paper type change
+  const handlePaperTypeChange = useCallback((type: string) => {
+    setPaperType(type);
+    console.log(`Paper type changed to: ${type}`);
+  }, []);
+
+  // Handle trim size change
+  const handleTrimSizeChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    setTrimSize(e.target.value);
+    console.log(`Trim size changed to: ${e.target.value}`);
+  }, []);
 
   // Calculate spine width based on page count and paper type
   const calculateSpineWidth = (pages: number, paper: string): number => {
@@ -327,8 +372,11 @@ const SimpleBookCoverGenerator = () => {
                       </label>
                       <select 
                         value={trimSize} 
-                        onChange={(e) => setTrimSize(e.target.value)}
-                        className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary"
+                        onChange={(e) => {
+                          console.log(`Setting trim size to: ${e.target.value}`);
+                          setTrimSize(e.target.value);
+                        }}
+                        className="w-full rounded-md border border-primary/20 bg-background p-2 text-sm text-foreground focus:border-primary focus:outline-none"
                       >
                         {trimSizeOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -342,7 +390,7 @@ const SimpleBookCoverGenerator = () => {
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground flex items-center">
                         <FileText className="h-4 w-4 mr-1 text-primary" />
-                        Page Count
+                        Page Count: <span className="ml-2 text-primary font-medium">{pageCount} pages</span>
                       </label>
                       <div className="flex items-center space-x-2">
                         <input
@@ -350,7 +398,11 @@ const SimpleBookCoverGenerator = () => {
                           min="24"
                           max="800"
                           value={pageCount}
-                          onChange={handlePageCountChange}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            console.log(`Setting page count from slider: ${value}`);
+                            setPageCount(value);
+                          }}
                           className="flex-1 h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer"
                         />
                         <input
@@ -358,8 +410,14 @@ const SimpleBookCoverGenerator = () => {
                           min="24"
                           max="800"
                           value={pageCount}
-                          onChange={handlePageCountChange}
-                          className="w-16 rounded-md border border-primary/20 bg-muted p-1 text-center text-sm"
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value);
+                            if (!isNaN(value)) {
+                              console.log(`Setting page count from input: ${value}`);
+                              setPageCount(Math.max(24, Math.min(800, value)));
+                            }
+                          }}
+                          className="w-16 rounded-md border border-primary/20 bg-background p-1 text-center text-sm"
                         />
                       </div>
                       <p className="text-xs text-muted-foreground">
@@ -377,11 +435,14 @@ const SimpleBookCoverGenerator = () => {
                           <button
                             key={option.value}
                             type="button"
-                            onClick={() => setPaperType(option.value)}
+                            onClick={() => {
+                              console.log(`Setting paper type to: ${option.value}`);
+                              setPaperType(option.value);
+                            }}
                             className={`flex-1 px-3 py-2 rounded-md text-sm ${
                               paperType === option.value 
                                 ? "bg-primary text-background font-medium" 
-                                : "bg-muted hover:bg-primary/10 text-foreground"
+                                : "bg-background hover:bg-primary/10 text-foreground"
                             }`}
                           >
                             {option.label}
@@ -393,15 +454,16 @@ const SimpleBookCoverGenerator = () => {
                     {/* Spine Text - Only if page count >= 100 */}
                     {pageCount >= 100 && (
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">
+                        <label htmlFor="spine-text" className="text-sm font-medium text-foreground">
                           Spine Text (optional)
                         </label>
                         <input
+                          id="spine-text"
                           type="text"
                           value={spineText}
                           onChange={handleSpineTextChange}
                           placeholder="Text to display on the spine"
-                          className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm"
+                          className="w-full rounded-md border border-primary/20 bg-background p-2 text-sm focus:border-primary focus:outline-none"
                         />
                       </div>
                     )}
@@ -679,6 +741,41 @@ const SimpleBookCoverGenerator = () => {
           }
         `}
       </style>
+
+      {/* Add styles to fix range slider appearance */}
+      <style jsx global>{`
+        input[type=range] {
+          -webkit-appearance: none;
+          height: 8px;
+          background: rgba(var(--primary), 0.2);
+          border-radius: 8px;
+          background-image: linear-gradient(hsl(var(--primary)), hsl(var(--primary)));
+          background-repeat: no-repeat;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+        }
+        
+        input[type=range]::-moz-range-thumb {
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: hsl(var(--primary));
+          cursor: pointer;
+          border: none;
+        }
+        
+        /* Set initial background size for the track fill effect */
+        input[type=range] {
+          background-size: ${(pageCount - 24) * 100 / (800 - 24)}% 100%;
+        }
+      `}</style>
     </div>
   );
 };
