@@ -9,6 +9,10 @@ const SimpleBookCoverGenerator = () => {
   const [error, setError] = useState('');
   const [style, setStyle] = useState('realistic');
   const [size, setSize] = useState('standard');
+  const [paperType, setPaperType] = useState('white');
+  const [pageCount, setPageCount] = useState(200);
+  const [trimSize, setTrimSize] = useState('6x9');
+  const [coverType, setCoverType] = useState('front');
 
   // Available style options
   const styleOptions = [
@@ -25,6 +29,34 @@ const SimpleBookCoverGenerator = () => {
     large: { width: 2000, height: 3000, label: 'Large (2000×3000)' },
     square: { width: 2000, height: 2000, label: 'Square (2000×2000)' },
     wide: { width: 2400, height: 1800, label: 'Wide (2400×1800)' }
+  };
+
+  // KDP Trim Size options (inches)
+  const trimSizes = [
+    { value: '5x8', label: '5" x 8" (12.7 x 20.32 cm)', width: 5, height: 8 },
+    { value: '5.25x8', label: '5.25" x 8" (13.34 x 20.32 cm)', width: 5.25, height: 8 },
+    { value: '5.5x8.5', label: '5.5" x 8.5" (13.97 x 21.59 cm)', width: 5.5, height: 8.5 },
+    { value: '6x9', label: '6" x 9" (15.24 x 22.86 cm)', width: 6, height: 9 },
+    { value: '7x10', label: '7" x 10" (17.78 x 25.4 cm)', width: 7, height: 10 },
+    { value: '8x10', label: '8" x 10" (20.32 x 25.4 cm)', width: 8, height: 10 }
+  ];
+
+  // Paper type options for KDP
+  const paperTypes = [
+    { value: 'white', label: 'White Paper', spineMultiplier: 0.002252 },
+    { value: 'cream', label: 'Cream Paper', spineMultiplier: 0.0025 }
+  ];
+
+  // Cover type options
+  const coverTypes = [
+    { value: 'front', label: 'Front Cover Only' },
+    { value: 'full', label: 'Full Cover (Front, Spine, Back)' }
+  ];
+
+  // Calculate spine width based on page count and paper type
+  const calculateSpineWidth = () => {
+    const paperMultiplier = paperTypes.find(p => p.value === paperType)?.spineMultiplier || 0.002252;
+    return pageCount * paperMultiplier;
   };
 
   // Example prompts
@@ -44,6 +76,12 @@ const SimpleBookCoverGenerator = () => {
     setPrompt(e.target.value);
   };
   
+  // Function to handle page count change
+  const handlePageCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const count = parseInt(e.target.value);
+    setPageCount(isNaN(count) ? 0 : Math.max(24, Math.min(900, count)));
+  };
+
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
@@ -82,6 +120,32 @@ const SimpleBookCoverGenerator = () => {
     }
   };
   
+  // Calculate KDP-compliant dimensions with bleed (0.125" on all sides)
+  const calculateKdpDimensions = () => {
+    const selectedTrim = trimSizes.find(t => t.value === trimSize);
+    
+    if (!selectedTrim) return { width: 1500, height: 2100 };
+    
+    // Convert inches to pixels at 300 DPI
+    const dpi = 300;
+    const bleed = 0.125; // 1/8 inch bleed on each side
+    
+    let width, height;
+    
+    if (coverType === 'front') {
+      // Front cover only (width + bleed, height + bleed)
+      width = Math.round((selectedTrim.width + (bleed * 2)) * dpi);
+      height = Math.round((selectedTrim.height + (bleed * 2)) * dpi);
+    } else {
+      // Full cover (front + back + spine)
+      const spineWidth = calculateSpineWidth();
+      width = Math.round((selectedTrim.width * 2 + spineWidth + (bleed * 2)) * dpi);
+      height = Math.round((selectedTrim.height + (bleed * 2)) * dpi);
+    }
+    
+    return { width, height };
+  };
+  
   // Minimal generate function with basic fetch
   const handleGenerate = async (manualPrompt?: string) => {
     const promptToUse = manualPrompt || prompt;
@@ -95,12 +159,19 @@ const SimpleBookCoverGenerator = () => {
     setIsGenerating(true);
     setError('');
 
-    // Get dimensions based on selected size
-    const { width, height } = sizePresets[size as keyof typeof sizePresets];
+    // Get KDP-compliant dimensions
+    let { width, height } = coverType === 'front' 
+      ? sizePresets[size as keyof typeof sizePresets] 
+      : calculateKdpDimensions();
 
     try {
-      // Enhanced prompt with style
-      const enhancedPrompt = `Book cover design in ${style} style: ${promptToUse}`;
+      // Enhanced prompt with style and KDP context
+      let enhancedPrompt = `Professional book cover design for Amazon KDP in ${style} style: ${promptToUse}. High resolution 300 DPI.`;
+      
+      if (coverType === 'full') {
+        const spineWidth = calculateSpineWidth();
+        enhancedPrompt += `. Include full cover layout with ${spineWidth.toFixed(2)}" spine.`;
+      }
       
       // Basic FormData approach that works with the API
       const formData = new FormData();
@@ -114,7 +185,11 @@ const SimpleBookCoverGenerator = () => {
         prompt: enhancedPrompt,
         width,
         height,
-        style
+        style,
+        coverType,
+        trimSize,
+        paperType,
+        pageCount
       });
       
       console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
@@ -149,7 +224,6 @@ const SimpleBookCoverGenerator = () => {
     } catch (err: any) {
       console.error("Error during generation:", err);
       setError(err.message || "Failed to generate cover");
-      const { width, height } = sizePresets[size as keyof typeof sizePresets];
       setCoverUrl(`https://placehold.co/${width}x${height}/ff5555/FFFFFF?text=Error:+Generation+Failed`);
     } finally {
       console.log('Generation process completed');
@@ -164,9 +238,9 @@ const SimpleBookCoverGenerator = () => {
       margin: '0 auto',
       color: 'white'
     }}>
-      <h1 style={{ fontSize: '28px', marginBottom: '10px' }}>Book Cover Generator</h1>
+      <h1 style={{ fontSize: '28px', marginBottom: '10px' }}>Amazon KDP Book Cover Generator</h1>
       <p style={{ fontSize: '16px', marginBottom: '20px', color: '#a1a1aa' }}>
-        Create stunning book covers with AI - just describe what you want
+        Create professional book covers optimized for Kindle Direct Publishing
       </p>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
@@ -204,6 +278,34 @@ const SimpleBookCoverGenerator = () => {
                 </div>
               </div>
               
+              {/* Cover Type Selection */}
+              <div>
+                <label htmlFor="coverType" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                  Cover Type:
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {coverTypes.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setCoverType(option.value)}
+                      style={{
+                        padding: '8px 12px',
+                        backgroundColor: coverType === option.value ? '#8b5cf6' : '#374151',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               {/* Style options */}
               <div>
                 <label htmlFor="style" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
@@ -232,33 +334,130 @@ const SimpleBookCoverGenerator = () => {
                 </div>
               </div>
               
-              {/* Size selection */}
-              <div>
-                <label htmlFor="size" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
-                  Cover Size:
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {Object.entries(sizePresets).map(([key, preset]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setSize(key)}
+              {coverType === 'front' ? (
+                /* Size selection for front cover only */
+                <div>
+                  <label htmlFor="size" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                    Cover Size:
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {Object.entries(sizePresets).map(([key, preset]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSize(key)}
+                        style={{
+                          padding: '8px 12px',
+                          backgroundColor: size === key ? '#8b5cf6' : '#374151',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'background-color 0.2s'
+                        }}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* KDP specific options for full cover */
+                <div style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: '16px', 
+                  padding: '16px', 
+                  backgroundColor: '#1e293b', 
+                  borderRadius: '8px' 
+                }}>
+                  <h3 style={{ fontSize: '16px', margin: 0 }}>KDP Cover Specifications</h3>
+                  
+                  {/* Trim Size */}
+                  <div>
+                    <label htmlFor="trimSize" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                      Book Trim Size:
+                    </label>
+                    <select
+                      id="trimSize"
+                      value={trimSize}
+                      onChange={(e) => setTrimSize(e.target.value)}
                       style={{
+                        width: '100%',
                         padding: '8px 12px',
-                        backgroundColor: size === key ? '#8b5cf6' : '#374151',
+                        backgroundColor: '#374151',
                         color: 'white',
-                        border: 'none',
+                        border: '1px solid #4b5563',
                         borderRadius: '6px',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        transition: 'background-color 0.2s'
+                        fontSize: '14px'
                       }}
                     >
-                      {preset.label}
-                    </button>
-                  ))}
+                      {trimSizes.map(size => (
+                        <option key={size.value} value={size.value}>
+                          {size.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Paper Type */}
+                  <div>
+                    <label htmlFor="paperType" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                      Paper Type:
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {paperTypes.map((type) => (
+                        <button
+                          key={type.value}
+                          type="button"
+                          onClick={() => setPaperType(type.value)}
+                          style={{
+                            padding: '8px 12px',
+                            backgroundColor: paperType === type.value ? '#8b5cf6' : '#374151',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'background-color 0.2s'
+                          }}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Page Count */}
+                  <div>
+                    <label htmlFor="pageCount" style={{ display: 'block', marginBottom: '8px', fontWeight: 500 }}>
+                      Page Count (for spine width):
+                    </label>
+                    <input
+                      id="pageCount"
+                      type="number"
+                      value={pageCount}
+                      onChange={handlePageCountChange}
+                      min="24"
+                      max="900"
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        backgroundColor: '#374151',
+                        color: 'white',
+                        border: '1px solid #4b5563',
+                        borderRadius: '6px',
+                        fontSize: '14px'
+                      }}
+                    />
+                    <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px' }}>
+                      Calculated spine width: {calculateSpineWidth().toFixed(3)}" ({(calculateSpineWidth() * 25.4).toFixed(2)} mm)
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
               
               {/* Submit button */}
               <button
@@ -396,7 +595,7 @@ const SimpleBookCoverGenerator = () => {
                 <div style={{ marginTop: '15px', width: '100%', textAlign: 'center' }}>
                   <a 
                     href={coverUrl} 
-                    download="book-cover.png"
+                    download="kdp-book-cover.png"
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
@@ -428,13 +627,34 @@ const SimpleBookCoverGenerator = () => {
               <h3 style={{ fontSize: '16px', marginTop: 0, marginBottom: '8px' }}>Selected Options</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#94a3b8' }}>Cover Type:</span>
+                  <span>{coverTypes.find(opt => opt.value === coverType)?.label || coverType}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#94a3b8' }}>Style:</span>
                   <span>{styleOptions.find(opt => opt.value === style)?.label || style}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8' }}>Size:</span>
-                  <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
-                </div>
+                {coverType === 'front' ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#94a3b8' }}>Size:</span>
+                    <span>{sizePresets[size as keyof typeof sizePresets].label}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#94a3b8' }}>Trim Size:</span>
+                      <span>{trimSizes.find(t => t.value === trimSize)?.label.split(' ')[0]}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#94a3b8' }}>Paper:</span>
+                      <span>{paperTypes.find(p => p.value === paperType)?.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#94a3b8' }}>Pages:</span>
+                      <span>{pageCount}</span>
+                    </div>
+                  </>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: '#94a3b8' }}>Status:</span>
                   <span>{isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}</span>
