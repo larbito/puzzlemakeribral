@@ -66,9 +66,6 @@ const SimpleBookCoverGenerator = () => {
     'A romantic novel cover with a beach sunset and two silhouettes'
   ];
 
-  // API URL
-  const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
-
   // Function to handle prompt input change
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setPrompt(e.target.value);
@@ -83,21 +80,14 @@ const SimpleBookCoverGenerator = () => {
   // Function to handle paper type change
   const handlePaperTypeChange = (type: string) => {
     console.log('Changing paper type to:', type);
-    // Force update to ensure UI changes
-    // Handle blur correctly to avoid TypeScript error
-    if (document.activeElement && 'blur' in document.activeElement) {
-      (document.activeElement as HTMLElement).blur();
-    }
     setPaperType(type);
   };
 
   // Update the slider appearance whenever page count changes
   useEffect(() => {
     if (sliderRef.current) {
-      // Calculate the percentage position of the slider
-      const percentage = ((pageCount - 24) / (800 - 24)) * 100;
-      // Apply background gradient based on percentage
-      sliderRef.current.style.setProperty('--slider-percentage', `${percentage}%`);
+      // Set the slider value directly
+      sliderRef.current.value = pageCount.toString();
     }
   }, [pageCount]);
 
@@ -127,27 +117,6 @@ const SimpleBookCoverGenerator = () => {
     }
   };
 
-  // Add a global function to trigger generation for debugging
-  useEffect(() => {
-    // @ts-ignore - add to window for debugging
-    window.generateBookCover = (testPrompt?: string) => {
-      const promptToUse = testPrompt || prompt;
-      if (promptToUse.trim().length < 5) {
-        console.log('Prompt too short, need at least 5 characters');
-        return;
-      }
-      
-      console.log(`Manually triggering generation with prompt: ${promptToUse}`);
-      setPrompt(promptToUse);
-      handleGenerate(promptToUse);
-    };
-    
-    return () => {
-      // @ts-ignore - cleanup
-      delete window.generateBookCover;
-    };
-  }, [prompt]);
-
   // Apply example prompt
   const applyExamplePrompt = (example: string) => {
     setPrompt(example);
@@ -155,9 +124,15 @@ const SimpleBookCoverGenerator = () => {
 
   // Form submission handler
   const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted');
+    
+    if (prompt.trim().length < 5) {
+      setError("Please enter a longer prompt (at least 5 characters)");
+      return;
+    }
+    
     try {
-      e.preventDefault();
-      console.log('Form submitted');
       await handleGenerate();
     } catch (err) {
       console.error('Error in form submission:', err);
@@ -185,7 +160,7 @@ const SimpleBookCoverGenerator = () => {
     const spineWidth = calculateSpineWidth(pageCount, paperType);
     
     // For full cover (front + spine + back)
-    const fullWidth = coverType === 'full' 
+    const fullWidth = showFullWrap 
       ? (selectedTrim.width * 2) + spineWidth + (bleed * 2)
       : selectedTrim.width + (bleed * 2);
     
@@ -204,12 +179,12 @@ const SimpleBookCoverGenerator = () => {
     };
   };
 
-  // The generate function - preserving existing API logic
+  // The generate function
   const handleGenerate = async (manualPrompt?: string) => {
     const promptToUse = manualPrompt || prompt;
     
     if (promptToUse.trim().length < 5) {
-      alert("Please enter at least 5 characters");
+      setError("Please enter a longer prompt (at least 5 characters)");
       return;
     }
 
@@ -238,7 +213,7 @@ const SimpleBookCoverGenerator = () => {
           trimSize,
           pageCount,
           paperType,
-          spineText: spineText || undefined,
+          spineText: pageCount >= 100 ? (spineText || undefined) : undefined,
           bookTitle: promptToUse.split(' ').slice(0, 5).join(' '), // Use first few words as book title
           authorName: 'Author Name', // Placeholder author name
         });
@@ -273,6 +248,22 @@ const SimpleBookCoverGenerator = () => {
     } finally {
       console.log('Generation process completed');
       setIsGenerating(false);
+    }
+  };
+
+  // Handle image download
+  const handleDownload = () => {
+    if (!coverUrl) return;
+    
+    try {
+      downloadCover({
+        url: coverUrl,
+        filename: `kdp-book-${showFullWrap ? 'full-wrap' : 'front'}`,
+        format: 'png'
+      });
+    } catch (err) {
+      console.error("Error downloading cover:", err);
+      setError("Failed to download cover");
     }
   };
 
@@ -495,12 +486,12 @@ const SimpleBookCoverGenerator = () => {
                 </div>
                 
                 {/* Generate Button */}
-                <Button 
-                  type="submit" 
-                  className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 transition-all duration-200 ${
-                    isGenerating ? 'opacity-80 cursor-not-allowed' : 'hover:shadow-md active:scale-99'
-                  }`}
+                <button 
+                  type="submit"
                   disabled={isGenerating || prompt.trim().length < 5}
+                  className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-md transition-all duration-200 flex items-center justify-center ${
+                    isGenerating || prompt.trim().length < 5 ? 'opacity-80 cursor-not-allowed' : 'hover:shadow-md active:scale-99'
+                  }`}
                 >
                   {isGenerating ? (
                     <>
@@ -510,7 +501,7 @@ const SimpleBookCoverGenerator = () => {
                   ) : (
                     <>Generate {showFullWrap ? 'Full Wrap Cover' : 'Front Cover'}</>
                   )}
-                </Button>
+                </button>
               </form>
             </CardContent>
           </Card>
@@ -519,7 +510,7 @@ const SimpleBookCoverGenerator = () => {
         <div className="md:col-span-5">
           {/* Error display */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm mb-4">
               {error}
             </div>
           )}
@@ -541,11 +532,7 @@ const SimpleBookCoverGenerator = () => {
                   />
                   
                   <button
-                    onClick={() => downloadCover({
-                      url: coverUrl,
-                      filename: `kdp-book-${showFullWrap ? 'full-wrap' : 'front'}`,
-                      format: 'png'
-                    })}
+                    onClick={handleDownload}
                     className="mt-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm justify-center w-full transition-colors active:scale-95"
                   >
                     <Download className="h-4 w-4 mr-2" />

@@ -2,15 +2,10 @@
 .custom-slider {
   -webkit-appearance: none;
   appearance: none;
+  width: 100%;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(
-    to right,
-    #22c55e 0%,
-    #22c55e var(--slider-percentage, 0%),
-    #2e2e3d var(--slider-percentage, 0%),
-    #2e2e3d 100%
-  );
+  background-color: #2e2e3d;
   outline: none;
   cursor: pointer;
   transition: background 0.2s ease;
@@ -27,7 +22,6 @@
   cursor: pointer;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
 }
 
 .custom-slider::-moz-range-thumb {
@@ -38,72 +32,6 @@
   cursor: pointer;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.custom-slider::-ms-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #22c55e;
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-/* Active state */
-.custom-slider::-webkit-slider-thumb:hover,
-.custom-slider::-webkit-slider-thumb:active {
-  background: #16a34a;
-  transform: scale(1.1);
-}
-
-.custom-slider::-moz-range-thumb:hover,
-.custom-slider::-moz-range-thumb:active {
-  background: #16a34a;
-  transform: scale(1.1);
-}
-
-.custom-slider::-ms-thumb:hover,
-.custom-slider::-ms-thumb:active {
-  background: #16a34a;
-  transform: scale(1.1);
-}
-
-/* Track styles */
-.custom-slider::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 4px;
-}
-
-.custom-slider::-moz-range-track {
-  height: 8px;
-  border-radius: 4px;
-}
-
-.custom-slider::-ms-track {
-  height: 8px;
-  border-radius: 4px;
-  border-color: transparent;
-  color: transparent;
-}
-
-/* Focus styles */
-.custom-slider:focus {
-  outline: none;
-}
-
-.custom-slider:focus::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
-}
-
-.custom-slider:focus::-moz-range-thumb {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
-}
-
-.custom-slider:focus::-ms-thumb {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
 }
 
 /* Animation Styles */
