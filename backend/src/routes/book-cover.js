@@ -6,6 +6,7 @@ const FormData = require('form-data');
 const sharp = require('sharp');
 const { Readable } = require('stream');
 const archiver = require('archiver');
+const ColorThief = require('colorthief');
 
 // Configure multer for handling form data
 const upload = multer({
@@ -505,6 +506,236 @@ router.get('/download', async (req, res) => {
     res.status(500).json({ 
       error: error.message || 'Failed to download cover',
       type: error.name
+    });
+  }
+});
+
+/**
+ * Extract dominant colors from an image
+ * POST /api/book-cover/extract-colors
+ */
+router.post('/extract-colors', express.json(), async (req, res) => {
+  try {
+    console.log('Received extract-colors request');
+    
+    const { imageUrl } = req.body;
+    
+    if (!imageUrl) {
+      console.error('Missing required parameter: imageUrl');
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+    
+    console.log('Fetching image from URL:', imageUrl);
+    
+    // Fetch the image
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+    }
+    
+    const imageBuffer = await imageResponse.buffer();
+    
+    // Save the image temporarily
+    const tempImagePath = `/tmp/temp-image-${Date.now()}.jpg`;
+    await sharp(imageBuffer).jpeg().toFile(tempImagePath);
+    
+    // Get the dominant colors (palette)
+    console.log('Extracting color palette');
+    const palette = await ColorThief.getPalette(tempImagePath, 6);
+    
+    // Convert RGB arrays to hex colors
+    const colors = palette.map(color => {
+      const [r, g, b] = color;
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    });
+    
+    console.log('Extracted colors:', colors);
+    
+    res.json({
+      status: 'success',
+      colors
+    });
+  } catch (error) {
+    console.error('Error extracting colors:', error);
+    res.status(500).json({ 
+      error: 'Failed to extract colors from image',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Generate full wrap cover
+ * POST /api/book-cover/generate-full-wrap
+ */
+router.post('/generate-full-wrap', express.json(), async (req, res) => {
+  try {
+    console.log('Received request to generate full wrap cover');
+    
+    const { 
+      frontCoverUrl, 
+      trimSize,
+      paperType, 
+      pageCount,
+      spineColor,
+      spineText,
+      addSpineText,
+      interiorImages = []
+    } = req.body;
+    
+    if (!frontCoverUrl) {
+      console.error('Missing required parameter: frontCoverUrl');
+      return res.status(400).json({ error: 'Front cover URL is required' });
+    }
+    
+    if (!trimSize || !paperType || !pageCount) {
+      console.error('Missing required parameters:', { trimSize, paperType, pageCount });
+      return res.status(400).json({ error: 'Trim size, paper type, and page count are required' });
+    }
+    
+    // Parse trim size
+    const [widthInches, heightInches] = trimSize.split('x').map(Number);
+    
+    // Calculate spine width based on page count and paper type
+    let spineWidthMultiplier;
+    if (paperType === 'white') {
+      spineWidthMultiplier = 0.002252; // For white paper: pages * 0.002252" (KDP's formula)
+    } else if (paperType === 'cream') {
+      spineWidthMultiplier = 0.0025; // For cream paper: pages * 0.0025" (KDP's formula)
+    } else {
+      spineWidthMultiplier = 0.002347; // For color paper: pages * 0.002347" (approximate)
+    }
+    
+    const spineWidthInches = pageCount * spineWidthMultiplier;
+    
+    // Add bleed (0.125" on all sides)
+    const bleedInches = 0.125;
+    
+    // Calculate total width: front + spine + back + bleed
+    const totalWidthInches = (widthInches * 2) + spineWidthInches + (bleedInches * 2);
+    const totalHeightInches = heightInches + (bleedInches * 2);
+    
+    // Convert to pixels at 300 DPI
+    const dpi = 300;
+    const frontWidthPx = Math.round(widthInches * dpi);
+    const frontHeightPx = Math.round(heightInches * dpi);
+    const spineWidthPx = Math.round(spineWidthInches * dpi);
+    const totalWidthPx = Math.round(totalWidthInches * dpi);
+    const totalHeightPx = Math.round(totalHeightInches * dpi);
+    
+    console.log('Calculated dimensions:', {
+      frontWidthPx,
+      frontHeightPx,
+      spineWidthPx,
+      totalWidthPx,
+      totalHeightPx
+    });
+    
+    // Download the front cover image
+    console.log('Downloading front cover from:', frontCoverUrl);
+    const frontCoverResponse = await fetch(frontCoverUrl);
+    if (!frontCoverResponse.ok) {
+      throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
+    }
+    
+    const frontCoverBuffer = await frontCoverResponse.buffer();
+    
+    // Resize front cover if needed
+    const resizedFrontCover = await sharp(frontCoverBuffer)
+      .resize({
+        width: frontWidthPx,
+        height: frontHeightPx,
+        fit: 'fill'
+      })
+      .toBuffer();
+    
+    // Create the spine
+    console.log('Creating spine with:', {
+      width: spineWidthPx,
+      height: totalHeightPx,
+      spineText: spineText || '',
+      spineColor: spineColor || '#000000',
+      addSpineText: !!addSpineText
+    });
+    
+    const spineBuffer = await createSpine(
+      spineWidthPx,
+      totalHeightPx,
+      addSpineText && spineText ? spineText : '',
+      spineColor || '#000000',
+      '', // Book title (using spineText instead)
+      ''  // Author name (using spineText instead)
+    );
+    
+    // Create the back cover
+    console.log('Creating back cover with interior images:', interiorImages.length);
+    const backCoverBuffer = await createBackCover(
+      frontWidthPx,
+      frontHeightPx,
+      interiorImages,
+      frontCoverBuffer
+    );
+    
+    // Create a blank canvas for the full cover
+    const fullCover = sharp({
+      create: {
+        width: totalWidthPx,
+        height: totalHeightPx,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 1 }
+      }
+    });
+    
+    // Composite the three parts: back cover, spine, front cover
+    console.log('Compositing full wrap cover');
+    const fullCoverBuffer = await fullCover.composite([
+      {
+        input: backCoverBuffer,
+        left: 0,
+        top: 0
+      },
+      {
+        input: spineBuffer,
+        left: frontWidthPx,
+        top: 0
+      },
+      {
+        input: resizedFrontCover,
+        left: frontWidthPx + spineWidthPx,
+        top: 0
+      }
+    ]).jpeg({ quality: 100 }).toBuffer();
+    
+    // Save to a temporary file and return its URL
+    const filename = `kdp-full-wrap-${Date.now()}.jpg`;
+    const tempFilePath = `/tmp/${filename}`;
+    
+    await sharp(fullCoverBuffer).toFile(tempFilePath);
+    
+    // For a real production app, we would upload this to S3 or similar storage
+    // For now, we'll return as base64 for demo purposes
+    const base64Image = `data:image/jpeg;base64,${fullCoverBuffer.toString('base64')}`;
+    
+    res.json({
+      status: 'success',
+      url: base64Image,
+      dimensions: {
+        width: totalWidthPx,
+        height: totalHeightPx,
+        trimSize,
+        paperType,
+        pageCount,
+        spineWidthInches: spineWidthInches.toFixed(3),
+        totalWidthInches: totalWidthInches.toFixed(2),
+        totalHeightInches: totalHeightInches.toFixed(2),
+        dpi
+      }
+    });
+  } catch (error) {
+    console.error('Error generating full wrap cover:', error);
+    res.status(500).json({
+      error: 'Failed to generate full wrap cover',
+      details: error.message
     });
   }
 });
