@@ -5,6 +5,7 @@ const morgan = require('morgan');
 
 const ideogramRoutes = require('./routes/ideogram');
 const bookCoverRoutes = require('./routes/book-cover');
+const coloringBookRoutes = require('./routes/coloring-book');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -107,6 +108,9 @@ console.log('Ideogram routes registered at /api/ideogram');
 
 app.use('/api/book-cover', bookCoverRoutes);
 console.log('Book cover routes registered at /api/book-cover');
+
+app.use('/api/coloring-book', coloringBookRoutes);
+console.log('Coloring book routes registered at /api/coloring-book');
 
 // Basic route
 app.get('/', (req, res) => {

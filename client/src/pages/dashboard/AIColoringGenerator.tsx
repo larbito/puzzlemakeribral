@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wand2, Sparkles, Download, BookOpen, Palette, Brain, ChevronDown } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { 
+  Wand2, 
+  Sparkles, 
+  Download, 
+  BookOpen, 
+  Palette, 
+  Brain, 
+  ChevronDown, 
+  Upload, 
+  ImageIcon,
+  FileText,
+  MessageSquare,
+  PlusSquare,
+  FileOutput,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  File
+} from 'lucide-react';
+import { 
+  generateImage, 
+  imageToPrompt, 
+  generateColoringPage, 
+  generateColoringBook, 
+  createColoringBookPDF, 
+  downloadColoringPages 
+} from '@/services/ideogramService';
+import { toast } from 'sonner';
 
 interface GeneratedBook {
   id: string;
@@ -14,29 +43,233 @@ interface GeneratedBook {
   title: string;
 }
 
-export const AIColoringGenerator = () => {
-  const [bookPrompt, setBookPrompt] = useState('');
-  const [pageCount, setPageCount] = useState('24');
-  const [ageRange, setAgeRange] = useState('');
-  const [style, setStyle] = useState('');
-  const [complexity, setComplexity] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedBooks, setGeneratedBooks] = useState<GeneratedBook[]>([]);
+interface ColoringPageOptions {
+  bookTitle: string;
+  trimSize: string;
+  pageCount: number;
+  addBlankPages: boolean;
+  showPageNumbers: boolean;
+  includeBleed: boolean;
+  dpi: number;
+}
 
-  const handleGenerate = () => {
-    if (!bookPrompt.trim()) return;
+export const AIColoringGenerator = () => {
+  // Image to Prompt state
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isGeneratingPrompt, setIsGeneratingPrompt] = useState(false);
+
+  // Prompt to Coloring Book state
+  const [coloringOptions, setColoringOptions] = useState<ColoringPageOptions>({
+    bookTitle: '',
+    trimSize: '8.5x11',
+    pageCount: 10,
+    addBlankPages: false,
+    showPageNumbers: true,
+    includeBleed: true,
+    dpi: 300
+  });
+  const [bookPrompt, setBookPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreatingPdf, setIsCreatingPdf] = useState(false);
+  const [generatedPages, setGeneratedPages] = useState<string[]>([]);
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Handle file upload for Image to Prompt
+  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    // Read and display the image
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setUploadedImage(e.target?.result as string);
+      setGeneratedPrompt(''); // Clear any previous prompt
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Navigate between preview pages
+  const nextPreviewPage = () => {
+    if (generatedPages.length > 0) {
+      setActivePreviewIndex((prev) => (prev + 1) % generatedPages.length);
+    }
+  };
+
+  const prevPreviewPage = () => {
+    if (generatedPages.length > 0) {
+      setActivePreviewIndex((prev) => (prev - 1 + generatedPages.length) % generatedPages.length);
+    }
+  };
+
+  // Generate prompt from uploaded image
+  const handleGeneratePrompt = async () => {
+    if (!uploadedImage) {
+      toast.error('Please upload an image first');
+      return;
+    }
+
+    setIsGeneratingPrompt(true);
+    try {
+      // Convert data URL to File object
+      const response = await fetch(uploadedImage);
+      const blob = await response.blob();
+      const file = new File([blob], 'uploaded-image.png', { type: blob.type });
+
+      // Use imageToPrompt service to analyze the image
+      const prompt = await imageToPrompt(file);
+      setGeneratedPrompt(prompt);
+      toast.success('Prompt generated successfully');
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+      toast.error('Failed to generate prompt');
+    } finally {
+      setIsGeneratingPrompt(false);
+    }
+  };
+
+  // Use generated prompt in the coloring book tab
+  const usePromptForBook = () => {
+    if (!generatedPrompt) {
+      toast.error('No prompt available');
+      return;
+    }
     
+    setBookPrompt(generatedPrompt);
+    document.getElementById('prompt-to-book-tab')?.click();
+    toast.success('Prompt added to coloring book generator');
+  };
+
+  // Generate a single test coloring page
+  const handleGenerateTestPage = async () => {
+    if (!bookPrompt.trim()) {
+      toast.error('Please enter a prompt for your coloring page');
+      return;
+    }
+
     setIsGenerating(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newBook = {
-        id: Date.now().toString(),
-        pages: Array(parseInt(pageCount)).fill('/placeholder-coloring-page.png'),
-        title: bookPrompt
-      };
-      setGeneratedBooks(prev => [newBook, ...prev]);
+    try {
+      const pageUrl = await generateColoringPage(bookPrompt);
+      if (pageUrl) {
+        setGeneratedPages([pageUrl]);
+        setActivePreviewIndex(0);
+        toast.success('Test coloring page generated successfully');
+      } else {
+        throw new Error('Failed to generate test page');
+      }
+    } catch (error) {
+      console.error('Error generating test page:', error);
+      toast.error('Failed to generate test coloring page');
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
+  };
+
+  // Generate coloring book
+  const handleGenerateBook = async () => {
+    if (!bookPrompt.trim()) {
+      toast.error('Please enter a prompt for your coloring book');
+      return;
+    }
+
+    if (coloringOptions.pageCount < 1 || coloringOptions.pageCount > 100) {
+      toast.error('Page count must be between 1 and 100');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGeneratedPages([]);
+    setPdfUrl(null);
+
+    try {
+      toast.info(`Generating ${coloringOptions.pageCount} coloring pages...`);
+      
+      // Generate all pages
+      const pageUrls = await generateColoringBook({
+        prompt: bookPrompt,
+        pageCount: coloringOptions.pageCount,
+        trimSize: coloringOptions.trimSize,
+        addBlankPages: coloringOptions.addBlankPages,
+        showPageNumbers: coloringOptions.showPageNumbers,
+        includeBleed: coloringOptions.includeBleed,
+        bookTitle: coloringOptions.bookTitle
+      });
+      
+      if (pageUrls.length === 0) {
+        throw new Error('Failed to generate any coloring pages');
+      }
+      
+      setGeneratedPages(pageUrls);
+      setActivePreviewIndex(0);
+      toast.success(`Generated ${pageUrls.length} coloring pages successfully`);
+    } catch (error) {
+      console.error('Error generating coloring book:', error);
+      toast.error('Failed to generate coloring book');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Create and download PDF
+  const handleCreatePdf = async () => {
+    if (generatedPages.length === 0) {
+      toast.error('No pages to create PDF from');
+      return;
+    }
+
+    setIsCreatingPdf(true);
+    try {
+      toast.info('Creating PDF...');
+      
+      const pdfUrlResult = await createColoringBookPDF(generatedPages, {
+        trimSize: coloringOptions.trimSize,
+        addBlankPages: coloringOptions.addBlankPages,
+        showPageNumbers: coloringOptions.showPageNumbers,
+        includeBleed: coloringOptions.includeBleed,
+        bookTitle: coloringOptions.bookTitle || 'Coloring Book'
+      });
+      
+      setPdfUrl(pdfUrlResult);
+      toast.success('PDF created successfully!');
+      
+      // Auto-download the PDF
+      const link = document.createElement('a');
+      link.href = pdfUrlResult;
+      link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error creating PDF:', error);
+      toast.error('Failed to create PDF');
+    } finally {
+      setIsCreatingPdf(false);
+    }
+  };
+
+  // Download all images as a ZIP
+  const handleDownloadImages = async () => {
+    if (generatedPages.length === 0) {
+      toast.error('No pages to download');
+      return;
+    }
+
+    try {
+      toast.info('Preparing to download images...');
+      await downloadColoringPages(generatedPages, coloringOptions.bookTitle);
+    } catch (error) {
+      console.error('Error downloading images:', error);
+      toast.error('Failed to download images');
+    }
   };
 
   return (
@@ -55,7 +288,7 @@ export const AIColoringGenerator = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="inline-flex p-2 mb-6 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20"
           >
-            <Brain className="w-8 h-8 text-primary animate-pulse" />
+            <Palette className="w-8 h-8 text-primary animate-pulse" />
           </motion.div>
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
@@ -74,188 +307,341 @@ export const AIColoringGenerator = () => {
           </motion.p>
         </div>
 
-        {/* Creation Form */}
-        <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl mb-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-          <div className="relative p-8 space-y-8">
-            {/* Book Prompt */}
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold">Book Theme & Story</Label>
-              <Textarea
-                value={bookPrompt}
-                onChange={(e) => setBookPrompt(e.target.value)}
-                placeholder="Describe your coloring book theme and story (e.g., 'A magical underwater kingdom where sea creatures live in crystal palaces...')"
-                className="min-h-[120px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg"
-              />
-            </div>
+        {/* Tabs */}
+        <Tabs defaultValue="prompt-to-book" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="image-to-prompt" className="text-lg py-3">
+              <ImageIcon className="w-5 h-5 mr-2" />
+              Image to Prompt
+            </TabsTrigger>
+            <TabsTrigger id="prompt-to-book-tab" value="prompt-to-book" className="text-lg py-3">
+              <BookOpen className="w-5 h-5 mr-2" />
+              Prompt to Coloring Book
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Page Count */}
-              <div className="space-y-2">
-                <Label className="text-base font-medium text-foreground/90">Number of Pages</Label>
-                <Select value={pageCount} onValueChange={setPageCount}>
-                  <SelectTrigger 
-                    className="h-12 bg-background/50 border-primary/20 hover:border-primary/40 transition-colors rounded-xl"
-                  >
-                    <SelectValue placeholder="Select pages" />
-                    <ChevronDown className="h-4 w-4 text-primary/60" />
-                  </SelectTrigger>
-                  <SelectContent 
-                    className="bg-background/95 backdrop-blur-lg border-primary/20"
-                    position="popper"
-                    sideOffset={5}
-                  >
-                    <SelectItem value="24" className="focus:bg-primary/10 cursor-pointer">24 Pages</SelectItem>
-                    <SelectItem value="32" className="focus:bg-primary/10 cursor-pointer">32 Pages</SelectItem>
-                    <SelectItem value="48" className="focus:bg-primary/10 cursor-pointer">48 Pages</SelectItem>
-                  </SelectContent>
-                </Select>
-                      </div>
-
-              {/* Age Range */}
-              <div className="space-y-2">
-                <Label className="text-base font-medium text-foreground/90">Age Range</Label>
-                <Select value={ageRange} onValueChange={setAgeRange}>
-                  <SelectTrigger 
-                    className="h-12 bg-background/50 border-primary/20 hover:border-primary/40 transition-colors rounded-xl"
-                  >
-                    <SelectValue placeholder="Select age range" />
-                    <ChevronDown className="h-4 w-4 text-primary/60" />
-                  </SelectTrigger>
-                  <SelectContent 
-                    className="bg-background/95 backdrop-blur-lg border-primary/20"
-                    position="popper"
-                    sideOffset={5}
-                  >
-                    <SelectItem value="3-5" className="focus:bg-primary/10 cursor-pointer">3-5 years</SelectItem>
-                    <SelectItem value="6-8" className="focus:bg-primary/10 cursor-pointer">6-8 years</SelectItem>
-                    <SelectItem value="9-12" className="focus:bg-primary/10 cursor-pointer">9-12 years</SelectItem>
-                  </SelectContent>
-                </Select>
-                    </div>
-
-              {/* Style */}
-              <div className="space-y-2">
-                <Label className="text-base font-medium text-foreground/90">Art Style</Label>
-                <Select value={style} onValueChange={setStyle}>
-                  <SelectTrigger 
-                    className="h-12 bg-background/50 border-primary/20 hover:border-primary/40 transition-colors rounded-xl"
-                  >
-                    <SelectValue placeholder="Select style" />
-                    <ChevronDown className="h-4 w-4 text-primary/60" />
-                  </SelectTrigger>
-                  <SelectContent 
-                    className="bg-background/95 backdrop-blur-lg border-primary/20"
-                    position="popper"
-                    sideOffset={5}
-                  >
-                    <SelectItem value="cartoon" className="focus:bg-primary/10 cursor-pointer">Cartoon</SelectItem>
-                    <SelectItem value="realistic" className="focus:bg-primary/10 cursor-pointer">Realistic</SelectItem>
-                    <SelectItem value="manga" className="focus:bg-primary/10 cursor-pointer">Manga</SelectItem>
-                    <SelectItem value="geometric" className="focus:bg-primary/10 cursor-pointer">Geometric</SelectItem>
-                  </SelectContent>
-                </Select>
-                </div>
-
-              {/* Complexity */}
-              <div className="space-y-2">
-                <Label className="text-base font-medium text-foreground/90">Complexity Level</Label>
-                <Select value={complexity} onValueChange={setComplexity}>
-                  <SelectTrigger 
-                    className="h-12 bg-background/50 border-primary/20 hover:border-primary/40 transition-colors rounded-xl"
+          {/* Image to Prompt Tab */}
+          <TabsContent value="image-to-prompt" className="space-y-8">
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Upload a Coloring Style Image</h2>
+                
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* Image Upload Section */}
+                  <div className="space-y-4">
+                    <Label className="text-lg font-semibold">Reference Image</Label>
+                    <div 
+                      className="border-2 border-dashed border-primary/40 rounded-lg aspect-square flex flex-col items-center justify-center p-8 hover:border-primary/60 transition-colors cursor-pointer bg-background/50"
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                    <SelectValue placeholder="Select complexity" />
-                    <ChevronDown className="h-4 w-4 text-primary/60" />
-                  </SelectTrigger>
-                  <SelectContent 
-                    className="bg-background/95 backdrop-blur-lg border-primary/20"
-                    position="popper"
-                    sideOffset={5}
-                    >
-                    <SelectItem value="simple" className="focus:bg-primary/10 cursor-pointer">Simple</SelectItem>
-                    <SelectItem value="moderate" className="focus:bg-primary/10 cursor-pointer">Moderate</SelectItem>
-                    <SelectItem value="complex" className="focus:bg-primary/10 cursor-pointer">Complex</SelectItem>
-                  </SelectContent>
-                </Select>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleGenerate}
-              disabled={!bookPrompt.trim() || isGenerating}
-              className="w-full h-14 text-lg relative overflow-hidden group bg-primary/90 hover:bg-primary/80"
-                >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-              <span className="relative flex items-center justify-center gap-2">
-                    {isGenerating ? (
-                  <>
-                    <Sparkles className="w-6 h-6 animate-pulse" />
-                    Creating Your Coloring Book...
-                  </>
-                    ) : (
-                  <>
-                    <Wand2 className="w-6 h-6" />
-                    Generate Coloring Book
-                  </>
-                    )}
-              </span>
-                </Button>
-          </div>
-        </Card>
-
-        {/* Generated Books */}
-        {generatedBooks.map((book) => (
-          <motion.div
-            key={book.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12"
-            >
-            <div className="flex items-center gap-4 mb-6">
-              <div className="bg-primary/10 p-3 rounded-xl backdrop-blur-sm border border-primary/20">
-                <BookOpen className="w-6 h-6 text-primary" />
-              </div>
-              <h2 className="text-2xl font-semibold">{book.title}</h2>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {book.pages.map((page, index) => (
-                      <motion.div
-                        key={index}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="group relative aspect-[1/1.4] rounded-xl overflow-hidden bg-background/40 backdrop-blur-sm border border-primary/20"
-                      >
-                        <img
-                    src={page}
-                    alt={`Page ${index + 1}`}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      {uploadedImage ? (
+                        <img 
+                          src={uploadedImage} 
+                          alt="Uploaded reference" 
+                          className="max-w-full max-h-full object-contain"
                         />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <Button variant="secondary" className="w-full gap-2 backdrop-blur-sm">
-                        <Download className="w-4 h-4" />
-                        Download Page {index + 1}
-                          </Button>
+                      ) : (
+                        <>
+                          <Upload className="w-16 h-16 text-primary/60 mb-4" />
+                          <p className="text-lg font-medium text-center">Click to upload a reference image</p>
+                          <p className="text-sm text-muted-foreground text-center mt-2">
+                            Upload a coloring book style image to generate a similar prompt
+                          </p>
+                        </>
+                      )}
+                      <input 
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                      />
                     </div>
-                        </div>
-                      </motion.div>
-                    ))}
+                    <Button 
+                      onClick={() => fileInputRef.current?.click()}
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {uploadedImage ? 'Change Image' : 'Upload Image'}
+                    </Button>
                   </div>
-          </motion.div>
-        ))}
 
-        {/* Empty State */}
-        {generatedBooks.length === 0 && (
-          <Card className="p-12 text-center bg-background/40 backdrop-blur-xl border border-primary/20">
-            <Palette className="w-12 h-12 text-primary/60 mx-auto mb-4" />
-            <p className="text-xl text-muted-foreground">
-              Your magical coloring books will appear here
-                    </p>
-          </Card>
-        )}
-        </div>
+                  {/* Generated Prompt Section */}
+                  <div className="space-y-4">
+                    <Label className="text-lg font-semibold">Generated Prompt</Label>
+                    <div className="relative">
+                      <Textarea 
+                        value={generatedPrompt} 
+                        onChange={(e) => setGeneratedPrompt(e.target.value)}
+                        placeholder="Your generated prompt will appear here..."
+                        className="min-h-[260px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg resize-none"
+                      />
+                      {generatedPrompt && (
+                        <Button
+                          size="sm"
+                          className="absolute bottom-4 right-4 gap-1"
+                          onClick={usePromptForBook}
+                        >
+                          <Check className="h-4 w-4" />
+                          Use Prompt
+                        </Button>
+                      )}
+                    </div>
+                    <Button
+                      onClick={handleGeneratePrompt}
+                      disabled={!uploadedImage || isGeneratingPrompt}
+                      className="w-full h-12 relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        {isGeneratingPrompt ? (
+                          <>
+                            <Sparkles className="w-5 h-5 animate-spin" />
+                            Analyzing Image...
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="w-5 h-5" />
+                            Generate Prompt
+                          </>
+                        )}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* Prompt to Coloring Book Tab */}
+          <TabsContent value="prompt-to-book" className="space-y-8">
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Create Your Coloring Book</h2>
+                
+                {/* Prompt Input */}
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">Coloring Book Prompt</Label>
+                  <Textarea
+                    value={bookPrompt}
+                    onChange={(e) => setBookPrompt(e.target.value)}
+                    placeholder="Describe what you want in your coloring book (e.g., 'Enchanted forest with magical creatures, fantasy mushrooms and hidden fairies')"
+                    className="min-h-[100px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg"
+                  />
+                </div>
+
+                {/* Book Options */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {/* Trim Size */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium">Trim Size</Label>
+                    <Select 
+                      value={coloringOptions.trimSize} 
+                      onValueChange={(value) => setColoringOptions({...coloringOptions, trimSize: value})}
+                    >
+                      <SelectTrigger className="h-10 bg-background/50 border-primary/20">
+                        <SelectValue placeholder="Select trim size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="6x9">6" x 9" (15.24 x 22.86 cm)</SelectItem>
+                        <SelectItem value="8x10">8" x 10" (20.32 x 25.4 cm)</SelectItem>
+                        <SelectItem value="8.5x11">8.5" x 11" (21.59 x 27.94 cm)</SelectItem>
+                        <SelectItem value="7x10">7" x 10" (17.78 x 25.4 cm)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Page Count */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium">Number of Pages</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={coloringOptions.pageCount}
+                      onChange={(e) => setColoringOptions({...coloringOptions, pageCount: parseInt(e.target.value) || 1})}
+                      className="h-10 bg-background/50 border-primary/20"
+                    />
+                  </div>
+
+                  {/* Book Title */}
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium">Book Title (Optional)</Label>
+                    <Input
+                      value={coloringOptions.bookTitle}
+                      onChange={(e) => setColoringOptions({...coloringOptions, bookTitle: e.target.value})}
+                      placeholder="My Coloring Book"
+                      className="h-10 bg-background/50 border-primary/20"
+                    />
+                  </div>
+
+                  {/* Add Blank Pages Toggle */}
+                  <div className="flex items-center justify-between space-x-2">
+                    <Label className="text-base font-medium">Add Blank Pages Between</Label>
+                    <Switch
+                      checked={coloringOptions.addBlankPages}
+                      onCheckedChange={(checked) => setColoringOptions({...coloringOptions, addBlankPages: checked})}
+                    />
+                  </div>
+
+                  {/* Show Page Numbers Toggle */}
+                  <div className="flex items-center justify-between space-x-2">
+                    <Label className="text-base font-medium">Show Page Numbers</Label>
+                    <Switch
+                      checked={coloringOptions.showPageNumbers}
+                      onCheckedChange={(checked) => setColoringOptions({...coloringOptions, showPageNumbers: checked})}
+                    />
+                  </div>
+
+                  {/* Include Bleed Toggle */}
+                  <div className="flex items-center justify-between space-x-2">
+                    <Label className="text-base font-medium">Include Bleed (0.125")</Label>
+                    <Switch
+                      checked={coloringOptions.includeBleed}
+                      onCheckedChange={(checked) => setColoringOptions({...coloringOptions, includeBleed: checked})}
+                    />
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button
+                    onClick={handleGenerateTestPage}
+                    disabled={!bookPrompt.trim() || isGenerating}
+                    variant="outline"
+                    className="flex-1 h-12 text-base gap-2"
+                  >
+                    {isGenerating ? (
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    ) : (
+                      <PlusSquare className="w-5 h-5" />
+                    )}
+                    Generate Test Page
+                  </Button>
+                  
+                  <Button
+                    onClick={handleGenerateBook}
+                    disabled={!bookPrompt.trim() || isGenerating}
+                    className="flex-1 h-12 text-base relative overflow-hidden group bg-primary/90 hover:bg-primary/80 gap-2"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                    <span className="relative flex items-center justify-center gap-2">
+                      {isGenerating ? (
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      ) : (
+                        <Wand2 className="w-5 h-5" />
+                      )}
+                      Generate Complete Book
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Generated Pages Preview */}
+            {generatedPages.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <h2 className="text-2xl font-bold">Your Coloring Book Preview</h2>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      variant="default" 
+                      className="gap-2"
+                      onClick={handleCreatePdf}
+                      disabled={isCreatingPdf || generatedPages.length === 0}
+                    >
+                      {isCreatingPdf ? (
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      ) : (
+                        <File className="w-5 h-5" />
+                      )}
+                      Create & Download PDF
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={handleDownloadImages}
+                      disabled={generatedPages.length === 0}
+                    >
+                      <Download className="w-5 h-5" />
+                      Download All Images
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Main Preview */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Large Preview */}
+                  <div className="lg:col-span-2 aspect-[1/1.4] bg-white rounded-xl overflow-hidden shadow-md border border-primary/20 relative">
+                    <img 
+                      src={generatedPages[activePreviewIndex]} 
+                      alt={`Coloring page ${activePreviewIndex + 1}`}
+                      className="w-full h-full object-contain"
+                    />
+                    
+                    {/* Navigation Arrows */}
+                    {generatedPages.length > 1 && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="absolute left-2 top-1/2 transform -translate-y-1/2 rounded-full bg-background/80 hover:bg-background"
+                          onClick={prevPreviewPage}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="icon" 
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 rounded-full bg-background/80 hover:bg-background"
+                          onClick={nextPreviewPage}
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                    
+                    {/* Page indicator */}
+                    <div className="absolute bottom-2 left-0 right-0 text-center">
+                      <span className="px-2 py-1 bg-background/70 rounded-md text-sm font-medium">
+                        Page {activePreviewIndex + 1} of {generatedPages.length}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Thumbnails Grid */}
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">All Pages ({generatedPages.length})</h3>
+                    <div className="grid grid-cols-2 gap-4 max-h-[600px] overflow-y-auto p-2">
+                      {generatedPages.map((page, index) => (
+                        <div 
+                          key={index}
+                          className={`aspect-[1/1.4] bg-white rounded-md overflow-hidden cursor-pointer border-2 transition-all ${index === activePreviewIndex ? 'border-primary scale-[1.02] shadow-lg' : 'border-transparent hover:border-primary/40'}`}
+                          onClick={() => setActivePreviewIndex(index)}
+                        >
+                          <img 
+                            src={page} 
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-1 right-1 bg-background/60 rounded-full w-6 h-6 flex items-center justify-center text-xs font-medium">
+                            {index + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }; 

@@ -184,16 +184,17 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 }
 
 // Helper function to get placeholders
-function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' = 'tshirt', width = 1024, height = 1365): Promise<string> {
+function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' | 'coloring' = 'tshirt', width = 1024, height = 1365): Promise<string> {
   const words = prompt.split(' ').slice(0, 5).join('-');
   const bgColor = getColorForStyle(prompt);
   const fgColor = "FFFFFF";
   
   // Different text based on type
-  const typeText = type === 'bookcover' ? 'Book Cover: ' : 'T-Shirt: ';
+  const typeText = type === 'bookcover' ? 'Book Cover: ' : 
+                  type === 'coloring' ? 'Coloring Page: ' : 'T-Shirt: ';
   
   // Use the provided dimensions if it's a book cover
-  const dimensions = type === 'bookcover' ? `${width}x${height}` : '1024x1365';
+  const dimensions = type === 'bookcover' || type === 'coloring' ? `${width}x${height}` : '1024x1365';
   
   // Use a different placeholder service that allows CORS
   // Instead of dummyimage.com, use a data URI which is guaranteed to work
@@ -1157,3 +1158,183 @@ console.log('BookCoverGenerator rendered');
 console.log('Download clicked');
 console.log('Regenerate clicked');
 console.log('Create Full Cover clicked'); 
+
+/**
+ * Interface for coloring book generation parameters
+ */
+export interface GenerateColoringBookParams {
+  prompt: string;
+  pageCount: number;
+  trimSize: string;
+  addBlankPages: boolean;
+  showPageNumbers: boolean;
+  includeBleed: boolean;
+  bookTitle?: string;
+}
+
+/**
+ * Generate a coloring page using the Ideogram API
+ * This reuses the existing image generation functionality
+ */
+export async function generateColoringPage(prompt: string): Promise<string | null> {
+  try {
+    // Enhanced prompt for coloring pages - make it clear that we want line art
+    const enhancedPrompt = `Coloring page with clean black outlines on white background, suitable for coloring book: ${prompt}`;
+    
+    // Use the existing generateImage function but with specific parameters for coloring pages
+    const imageUrl = await generateImage({
+      prompt: enhancedPrompt,
+      style: "lineart", // Request line art style
+      colorScheme: "blackandwhite", // Black and white
+      transparentBackground: false, // White background
+      safeMode: true
+    });
+    
+    return imageUrl;
+  } catch (error) {
+    console.error("Error generating coloring page:", error);
+    // Return a mock/placeholder for testing
+    return getPlaceholderImage(prompt, 'coloring', 1000, 1414); // ~8.5x11 at 120dpi
+  }
+}
+
+/**
+ * Generate a complete coloring book with multiple pages
+ */
+export async function generateColoringBook({
+  prompt,
+  pageCount,
+  trimSize,
+  addBlankPages,
+  showPageNumbers,
+  includeBleed,
+  bookTitle
+}: GenerateColoringBookParams): Promise<string[]> {
+  try {
+    const generatedPages: string[] = [];
+    
+    // Generate each page
+    for (let i = 0; i < pageCount; i++) {
+      // Add some randomization to the prompt for variety
+      const pagePrompt = `${prompt} ${i % 2 === 0 ? 'variation' : 'design'} ${i+1}`;
+      
+      try {
+        const pageUrl = await generateColoringPage(pagePrompt);
+        if (pageUrl) {
+          generatedPages.push(pageUrl);
+        }
+      } catch (pageError) {
+        console.error(`Error generating page ${i+1}:`, pageError);
+        // Continue with other pages
+      }
+      
+      // For testing/demo, limit to 3 pages if we're using placeholders
+      if (USE_PLACEHOLDERS && generatedPages.length >= 3) {
+        break;
+      }
+    }
+    
+    return generatedPages;
+  } catch (error) {
+    console.error("Error generating coloring book:", error);
+    throw error;
+  }
+}
+
+/**
+ * Create a PDF from generated coloring pages
+ */
+export async function createColoringBookPDF(
+  pageUrls: string[],
+  options: {
+    trimSize: string;
+    addBlankPages: boolean;
+    showPageNumbers: boolean;
+    includeBleed: boolean;
+    bookTitle?: string;
+  }
+): Promise<string> {
+  try {
+    // For client-side only implementation, return a mock PDF URL
+    if (USE_PLACEHOLDERS || !API_URL) {
+      toast.success("PDF would be generated on the server in production");
+      // Return a placeholder PDF
+      return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
+    }
+
+    // Create form data for the request
+    const requestData = {
+      pageUrls,
+      ...options
+    };
+    
+    // Make a POST request to our backend
+    const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error creating PDF:", errorText);
+      throw new Error(`Failed to create PDF: ${response.status}`);
+    }
+    
+    // Create and return a blob URL for the PDF
+    const pdfBlob = await response.blob();
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    
+    return pdfUrl;
+  } catch (error) {
+    console.error("Error creating coloring book PDF:", error);
+    toast.error("Failed to create PDF");
+    throw error;
+  }
+}
+
+/**
+ * Download all coloring pages as a ZIP file
+ */
+export async function downloadColoringPages(
+  pageUrls: string[],
+  bookTitle?: string
+): Promise<void> {
+  try {
+    if (pageUrls.length === 0) {
+      toast.error("No pages to download");
+      return;
+    }
+    
+    // For single images, use the existing download function
+    if (pageUrls.length === 1) {
+      await downloadImage(pageUrls[0], 'png', 'coloring-page');
+      return;
+    }
+    
+    // For multiple images, use our backend to create a ZIP
+    const requestData = {
+      pageUrls,
+      bookTitle: bookTitle || 'coloring-pages'
+    };
+    
+    // Create a form with the request data
+    const formData = new FormData();
+    formData.append('data', JSON.stringify(requestData));
+    
+    // Create a download link
+    const link = document.createElement('a');
+    link.href = `${API_URL}/api/coloring-book/download-zip?data=${encodeURIComponent(JSON.stringify(requestData))}`;
+    link.download = `${bookTitle || 'coloring-pages'}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Downloading coloring pages as ZIP");
+  } catch (error) {
+    console.error("Error downloading coloring pages:", error);
+    toast.error("Failed to download pages");
+  }
+} 
