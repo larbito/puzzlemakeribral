@@ -3,163 +3,79 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 
-// Debug logging for startup
-console.log('Starting server...');
+// STARTUP DEBUG - THIS SHOULD APPEAR IN LOGS
+console.log('=====================================');
+console.log('STARTING SERVER - MINIMAL TEST MODE');
+console.log('=====================================');
 console.log('Node version:', process.version);
 console.log('Environment:', process.env.NODE_ENV);
 console.log('Current directory:', process.cwd());
+console.log('Files in current directory:');
+require('fs').readdirSync(process.cwd()).forEach(file => {
+  console.log(' - ' + file);
+});
+console.log('Files in src directory:');
+try {
+  require('fs').readdirSync(require('path').join(process.cwd(), 'src')).forEach(file => {
+    console.log(' - ' + file);
+  });
+} catch (e) {
+  console.error('Error reading src directory:', e.message);
+}
+console.log('Files in src/routes directory:');
+try {
+  require('fs').readdirSync(require('path').join(process.cwd(), 'src', 'routes')).forEach(file => {
+    console.log(' - ' + file);
+  });
+} catch (e) {
+  console.error('Error reading src/routes directory:', e.message);
+}
 
-const ideogramRoutes = require('./routes/ideogram');
-const bookCoverRoutes = require('./routes/book-cover');
-const coloringBookRoutes = require('./routes/coloring-book');
+// Load the coloring book routes module
+let coloringBookRoutes;
+try {
+  console.log('Attempting to require coloring-book.js');
+  coloringBookRoutes = require('./routes/coloring-book');
+  console.log('Successfully loaded coloring-book.js');
+} catch (e) {
+  console.error('Failed to load coloring-book.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  coloringBookRoutes = express.Router();
+  coloringBookRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load real routes', error: e.message });
+  });
+}
 
+// Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Debug logging for all requests
+// Simple CORS setup
+app.use(cors());
+app.use(express.json());
+
+// Debug middleware to log all requests
 app.use((req, res, next) => {
-  console.log('Incoming request:', {
-    method: req.method,
-    path: req.path,
-    headers: req.headers,
-    url: req.url,
-    originalUrl: req.originalUrl
-  });
+  console.log(`${req.method} ${req.path}`);
   next();
 });
 
-// Configure CORS
-const corsOptions = {
-  origin: function(origin, callback) {
-    const allowedOrigins = [
-      'https://puzzlemakeribral.vercel.app',
-      'https://puzzle-craft-forge.vercel.app',
-      'http://localhost:5177',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ];
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
-      callback(null, true);
-    } else {
-      console.log('Blocked by CORS:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'Origin', 'X-Requested-With'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  maxAge: 86400, // 24 hours in seconds
-  optionsSuccessStatus: 200
-};
-
-// Handle preflight requests
-app.options('*', cors(corsOptions));
-
-// Apply CORS
-app.use(cors(corsOptions));
-
-// Add custom headers middleware
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Origin, X-Requested-With');
-  res.header('Access-Control-Max-Age', '86400');
-  next();
-});
-
-// Request logging
-app.use(morgan('dev'));
-
-// Parse JSON requests - only for non-multipart requests
-app.use((req, res, next) => {
-  if (!req.is('multipart/form-data')) {
-    express.json()(req, res, next);
-  } else {
-    next();
-  }
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV,
-    port: PORT
-  });
-});
-
-// Debug log routes
-console.log('Registered routes:');
-app._router.stack.forEach(function(r){
-  if (r.route && r.route.path){
-    console.log(r.route.path)
-  }
-});
-
-// Routes
-app.use('/api/ideogram', ideogramRoutes);
-console.log('Ideogram routes registered at /api/ideogram');
-
-app.use('/api/book-cover', bookCoverRoutes);
-console.log('Book cover routes registered at /api/book-cover');
-
+// Register routes
 app.use('/api/coloring-book', coloringBookRoutes);
-console.log('Coloring book routes registered at /api/coloring-book');
+console.log('Registered route: /api/coloring-book/*');
 
-// Debug logging for route registration
-console.log('Routes registered:');
-console.log('- /api/ideogram');
-console.log('- /api/book-cover');
-console.log('- /api/coloring-book');
-
-// Basic route
+// Root route for testing
 app.get('/', (req, res) => {
-  res.json({ message: 'Puzzle Craft Forge API - Image Generation Service' });
-});
-
-// Catch-all route for debugging 404s
-app.use((req, res, next) => {
-  console.log('404 Not Found:', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    originalUrl: req.originalUrl
-  });
-  res.status(404).json({
-    error: 'Not Found',
-    path: req.path,
-    method: req.method
+  res.json({ 
+    status: 'ok', 
+    message: 'Minimal test server running',
+    routes: ['/api/coloring-book/test', '/api/coloring-book/create-pdf', '/api/coloring-book/download-zip']
   });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-      status: err.status || 500
-    }
-  });
-});
-
-// Start server
+// Start the server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Ideogram API Key configured:', !!process.env.IDEOGRAM_API_KEY);
-  console.log('Server URL:', `http://0.0.0.0:${PORT}`);
-  console.log('Server startup complete!');
+  console.log('Server startup complete! Visit / to check available routes');
 }); 
