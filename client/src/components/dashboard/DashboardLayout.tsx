@@ -25,7 +25,6 @@ const navigation = [
   { name: 'All Projects', href: '/dashboard/projects', icon: FolderKanban },
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
-  { name: 'Simple Book Cover', href: '/dashboard/simple-covers', icon: BookOpen },
   { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
   
   // Planning & Analytics
