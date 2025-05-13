@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { BookOpenCheck, Download, Calculator, ChevronDown } from 'lucide-react';
+import { BookOpenCheck, Download, Calculator, ChevronDown, LayoutTemplate } from 'lucide-react';
+import ToggleSwitch from '@/components/ui/toggleSwitch';
+import { generateFullWrapCover, generateFrontCover } from '@/lib/bookCoverApi';
 
 // KDP Book cover generator component
 const SimpleBookCoverGenerator = () => {
@@ -19,6 +21,8 @@ const SimpleBookCoverGenerator = () => {
   const [trimSize, setTrimSize] = useState('6x9');
   const [pageCount, setPageCount] = useState(100);
   const [paperType, setPaperType] = useState('white');
+  const [showFullWrap, setShowFullWrap] = useState(false);
+  const [spineText, setSpineText] = useState('');
 
   // Ref for the range input
   const rangeInputRef = useRef<HTMLInputElement>(null);
@@ -220,53 +224,42 @@ const SimpleBookCoverGenerator = () => {
     }
 
     try {
-      // Enhanced prompt with style - keeping the API call structure the same
+      // Enhanced prompt with style
       const enhancedPrompt = `Professional book cover design for Amazon KDP in ${style} style: ${promptToUse}. High resolution 300 DPI.`;
       
-      // Basic FormData approach that works with the API
-      const formData = new FormData();
-      formData.append('prompt', enhancedPrompt);
-      formData.append('width', (parseFloat(dimensions.width) * 300).toString());
-      formData.append('height', (parseFloat(dimensions.height) * 300).toString());
-      formData.append('negative_prompt', 'text, watermark, low quality, distorted');
-
-      // Log form data for debugging
-      console.log("Form data created:", {
-        prompt: enhancedPrompt,
-        width: dimensions.width,
-        height: dimensions.height,
-        style,
-        spineWidth: dimensions.spineWidth
-      });
-      
-      console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
-      
-      // Make the API call using the ideogram endpoint
-      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log(`Response status: ${response.status}`);
-      
-      // Process response
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error response: ${errorText}`);
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("API Response data:", data);
-
-      // Set the image URL using the 'url' property from the API response
-      if (data.url) {
-        console.log(`Image URL received: ${data.url.substring(0, 60)}...`);
-        setCoverUrl(data.url);
+      if (showFullWrap) {
+        // Use the new full wrap generation API
+        console.log('Generating full wrap cover...');
+        const result = await generateFullWrapCover({
+          prompt: enhancedPrompt,
+          negative_prompt: 'text, watermark, low quality, distorted',
+          trimSize,
+          pageCount,
+          paperType,
+          spineText: spineText || undefined,
+          bookTitle: promptToUse.split(' ').slice(0, 5).join(' '), // Use first few words as book title
+          authorName: 'Author Name', // Placeholder author name
+        });
+        
+        // Use the full wrap cover URL
+        console.log('Full wrap cover generated:', result);
+        setCoverUrl(result.fullCoverUrl);
       } else {
-        console.log('No URL found in response, using placeholder');
-        setCoverUrl(`https://placehold.co/${dimensions.width}x${dimensions.height}/4ade80/FFFFFF?text=Placeholder+Cover`);
-        setError('No image URL returned - using placeholder');
+        // Use the front cover only API
+        console.log('Generating front cover only...');
+        const width = Math.ceil(parseFloat(dimensions.width) * 300);
+        const height = Math.ceil(parseFloat(dimensions.height) * 300);
+        
+        const result = await generateFrontCover({
+          prompt: enhancedPrompt,
+          width,
+          height,
+          negative_prompt: 'text, watermark, low quality, distorted'
+        });
+        
+        // Set the image URL
+        console.log('Front cover generated:', result);
+        setCoverUrl(result.url);
       }
     } catch (err: any) {
       console.error("Error during generation:", err);
@@ -291,136 +284,149 @@ const SimpleBookCoverGenerator = () => {
   const selectedPaperType = paperTypeOptions.find(p => p.value === paperType)?.label || '';
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4">
-      {/* Header Section */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center mb-4">
-          <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center mr-3 animate-pulse-glow">
-            <BookOpenCheck className="h-6 w-6 text-primary" />
-          </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-text-shimmer">
-            Amazon KDP Book Cover Generator
-          </h1>
-        </div>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Generate professional book covers optimized for Kindle Direct Publishing
-        </p>
-      </div>
-      
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left Column: KDP Cover Setup */}
-        <div>
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden h-full">
-            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/5 to-secondary/5">
+    <div className="relative container mx-auto py-8 px-4 sm:px-6">
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="md:col-span-7">
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10">
+            <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-secondary/5 to-primary/5">
               <CardTitle className="flex items-center">
-                <Calculator className="mr-2 h-5 w-5 text-primary" />
-                <span>Book Cover Details (KDP Compliant)</span>
+                <BookOpenCheck className="h-5 w-5 mr-2 text-green-500" /> KDP Book Cover Generator
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Prompt Input */}
-                <div className="space-y-2">
-                  <label htmlFor="prompt" className="text-sm font-medium text-foreground">
-                    Describe your cover
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit}>
+                {/* Main Panel */}
+                <div className="mb-4">
+                  {/* Prompt Input */}
+                  <label htmlFor="prompt" className="block text-sm font-medium mb-2">
+                    Describe your book cover
                   </label>
-                  <div className="relative">
-                    <textarea
-                      id="prompt"
-                      value={prompt}
-                      onChange={handlePromptChange}
-                      className="w-full min-h-[150px] rounded-lg border border-primary/20 bg-muted p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
-                      placeholder="Describe your ideal book cover in detail. Include mood, main elements, colors, etc."
-                    />
-                    <div className="absolute bottom-3 right-3 rounded-full bg-primary/10 px-2 py-1 text-xs">
-                      {prompt.length} chars
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Min 5 characters</span>
-                    <span className={prompt.length < 5 ? "text-red-400" : "text-primary"}>
-                      {prompt.length < 5 ? 'Add more details' : '✓ Ready to generate'}
-                    </span>
+                  <textarea
+                    id="prompt"
+                    value={prompt}
+                    onChange={handlePromptChange}
+                    placeholder="Example: A fantasy novel cover with a castle on a hill, stormy sky, and a sword in the foreground"
+                    rows={4}
+                    className="w-full rounded-md border border-primary/20 bg-muted p-4 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Example Prompts */}
+                <div className="mb-6">
+                  <p className="text-xs text-muted-foreground mb-2">Example prompts (click to use):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {examplePrompts.map((example, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => applyExamplePrompt(example)}
+                        className="text-xs bg-muted hover:bg-primary/10 text-primary px-2 py-1 rounded-full transition-colors"
+                      >
+                        {example.substring(0, 20)}...
+                      </button>
+                    ))}
                   </div>
                 </div>
-                
-                {/* Book Specification Section */}
-                <div className="space-y-4">
-                  {/* Trim Size */}
-                  <div className="space-y-2">
-                    <label htmlFor="trimSize" className="text-sm font-medium text-foreground">
-                      Book Trim Size
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="trimSize"
-                        value={trimSize}
-                        onChange={handleTrimSizeChange}
-                        className="w-full appearance-none rounded-md border border-primary/20 bg-muted p-2 pr-8 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
-                      >
-                        {trimSizeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none text-foreground/70" />
+
+                {/* Toggle for Full Wrap */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Cover Type:</span>
+                    <div className="flex items-center space-x-2">
+                      <ToggleSwitch 
+                        label="Full Wrap"
+                        checked={showFullWrap}
+                        onChange={setShowFullWrap}
+                      />
                     </div>
                   </div>
+                  
+                  {showFullWrap && (
+                    <div className="mt-4">
+                      <label htmlFor="spineText" className="block text-sm font-medium mb-2">
+                        Spine Text (Optional)
+                      </label>
+                      <input
+                        id="spineText"
+                        type="text"
+                        value={spineText}
+                        onChange={(e) => setSpineText(e.target.value)}
+                        placeholder="Text for the spine (book title, author name)"
+                        className="w-full rounded-md border border-primary/20 bg-muted p-3 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Note: Spine text will only appear if the book has 100+ pages
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-                  {/* Paper Type */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
+                {/* KDP Specifications */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium">KDP Specifications</h3>
+                    <span className="text-xs bg-green-500/10 text-green-500 px-2 py-1 rounded-full">
+                      KDP Compatible
+                    </span>
+                  </div>
+                  
+                  {/* Trim Size */}
+                  <div className="mt-4">
+                    <label htmlFor="trimSize" className="block text-sm font-medium mb-2">
+                      Book Trim Size
+                    </label>
+                    <select
+                      id="trimSize"
+                      value={trimSize}
+                      onChange={handleTrimSizeChange}
+                      className="w-full rounded-md border border-primary/20 bg-muted p-3 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
+                    >
+                      {trimSizeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Paper Type Buttons */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-2">
                       Paper Type
                     </label>
-                    <div className="flex gap-2">
+                    <div className="flex space-x-4">
                       {paperTypeOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
+                          className={`flex-1 py-2 px-3 text-sm rounded-md transition-all ${
+                            paperType === option.value
+                              ? 'bg-green-500 text-white font-medium shadow-sm'
+                              : 'bg-muted text-foreground hover:bg-primary/10'
+                          }`}
                           onClick={() => handlePaperTypeChange(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 focus:outline-none focus:ring-2 focus:ring-primary/50 ${
-                            paperType === option.value 
-                              ? "bg-green-500 hover:bg-green-600 text-white font-medium shadow-lg" 
-                              : "bg-muted hover:bg-muted/80 text-foreground hover:text-foreground/80"
-                          } transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]`}
                         >
                           {option.label}
                         </button>
                       ))}
                     </div>
                   </div>
-
-                  {/* Page Count */}
-                  <div className="space-y-2">
-                    <label htmlFor="pageCount" className="text-sm font-medium text-foreground flex justify-between">
-                      <span>Page Count</span>
-                      <span className="text-green-500 font-medium">{pageCount} pages</span>
+                  
+                  {/* Page Count Slider */}
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium mb-2">
+                      Page Count: {pageCount}
                     </label>
-                    <div className="flex gap-4 items-center">
-                      <div className="flex-1 relative h-3">
-                        <input
-                          id="pageCountSlider"
-                          ref={sliderRef}
-                          type="range"
-                          min="24"
-                          max="800"
-                          step="1"
-                          value={pageCount}
-                          onChange={handleSliderChange}
-                          onMouseDown={() => console.log('Slider mouse down')}
-                          onMouseUp={() => console.log('Slider mouse up')}
-                          onClick={() => console.log('Slider clicked')}
-                          className="absolute inset-0 w-full h-full opacity-100 cursor-pointer z-10"
-                        />
-                        <div className="absolute inset-0 rounded-lg bg-muted overflow-hidden">
-                          <div 
-                            className="h-full bg-green-500 rounded-lg" 
-                            style={{ width: `${((pageCount-24)/(800-24))*100}%` }}
-                          ></div>
-                        </div>
-                      </div>
+                    <div className="flex items-center space-x-4">
+                      <input
+                        ref={sliderRef}
+                        type="range"
+                        min="24"
+                        max="800"
+                        value={pageCount}
+                        onChange={handleSliderChange}
+                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer range-lg"
+                      />
                       <input
                         id="pageCountInput"
                         type="number"
@@ -471,49 +477,26 @@ const SimpleBookCoverGenerator = () => {
                 </div>
                 
                 {/* Generate Button */}
-                <Button
-                  type="submit"
-                  disabled={isGenerating || prompt.trim().length < 5}
-                  className={`w-full ${
-                    isGenerating || prompt.trim().length < 5 
-                      ? "opacity-70" 
-                      : "animate-pulse-glow"
-                  }`}
+                <Button 
+                  type="submit" 
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3"
+                  disabled={isGenerating}
                 >
                   {isGenerating ? (
                     <>
-                      <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
-                      Generating...
+                      <div className="animate-spin mr-2 h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
+                      Generating your {showFullWrap ? 'full wrap' : 'cover'}...
                     </>
                   ) : (
-                    <>Generate Cover</>
+                    <>Generate {showFullWrap ? 'Full Wrap Cover' : 'Front Cover'}</>
                   )}
                 </Button>
-                
-                {/* Example Prompts Section */}
-                <div className="mt-6 pt-6 border-t border-primary/10">
-                  <h3 className="text-sm font-medium text-foreground mb-3 flex items-center">
-                    <span className="mr-2">📝</span> Example Prompts
-                  </h3>
-                  <div className="space-y-2 max-h-[180px] overflow-y-auto pr-2">
-                    {examplePrompts.map((example, index) => (
-                      <button
-                        key={index}
-                        onClick={() => applyExamplePrompt(example)}
-                        className="w-full text-left px-4 py-3 rounded-md bg-muted hover:bg-primary/10 transition-colors text-sm"
-                      >
-                        {example}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </form>
             </CardContent>
           </Card>
         </div>
-
-        {/* Right Column: Generated Cover Preview */}
-        <div className="space-y-4">
+        
+        <div className="md:col-span-5">
           {/* Error display */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
@@ -539,7 +522,7 @@ const SimpleBookCoverGenerator = () => {
                   
                   <a 
                     href={coverUrl} 
-                    download="kdp-book-cover.png"
+                    download={`kdp-book-${showFullWrap ? 'full-wrap' : 'front'}.png`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm justify-center w-full"
@@ -548,174 +531,43 @@ const SimpleBookCoverGenerator = () => {
                     Download Cover
                   </a>
                 </div>
-              ) : (
+              ) :
                 <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-muted border border-dashed border-primary/20 text-muted-foreground p-6 text-center">
                   <div>
                     <div className="text-4xl mb-4 opacity-70">📚</div>
                     <p className="text-sm">Your generated book cover will appear here</p>
                   </div>
                 </div>
-              )}
+              }
             </CardContent>
           </Card>
 
           {/* Cover Specifications Summary */}
-          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10">
+          <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Cover Specifications</CardTitle>
             </CardHeader>
             <CardContent className="text-sm">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trim Size:</span>
-                  <span>{selectedTrimSize}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Paper Type:</span>
-                  <span>{selectedPaperType}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Page Count:</span>
-                  <span>{pageCount} pages</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Spine Width:</span>
-                  <span>{dimensions?.spineWidth}" thick</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className={`
-                    ${isGenerating ? "text-amber-400" : ""} 
-                    ${!isGenerating && coverUrl ? "text-green-500" : ""}
-                    ${!isGenerating && !coverUrl ? "text-muted-foreground" : ""}
-                  `}>
-                    {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
-                  </span>
-                </div>
+              <div className="grid grid-cols-2 gap-y-2">
+                <div className="text-muted-foreground">Trim Size:</div>
+                <div>{selectedTrimSize}</div>
+                
+                <div className="text-muted-foreground">Paper Type:</div>
+                <div>{selectedPaperType}</div>
+                
+                <div className="text-muted-foreground">Page Count:</div>
+                <div>{pageCount} pages</div>
+                
+                <div className="text-muted-foreground">Cover Type:</div>
+                <div>{showFullWrap ? 'Full Wrap' : 'Front Only'}</div>
+                
+                <div className="text-muted-foreground">Print Quality:</div>
+                <div>300 DPI (Print Ready)</div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-
-      {/* Add a style tag for animations and custom element styling */}
-      <style>
-        {`
-          @keyframes text-shimmer {
-            0% { background-position: -200% center; }
-            100% { background-position: 200% center; }
-          }
-          
-          .animate-text-shimmer {
-            background-size: 200% auto;
-            animation: text-shimmer 5s infinite linear;
-          }
-          
-          /* Custom range slider styling */
-          input[type=range] {
-            -webkit-appearance: none;
-            appearance: none;
-            height: 10px;
-            border-radius: 5px;
-            outline: none;
-          }
-          
-          input[type=range]:focus {
-            outline: none;
-          }
-          
-          input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            transition: all 0.2s ease-in-out;
-          }
-          
-          input[type=range]::-webkit-slider-thumb:hover {
-            background: #16a34a;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.5);
-            transform: scale(1.1);
-          }
-          
-          input[type=range]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-            transition: all 0.2s ease-in-out;
-          }
-          
-          input[type=range]::-moz-range-thumb:hover {
-            background: #16a34a;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.5);
-          }
-          
-          input[type=range]::-ms-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #22c55e;
-            cursor: pointer;
-            border: none;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-          }
-          
-          /* Track styling */
-          input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-          }
-          
-          input[type=range]::-moz-range-track {
-            width: 100%;
-            height: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-          }
-          
-          input[type=range]::-ms-track {
-            width: 100%;
-            height: 10px;
-            cursor: pointer;
-            border-radius: 5px;
-          }
-          
-          /* Number input styling */
-          input[type=number] {
-            appearance: textfield;
-          }
-          
-          input[type=number]::-webkit-inner-spin-button, 
-          input[type=number]::-webkit-outer-spin-button { 
-            -webkit-appearance: none;
-            margin: 0;
-          }
-          
-          /* Fix select element in Firefox */
-          select {
-            -moz-appearance: none;
-            text-indent: 0.01px;
-            text-overflow: '';
-          }
-          
-          /* Enhance paper type buttons */
-          button[type=button] {
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-          }
-        `}
-      </style>
     </div>
   );
 };
