@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BookOpenCheck, Download, Calculator, ChevronDown, LayoutTemplate } from 'lucide-react';
 import ToggleSwitch from '@/components/ui/toggleSwitch';
-import { generateFullWrapCover, generateFrontCover } from '@/lib/bookCoverApi';
+import { generateFullWrapCover, generateFrontCover, downloadCover } from '@/lib/bookCoverApi';
+import './sliderStyles.css'; // Add custom slider styles
 
 // KDP Book cover generator component
 const SimpleBookCoverGenerator = () => {
@@ -93,9 +94,10 @@ const SimpleBookCoverGenerator = () => {
   // Update the slider appearance whenever page count changes
   useEffect(() => {
     if (sliderRef.current) {
+      // Calculate the percentage position of the slider
       const percentage = ((pageCount - 24) / (800 - 24)) * 100;
-      sliderRef.current.style.background = `linear-gradient(to right, #22c55e 0%, #22c55e ${percentage}%, #2e2e3d ${percentage}%, #2e2e3d 100%)`;
-      sliderRef.current.value = pageCount.toString();
+      // Apply background gradient based on percentage
+      sliderRef.current.style.setProperty('--slider-percentage', `${percentage}%`);
     }
   }, [pageCount]);
 
@@ -320,7 +322,7 @@ const SimpleBookCoverGenerator = () => {
                         key={index}
                         type="button"
                         onClick={() => applyExamplePrompt(example)}
-                        className="text-xs bg-muted hover:bg-primary/10 text-primary px-2 py-1 rounded-full transition-colors"
+                        className="text-xs bg-muted hover:bg-green-500/20 text-foreground hover:text-green-700 px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-green-500/50"
                       >
                         {example.substring(0, 20)}...
                       </button>
@@ -336,15 +338,24 @@ const SimpleBookCoverGenerator = () => {
                       <ToggleSwitch 
                         label="Full Wrap"
                         checked={showFullWrap}
-                        onChange={setShowFullWrap}
+                        onChange={(isChecked) => {
+                          setShowFullWrap(isChecked);
+                          // If enabling full wrap and spine text is empty, set a default
+                          if (isChecked && !spineText.trim()) {
+                            // Use a default spine text based on page count
+                            if (pageCount >= 100) {
+                              setSpineText("Book Title | Author Name");
+                            }
+                          }
+                        }}
                       />
                     </div>
                   </div>
                   
                   {showFullWrap && (
-                    <div className="mt-4">
+                    <div className="mt-4 animate-fadeIn">
                       <label htmlFor="spineText" className="block text-sm font-medium mb-2">
-                        Spine Text (Optional)
+                        Spine Text {pageCount < 100 && <span className="text-amber-500">(Book too thin)</span>}
                       </label>
                       <input
                         id="spineText"
@@ -352,10 +363,17 @@ const SimpleBookCoverGenerator = () => {
                         value={spineText}
                         onChange={(e) => setSpineText(e.target.value)}
                         placeholder="Text for the spine (book title, author name)"
-                        className="w-full rounded-md border border-primary/20 bg-muted p-3 text-sm text-foreground focus:border-green-500 focus:ring-1 focus:ring-green-500 focus:outline-none"
+                        className={`w-full rounded-md border p-3 text-sm text-foreground focus:outline-none focus:ring-2 ${
+                          pageCount < 100 
+                            ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 focus:ring-amber-500/50' 
+                            : 'border-primary/20 bg-muted focus:border-green-500 focus:ring-green-500/50'
+                        }`}
+                        disabled={pageCount < 100}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Note: Spine text will only appear if the book has 100+ pages
+                        {pageCount < 100 
+                          ? "Spine text not available: book needs at least 100 pages for spine text"
+                          : "Enter text to appear on the spine (typically book title and author name)"}
                       </p>
                     </div>
                   )}
@@ -399,11 +417,11 @@ const SimpleBookCoverGenerator = () => {
                         <button
                           key={option.value}
                           type="button"
-                          className={`flex-1 py-2 px-3 text-sm rounded-md transition-all ${
+                          className={`flex-1 py-2 px-3 text-sm rounded-md transition-all duration-200 active:scale-95 ${
                             paperType === option.value
                               ? 'bg-green-500 text-white font-medium shadow-sm'
-                              : 'bg-muted text-foreground hover:bg-primary/10'
-                          }`}
+                              : 'bg-muted text-foreground hover:bg-green-500/20 hover:text-green-700'
+                          } focus:outline-none focus:ring-2 focus:ring-green-500/50`}
                           onClick={() => handlePaperTypeChange(option.value)}
                         >
                           {option.label}
@@ -425,7 +443,7 @@ const SimpleBookCoverGenerator = () => {
                         max="800"
                         value={pageCount}
                         onChange={handleSliderChange}
-                        className="w-full h-2 bg-primary/20 rounded-lg appearance-none cursor-pointer range-lg"
+                        className="w-full custom-slider"
                       />
                       <input
                         id="pageCountInput"
@@ -479,13 +497,15 @@ const SimpleBookCoverGenerator = () => {
                 {/* Generate Button */}
                 <Button 
                   type="submit" 
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3"
-                  disabled={isGenerating}
+                  className={`w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 transition-all duration-200 ${
+                    isGenerating ? 'opacity-80 cursor-not-allowed' : 'hover:shadow-md active:scale-99'
+                  }`}
+                  disabled={isGenerating || prompt.trim().length < 5}
                 >
                   {isGenerating ? (
                     <>
                       <div className="animate-spin mr-2 h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
-                      Generating your {showFullWrap ? 'full wrap' : 'cover'}...
+                      <span className="animate-pulse">Generating your {showFullWrap ? 'full wrap' : 'cover'}...</span>
                     </>
                   ) : (
                     <>Generate {showFullWrap ? 'Full Wrap Cover' : 'Front Cover'}</>
@@ -520,16 +540,17 @@ const SimpleBookCoverGenerator = () => {
                     className="max-w-full max-h-[450px] rounded-md border border-primary/20 shadow-lg"
                   />
                   
-                  <a 
-                    href={coverUrl} 
-                    download={`kdp-book-${showFullWrap ? 'full-wrap' : 'front'}.png`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm justify-center w-full"
+                  <button
+                    onClick={() => downloadCover({
+                      url: coverUrl,
+                      filename: `kdp-book-${showFullWrap ? 'full-wrap' : 'front'}`,
+                      format: 'png'
+                    })}
+                    className="mt-6 bg-green-600 hover:bg-green-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm justify-center w-full transition-colors active:scale-95"
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download Cover
-                  </a>
+                  </button>
                 </div>
               ) :
                 <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-muted border border-dashed border-primary/20 text-muted-foreground p-6 text-center">

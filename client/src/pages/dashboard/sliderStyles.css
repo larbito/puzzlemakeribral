@@ -1,0 +1,145 @@
+/* Custom Slider Styles */
+.custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    #22c55e 0%,
+    #22c55e var(--slider-percentage, 0%),
+    #2e2e3d var(--slider-percentage, 0%),
+    #2e2e3d 100%
+  );
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+/* Thumb styles */
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.custom-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.custom-slider::-ms-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #22c55e;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+/* Active state */
+.custom-slider::-webkit-slider-thumb:hover,
+.custom-slider::-webkit-slider-thumb:active {
+  background: #16a34a;
+  transform: scale(1.1);
+}
+
+.custom-slider::-moz-range-thumb:hover,
+.custom-slider::-moz-range-thumb:active {
+  background: #16a34a;
+  transform: scale(1.1);
+}
+
+.custom-slider::-ms-thumb:hover,
+.custom-slider::-ms-thumb:active {
+  background: #16a34a;
+  transform: scale(1.1);
+}
+
+/* Track styles */
+.custom-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.custom-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.custom-slider::-ms-track {
+  height: 8px;
+  border-radius: 4px;
+  border-color: transparent;
+  color: transparent;
+}
+
+/* Focus styles */
+.custom-slider:focus {
+  outline: none;
+}
+
+.custom-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+
+.custom-slider:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+
+.custom-slider:focus::-ms-thumb {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+
+/* Animation Styles */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Active scale for buttons */
+.active\:scale-95:active {
+  transform: scale(0.95);
+}
+
+.active\:scale-99:active {
+  transform: scale(0.99);
+} 
