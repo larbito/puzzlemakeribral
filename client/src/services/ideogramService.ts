@@ -2,7 +2,9 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL - ensure it's always the production URL when deployed
-const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://puzzlemakeribral-production.up.railway.app'
+  : window.location.origin;
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
@@ -1242,100 +1244,6 @@ export async function generateColoringBook({
 }
 
 /**
- * Create a PDF from generated coloring pages
- */
-export async function createColoringBookPDF(
-  pageUrls: string[],
-  options: {
-    trimSize: string;
-    addBlankPages: boolean;
-    showPageNumbers: boolean;
-    includeBleed: boolean;
-    bookTitle?: string;
-  }
-): Promise<string> {
-  try {
-    console.log("Creating PDF with options:", options);
-    console.log("Number of pages:", pageUrls.length);
-    console.log("Using API URL for PDF generation:", API_URL);
-    
-    // For client-side only implementation, return a mock PDF URL
-    if (USE_PLACEHOLDERS || !API_URL) {
-      toast.success("PDF would be generated on the server in production");
-      // Return a placeholder PDF
-      return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
-    }
-
-    // Create form data for the request
-    const requestData = {
-      pageUrls,
-      ...options
-    };
-    
-    console.log("Making PDF request to:", `${API_URL}/api/coloring-book/create-pdf`);
-    
-    // CORS check - add additional headers to help with CORS issues
-    try {
-      // Make a POST request to our backend
-      const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/pdf'
-        },
-        body: JSON.stringify(requestData)
-      });
-      
-      console.log("PDF response status:", response.status);
-      console.log("PDF response headers:", Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error creating PDF:", errorText);
-        
-        // If we get a 404, the route might be incorrect
-        if (response.status === 404) {
-          console.error("Route not found. Check the API URL and route path.");
-          console.log("Attempted URL:", `${API_URL}/api/coloring-book/create-pdf`);
-        }
-        
-        throw new Error(`Failed to create PDF: ${response.status} - ${errorText}`);
-      }
-      
-      // Get content type to verify we received a PDF
-      const contentType = response.headers.get('content-type');
-      console.log("Content type of response:", contentType);
-      
-      // Create and return a blob URL for the PDF
-      const pdfBlob = await response.blob();
-      console.log("PDF blob size:", pdfBlob.size, "bytes");
-      console.log("PDF blob type:", pdfBlob.type);
-      
-      if (pdfBlob.size === 0) {
-        throw new Error("Received empty PDF blob from server");
-      }
-      
-      // Verify it's a PDF (or at least has a PDF-like content type)
-      if (!pdfBlob.type.includes('pdf') && !contentType?.includes('pdf')) {
-        console.warn("Response may not be a PDF. Content type:", pdfBlob.type || contentType);
-      }
-      
-      const pdfUrl = URL.createObjectURL(pdfBlob);
-      console.log("Created PDF URL:", pdfUrl);
-      
-      return pdfUrl;
-    } catch (fetchError) {
-      console.error("Error fetching PDF:", fetchError);
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error("Error creating coloring book PDF:", error);
-    toast.error(`Failed to create PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    throw error;
-  }
-}
-
-/**
  * Download all coloring pages as a ZIP file
  */
 export async function downloadColoringPages(
@@ -1363,80 +1271,106 @@ export async function downloadColoringPages(
       bookTitle: bookTitle || 'coloring-pages'
     };
     
-    toast.loading("Preparing ZIP file...");
+    const toastId = toast.loading("Preparing ZIP file...");
     
     try {
-      // First attempt: POST request to our backend with proper headers
-      console.log("Making POST request for ZIP download to:", `${API_URL}/api/coloring-book/download-zip`);
-      const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestData)
-      });
+      // First attempt: GET method with query parameters
+      const encodedData = encodeURIComponent(JSON.stringify(requestData));
+      const downloadUrl = `${API_URL}/api/coloring-book/download-zip?data=${encodedData}`;
       
-      if (!response.ok) {
-        console.log("POST request failed with status:", response.status);
-        throw new Error(`Failed to download ZIP via POST: ${response.status}`);
-      }
+      console.log("Making GET request for ZIP download to:", downloadUrl);
       
-      // Get the ZIP blob and create a download link
-      const zipBlob = await response.blob();
+      // Create an iframe for download
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = downloadUrl;
+      document.body.appendChild(iframe);
       
-      // Check if we received a valid zip file
-      if (zipBlob.size === 0 || zipBlob.type !== "application/zip") {
-        console.warn("Received invalid ZIP blob:", zipBlob.size, zipBlob.type);
-        throw new Error("Received invalid ZIP file");
-      }
-      
-      const downloadUrl = URL.createObjectURL(zipBlob);
-      
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `${bookTitle || 'coloring-pages'}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
+      // Clean up after a delay
       setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(downloadUrl);
-      }, 100);
+        document.body.removeChild(iframe);
+        toast.dismiss(toastId);
+        toast.success("Download started");
+      }, 2000);
       
-      toast.dismiss();
-      toast.success("Downloading coloring pages as ZIP");
-    } catch (postError) {
-      console.error("POST download failed, trying GET method:", postError);
-      
-      try {
-        // Fallback to GET method with query parameters if POST fails
-        const encodedData = encodeURIComponent(JSON.stringify(requestData));
-        console.log("Making GET request for ZIP download to:", `${API_URL}/api/coloring-book/download-zip?data=${encodedData.substring(0, 50)}...`);
-        
-        // Create a download link with query parameters
-        const link = document.createElement('a');
-        link.href = `${API_URL}/api/coloring-book/download-zip?data=${encodedData}`;
-        link.download = `${bookTitle || 'coloring-pages'}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(link);
-        }, 100);
-        
-        toast.dismiss();
-        toast.success("Downloading coloring pages as ZIP");
-      } catch (getError) {
-        toast.dismiss();
-        console.error("All download methods failed:", getError);
-        toast.error("Failed to download ZIP file. Please try again later.");
-        throw getError;
-      }
+    } catch (error) {
+      console.error("Download failed:", error);
+      toast.dismiss(toastId);
+      toast.error("Failed to download ZIP file. Please try again later.");
     }
   } catch (error) {
     console.error("Error downloading coloring pages:", error);
     toast.error("Failed to download pages");
+  }
+}
+
+/**
+ * Create a PDF from generated coloring pages
+ */
+export async function createColoringBookPDF(
+  pageUrls: string[],
+  options: {
+    trimSize: string;
+    addBlankPages: boolean;
+    showPageNumbers: boolean;
+    includeBleed: boolean;
+    bookTitle?: string;
+  }
+): Promise<string> {
+  try {
+    console.log("Creating PDF with options:", options);
+    console.log("Number of pages:", pageUrls.length);
+    console.log("Using API URL for PDF generation:", API_URL);
+    
+    // For client-side only implementation, return a mock PDF URL
+    if (USE_PLACEHOLDERS || !API_URL) {
+      toast.success("PDF would be generated on the server in production");
+      return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
+    }
+
+    // Create form data for the request
+    const requestData = {
+      pageUrls,
+      ...options
+    };
+    
+    const toastId = toast.loading("Creating PDF...");
+    
+    try {
+      // Create a form to submit the request
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = `${API_URL}/api/coloring-book/create-pdf`;
+      form.target = '_blank'; // Open in new tab
+      
+      // Add the data as a hidden input
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'data';
+      input.value = JSON.stringify(requestData);
+      form.appendChild(input);
+      
+      // Submit the form
+      document.body.appendChild(form);
+      form.submit();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(form);
+        toast.dismiss(toastId);
+        toast.success("PDF opened in new tab");
+      }, 1000);
+      
+      return "success";
+    } catch (error) {
+      console.error("Error creating PDF:", error);
+      toast.dismiss(toastId);
+      toast.error("Failed to create PDF. Please try again.");
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in createColoringBookPDF:", error);
+    toast.error(`Failed to create PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw error;
   }
 } 
