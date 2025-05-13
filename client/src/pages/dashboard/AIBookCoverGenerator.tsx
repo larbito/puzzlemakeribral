@@ -87,6 +87,23 @@ const AIBookCoverGenerator = () => {
     });
   }, [isGenerating, coverDescription]);
 
+  // Add debug logging for textarea changes
+  const handleCoverDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText: string = e.target.value;
+    console.log("Textarea change:", {
+      newText,
+      length: newText.length,
+      trimmedLength: newText.trim().length,
+      maxChars: MAX_PROMPT_CHARS
+    });
+    if (newText.length <= MAX_PROMPT_CHARS) {
+      setCoverDescription(newText);
+    } else {
+      setCoverDescription(newText.slice(0, MAX_PROMPT_CHARS));
+      toast.info(`Text limited to ${MAX_PROMPT_CHARS} characters`);
+    }
+  };
+
   // Calculate dimensions when specifications change
   useEffect(() => {
     calculateDimensions();
@@ -469,17 +486,8 @@ const AIBookCoverGenerator = () => {
                   <Textarea
                     id="coverDescription"
                     value={coverDescription}
-                    onChange={(e) => {
-                      const newText = e.target.value;
-                      console.log("Prompt length:", newText.length, "Trimmed length:", newText.trim().length);
-                      if (newText.length <= MAX_PROMPT_CHARS) {
-                        setCoverDescription(newText);
-                      } else {
-                        setCoverDescription(newText.slice(0, MAX_PROMPT_CHARS));
-                        toast.info(`Text limited to ${MAX_PROMPT_CHARS} characters`);
-                      }
-                    }}
-                    onPaste={(e) => {
+                    onChange={handleCoverDescriptionChange}
+                    onPaste={(e: React.ClipboardEvent<HTMLTextAreaElement>) => {
                       e.persist();
                       const pastedText = e.clipboardData.getData('text');
                       const currentText = coverDescription;
@@ -487,6 +495,14 @@ const AIBookCoverGenerator = () => {
                       const textBeforeCursor = currentText.slice(0, cursorPosition);
                       const textAfterCursor = currentText.slice(cursorPosition);
                       const newText = textBeforeCursor + pastedText + textAfterCursor;
+                      
+                      console.log("Paste event:", {
+                        pastedText,
+                        currentText,
+                        cursorPosition,
+                        newText,
+                        newTextLength: newText.length
+                      });
                       
                       if (newText.length <= MAX_PROMPT_CHARS) {
                         // Let the default paste happen
