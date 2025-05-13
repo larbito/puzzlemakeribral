@@ -169,105 +169,31 @@ const AIBookCoverGenerator = () => {
     console.log(`Timestamp: ${new Date().toISOString()}`);
     
     try {
-      // Log the click handler state
-      console.log("Button clicked with prompt:", coverDescription);
-      console.log("Prompt length:", coverDescription.length, "Trimmed length:", coverDescription.trim().length);
-      console.log("Button state:", {
-        isGenerating,
-        descriptionLength: coverDescription.length,
-        trimmedLength: coverDescription.trim().length,
-        isDisabled: isGenerating || coverDescription.trim().length < 5
-      });
-      
-      // Clear previous debug info
-      setDebugInfo(null);
-      
-      if (coverDescription.trim().length < 5) {
-        console.log("ERROR: Prompt too short");
-        toast.error('Please enter a more detailed description for your cover');
-        return;
-      }
-      
-      // Set generating state immediately to provide feedback
+      // Simplified version - fewer checks to minimize potential points of failure
       console.log("Setting isGenerating to true");
       setIsGenerating(true);
-      toast.loading('Generating your book cover...', { id: 'cover-generation' });
+      toast.loading('Generating book cover...', { id: 'cover-generation' });
       
-      console.log('Starting cover generation with prompt:', coverDescription);
+      // Create a simple placeholder image URL for testing
+      const placeholderImageUrl = 'https://placehold.co/600x800/4ade80/FFFFFF?text=Test+Cover';
       
-      // Try to calculate dimensions if not already done
-      if (!dimensions) {
-        console.log("No dimensions yet, calculating...");
-        try {
-          await calculateDimensions();
-          console.log("Dimensions calculated successfully:", dimensions);
-        } catch (error) {
-          console.error('Failed to calculate dimensions:', error);
-          toast.error('Please make sure book specifications are valid');
-          setIsGenerating(false);
-          return;
-        }
-      } else {
-        console.log("Using existing dimensions:", dimensions);
-      }
-      
-      console.log('Using dimensions for generation:', dimensions?.frontCover);
-      
-      // Add a direct DOM event to test if the button might be capturing events incorrectly
-      console.log("Calling generateBookCover service...");
-      
-      const imageUrl = await generateBookCover({
-        prompt: coverDescription,
-        width: dimensions.frontCover.widthPx,
-        height: dimensions.frontCover.heightPx,
-        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed'
-      });
-      
-      console.log('Generation result:', imageUrl);
-      
-      if (!imageUrl) {
-        console.error("ERROR: No image URL returned");
-        throw new Error('No image URL returned from the service');
-      }
-      
-      console.log("Setting frontCoverUrl and frontCoverGenerated");
-      setFrontCoverUrl(imageUrl);
+      console.log("Setting frontCoverUrl to placeholder for testing");
+      setFrontCoverUrl(placeholderImageUrl);
       setFrontCoverGenerated(true);
       
       // Dismiss the loading toast and show success
-      console.log("Dismissing loading toast");
       toast.dismiss('cover-generation');
-
-      // Check if the URL contains "placehold.co" which indicates a placeholder
-      if (imageUrl.includes('placehold.co')) {
-        console.log("Detected placeholder image URL");
-        // Remove any previous warning toasts
-        toast.dismiss('api-key-warning');
-        
-        // Show warning with details about setting up the API key
-        toast.warning(
-          'Using a placeholder image. To generate real AI images, ensure the IDEOGRAM_API_KEY is properly configured on your Railway backend.',
-          { id: 'api-key-warning', duration: 6000 }
-        );
-        
-        // Set debug info
-        setDebugInfo(`Using placeholder image: ${imageUrl}\n\nThis indicates that the IDEOGRAM_API_KEY environment variable is not properly configured on your Railway deployment.`);
-      } else {
-        console.log("Generated real image successfully");
-        toast.success('Front cover generated successfully!');
-        setDebugInfo(null);
-      }
+      toast.success('TEST MODE: Using placeholder image');
       
-      // Extract dominant colors from the generated image
-      setDominantColors(['#2E7D32', '#388E3C', '#43A047', '#4CAF50', '#66BB6A', '#81C784']);
-      console.log("Generation completed successfully");
+      // For testing purposes, we'll use a placeholder instead of actually calling the API
+      setDebugInfo("TEST MODE: Using placeholder image. The real API call is bypassed for testing.");
+      
     } catch (error: any) {
-      console.error('Error generating front cover:', error);
+      console.error('Error in simplified generate function:', error);
       toast.dismiss('cover-generation');
-      toast.error(`Failed to generate front cover: ${error.message || 'Unknown error'}`);
+      toast.error(`Test error: ${error.message || 'Unknown error'}`);
       
-      // Set detailed debug info
-      setDebugInfo(`Generation Error: ${error.message || 'Unknown error'}\n\nAPI URL: ${API_URL}\n\nPlease check the browser console for more details.`);
+      setDebugInfo(`Test Error: ${error.message || 'Unknown error'}`);
     } finally {
       console.log("Setting isGenerating back to false");
       setIsGenerating(false);
@@ -538,48 +464,57 @@ const AIBookCoverGenerator = () => {
                 </div>
               </div>
 
-              <button 
-                id="generate-cover-button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  console.log("Button native click handler fired");
-                  if (!isGenerating && coverDescription.trim().length >= 5) {
+              <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                <button 
+                  id="generate-cover-button-debug"
+                  type="button"
+                  onClick={() => {
+                    console.log("BUTTON CLICKED: Basic Debug Button");
+                    alert("Button clicked successfully!");
+                    if (!isGenerating && coverDescription.trim().length >= 5) {
+                      handleGenerateFrontCover();
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    backgroundColor: '#4ade80',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    border: '2px solid #2e7d32'
+                  }}
+                >
+                  TEST: Generate Front Cover
+                </button>
+              </div>
+
+              <div style={{ marginTop: '8px', marginBottom: '16px' }}>
+                <button 
+                  id="emergency-button"
+                  type="button"
+                  onClick={() => {
+                    console.log("EMERGENCY BUTTON CLICKED");
+                    alert("Emergency button clicked!");
                     handleGenerateFrontCover();
-                  }
-                }}
-                disabled={isGenerating || coverDescription.trim().length < 5}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  backgroundColor: 
-                    isGenerating ? '#a0a0a0' : 
-                    coverDescription.trim().length < 5 ? '#d4d4d4' : 
-                    '#4ade80',
-                  color: 'white',
-                  fontWeight: 'bold',
-                  cursor: isGenerating || coverDescription.trim().length < 5 ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  textAlign: 'center',
-                  marginTop: '16px',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-                }}
-              >
-                {isGenerating ? (
-                  '🔄 Generating...'
-                ) : coverDescription.trim().length < 5 ? (
-                  '✏️ Enter at least 5 characters'
-                ) : (
-                  '🎨 Generate Front Cover'
-                )}
-              </button>
-              {coverDescription.trim().length >= 5 && !isGenerating && (
-                <div style={{ textAlign: 'center', fontSize: '12px', marginTop: '4px', color: '#666' }}>
-                  Click to generate your book cover
-                </div>
-              )}
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    backgroundColor: '#ff5722',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    border: '2px solid #d84315',
+                    borderRadius: '4px'
+                  }}
+                >
+                  EMERGENCY GENERATE BUTTON
+                </button>
+              </div>
             </CardContent>
           </Card>
 
