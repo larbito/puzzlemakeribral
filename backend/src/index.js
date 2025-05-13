@@ -10,6 +10,19 @@ const coloringBookRoutes = require('./routes/coloring-book');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CRITICAL: Health check endpoint for Railway
+// This MUST be defined before any other middleware to ensure it's always accessible
+app.get('/health', (req, res) => {
+  console.log('Health check request received');
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    port: PORT
+  });
+});
+
 // Debug logging for all requests
 app.use((req, res, next) => {
   console.log('Incoming request:', {
@@ -83,17 +96,6 @@ app.use((req, res, next) => {
   }
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    environment: process.env.NODE_ENV,
-    port: PORT
-  });
-});
-
 // Debug log routes
 console.log('Registered routes:');
 app._router.stack.forEach(function(r){
@@ -149,4 +151,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('Environment:', process.env.NODE_ENV);
   console.log('Ideogram API Key configured:', !!process.env.IDEOGRAM_API_KEY);
   console.log('Server URL:', `http://0.0.0.0:${PORT}`);
+  console.log('Health check path available at: /health');
 }); 
