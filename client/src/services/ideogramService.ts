@@ -2,20 +2,7 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL - ensure it's always the production URL when deployed
-const API_URL = 'https://puzzle-craft-forge-production.up.railway.app';
-
-// Add additional fallback for development
-const getApiUrl = () => {
-  // For development testing
-  if (window.location.hostname === 'localhost') {
-    return 'http://localhost:3000';
-  }
-  
-  // For production
-  return API_URL;
-};
-
-const ACTIVE_API_URL = getApiUrl();
+const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
@@ -33,7 +20,7 @@ export function forceProxyForIdeogramUrl(url: string): string {
     
     // If it's an ideogram.ai URL, proxy it
     if (url.includes('ideogram.ai')) {
-      return `${ACTIVE_API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
     }
     
     // Otherwise return the original URL
@@ -130,8 +117,8 @@ export async function generateImage({
 // Generate with our backend proxy
 async function generateWithProxy(prompt: string, style?: string): Promise<string> {
   console.log("Making API call with prompt:", prompt);
-  console.log("API URL being used:", ACTIVE_API_URL);
-  console.log("Full endpoint URL:", `${ACTIVE_API_URL}/api/ideogram/generate`);
+  console.log("API URL being used:", API_URL);
+  console.log("Full endpoint URL:", `${API_URL}/api/ideogram/generate`);
 
   try {
     // Create form data for the request
@@ -152,7 +139,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       console.log(`${key}: ${value}`);
     }
     
-    const fullUrl = `${ACTIVE_API_URL}/api/ideogram/generate`;
+    const fullUrl = `${API_URL}/api/ideogram/generate`;
     console.log("Making request to:", fullUrl);
 
     const response = await fetch(fullUrl, {
@@ -348,7 +335,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       toast.loading("Processing download...");
       
       // Use our own backend proxy endpoint
-      const proxyEndpoint = `${ACTIVE_API_URL}/api/ideogram/proxy-image`;
+      const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
       const encodedUrl = encodeURIComponent(imageUrl);
       
       // Direct download approach - create a link to our backend proxy
@@ -450,9 +437,9 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
   try {
     // Call the backend batch-download endpoint that creates a zip file
     console.log("Using batch download endpoint for", images.length, "images");
-    console.log("API URL:", ACTIVE_API_URL);
+    console.log("API URL:", API_URL);
     
-    const batchEndpoint = `${ACTIVE_API_URL}/api/ideogram/batch-download`;
+    const batchEndpoint = `${API_URL}/api/ideogram/batch-download`;
     console.log("Full endpoint URL:", batchEndpoint);
     
     // Format the request body
@@ -542,7 +529,7 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await fetch(`${ACTIVE_API_URL}/api/ideogram/analyze`, {
+    const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
       method: 'POST',
       body: formData
     });
@@ -714,7 +701,7 @@ export async function removeBackgroundWithAPI(imageUrl: string): Promise<string>
     const formData = new FormData();
     formData.append('image', imageBlob);
     
-    const apiResponse = await fetch(`${ACTIVE_API_URL}/api/ideogram/remove-background`, {
+    const apiResponse = await fetch(`${API_URL}/api/ideogram/remove-background`, {
       method: 'POST',
       body: formData
     });
@@ -883,7 +870,7 @@ export async function createFullBookCover({
       }
 
       // Use our proxy endpoint for loading the front cover
-      const proxyUrl = `${ACTIVE_API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
+      const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
       
       // Create a new image element
       const frontCoverImg = new Image();
@@ -1125,7 +1112,7 @@ export async function generateBookCover({
       }
       
       // Use the standard endpoint that we know works
-      const fullUrl = `${ACTIVE_API_URL}/api/ideogram/generate`;
+      const fullUrl = `${API_URL}/api/ideogram/generate`;
       console.log("Making book cover generation request to:", fullUrl);
 
       // Make the API call
@@ -1268,17 +1255,15 @@ export async function createColoringBookPDF(
   }
 ): Promise<string> {
   try {
+    console.log("Creating PDF with options:", options);
+    console.log("Number of pages:", pageUrls.length);
+    
     // For client-side only implementation, return a mock PDF URL
-    if (USE_PLACEHOLDERS || !ACTIVE_API_URL) {
+    if (USE_PLACEHOLDERS || !API_URL) {
       toast.success("PDF would be generated on the server in production");
       // Return a placeholder PDF
       return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
     }
-
-    const loadingToast = toast('Creating PDF...', {
-      description: 'Preparing your coloring book PDF',
-      duration: Infinity
-    });
 
     // Create form data for the request
     const requestData = {
@@ -1286,8 +1271,10 @@ export async function createColoringBookPDF(
       ...options
     };
     
+    console.log("Making PDF request to:", `${API_URL}/api/coloring-book/create-pdf`);
+    
     // Make a POST request to our backend
-    const response = await fetch(`${ACTIVE_API_URL}/api/coloring-book/create-pdf`, {
+    const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1295,36 +1282,30 @@ export async function createColoringBookPDF(
       body: JSON.stringify(requestData)
     });
     
+    console.log("PDF response status:", response.status);
+    console.log("PDF response headers:", Object.fromEntries(response.headers.entries()));
+    
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Error creating PDF:", errorText);
-      toast.dismiss(loadingToast);
-      toast.error("Failed to create PDF");
-      throw new Error(`Failed to create PDF: ${response.status}`);
+      throw new Error(`Failed to create PDF: ${response.status} - ${errorText}`);
     }
     
-    // Create a blob URL for the PDF
+    // Create and return a blob URL for the PDF
     const pdfBlob = await response.blob();
+    console.log("PDF blob size:", pdfBlob.size, "bytes");
+    
+    if (pdfBlob.size === 0) {
+      throw new Error("Received empty PDF blob from server");
+    }
+    
     const pdfUrl = URL.createObjectURL(pdfBlob);
-    
-    // Create a download link
-    const link = document.createElement('a');
-    link.href = pdfUrl;
-    link.download = `${options.bookTitle || 'coloring-book'}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up the blob URL after download
-    setTimeout(() => URL.revokeObjectURL(pdfUrl), 100);
-    
-    toast.dismiss(loadingToast);
-    toast.success("PDF created and downloaded successfully");
+    console.log("Created PDF URL:", pdfUrl);
     
     return pdfUrl;
   } catch (error) {
     console.error("Error creating coloring book PDF:", error);
-    toast.error("Failed to create PDF");
+    toast.error(`Failed to create PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     throw error;
   }
 }
@@ -1348,85 +1329,51 @@ export async function downloadColoringPages(
       return;
     }
     
-    const loadingToast = toast('Preparing ZIP download...', {
-      description: 'Gathering all your coloring pages',
-      duration: Infinity
-    });
-    
     // For multiple images, use our backend to create a ZIP
     const requestData = {
       pageUrls,
       bookTitle: bookTitle || 'coloring-pages'
     };
     
-    // Use a fetch request with the POST endpoint
+    toast.loading("Preparing ZIP file...");
+    
     try {
-      console.log("Sending request to download ZIP with", pageUrls.length, "pages");
-      
-      const response = await fetch(`${ACTIVE_API_URL}/api/coloring-book/download-zip`, {
+      // Make a POST request to our backend with proper headers
+      const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/zip'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
       });
       
       if (!response.ok) {
-        let errorMessage = `Server responded with status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (e) {
-          // If response isn't JSON, try to get text
-          const errorText = await response.text();
-          errorMessage = errorText || errorMessage;
-        }
-        
-        console.error("Error downloading ZIP:", errorMessage);
-        toast.dismiss(loadingToast);
-        toast.error(`Failed to download images: ${errorMessage}`);
-        return;
+        const errorText = await response.text();
+        console.error("Error downloading ZIP:", errorText);
+        throw new Error(`Failed to download ZIP: ${response.status}`);
       }
       
-      // Check content type
-      const contentType = response.headers.get('content-type');
-      console.log("Response content type:", contentType);
-      
-      if (!contentType || !contentType.includes('application/zip')) {
-        console.warn("Expected application/zip but got:", contentType);
-      }
-      
-      // Create a blob URL and trigger download
+      // Get the ZIP blob and create a download link
       const zipBlob = await response.blob();
-      
-      if (zipBlob.size === 0) {
-        console.error("Received empty blob");
-        toast.dismiss(loadingToast);
-        toast.error("Received empty response from server");
-        return;
-      }
-      
-      console.log("Received ZIP blob of size", zipBlob.size, "bytes");
-      
-      const zipUrl = URL.createObjectURL(zipBlob);
+      const downloadUrl = URL.createObjectURL(zipBlob);
       
       const link = document.createElement('a');
-      link.href = zipUrl;
+      link.href = downloadUrl;
       link.download = `${bookTitle || 'coloring-pages'}.zip`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       
-      // Clean up the blob URL after download
-      setTimeout(() => URL.revokeObjectURL(zipUrl), 100);
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+      }, 100);
       
-      toast.dismiss(loadingToast);
-      toast.success("Images downloaded as ZIP");
+      toast.dismiss();
+      toast.success("Downloading coloring pages as ZIP");
     } catch (error) {
-      console.error("Error with download method:", error);
-      toast.dismiss(loadingToast);
-      toast.error("Failed to download images");
+      toast.dismiss();
+      throw error;
     }
   } catch (error) {
     console.error("Error downloading coloring pages:", error);

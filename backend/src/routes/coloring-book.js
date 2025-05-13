@@ -51,6 +51,8 @@ router.get('/test', (req, res) => {
  */
 router.post('/create-pdf', express.json(), async (req, res) => {
   try {
+    console.log('PDF creation request received');
+    
     const {
       pageUrls,
       trimSize,
@@ -59,6 +61,15 @@ router.post('/create-pdf', express.json(), async (req, res) => {
       includeBleed,
       bookTitle
     } = req.body;
+
+    console.log('PDF creation options:', {
+      pageCount: pageUrls?.length,
+      trimSize,
+      addBlankPages,
+      showPageNumbers,
+      includeBleed,
+      bookTitle
+    });
 
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
       return res.status(400).json({ error: 'Page URLs are required' });
@@ -84,6 +95,13 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     const pageWidthPt = pageWidth * 72;
     const pageHeightPt = pageHeight * 72;
 
+    console.log('Creating PDF with dimensions:', {
+      pageWidth,
+      pageHeight,
+      pageWidthPt,
+      pageHeightPt
+    });
+
     // Create a new PDF document
     const pdfDoc = await PDFDocument.create();
     
@@ -96,22 +114,29 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     // Download and add each page to the PDF
     for (let i = 0; i < pageUrls.length; i++) {
       try {
+        console.log(`Processing page ${i + 1} of ${pageUrls.length}`);
+        
         // Download the image
         const imageUrl = pageUrls[i];
         let imageBuffer;
         
         if (imageUrl.startsWith('data:')) {
           // Handle data URLs
+          console.log(`Page ${i + 1} is a data URL`);
           const base64Data = imageUrl.split(',')[1];
           imageBuffer = Buffer.from(base64Data, 'base64');
         } else {
           // Download from URL
+          console.log(`Downloading page ${i + 1} from URL: ${imageUrl.substring(0, 50)}...`);
           const imageResponse = await fetch(imageUrl);
+          
           if (!imageResponse.ok) {
             console.error(`Failed to download image ${i + 1}: ${imageResponse.status}`);
             continue;
           }
+          
           imageBuffer = await imageResponse.buffer();
+          console.log(`Downloaded page ${i + 1}, buffer size: ${imageBuffer.length} bytes`);
         }
         
         // Process with sharp to ensure it's a PNG with correct dimensions
@@ -124,6 +149,8 @@ router.post('/create-pdf', express.json(), async (req, res) => {
           })
           .png()
           .toBuffer();
+        
+        console.log(`Processed page ${i + 1}, buffer size: ${processedImageBuffer.length} bytes`);
         
         // Add a new page to the PDF
         const page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
@@ -169,6 +196,8 @@ router.post('/create-pdf', express.json(), async (req, res) => {
             });
           }
         }
+        
+        console.log(`Added page ${i + 1} to PDF`);
       } catch (error) {
         console.error(`Error processing page ${i + 1}:`, error);
         // Continue with next page
@@ -176,10 +205,12 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     }
     
     // Serialize the PDF to bytes
+    console.log('Serializing PDF document');
     const pdfBytes = await pdfDoc.save();
     
     // Convert the PDF bytes to a Buffer
     const buffer = Buffer.from(pdfBytes);
+    console.log(`PDF created, buffer size: ${buffer.length} bytes`);
     
     // Set appropriate headers for download
     const filename = `${bookTitle || 'coloring-book'}.pdf`.replace(/[^a-zA-Z0-9\-_.]/g, '_');
@@ -189,7 +220,9 @@ router.post('/create-pdf', express.json(), async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache');
     
     // Send the PDF
+    console.log('Sending PDF to client');
     res.send(buffer);
+    console.log('PDF sent successfully');
   } catch (error) {
     console.error('Error creating PDF:', error);
     res.status(500).json({ 
@@ -206,18 +239,18 @@ router.post('/create-pdf', express.json(), async (req, res) => {
  */
 router.post('/download-zip', express.json(), async (req, res) => {
   try {
-    console.log('Received POST request to download-zip');
-    console.log('Content-Type:', req.get('content-type'));
-    console.log('Request body:', JSON.stringify(req.body).substring(0, 150) + '...');
+    console.log('ZIP creation request received');
     
     const { pageUrls, bookTitle } = req.body;
     
+    console.log('ZIP creation options:', {
+      pageCount: pageUrls?.length,
+      bookTitle
+    });
+    
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
-      console.error('Invalid pageUrls:', pageUrls);
       return res.status(400).json({ error: 'Page URLs are required' });
     }
-    
-    console.log(`Processing ${pageUrls.length} pages for download as ZIP`);
     
     // Set up the response headers for a ZIP file
     const filename = `${bookTitle || 'coloring-pages'}.zip`.replace(/[^a-zA-Z0-9\-_.]/g, '_');
@@ -229,14 +262,22 @@ router.post('/download-zip', express.json(), async (req, res) => {
     // Create a ZIP archive
     const archive = archiver('zip', {
       zlib: { level: 9 } // Maximum compression
+    });
+    
+    // Handle archive warnings
+    archive.on('warning', function(err) {
+      if (err.code === 'ENOENT') {
+        console.warn('Archive warning:', err);
+      } else {
+        console.error('Archive error:', err);
+        throw err;
+      }
     });
     
     // Handle archive errors
-    archive.on('error', (err) => {
+    archive.on('error', function(err) {
       console.error('Archive error:', err);
-      if (!res.headersSent) {
-        res.status(500).json({ error: 'Error creating ZIP archive: ' + err.message });
-      }
+      throw err;
     });
     
     // Pipe the archive data to the response
@@ -245,35 +286,36 @@ router.post('/download-zip', express.json(), async (req, res) => {
     // Process each image and add to the ZIP
     for (let i = 0; i < pageUrls.length; i++) {
       try {
-        const imageUrl = pageUrls[i];
-        console.log(`Processing image ${i + 1}/${pageUrls.length}`);
+        console.log(`Processing ZIP image ${i + 1} of ${pageUrls.length}`);
         
+        const imageUrl = pageUrls[i];
         let imageBuffer;
         
         if (imageUrl.startsWith('data:')) {
           // Handle data URLs
+          console.log(`ZIP image ${i + 1} is a data URL`);
           const base64Data = imageUrl.split(',')[1];
           imageBuffer = Buffer.from(base64Data, 'base64');
-          console.log(`Image ${i + 1} is a data URL, decoded successfully`);
         } else {
           // Download from URL
-          console.log(`Downloading image ${i + 1} from URL`);
+          console.log(`Downloading ZIP image ${i + 1} from URL: ${imageUrl.substring(0, 50)}...`);
           const imageResponse = await fetch(imageUrl);
+          
           if (!imageResponse.ok) {
             console.error(`Failed to download image ${i + 1}: ${imageResponse.status}`);
             continue;
           }
+          
           imageBuffer = await imageResponse.buffer();
-          console.log(`Downloaded image ${i + 1} successfully, size: ${imageBuffer.length} bytes`);
+          console.log(`Downloaded ZIP image ${i + 1}, buffer size: ${imageBuffer.length} bytes`);
         }
         
         // Process with sharp to ensure it's a PNG
-        console.log(`Converting image ${i + 1} to PNG`);
         const processedImageBuffer = await sharp(imageBuffer)
           .png()
           .toBuffer();
         
-        console.log(`Processed image ${i + 1} to PNG, size: ${processedImageBuffer.length} bytes`);
+        console.log(`Processed ZIP image ${i + 1}, buffer size: ${processedImageBuffer.length} bytes`);
         
         // Create a readable stream from the buffer
         const stream = new Readable();
@@ -282,118 +324,22 @@ router.post('/download-zip', express.json(), async (req, res) => {
         
         // Add the image to the ZIP file
         archive.append(stream, { name: `coloring-page-${i + 1}.png` });
-        console.log(`Added image ${i + 1} to ZIP`);
+        console.log(`Added image ${i + 1} to ZIP file`);
       } catch (error) {
-        console.error(`Error processing image ${i + 1}:`, error);
+        console.error(`Error processing ZIP image ${i + 1}:`, error);
         // Continue with next image
       }
     }
     
-    // Log before finalizing
-    console.log('Finalizing ZIP archive...');
-    
-    // Finalize the ZIP file
-    await archive.finalize();
-    console.log('ZIP archive finalized and sent');
-  } catch (error) {
-    console.error('Error creating ZIP:', error);
-    
-    // If the response has already been sent or finalized, we can't send an error response
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: error.message || 'Failed to create ZIP file',
-        type: error.name
-      });
-    }
-  }
-});
-
-/**
- * Download all images as a ZIP file using GET (for direct URL access)
- * GET /api/coloring-book/download-zip
- */
-router.get('/download-zip', async (req, res) => {
-  try {
-    let data;
-    
-    // Parse the request data from the query parameter
-    if (req.query.data) {
-      try {
-        data = JSON.parse(req.query.data);
-      } catch (e) {
-        return res.status(400).json({ error: 'Invalid data parameter' });
-      }
-    } else {
-      return res.status(400).json({ error: 'Missing data parameter' });
-    }
-    
-    const { pageUrls, bookTitle } = data;
-    
-    if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
-      return res.status(400).json({ error: 'Page URLs are required' });
-    }
-    
-    console.log(`Creating ZIP with ${pageUrls.length} pages for book: ${bookTitle || 'unknown'}`);
-    
-    // Set up the response headers for a ZIP file
-    const filename = `${bookTitle || 'coloring-pages'}.zip`.replace(/[^a-zA-Z0-9\-_.]/g, '_');
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-cache');
-    
-    // Create a ZIP archive
-    const archive = archiver('zip', {
-      zlib: { level: 9 } // Maximum compression
+    // Log when archive is finalized
+    archive.on('end', function() {
+      console.log('ZIP archive has been finalized. Total bytes:', archive.pointer());
     });
     
-    // Pipe the archive data to the response
-    archive.pipe(res);
-    
-    // Process each image and add to the ZIP
-    for (let i = 0; i < pageUrls.length; i++) {
-      try {
-        const imageUrl = pageUrls[i];
-        let imageBuffer;
-        
-        if (imageUrl.startsWith('data:')) {
-          // Handle data URLs
-          const base64Data = imageUrl.split(',')[1];
-          imageBuffer = Buffer.from(base64Data, 'base64');
-        } else {
-          // Download from URL
-          const imageResponse = await fetch(imageUrl);
-          if (!imageResponse.ok) {
-            console.error(`Failed to download image ${i + 1}: ${imageResponse.status}`);
-            continue;
-          }
-          imageBuffer = await imageResponse.buffer();
-        }
-        
-        // Process with sharp to ensure it's a PNG
-        const processedImageBuffer = await sharp(imageBuffer)
-          .png()
-          .toBuffer();
-        
-        // Create a readable stream from the buffer
-        const stream = new Readable();
-        stream.push(processedImageBuffer);
-        stream.push(null); // End of stream
-        
-        // Add the image to the ZIP file
-        archive.append(stream, { name: `coloring-page-${i + 1}.png` });
-      } catch (error) {
-        console.error(`Error processing image ${i + 1}:`, error);
-        // Continue with next image
-      }
-    }
-    
-    // Log before finalizing
-    console.log('Finalizing ZIP archive...');
-    
     // Finalize the ZIP file
+    console.log('Finalizing ZIP file');
     await archive.finalize();
-    console.log('ZIP archive finalized and sent');
+    console.log('ZIP file sent to client');
   } catch (error) {
     console.error('Error creating ZIP:', error);
     
