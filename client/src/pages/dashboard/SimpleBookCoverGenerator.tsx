@@ -5,46 +5,53 @@ import { BookOpenCheck, Download, Calculator } from 'lucide-react';
 
 // KDP Book cover generator component
 const SimpleBookCoverGenerator = () => {
-  // State
-  const [prompt, setPrompt] = useState('');
+  // Remove unused state
+  const [title, setTitle] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [author, setAuthor] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [coverUrl, setCoverUrl] = useState('');
-  const [error, setError] = useState('');
-  
-  // We keep these states in the code but they're no longer exposed in the UI
-  const [style, setStyle] = useState('realistic');
-  const [coverType, setCoverType] = useState('front');
-  
-  // KDP specification state
-  const [trimSize, setTrimSize] = useState('6x9');
-  const [pageCount, setPageCount] = useState(100);
-  const [paperType, setPaperType] = useState('white');
+  const [generatedCover, setGeneratedCover] = useState<string | null>(null);
 
-  // KDP trim size options
-  const trimSizeOptions = [
-    { value: '5x8', label: '5" x 8"', width: 5, height: 8 },
-    { value: '5.06x7.81', label: '5.06" x 7.81"', width: 5.06, height: 7.81 },
-    { value: '5.25x8', label: '5.25" x 8"', width: 5.25, height: 8 },
-    { value: '5.5x8.5', label: '5.5" x 8.5"', width: 5.5, height: 8.5 },
-    { value: '6x9', label: '6" x 9"', width: 6, height: 9 },
-    { value: '6.14x9.21', label: '6.14" x 9.21"', width: 6.14, height: 9.21 },
-    { value: '6.69x9.61', label: '6.69" x 9.61"', width: 6.69, height: 9.61 },
-    { value: '7x10', label: '7" x 10"', width: 7, height: 10 },
-    { value: '7.44x9.69', label: '7.44" x 9.69"', width: 7.44, height: 9.69 },
-    { value: '7.5x9.25', label: '7.5" x 9.25"', width: 7.5, height: 9.25 },
-    { value: '8x10', label: '8" x 10"', width: 8, height: 10 },
-    { value: '8.25x6', label: '8.25" x 6"', width: 8.25, height: 6 },
-    { value: '8.25x8.25', label: '8.25" x 8.25"', width: 8.25, height: 8.25 },
-    { value: '8.5x8.5', label: '8.5" x 8.5"', width: 8.5, height: 8.5 },
-    { value: '8.5x11', label: '8.5" x 11"', width: 8.5, height: 11 }
-  ];
+  // Fixed values for calculations
+  const TRIM_SIZE = { width: 6, height: 9 };
+  const PAGE_COUNT = 100;
+  const PAPER_TYPE = "White";
 
-  // Paper type options
-  const paperTypeOptions = [
-    { value: 'white', label: 'White' },
-    { value: 'cream', label: 'Cream' },
-    { value: 'color', label: 'Color' }
-  ];
+  // Calculate dimensions based on fixed values
+  const coverWidth = TRIM_SIZE.width;
+  const coverHeight = TRIM_SIZE.height;
+  
+  const handleGenerateCover = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/generate-cover", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          subtitle,
+          author,
+          trimSize: `${TRIM_SIZE.width}x${TRIM_SIZE.height}`,
+          paperType: PAPER_TYPE,
+          pageCount: PAGE_COUNT,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate cover");
+      }
+
+      const data = await response.json();
+      setGeneratedCover(data.imageUrl);
+    } catch (error) {
+      console.error("Error generating cover:", error);
+      // Handle error appropriately
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Example prompts
   const examplePrompts = [
@@ -60,33 +67,33 @@ const SimpleBookCoverGenerator = () => {
 
   // Function to handle prompt input change
   const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
+    // Implementation needed
   };
   
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
     window.generateBookCover = (testPrompt?: string) => {
-      const promptToUse = testPrompt || prompt;
+      const promptToUse = testPrompt || title;
       if (promptToUse.trim().length < 5) {
         console.log('Prompt too short, need at least 5 characters');
         return;
       }
       
       console.log(`Manually triggering generation with prompt: ${promptToUse}`);
-      setPrompt(promptToUse);
-      handleGenerate(promptToUse);
+      setTitle(promptToUse);
+      handleGenerateCover();
     };
     
     return () => {
       // @ts-ignore - cleanup
       delete window.generateBookCover;
     };
-  }, [prompt]);
+  }, [title]);
 
   // Apply example prompt
   const applyExamplePrompt = (example: string) => {
-    setPrompt(example);
+    setTitle(example);
   };
 
   // Form submission handler
@@ -94,10 +101,10 @@ const SimpleBookCoverGenerator = () => {
     try {
       e.preventDefault();
       console.log('Form submitted');
-      await handleGenerate();
+      await handleGenerateCover();
     } catch (err) {
       console.error('Error in form submission:', err);
-      setError('Form submission error. Check console.');
+      // Handle error appropriately
     }
   };
   
@@ -114,18 +121,12 @@ const SimpleBookCoverGenerator = () => {
 
   // Calculate final dimensions including bleed
   const calculateFinalDimensions = () => {
-    const selectedTrim = trimSizeOptions.find(t => t.value === trimSize);
-    if (!selectedTrim) return null;
-
     const bleed = 0.125; // 0.125" bleed on each side
-    const spineWidth = calculateSpineWidth(pageCount, paperType);
+    const spineWidth = calculateSpineWidth(PAGE_COUNT, PAPER_TYPE);
     
     // For full cover (front + spine + back)
-    const fullWidth = coverType === 'full' 
-      ? (selectedTrim.width * 2) + spineWidth + (bleed * 2)
-      : selectedTrim.width + (bleed * 2);
-    
-    const fullHeight = selectedTrim.height + (bleed * 2);
+    const fullWidth = coverWidth + (bleed * 2);
+    const fullHeight = coverHeight + (bleed * 2);
 
     // Calculate pixels at 300 DPI
     const pixelWidth = Math.ceil(fullWidth * 300);
@@ -140,98 +141,9 @@ const SimpleBookCoverGenerator = () => {
     };
   };
 
-  // The generate function - preserving existing API logic
-  const handleGenerate = async (manualPrompt?: string) => {
-    const promptToUse = manualPrompt || prompt;
-    
-    if (promptToUse.trim().length < 5) {
-      alert("Please enter at least 5 characters");
-      return;
-    }
-
-    console.log('Starting generation process');
-    setIsGenerating(true);
-    setError('');
-
-    // Calculate dimensions based on KDP specs
-    const dimensions = calculateFinalDimensions();
-    if (!dimensions) {
-      setError('Invalid trim size selected');
-      setIsGenerating(false);
-      return;
-    }
-
-    try {
-      // Enhanced prompt with style - keeping the API call structure the same
-      const enhancedPrompt = `Professional book cover design for Amazon KDP in ${style} style: ${promptToUse}. High resolution 300 DPI.`;
-      
-      // Basic FormData approach that works with the API
-      const formData = new FormData();
-      formData.append('prompt', enhancedPrompt);
-      formData.append('width', (parseFloat(dimensions.width) * 300).toString());
-      formData.append('height', (parseFloat(dimensions.height) * 300).toString());
-      formData.append('negative_prompt', 'text, watermark, low quality, distorted');
-
-      // Log form data for debugging
-      console.log("Form data created:", {
-        prompt: enhancedPrompt,
-        width: dimensions.width,
-        height: dimensions.height,
-        style,
-        spineWidth: dimensions.spineWidth
-      });
-      
-      console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
-      
-      // Make the API call using the ideogram endpoint
-      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log(`Response status: ${response.status}`);
-      
-      // Process response
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error response: ${errorText}`);
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("API Response data:", data);
-
-      // Set the image URL using the 'url' property from the API response
-      if (data.url) {
-        console.log(`Image URL received: ${data.url.substring(0, 60)}...`);
-        setCoverUrl(data.url);
-      } else {
-        console.log('No URL found in response, using placeholder');
-        setCoverUrl(`https://placehold.co/${dimensions.width}x${dimensions.height}/4ade80/FFFFFF?text=Placeholder+Cover`);
-        setError('No image URL returned - using placeholder');
-      }
-    } catch (err: any) {
-      console.error("Error during generation:", err);
-      setError(err.message || "Failed to generate cover");
-      const dimensions = calculateFinalDimensions();
-      if (dimensions) {
-        setCoverUrl(`https://placehold.co/${parseFloat(dimensions.width) * 300}x${parseFloat(dimensions.height) * 300}/ff5555/FFFFFF?text=Error:+Generation+Failed`);
-      }
-    } finally {
-      console.log('Generation process completed');
-      setIsGenerating(false);
-    }
-  };
-
   // Calculate current dimensions
   const dimensions = calculateFinalDimensions();
   
-  // Get the selected trim size label
-  const selectedTrimSize = trimSizeOptions.find(t => t.value === trimSize)?.label || '';
-  
-  // Get the selected paper type label
-  const selectedPaperType = paperTypeOptions.find(p => p.value === paperType)?.label || '';
-
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4">
       {/* Header Section */}
@@ -264,94 +176,58 @@ const SimpleBookCoverGenerator = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Prompt Input */}
                 <div className="space-y-2">
-                  <label htmlFor="prompt" className="text-sm font-medium text-foreground">
-                    Describe your cover
+                  <label htmlFor="title" className="text-sm font-medium text-foreground">
+                    Title
                   </label>
                   <div className="relative">
                     <textarea
-                      id="prompt"
-                      value={prompt}
+                      id="title"
+                      value={title}
                       onChange={handlePromptChange}
                       className="w-full min-h-[150px] rounded-lg border border-primary/20 bg-muted p-4 text-foreground focus:border-primary focus:ring-1 focus:ring-primary transition-colors resize-y"
-                      placeholder="Describe your ideal book cover in detail. Include mood, main elements, colors, etc."
+                      placeholder="Enter the title of your book"
                     />
                     <div className="absolute bottom-3 right-3 rounded-full bg-primary/10 px-2 py-1 text-xs">
-                      {prompt.length} chars
+                      {title.length} chars
                     </div>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Min 5 characters</span>
-                    <span className={prompt.length < 5 ? "text-red-400" : "text-primary"}>
-                      {prompt.length < 5 ? 'Add more details' : '✓ Ready to generate'}
+                    <span className={title.length < 5 ? "text-red-400" : "text-primary"}>
+                      {title.length < 5 ? 'Add more details' : '✓ Ready to generate'}
                     </span>
                   </div>
                 </div>
                 
                 {/* Book Specification Section */}
                 <div className="space-y-4">
-                  {/* Trim Size */}
+                  {/* Trim Size - Static Display */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">
                       Book Trim Size
                     </label>
-                    <select
-                      value={trimSize}
-                      onChange={(e) => setTrimSize(e.target.value)}
-                      className="w-full rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    >
-                      {trimSizeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-full rounded-md border border-primary/20 bg-muted/50 p-2 text-sm text-foreground">
+                      6" x 9"
+                    </div>
                   </div>
 
-                  {/* Paper Type */}
+                  {/* Paper Type - Static Display */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">
                       Paper Type
                     </label>
-                    <div className="flex gap-2">
-                      {paperTypeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setPaperType(option.value)}
-                          className={`px-4 py-2 rounded-md text-sm flex-1 ${
-                            paperType === option.value 
-                              ? "bg-primary text-background font-medium" 
-                              : "bg-muted hover:bg-primary/10 text-foreground"
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
+                    <div className="w-full rounded-md border border-primary/20 bg-muted/50 p-2 text-sm text-foreground">
+                      White
                     </div>
                   </div>
 
-                  {/* Page Count */}
+                  {/* Page Count - Static Display */}
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">
                       Page Count
                     </label>
-                    <div className="flex gap-4 items-center">
-                      <input
-                        type="range"
-                        min="24"
-                        max="800"
-                        value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-primary/20"
-                      />
-                      <input
-                        type="number"
-                        min="24"
-                        max="800"
-                        value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
-                        className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                      />
+                    <div className="w-full rounded-md border border-primary/20 bg-muted/50 p-2 text-sm text-foreground">
+                      100 pages
                     </div>
                   </div>
 
@@ -386,9 +262,9 @@ const SimpleBookCoverGenerator = () => {
                 {/* Generate Button */}
                 <Button
                   type="submit"
-                  disabled={isGenerating || prompt.trim().length < 5}
+                  disabled={isGenerating || title.trim().length < 5}
                   className={`w-full ${
-                    isGenerating || prompt.trim().length < 5 
+                    isGenerating || title.trim().length < 5 
                       ? "opacity-70" 
                       : "animate-pulse-glow"
                   }`}
@@ -428,11 +304,7 @@ const SimpleBookCoverGenerator = () => {
         {/* Right Column: Generated Cover Preview */}
         <div className="space-y-4">
           {/* Error display */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm">
-              {error}
-            </div>
-          )}
+          {/* Error handling logic needed */}
           
           {/* Image preview */}
           <Card className="bg-card/50 backdrop-blur-sm border border-primary/10 overflow-hidden">
@@ -442,16 +314,16 @@ const SimpleBookCoverGenerator = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
-              {coverUrl ? (
+              {generatedCover ? (
                 <div className="relative">
                   <img 
-                    src={coverUrl} 
+                    src={generatedCover} 
                     alt="Generated Book Cover"
                     className="max-w-full max-h-[450px] rounded-md border border-primary/20 shadow-lg"
                   />
                   
                   <a 
-                    href={coverUrl} 
+                    href={generatedCover} 
                     download="kdp-book-cover.png"
                     target="_blank"
                     rel="noopener noreferrer"
@@ -481,15 +353,15 @@ const SimpleBookCoverGenerator = () => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Trim Size:</span>
-                  <span>{selectedTrimSize}</span>
+                  <span>6" x 9"</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Paper Type:</span>
-                  <span>{selectedPaperType}</span>
+                  <span>White</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Page Count:</span>
-                  <span>{pageCount} pages</span>
+                  <span>100 pages</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Spine Width:</span>
@@ -499,10 +371,10 @@ const SimpleBookCoverGenerator = () => {
                   <span className="text-muted-foreground">Status:</span>
                   <span className={`
                     ${isGenerating ? "text-amber-400" : ""} 
-                    ${!isGenerating && coverUrl ? "text-primary" : ""}
-                    ${!isGenerating && !coverUrl ? "text-muted-foreground" : ""}
+                    ${!isGenerating && generatedCover ? "text-primary" : ""}
+                    ${!isGenerating && !generatedCover ? "text-muted-foreground" : ""}
                   `}>
-                    {isGenerating ? 'Generating...' : (coverUrl ? 'Generated' : 'Ready')}
+                    {isGenerating ? 'Generating...' : (generatedCover ? 'Generated' : 'Ready')}
                   </span>
                 </div>
               </div>
