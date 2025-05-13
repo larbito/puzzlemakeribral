@@ -2,7 +2,20 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // API base URL - ensure it's always the production URL when deployed
-const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+const API_URL = 'https://puzzle-craft-forge-production.up.railway.app';
+
+// Add additional fallback for development
+const getApiUrl = () => {
+  // For development testing
+  if (window.location.hostname === 'localhost') {
+    return 'http://localhost:3000';
+  }
+  
+  // For production
+  return API_URL;
+};
+
+const ACTIVE_API_URL = getApiUrl();
 
 // Force any ideogram.ai URL through our proxy
 export function forceProxyForIdeogramUrl(url: string): string {
@@ -20,7 +33,7 @@ export function forceProxyForIdeogramUrl(url: string): string {
     
     // If it's an ideogram.ai URL, proxy it
     if (url.includes('ideogram.ai')) {
-      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+      return `${ACTIVE_API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
     }
     
     // Otherwise return the original URL
@@ -117,8 +130,8 @@ export async function generateImage({
 // Generate with our backend proxy
 async function generateWithProxy(prompt: string, style?: string): Promise<string> {
   console.log("Making API call with prompt:", prompt);
-  console.log("API URL being used:", API_URL);
-  console.log("Full endpoint URL:", `${API_URL}/api/ideogram/generate`);
+  console.log("API URL being used:", ACTIVE_API_URL);
+  console.log("Full endpoint URL:", `${ACTIVE_API_URL}/api/ideogram/generate`);
 
   try {
     // Create form data for the request
@@ -139,7 +152,7 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
       console.log(`${key}: ${value}`);
     }
     
-    const fullUrl = `${API_URL}/api/ideogram/generate`;
+    const fullUrl = `${ACTIVE_API_URL}/api/ideogram/generate`;
     console.log("Making request to:", fullUrl);
 
     const response = await fetch(fullUrl, {
@@ -335,7 +348,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       toast.loading("Processing download...");
       
       // Use our own backend proxy endpoint
-      const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
+      const proxyEndpoint = `${ACTIVE_API_URL}/api/ideogram/proxy-image`;
       const encodedUrl = encodeURIComponent(imageUrl);
       
       // Direct download approach - create a link to our backend proxy
@@ -437,9 +450,9 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
   try {
     // Call the backend batch-download endpoint that creates a zip file
     console.log("Using batch download endpoint for", images.length, "images");
-    console.log("API URL:", API_URL);
+    console.log("API URL:", ACTIVE_API_URL);
     
-    const batchEndpoint = `${API_URL}/api/ideogram/batch-download`;
+    const batchEndpoint = `${ACTIVE_API_URL}/api/ideogram/batch-download`;
     console.log("Full endpoint URL:", batchEndpoint);
     
     // Format the request body
@@ -529,7 +542,7 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     const formData = new FormData();
     formData.append('image', imageFile);
 
-    const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
+    const response = await fetch(`${ACTIVE_API_URL}/api/ideogram/analyze`, {
       method: 'POST',
       body: formData
     });
@@ -701,7 +714,7 @@ export async function removeBackgroundWithAPI(imageUrl: string): Promise<string>
     const formData = new FormData();
     formData.append('image', imageBlob);
     
-    const apiResponse = await fetch(`${API_URL}/api/ideogram/remove-background`, {
+    const apiResponse = await fetch(`${ACTIVE_API_URL}/api/ideogram/remove-background`, {
       method: 'POST',
       body: formData
     });
@@ -870,7 +883,7 @@ export async function createFullBookCover({
       }
 
       // Use our proxy endpoint for loading the front cover
-      const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
+      const proxyUrl = `${ACTIVE_API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(frontCoverUrl)}`;
       
       // Create a new image element
       const frontCoverImg = new Image();
@@ -1112,7 +1125,7 @@ export async function generateBookCover({
       }
       
       // Use the standard endpoint that we know works
-      const fullUrl = `${API_URL}/api/ideogram/generate`;
+      const fullUrl = `${ACTIVE_API_URL}/api/ideogram/generate`;
       console.log("Making book cover generation request to:", fullUrl);
 
       // Make the API call
@@ -1256,7 +1269,7 @@ export async function createColoringBookPDF(
 ): Promise<string> {
   try {
     // For client-side only implementation, return a mock PDF URL
-    if (USE_PLACEHOLDERS || !API_URL) {
+    if (USE_PLACEHOLDERS || !ACTIVE_API_URL) {
       toast.success("PDF would be generated on the server in production");
       // Return a placeholder PDF
       return "https://placehold.co/600x400/f1f1f1/000000?text=Coloring+Book+PDF&font=playfair";
@@ -1274,7 +1287,7 @@ export async function createColoringBookPDF(
     };
     
     // Make a POST request to our backend
-    const response = await fetch(`${API_URL}/api/coloring-book/create-pdf`, {
+    const response = await fetch(`${ACTIVE_API_URL}/api/coloring-book/create-pdf`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1350,7 +1363,7 @@ export async function downloadColoringPages(
     try {
       console.log("Sending request to download ZIP with", pageUrls.length, "pages");
       
-      const response = await fetch(`${API_URL}/api/coloring-book/download-zip`, {
+      const response = await fetch(`${ACTIVE_API_URL}/api/coloring-book/download-zip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
