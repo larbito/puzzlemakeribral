@@ -13,14 +13,28 @@ const PORT = process.env.PORT || 3000;
 // CRITICAL: Health check endpoint for Railway
 // This MUST be defined before any other middleware to ensure it's always accessible
 app.get('/health', (req, res) => {
-  console.log('Health check request received');
-  res.status(200).json({ 
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] Health check request received from ${req.ip}`);
+  
+  // Log headers for debugging
+  console.log('Request headers:', req.headers);
+  
+  // Include detailed environment information
+  const healthData = {
     status: 'healthy',
-    timestamp: new Date().toISOString(),
+    timestamp: timestamp,
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
-    port: PORT
-  });
+    port: process.env.PORT || 3000,
+    nodeVersion: process.version,
+    memoryUsage: process.memoryUsage(),
+    pid: process.pid
+  };
+  
+  console.log('Responding with health data:', healthData);
+  
+  // Send a 200 OK response
+  res.status(200).json(healthData);
 });
 
 // Debug logging for all requests
@@ -145,11 +159,24 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Keep the process running
+});
+
+// Handle unhandled rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Keep the process running
+});
+
 // Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+const serverPort = process.env.PORT || 3000;
+app.listen(serverPort, '0.0.0.0', () => {
+  console.log(`Server running on port ${serverPort}`);
   console.log('Environment:', process.env.NODE_ENV);
   console.log('Ideogram API Key configured:', !!process.env.IDEOGRAM_API_KEY);
-  console.log('Server URL:', `http://0.0.0.0:${PORT}`);
+  console.log('Server URL:', `http://0.0.0.0:${serverPort}`);
   console.log('Health check path available at: /health');
 }); 
