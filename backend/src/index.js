@@ -61,6 +61,18 @@ app.use((req, res, next) => {
   next();
 });
 
+// Health check endpoint required by Railway
+app.get('/health', (req, res) => {
+  console.log('Health check called');
+  res.status(200).json({ 
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'production',
+    message: 'Server is running'
+  });
+});
+
 // Register routes
 app.use('/api/coloring-book', coloringBookRoutes);
 console.log('Registered route: /api/coloring-book/*');
@@ -70,7 +82,7 @@ app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Minimal test server running',
-    routes: ['/api/coloring-book/test', '/api/coloring-book/create-pdf', '/api/coloring-book/download-zip']
+    routes: ['/health', '/api/coloring-book/test', '/api/coloring-book/create-pdf', '/api/coloring-book/download-zip']
   });
 });
 
