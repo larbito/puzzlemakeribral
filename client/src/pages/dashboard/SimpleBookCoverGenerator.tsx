@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BookOpenCheck, Download, Calculator, ChevronDown } from 'lucide-react';
@@ -19,10 +19,6 @@ const SimpleBookCoverGenerator = () => {
   const [trimSize, setTrimSize] = useState('6x9');
   const [pageCount, setPageCount] = useState(100);
   const [paperType, setPaperType] = useState('white');
-
-  // Refs for form elements
-  const rangeInputRef = useRef<HTMLInputElement>(null);
-  const numberInputRef = useRef<HTMLInputElement>(null);
 
   // KDP trim size options
   const trimSizeOptions = [
@@ -62,57 +58,24 @@ const SimpleBookCoverGenerator = () => {
   // API URL
   const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
-  // Function to handle prompt input change
-  const handlePromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setPrompt(e.target.value);
+  // Direct event handlers
+  const handlePromptChange = (e) => setPrompt(e.target.value);
+  const handleTrimSizeChange = (e) => setTrimSize(e.target.value);
+  const handlePaperTypeSelect = (type) => {
+    console.log("Setting paper type to:", type);
+    setPaperType(type);
   };
-  
-  // Function to handle trim size change
-  const handleTrimSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    console.log('Changing trim size to:', e.target.value);
-    setTrimSize(e.target.value);
-  };
-
-  // Function to handle paper type change - Direct implementation
-  const handlePaperTypeClick = (paperValue: string) => {
-    console.log('Paper type clicked:', paperValue);
-    setPaperType(paperValue);
-  };
-
-  // Function to handle page count change from slider
-  const handlePageCountSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value, 10);
-    console.log('Range slider changed to:', value);
-    setPageCount(value);
-    
-    // Update number input if available
-    if (numberInputRef.current) {
-      numberInputRef.current.value = value.toString();
-    }
-  };
-
-  // Function to handle page count change from number input
-  const handlePageCountInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = parseInt(e.target.value, 10);
-    
-    // Enforce min/max if needed
-    if (isNaN(value)) value = 100;
-    if (value < 24) value = 24;
-    if (value > 800) value = 800;
-    
-    console.log('Number input changed to:', value);
-    setPageCount(value);
-    
-    // Update range input if available
-    if (rangeInputRef.current) {
-      rangeInputRef.current.value = value.toString();
+  const handlePageCountChange = (e) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value >= 24 && value <= 800) {
+      setPageCount(value);
     }
   };
   
   // Add a global function to trigger generation for debugging
   useEffect(() => {
     // @ts-ignore - add to window for debugging
-    window.generateBookCover = (testPrompt?: string) => {
+    window.generateBookCover = (testPrompt) => {
       const promptToUse = testPrompt || prompt;
       if (promptToUse.trim().length < 5) {
         console.log('Prompt too short, need at least 5 characters');
@@ -131,12 +94,12 @@ const SimpleBookCoverGenerator = () => {
   }, [prompt]);
 
   // Apply example prompt
-  const applyExamplePrompt = (example: string) => {
+  const applyExamplePrompt = (example) => {
     setPrompt(example);
   };
 
   // Form submission handler
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     try {
       e.preventDefault();
       console.log('Form submitted');
@@ -148,14 +111,14 @@ const SimpleBookCoverGenerator = () => {
   };
   
   // Calculate spine width based on page count and paper type
-  const calculateSpineWidth = (pages: number, paper: string): number => {
+  const calculateSpineWidth = (pages, paper) => {
     // KDP spine width calculation formulas
     const ppi = {
       white: 0.002252,
       cream: 0.0025,
       color: 0.002252
     };
-    return pages * (ppi[paper as keyof typeof ppi]);
+    return pages * (ppi[paper]);
   };
 
   // Calculate final dimensions including bleed
@@ -187,7 +150,7 @@ const SimpleBookCoverGenerator = () => {
   };
 
   // The generate function - preserving existing API logic
-  const handleGenerate = async (manualPrompt?: string) => {
+  const handleGenerate = async (manualPrompt) => {
     const promptToUse = manualPrompt || prompt;
     
     if (promptToUse.trim().length < 5) {
@@ -258,7 +221,7 @@ const SimpleBookCoverGenerator = () => {
         setCoverUrl(`https://placehold.co/${dimensions.width}x${dimensions.height}/4ade80/FFFFFF?text=Placeholder+Cover`);
         setError('No image URL returned - using placeholder');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error during generation:", err);
       setError(err.message || "Failed to generate cover");
       const dimensions = calculateFinalDimensions();
@@ -336,105 +299,119 @@ const SimpleBookCoverGenerator = () => {
                 </div>
                 
                 {/* Book Specification Section */}
-                <div className="space-y-4">
+                <div className="space-y-4 bg-black/20 p-4 rounded-lg border border-slate-700">
                   {/* Trim Size */}
                   <div className="space-y-2">
                     <label htmlFor="trimSize" className="text-sm font-medium text-foreground">
                       Book Trim Size
                     </label>
-                    <div className="relative">
-                      <select
-                        id="trimSize"
-                        value={trimSize}
-                        onChange={handleTrimSizeChange}
-                        className="w-full appearance-none rounded-md border border-primary/20 bg-muted p-2 pr-8 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary cursor-pointer"
-                      >
-                        {trimSizeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none text-foreground/70" />
-                    </div>
+                    <select
+                      id="trimSize"
+                      value={trimSize}
+                      onChange={handleTrimSizeChange}
+                      className="w-full rounded-md border border-primary/20 bg-black/30 p-2 text-sm text-foreground"
+                    >
+                      {trimSizeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Paper Type */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">
-                      Paper Type
-                    </label>
+                    <label className="text-sm font-medium text-foreground block mb-2">Paper Type</label>
                     <div className="flex gap-2">
-                      <div 
-                        onClick={() => setPaperType('white')}
-                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                      <label 
+                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
                           paperType === 'white' 
-                            ? "bg-green-500 text-white font-medium border-green-600" 
-                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                            ? 'bg-green-500 text-white border-green-600' 
+                            : 'bg-black/40 text-gray-300 border-slate-700'
                         }`}
                       >
+                        <input 
+                          type="radio" 
+                          name="paperType" 
+                          value="white" 
+                          checked={paperType === 'white'}
+                          onChange={() => handlePaperTypeSelect('white')} 
+                          className="sr-only" 
+                        />
                         White
-                      </div>
-                      <div
-                        onClick={() => setPaperType('cream')}
-                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                      </label>
+                      
+                      <label 
+                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
                           paperType === 'cream' 
-                            ? "bg-green-500 text-white font-medium border-green-600" 
-                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                            ? 'bg-green-500 text-white border-green-600' 
+                            : 'bg-black/40 text-gray-300 border-slate-700'
                         }`}
                       >
+                        <input 
+                          type="radio" 
+                          name="paperType" 
+                          value="cream" 
+                          checked={paperType === 'cream'}
+                          onChange={() => handlePaperTypeSelect('cream')} 
+                          className="sr-only" 
+                        />
                         Cream
-                      </div>
-                      <div
-                        onClick={() => setPaperType('color')}
-                        className={`px-4 py-2 rounded-md text-sm flex-1 border text-center cursor-pointer ${
+                      </label>
+                      
+                      <label 
+                        className={`flex-1 px-4 py-2 rounded-md border cursor-pointer text-center ${
                           paperType === 'color' 
-                            ? "bg-green-500 text-white font-medium border-green-600" 
-                            : "bg-black/40 hover:bg-black/60 border-slate-700 text-foreground hover:text-white"
+                            ? 'bg-green-500 text-white border-green-600' 
+                            : 'bg-black/40 text-gray-300 border-slate-700'
                         }`}
                       >
+                        <input 
+                          type="radio" 
+                          name="paperType" 
+                          value="color" 
+                          checked={paperType === 'color'}
+                          onChange={() => handlePaperTypeSelect('color')} 
+                          className="sr-only" 
+                        />
                         Color
-                      </div>
+                      </label>
                     </div>
                   </div>
 
                   {/* Page Count */}
                   <div className="space-y-2">
-                    <label htmlFor="pageCount" className="text-sm font-medium text-foreground flex justify-between">
-                      <span>Page Count</span>
-                      <span className="text-green-500 font-medium">{pageCount} pages</span>
-                    </label>
+                    <div className="flex justify-between items-center">
+                      <label htmlFor="pageCount" className="text-sm font-medium text-foreground">
+                        Page Count
+                      </label>
+                      <span className="text-green-500 font-medium text-sm">{pageCount} pages</span>
+                    </div>
                     <div className="flex gap-4 items-center">
-                      <input
-                        type="range"
-                        min="24"
-                        max="800"
-                        value={pageCount}
-                        onChange={(e) => setPageCount(parseInt(e.target.value))}
-                        className="flex-1 h-2 rounded-lg appearance-none cursor-pointer bg-slate-700"
-                        style={{
-                          background: `linear-gradient(to right, #22c55e 0%, #22c55e ${(pageCount-24)/(800-24)*100}%, #333 ${(pageCount-24)/(800-24)*100}%, #333 100%)`
-                        }}
+                      <input 
+                        type="range" 
+                        name="pageCountSlider"
+                        min="24" 
+                        max="800" 
+                        value={pageCount} 
+                        onChange={handlePageCountChange}
+                        className="w-full h-2 rounded-lg appearance-none bg-slate-700" 
                       />
-                      <input
-                        type="number"
-                        min="24"
-                        max="800"
-                        value={pageCount}
-                        onChange={(e) => {
-                          const newValue = parseInt(e.target.value);
-                          if (!isNaN(newValue) && newValue >= 24 && newValue <= 800) {
-                            setPageCount(newValue);
-                          }
-                        }}
-                        className="w-20 rounded-md border border-primary/20 bg-muted p-2 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                      <input 
+                        type="number" 
+                        name="pageCountInput"
+                        min="24" 
+                        max="800" 
+                        value={pageCount} 
+                        onChange={handlePageCountChange}
+                        className="w-20 rounded-md border border-primary/20 bg-black/30 p-2 text-sm text-foreground" 
                       />
                     </div>
                   </div>
 
                   {/* Auto-Calculated Dimensions */}
                   {dimensions && (
-                    <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-primary/10">
                       <h4 className="text-sm font-medium text-foreground mb-2">
                         Auto-Calculated Dimensions
                       </h4>
