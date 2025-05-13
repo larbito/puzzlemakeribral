@@ -1,6 +1,14 @@
 import { getAuth } from 'firebase/auth';
 
-const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+// API base URL - ensure it's used consistently across all services
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? window.location.origin.includes('vercel.app') 
+    ? 'https://puzzlemakeribral-production.up.railway.app'
+    : window.location.origin
+  : 'http://localhost:3000';
+
+// Debug logging for API URL
+console.log('API_URL in api.ts configured as:', API_URL);
 
 async function getAuthHeaders() {
   const auth = getAuth();

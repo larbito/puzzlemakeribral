@@ -1,7 +1,14 @@
 import { toast } from "sonner";
 
-// API base URL from environment variable
-export const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
+// API base URL - ensure it's used consistently across all services
+export const API_URL = process.env.NODE_ENV === 'production' 
+  ? window.location.origin.includes('vercel.app') 
+    ? 'https://puzzlemakeribral-production.up.railway.app'
+    : window.location.origin
+  : 'http://localhost:3000';
+
+// Debug logging for API URL
+console.log('API_URL in bookCoverService.ts configured as:', API_URL);
 
 // For development/debugging - set to true to use placeholder images instead of real API
 const USE_PLACEHOLDERS = false; // Set to false to use the real API service

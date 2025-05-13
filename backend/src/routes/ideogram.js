@@ -28,6 +28,25 @@ router.use((req, res, next) => {
   next();
 });
 
+/**
+ * Test endpoint to verify functionality
+ * GET /api/ideogram/test
+ */
+router.get('/test', (req, res) => {
+  const apiKey = process.env.IDEOGRAM_API_KEY;
+  res.json({
+    status: 'success',
+    message: 'Ideogram API integration is working!',
+    apiConfigured: !!apiKey,
+    endpoints: [
+      '/api/ideogram/generate',
+      '/api/ideogram/proxy-image',
+      '/api/ideogram/analyze',
+      '/api/ideogram/batch-download'
+    ]
+  });
+});
+
 // Use multer to handle multipart form data
 router.post('/generate', upload.none(), async (req, res) => {
   console.log('Received generate request');

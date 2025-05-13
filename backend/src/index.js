@@ -47,6 +47,22 @@ try {
   });
 }
 
+// Load the ideogram routes module
+let ideogramRoutes;
+try {
+  console.log('Attempting to require ideogram.js');
+  ideogramRoutes = require('./routes/ideogram');
+  console.log('Successfully loaded ideogram.js');
+} catch (e) {
+  console.error('Failed to load ideogram.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  ideogramRoutes = express.Router();
+  ideogramRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load ideogram routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -77,12 +93,24 @@ app.get('/health', (req, res) => {
 app.use('/api/coloring-book', coloringBookRoutes);
 console.log('Registered route: /api/coloring-book/*');
 
+// Register ideogram routes
+app.use('/api/ideogram', ideogramRoutes);
+console.log('Registered route: /api/ideogram/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
     message: 'Minimal test server running',
-    routes: ['/health', '/api/coloring-book/test', '/api/coloring-book/create-pdf', '/api/coloring-book/download-zip']
+    routes: [
+      '/health', 
+      '/api/coloring-book/test', 
+      '/api/coloring-book/create-pdf', 
+      '/api/coloring-book/download-zip',
+      '/api/ideogram/test',
+      '/api/ideogram/generate',
+      '/api/ideogram/proxy-image'
+    ]
   });
 });
 
