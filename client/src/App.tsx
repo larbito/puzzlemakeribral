@@ -21,6 +21,7 @@ import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
 import { TShirtGenerator } from '@/pages/dashboard/TShirtGenerator';
 import AIBookCoverGenerator from '@/pages/dashboard/AIBookCoverGenerator';
+import SimpleBookCoverGenerator from '@/pages/dashboard/SimpleBookCoverGenerator';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
 
@@ -72,6 +73,7 @@ function App() {
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="t-shirts" element={<TShirtGenerator />} />
                       <Route path="covers" element={<AIBookCoverGenerator />} />
+                      <Route path="simple-covers" element={<SimpleBookCoverGenerator />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
