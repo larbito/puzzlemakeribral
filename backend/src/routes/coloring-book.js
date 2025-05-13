@@ -82,7 +82,7 @@ router.get('/create-pdf', async (req, res) => {
     
     const {
       pageUrls,
-      trimSize,
+      trimSize = '8.5x11',
       addBlankPages,
       showPageNumbers,
       includeBleed,
@@ -100,11 +100,25 @@ router.get('/create-pdf', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${bookTitle}.pdf"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
     
-    // Create PDF document
+    // Parse the trim size
+    let pdfSize;
+    if (trimSize === '8.5x11') {
+      pdfSize = [8.5 * 72, 11 * 72]; // Convert to points (72 points per inch)
+    } else if (trimSize === '6x9') {
+      pdfSize = [6 * 72, 9 * 72];
+    } else {
+      // Parse custom size
+      const [width, height] = trimSize.split('x').map(dim => parseFloat(dim) * 72);
+      pdfSize = [width, height];
+    }
+    
+    console.log('PDF size in points:', pdfSize);
+    
+    // Create PDF document with correct size
     const doc = new PDFKit({
-      autoFirstPage: false,
-      size: trimSize || 'LETTER',
-      margin: includeBleed ? 36 : 72 // 0.5 inch or 1 inch margins
+      size: pdfSize,
+      margin: includeBleed ? 36 : 72, // 0.5 inch or 1 inch margins
+      autoFirstPage: false // Don't create the first page automatically
     });
     
     // Pipe PDF to response
@@ -117,41 +131,57 @@ router.get('/create-pdf', async (req, res) => {
         
         // Add blank page before if requested
         if (addBlankPages && i > 0) {
-          doc.addPage();
+          doc.addPage({ size: pdfSize });
+          console.log(`Added blank page ${i * 2}`);
         }
         
-        // Add content page
-        doc.addPage();
+        // Add content page with explicit size
+        doc.addPage({ size: pdfSize });
+        console.log(`Added page ${i + 1} with size:`, pdfSize);
         
-        // Download and add image
-        console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
-        const imageResponse = await fetch(pageUrls[i]);
-        if (!imageResponse.ok) {
-          console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
-          continue;
+        try {
+          // Download and add image
+          console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
+          const imageResponse = await fetch(pageUrls[i]);
+          if (!imageResponse.ok) {
+            console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+            continue;
+          }
+          
+          const buffer = await imageResponse.buffer();
+          console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
+          
+          // Define image size with safe margins
+          const pageWidth = pdfSize[0];
+          const pageHeight = pdfSize[1];
+          const margin = includeBleed ? 36 : 72;
+          const imageWidth = pageWidth - (margin * 2);
+          const imageHeight = pageHeight - (margin * 2);
+          
+          // Add the image to the PDF
+          doc.image(buffer, margin, margin, {
+            fit: [imageWidth, imageHeight],
+            align: 'center',
+            valign: 'center'
+          });
+          
+          // Add page number if requested
+          if (showPageNumbers) {
+            doc.fontSize(12)
+               .text(`${i + 1}`, pageWidth / 2, pageHeight - 30, {
+                 align: 'center'
+               });
+          }
+          
+          console.log(`Added image to page ${i + 1}`);
+        } catch (imageError) {
+          console.error(`Error processing image on page ${i + 1}:`, imageError);
+          // Add a placeholder text instead
+          doc.fontSize(20)
+             .text(`Image ${i + 1} could not be loaded`, 100, 100);
         }
-        
-        const buffer = await imageResponse.buffer();
-        console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
-        
-        // Add the image to the PDF without processing
-        doc.image(buffer, {
-          fit: [doc.page.width - (includeBleed ? 72 : 144), doc.page.height - (includeBleed ? 72 : 144)],
-          align: 'center',
-          valign: 'center'
-        });
-        
-        // Add page number if requested
-        if (showPageNumbers) {
-          doc.fontSize(12)
-             .text(`${i + 1}`, doc.page.width / 2, doc.page.height - 40, {
-               align: 'center'
-             });
-        }
-        
-        console.log(`Added page ${i + 1} to PDF`);
-      } catch (error) {
-        console.error(`Error processing page ${i + 1}:`, error);
+      } catch (pageError) {
+        console.error(`Error creating page ${i + 1}:`, pageError);
       }
     }
     
@@ -200,7 +230,7 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
     
     const {
       pageUrls,
-      trimSize,
+      trimSize = '8.5x11',
       addBlankPages,
       showPageNumbers,
       includeBleed,
@@ -218,11 +248,25 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${bookTitle}.pdf"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
     
-    // Create PDF document
+    // Parse the trim size
+    let pdfSize;
+    if (trimSize === '8.5x11') {
+      pdfSize = [8.5 * 72, 11 * 72]; // Convert to points (72 points per inch)
+    } else if (trimSize === '6x9') {
+      pdfSize = [6 * 72, 9 * 72];
+    } else {
+      // Parse custom size
+      const [width, height] = trimSize.split('x').map(dim => parseFloat(dim) * 72);
+      pdfSize = [width, height];
+    }
+    
+    console.log('PDF size in points:', pdfSize);
+    
+    // Create PDF document with correct size
     const doc = new PDFKit({
-      autoFirstPage: false,
-      size: trimSize || 'LETTER',
-      margin: includeBleed ? 36 : 72 // 0.5 inch or 1 inch margins
+      size: pdfSize,
+      margin: includeBleed ? 36 : 72, // 0.5 inch or 1 inch margins
+      autoFirstPage: false // Don't create the first page automatically
     });
     
     // Pipe PDF to response
@@ -235,40 +279,57 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
         
         // Add blank page before if requested
         if (addBlankPages && i > 0) {
-          doc.addPage();
+          doc.addPage({ size: pdfSize });
+          console.log(`Added blank page ${i * 2}`);
         }
         
-        // Add content page
-        doc.addPage();
+        // Add content page with explicit size
+        doc.addPage({ size: pdfSize });
+        console.log(`Added page ${i + 1} with size:`, pdfSize);
         
-        // Download and add image
-        console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
-        const imageResponse = await fetch(pageUrls[i]);
-        if (!imageResponse.ok) {
-          console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
-          continue;
+        try {
+          // Download and add image
+          console.log(`Fetching image from: ${pageUrls[i].substring(0, 100)}...`);
+          const imageResponse = await fetch(pageUrls[i]);
+          if (!imageResponse.ok) {
+            console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+            continue;
+          }
+          
+          const buffer = await imageResponse.buffer();
+          console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
+          
+          // Define image size with safe margins
+          const pageWidth = pdfSize[0];
+          const pageHeight = pdfSize[1];
+          const margin = includeBleed ? 36 : 72;
+          const imageWidth = pageWidth - (margin * 2);
+          const imageHeight = pageHeight - (margin * 2);
+          
+          // Add the image to the PDF
+          doc.image(buffer, margin, margin, {
+            fit: [imageWidth, imageHeight],
+            align: 'center',
+            valign: 'center'
+          });
+          
+          // Add page number if requested
+          if (showPageNumbers) {
+            doc.fontSize(12)
+               .text(`${i + 1}`, pageWidth / 2, pageHeight - 30, {
+                 align: 'center'
+               });
+          }
+          
+          console.log(`Added image to page ${i + 1}`);
+        } catch (imageError) {
+          console.error(`Error processing image on page ${i + 1}:`, imageError);
+          // Add a placeholder text instead
+          doc.fontSize(20)
+             .text(`Image ${i + 1} could not be loaded`, 100, 100);
         }
-        
-        const buffer = await imageResponse.buffer();
-        console.log(`Successfully downloaded image ${i + 1} (${buffer.length} bytes)`);
-        
-        doc.image(buffer, {
-          fit: [doc.page.width - (includeBleed ? 72 : 144), doc.page.height - (includeBleed ? 72 : 144)],
-          align: 'center',
-          valign: 'center'
-        });
-        
-        // Add page number if requested
-        if (showPageNumbers) {
-          doc.fontSize(12)
-             .text(`${i + 1}`, doc.page.width / 2, doc.page.height - 40, {
-               align: 'center'
-             });
-        }
-        
-        console.log(`Added page ${i + 1} to PDF`);
-      } catch (error) {
-        console.error(`Error processing page ${i + 1}:`, error);
+      } catch (pageError) {
+        console.error(`Error creating page ${i + 1}:`, pageError);
       }
     }
     
@@ -293,14 +354,21 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
 router.get('/download-zip', async (req, res) => {
   try {
     console.log('ZIP download GET request received');
+    console.log('Query params:', req.query);
     
     let data;
     try {
-      data = JSON.parse(decodeURIComponent(req.query.data || '{}'));
+      if (!req.query.data) {
+        return res.status(400).json({ error: 'Missing data parameter' });
+      }
+      data = JSON.parse(decodeURIComponent(req.query.data));
+      console.log('Successfully parsed data from query parameter');
     } catch (error) {
       console.error('Error parsing query data:', error);
       return res.status(400).json({ error: 'Invalid data format' });
     }
+    
+    console.log('Processing data:', data);
     
     const { pageUrls, bookTitle = 'coloring-pages' } = data;
     
@@ -308,41 +376,102 @@ router.get('/download-zip', async (req, res) => {
       return res.status(400).json({ error: 'Page URLs are required' });
     }
     
+    console.log(`Creating ZIP with ${pageUrls.length} images`);
+    
     // Set response headers for ZIP download
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${bookTitle}.zip"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
     
     // Create ZIP archive
     const archive = archiver('zip', {
-      zlib: { level: 9 }
+      zlib: { level: 5 } // Lower compression level for better reliability
+    });
+    
+    // Log archive errors
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+    });
+    
+    // Log when archive is finalized
+    archive.on('end', () => {
+      console.log('Archive finalized');
     });
     
     // Pipe archive data to response
     archive.pipe(res);
     
     // Download each image and add to ZIP
+    let successCount = 0;
     for (let i = 0; i < pageUrls.length; i++) {
       try {
         console.log(`Processing image ${i + 1} of ${pageUrls.length}`);
-        const imageResponse = await fetch(pageUrls[i]);
-        if (!imageResponse.ok) {
-          console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+        
+        let imageUrl = pageUrls[i];
+        if (!imageUrl) {
+          console.error(`Invalid URL for image ${i + 1}`);
           continue;
         }
         
-        const buffer = await imageResponse.buffer();
-        console.log(`Downloaded image ${i + 1} (${buffer.length} bytes)`);
+        // Add a timeout for fetching
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
         
-        // Add directly to ZIP without processing
-        archive.append(buffer, { name: `page-${i + 1}.png` });
-        console.log(`Added image ${i + 1} to ZIP`);
-      } catch (error) {
-        console.error(`Error processing image ${i + 1}:`, error);
+        try {
+          console.log(`Fetching image from: ${imageUrl.substring(0, 100)}...`);
+          const imageResponse = await fetch(imageUrl, { 
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+            }
+          });
+          
+          // Clear the timeout
+          clearTimeout(timeoutId);
+          
+          if (!imageResponse.ok) {
+            console.error(`Failed to fetch image ${i + 1}: ${imageResponse.status}`);
+            continue;
+          }
+          
+          const buffer = await imageResponse.buffer();
+          
+          if (!buffer || buffer.length === 0) {
+            console.error(`Empty buffer for image ${i + 1}`);
+            continue;
+          }
+          
+          console.log(`Downloaded image ${i + 1} (${buffer.length} bytes)`);
+          
+          // Create a unique name for the file
+          const fileName = `page-${i + 1}.png`;
+          
+          // Add directly to ZIP
+          archive.append(buffer, { name: fileName });
+          console.log(`Added image ${i + 1} to ZIP as ${fileName}`);
+          
+          successCount++;
+        } catch (fetchError) {
+          console.error(`Error fetching image ${i + 1}:`, fetchError);
+          clearTimeout(timeoutId);
+        }
+      } catch (imageError) {
+        console.error(`Error processing image ${i + 1}:`, imageError);
       }
     }
     
-    // Finalize archive
+    // If no images were successfully added, return an error
+    if (successCount === 0) {
+      console.error('No images were successfully added to the ZIP');
+      if (!res.headersSent) {
+        return res.status(400).json({ error: 'Failed to process any images' });
+      }
+    } else {
+      console.log(`Added ${successCount} of ${pageUrls.length} images to ZIP`);
+    }
+    
+    // Finalize ZIP
     console.log('Finalizing ZIP');
     await archive.finalize();
     console.log('ZIP sent to client');
