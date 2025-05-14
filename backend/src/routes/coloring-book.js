@@ -728,21 +728,44 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
     
+    // Clean the base prompt - remove any boilerplate text that might be present
+    let cleanedBasePrompt = basePrompt;
+    
+    // Remove common prefixes that might be in the input
+    const prefixesToRemove = [
+      'This image is suitable for a coloring book.',
+      'It\'s a clean line art illustration',
+      'Here\'s a prompt to generate',
+      'Prompt for a Coloring Book Page:',
+      'Create a coloring book page',
+      '**Prompt for a Coloring Book Page:**'
+    ];
+    
+    for (const prefix of prefixesToRemove) {
+      if (cleanedBasePrompt.includes(prefix)) {
+        cleanedBasePrompt = cleanedBasePrompt.replace(prefix, '').trim();
+      }
+    }
+    
+    // Extract the core prompt if it has a pattern of "...featuring a [actual content]"
+    const featuringMatch = cleanedBasePrompt.match(/featuring an?(.+)/i);
+    if (featuringMatch && featuringMatch[1]) {
+      cleanedBasePrompt = featuringMatch[1].trim();
+    }
+    
+    console.log(`Cleaned base prompt: "${cleanedBasePrompt}"`);
     console.log(`Expanding base prompt into ${pageCount} consistent variations`);
     
     // Generate fallback variations if all else fails
     const generateFallbackVariations = () => {
-      const variations = [];
+      const variations = [cleanedBasePrompt]; // Start with the original
       
       // Extract key elements from the base prompt
-      const words = basePrompt.split(' ');
+      const words = cleanedBasePrompt.split(' ');
       const baseLength = words.length;
       
-      // Try to identify the main subject and action in the base prompt
-      let mainSubject = words.find(w => ['cat', 'dog', 'bear', 'animal', 'bunny', 'elephant', 'dinosaur', 'unicorn', 'princess', 'knight', 'fairy', 'dragon'].includes(w.toLowerCase())) || 'character';
-      
       // Core structure to preserve across variations
-      const baseStructure = basePrompt.replace(/\b(in|on|at|with|by|near|under|over|beside)\b.*$/, '').trim();
+      const baseStructure = cleanedBasePrompt.replace(/\b(in|on|at|with|by|near|under|over|beside)\b.*$/, '').trim();
       
       // Different locations/scenarios to vary
       const locations = ['in a garden', 'at the beach', 'in the forest', 'on a mountain', 'in a meadow', 
@@ -758,28 +781,23 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
                       'musical instruments', 'a treasure map', 'magic stones', 'paint brushes', 'shells'];
       
       // Generate variations with the same structure but different scenarios
-      for (let i = 0; i < pageCount; i++) {
-        if (i === 0) {
-          // The first variation is the original prompt
-          variations.push(basePrompt);
+      for (let i = 1; i < pageCount; i++) {
+        // For subsequent variations, keep core structure but change scenario/details
+        const location = locations[Math.floor(Math.random() * locations.length)];
+        const action = actions[Math.floor(Math.random() * actions.length)];
+        const object = objects[Math.floor(Math.random() * objects.length)];
+        
+        // Construct variation while preserving approximate length and structure
+        let variation;
+        if (baseLength < 8) {
+          // For short prompts, add a bit more detail
+          variation = `${baseStructure} ${location} ${action} ${object}`;
         } else {
-          // For subsequent variations, keep core structure but change scenario/details
-          const location = locations[Math.floor(Math.random() * locations.length)];
-          const action = actions[Math.floor(Math.random() * actions.length)];
-          const object = objects[Math.floor(Math.random() * objects.length)];
-          
-          // Construct variation while preserving approximate length and structure
-          let variation;
-          if (baseLength < 8) {
-            // For short prompts, add a bit more detail
-            variation = `${baseStructure} ${location} ${action} ${object}`;
-          } else {
-            // For longer prompts, maintain similar length
-            variation = `${baseStructure} ${location}`;
-          }
-          
-          variations.push(variation);
+          // For longer prompts, maintain similar length
+          variation = `${baseStructure} ${location}`;
         }
+        
+        variations.push(variation);
       }
       
       return variations;
@@ -788,43 +806,38 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     try {
       console.log('Making OpenAI API request for consistent prompt variations');
       
-      // First attempt with JSON formatting and improved system prompt
-      try {
-        // Enhanced system prompt to ensure consistency
-        const systemPrompt = `You are a creative assistant specializing in coloring book page design.
-When generating variations of a prompt, maintain strict CONSISTENCY with the base prompt:
+      // Create a clear, direct system prompt
+      const systemPrompt = `You are an AI assistant that generates coloring book page prompts.
+When given a base prompt, create variations that maintain the same style, characters, and theme, 
+but change small details like poses, actions, or background elements.
 
-1. PRESERVE the exact art style described in the original prompt
-2. MAINTAIN the same theme, subjects, and overall concept
-3. MATCH the tone, complexity, and approximate word count
-4. VARY ONLY the poses, actions, or minor scene elements
-5. KEEP all style descriptors (like "cute", "cartoon", "outline-style", etc.)
+YOUR OUTPUTS MUST:
+1. Be DIRECT prompts with NO introductory text
+2. Be COMPLETE standalone sentences that can be used to generate images
+3. MAINTAIN the exact same art style and theme as the original
+4. KEEP the same main characters/objects from the original
+5. AVOID adding phrases like "This image is" or "Prompt for a coloring book"
 
-The variations should feel like different pages in the same coloring book.
-Return ONLY a JSON array with the variations, nothing else.`;
+DO NOT include any meta-text, prefaces, or explanations.`;
 
-        // Enhanced user prompt with examples of good variations
-        const userPrompt = `Generate ${pageCount} consistent variations of this coloring book page prompt: "${basePrompt}"
+      // Create a straightforward user prompt with examples
+      const userPrompt = `Base coloring book prompt: "${cleanedBasePrompt}"
 
-RULES:
-- Each variation must MAINTAIN the exact same art style, theme, and structure
-- Change ONLY poses, activities, or small scene elements
-- DO NOT introduce new characters or completely different scenes
-- KEEP approximately the same word count
-- ALL variations should be clearly related to the original prompt
+Generate ${pageCount} variations of this prompt. Each variation should be a DIRECT image generation prompt 
+that maintains the same style, tone, and main elements, but varies in small details like poses, actions, or settings.
 
 For example, if the base prompt is:
-"A happy llama wearing sunglasses and relaxing on a beach chair"
+"A happy hedgehog painting flowers in a meadow"
 
 Good variations would be:
-- "A happy llama wearing sunglasses and floating in a pool"
-- "A happy llama wearing sunglasses building a sandcastle"
-- "A happy llama wearing sunglasses playing beach volleyball"
+"A happy hedgehog holding a sunflower under a tree"
+"A happy hedgehog playing with butterflies near a garden fence"
+"A happy hedgehog sitting on a rock sketching tulips"
 
-Return ONLY a JSON array of strings containing ${pageCount} variations.
-Example format: ["Variation 1", "Variation 2", ...]`;
+Return ONLY a JSON array containing the variations as direct prompts without any introduction or explanation text.`;
 
-        // OpenAI API call with enhanced prompts
+      // First API call attempt using JSON response format
+      try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -834,18 +847,11 @@ Example format: ["Variation 1", "Variation 2", ...]`;
           body: JSON.stringify({
             model: 'gpt-3.5-turbo',
             messages: [
-              {
-                role: 'system',
-                content: systemPrompt
-              },
-              {
-                role: 'user',
-                content: userPrompt
-              }
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
             ],
             response_format: { type: "json_object" },
-            temperature: 0.7,  // Lower temperature for more consistency
-            max_tokens: 1000
+            temperature: 0.7
           })
         });
 
@@ -856,82 +862,100 @@ Example format: ["Variation 1", "Variation 2", ...]`;
         }
 
         const data = await response.json();
-        console.log('OpenAI API response:', data);
+        console.log('OpenAI API response received');
         
         // Parse the response JSON from the content field
-        let promptVariations;
+        let promptVariations = [];
         try {
-          // The content should be a JSON string with an array of prompts
+          // Extract the content
           const content = data.choices[0].message.content;
           console.log('Raw content from OpenAI:', content);
           
-          // Try to parse as JSON first
-          try {
-            const parsedContent = JSON.parse(content);
-            console.log('Parsed content:', parsedContent);
-            
-            // Extract the array of prompts - check for common field names
-            if (Array.isArray(parsedContent)) {
-              promptVariations = parsedContent;
-            } else if (Array.isArray(parsedContent.prompts)) {
-              promptVariations = parsedContent.prompts;
-            } else if (Array.isArray(parsedContent.variations)) {
-              promptVariations = parsedContent.variations;
-            } else {
-              // If we can't find an array field, look for any array in the object
-              const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
-              if (arrayField) {
-                promptVariations = arrayField;
-              } else {
-                throw new Error('Could not find prompt variations in API response');
-              }
+          // Parse the JSON response
+          const parsedContent = JSON.parse(content);
+          console.log('Parsed content structure:', Object.keys(parsedContent));
+          
+          // Check different possible array locations in the response
+          if (Array.isArray(parsedContent)) {
+            promptVariations = parsedContent;
+          } else if (Array.isArray(parsedContent.prompts)) {
+            promptVariations = parsedContent.prompts;
+          } else if (Array.isArray(parsedContent.variations)) {
+            promptVariations = parsedContent.variations;
+          } else {
+            // Look for any array in the response
+            const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
+            if (arrayField) {
+              promptVariations = arrayField;
             }
-          } catch (jsonError) {
-            console.error('Error parsing JSON from OpenAI:', jsonError);
-            console.log('Attempting to extract variations directly from text');
-            
-            // If JSON parsing fails, try to extract variations directly from text
-            // Split by line breaks or numbering patterns
-            let lines = content.split(/\n+/);
-            
-            // Filter out empty lines and remove any numbering
-            promptVariations = lines
-              .filter(line => line.trim().length > 0)
-              .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
-              .filter(line => line.length > 10); // Only keep substantial lines
-              
-            if (promptVariations.length === 0) {
-              throw new Error('Could not extract variations from text response');
-            }
+          }
+          
+          // If we still don't have prompt variations, search more aggressively
+          if (!promptVariations || promptVariations.length === 0) {
+            throw new Error('Could not find prompt variations array in API response');
           }
         } catch (parseError) {
-          console.error('Error parsing prompt variations:', parseError);
-          console.error('Content that failed to parse:', data.choices[0]?.message?.content);
-          throw new Error('Failed to parse prompt variations from API response');
+          console.error('Error extracting variations from API response:', parseError);
+          throw parseError; // Let the next handler try a different approach
         }
         
-        // Ensure the first prompt is always the original prompt for consistency
-        if (promptVariations.length > 0 && promptVariations[0] !== basePrompt) {
-          promptVariations.unshift(basePrompt);
+        // Process the generated variations
+        const processedVariations = promptVariations.map(prompt => {
+          // Remove any boilerplate text patterns
+          let cleanedPrompt = prompt;
           
-          // If we now have too many prompts, remove the last one
-          if (promptVariations.length > pageCount) {
-            promptVariations = promptVariations.slice(0, pageCount);
+          for (const prefix of prefixesToRemove) {
+            if (cleanedPrompt.includes(prefix)) {
+              cleanedPrompt = cleanedPrompt.replace(prefix, '').trim();
+            }
+          }
+          
+          // Remove quote marks if present
+          cleanedPrompt = cleanedPrompt.replace(/^["'](.+)["']$/, '$1');
+          
+          return cleanedPrompt;
+        });
+        
+        // Ensure the first prompt is the original
+        if (processedVariations.length > 0 && processedVariations[0] !== cleanedBasePrompt) {
+          processedVariations.unshift(cleanedBasePrompt);
+          
+          // If we now have too many, remove the last one
+          if (processedVariations.length > pageCount) {
+            processedVariations.pop();
           }
         }
         
-        // Return the prompt variations to the client
+        // Return the processed variations
         res.json({ 
-          basePrompt,
-          promptVariations
+          basePrompt: cleanedBasePrompt,
+          promptVariations: processedVariations
         });
         
-      } catch (apiError) {
-        console.error('Error with JSON format request:', apiError);
-        console.log('Trying alternate approach...');
+      } catch (jsonError) {
+        console.error('Error with JSON format request:', jsonError);
+        console.log('Trying alternate approach with list format...');
         
-        // Second attempt with improved text-based response format
+        // Second attempt - request a list format instead
         try {
+          const listSystemPrompt = `You are an AI assistant that generates variations of coloring book prompts.
+Your outputs MUST be direct, standalone prompts without any preface or explanation.
+Do not include phrases like "This is a coloring page featuring..." or "Prompt for a coloring book:".
+Each variation should be a complete sentence that could be sent directly to an image generator.`;
+
+          const listUserPrompt = `Base prompt: "${cleanedBasePrompt}"
+
+Create exactly ${pageCount} variations of this prompt for a coloring book.
+Each variation should maintain the same style and main elements, but vary in small details.
+
+IMPORTANT:
+- Each variation must be a DIRECT prompt with NO introductory text
+- KEEP the same main character(s) and overall theme
+- VARY only poses, actions, or background elements
+- Each prompt should be a complete, standalone sentence
+
+Format your response as a simple numbered list with one variation per line.`;
+
           const simpleResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -941,33 +965,10 @@ Example format: ["Variation 1", "Variation 2", ...]`;
             body: JSON.stringify({
               model: 'gpt-3.5-turbo',
               messages: [
-                {
-                  role: 'system',
-                  content: `You are a creative assistant specializing in coloring book page design.
-When generating variations of a prompt, maintain strict CONSISTENCY with the base prompt.
-All variations should preserve the exact same art style, theme, and structure as the original.
-Only change small details like poses, activities, or minor scene elements.`
-                },
-                {
-                  role: 'user',
-                  content: `Generate exactly ${pageCount} consistent variations of this coloring book prompt: "${basePrompt}"
-
-Requirements:
-1. MAINTAIN the same art style, theme, and structure
-2. Keep approximately the same length and complexity  
-3. Change only poses, activities, or small details
-4. All variations should clearly belong to the same coloring book
-
-For example, if the base prompt is "A happy llama wearing sunglasses and relaxing on a beach chair"
-Good variations would be:
-- "A happy llama wearing sunglasses and floating in a pool"
-- "A happy llama wearing sunglasses building a sandcastle"
-
-Format your response as a numbered list with one variation per line, nothing else.`
-                }
+                { role: 'system', content: listSystemPrompt },
+                { role: 'user', content: listUserPrompt }
               ],
-              temperature: 0.7,
-              max_tokens: 1000
+              temperature: 0.7
             })
           });
           
@@ -980,52 +981,68 @@ Format your response as a numbered list with one variation per line, nothing els
           
           // Parse the numbered list format
           const lines = content.split('\n');
-          const promptVariations = lines
+          const rawVariations = lines
             .map(line => line.trim())
             .filter(line => line.length > 0)
-            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim());
+            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim()); // Remove numbering
             
-          if (promptVariations.length === 0) {
+          if (rawVariations.length === 0) {
             throw new Error('No variations found in response');
           }
           
-          // Trim the list to the requested count and ensure the first one is the base prompt
-          let finalVariations = promptVariations.slice(0, pageCount);
+          // Process variations to remove any remaining boilerplate
+          const processedVariations = rawVariations.map(prompt => {
+            // Remove any remaining boilerplate text
+            let cleanedPrompt = prompt;
+            
+            for (const prefix of prefixesToRemove) {
+              if (cleanedPrompt.includes(prefix)) {
+                cleanedPrompt = cleanedPrompt.replace(prefix, '').trim();
+              }
+            }
+            
+            // Remove quote marks if present
+            cleanedPrompt = cleanedPrompt.replace(/^["'](.+)["']$/, '$1');
+            
+            return cleanedPrompt;
+          });
           
-          if (finalVariations[0] !== basePrompt) {
-            finalVariations.unshift(basePrompt);
+          // Ensure the first prompt is the original
+          let finalVariations = processedVariations.slice(0, pageCount);
+          if (finalVariations[0] !== cleanedBasePrompt) {
+            finalVariations.unshift(cleanedBasePrompt);
             if (finalVariations.length > pageCount) {
-              finalVariations = finalVariations.slice(0, pageCount);
+              finalVariations.pop();
             }
           }
           
           res.json({
-            basePrompt,
+            basePrompt: cleanedBasePrompt,
             promptVariations: finalVariations
           });
           
-        } catch (alternateError) {
-          console.error('Alternate approach also failed:', alternateError);
+        } catch (listError) {
+          console.error('List approach also failed:', listError);
           console.log('Using fallback generation method');
           
-          // Use the fallback method
+          // Use the fallback method if both API approaches fail
           const fallbackVariations = generateFallbackVariations();
           
           res.json({
-            basePrompt,
+            basePrompt: cleanedBasePrompt,
             promptVariations: fallbackVariations,
             note: 'Using fallback variations due to API issues'
           });
         }
       }
     } catch (error) {
-      console.error('All attempts failed:', error);
+      console.error('All API attempts failed:', error);
       
       // Final fallback
       const fallbackVariations = generateFallbackVariations();
       
       res.json({
-        basePrompt,
+        basePrompt: cleanedBasePrompt,
         promptVariations: fallbackVariations,
         note: 'Using fallback variations due to API issues'
       });
