@@ -8,25 +8,29 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { 
+import { Progress } from '@/components/ui/progress';
+import {
   Wand2, 
-  Sparkles, 
-  Download, 
-  BookOpen, 
-  Palette, 
-  Brain, 
-  ChevronDown, 
-  Upload, 
+  Sparkles,
+  Download,
+  BookOpen,
+  Palette,
+  Upload,
   ImageIcon,
-  FileText,
   MessageSquare,
   PlusSquare,
-  FileOutput,
-  Check,
+  File,
+  ListPlus,
   ChevronLeft,
   ChevronRight,
-  File,
-  ListPlus
+  Check,
+  RefreshCw,
+  Shuffle,
+  PenLine,
+  BookText,
+  Settings,
+  Eye,
+  ArrowRight
 } from 'lucide-react';
 import { 
   generateImage, 
@@ -39,23 +43,38 @@ import {
 } from '@/services/ideogramService';
 import { toast } from 'sonner';
 
-interface GeneratedBook {
-  id: string;
-  pages: string[];
-  title: string;
-}
-
 interface ColoringPageOptions {
   bookTitle: string;
+  authorName: string;
+  subtitle: string;
   trimSize: string;
   pageCount: number;
   addBlankPages: boolean;
   showPageNumbers: boolean;
   includeBleed: boolean;
+  addTitlePage: boolean;
   dpi: number;
 }
 
+// Track the current workflow step
+type WorkflowStep = 
+  | 'start-method'
+  | 'prompt-generation' 
+  | 'prompt-review' 
+  | 'book-settings' 
+  | 'title-page' 
+  | 'generate-book' 
+  | 'preview-download';
+
+// Define the start method options
+type StartMethod = 'upload-image' | 'write-prompt' | null;
+
 export const AIColoringGenerator = () => {
+  // Workflow state
+  const [currentStep, setCurrentStep] = useState<WorkflowStep>('start-method');
+  const [startMethod, setStartMethod] = useState<StartMethod>(null);
+  const [useMultiplePrompts, setUseMultiplePrompts] = useState(true);
+  
   // Image to Prompt state
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState('');
@@ -65,21 +84,98 @@ export const AIColoringGenerator = () => {
   // Prompt to Coloring Book state
   const [coloringOptions, setColoringOptions] = useState<ColoringPageOptions>({
     bookTitle: '',
+    authorName: '',
+    subtitle: '',
     trimSize: '8.5x11',
     pageCount: 10,
     addBlankPages: false,
     showPageNumbers: true,
     includeBleed: true,
+    addTitlePage: false,
     dpi: 300
   });
-  const [bookPrompt, setBookPrompt] = useState('');
+  
+  const [basePrompt, setBasePrompt] = useState('');
   const [expandedPrompts, setExpandedPrompts] = useState<string[]>([]);
   const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
+  const [promptsConfirmed, setPromptsConfirmed] = useState(false);
+  
+  // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
+  const [currentGeneratingPage, setCurrentGeneratingPage] = useState(0);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [generatedPages, setGeneratedPages] = useState<string[]>([]);
   const [activePreviewIndex, setActivePreviewIndex] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
+  // Progress tracking
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  
+  // Navigation helpers
+  const goToNextStep = () => {
+    switch (currentStep) {
+      case 'start-method':
+        setCurrentStep('prompt-generation');
+        break;
+      case 'prompt-generation':
+        setCurrentStep('prompt-review');
+        break;
+      case 'prompt-review':
+        setCurrentStep('book-settings');
+        break;
+      case 'book-settings':
+        if (coloringOptions.addTitlePage) {
+          setCurrentStep('title-page');
+        } else {
+          setCurrentStep('generate-book');
+        }
+        break;
+      case 'title-page':
+        setCurrentStep('generate-book');
+        break;
+      case 'generate-book':
+        setCurrentStep('preview-download');
+        break;
+      default:
+        break;
+    }
+  };
+  
+  const goToPreviousStep = () => {
+    switch (currentStep) {
+      case 'prompt-generation':
+        setCurrentStep('start-method');
+        break;
+      case 'prompt-review':
+        setCurrentStep('prompt-generation');
+        break;
+      case 'book-settings':
+        setCurrentStep('prompt-review');
+        break;
+      case 'title-page':
+        setCurrentStep('book-settings');
+        break;
+      case 'generate-book':
+        if (coloringOptions.addTitlePage) {
+          setCurrentStep('title-page');
+        } else {
+          setCurrentStep('book-settings');
+        }
+        break;
+      case 'preview-download':
+        setCurrentStep('generate-book');
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Handle selecting start method
+  const handleStartMethodSelect = (method: StartMethod) => {
+    setStartMethod(method);
+    goToNextStep();
+  };
 
   // Handle file upload for Image to Prompt
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -102,19 +198,6 @@ export const AIColoringGenerator = () => {
       setGeneratedPrompt(''); // Clear any previous prompt
     };
     reader.readAsDataURL(file);
-  };
-
-  // Navigate between preview pages
-  const nextPreviewPage = () => {
-    if (generatedPages.length > 0) {
-      setActivePreviewIndex((prev) => (prev + 1) % generatedPages.length);
-    }
-  };
-
-  const prevPreviewPage = () => {
-    if (generatedPages.length > 0) {
-      setActivePreviewIndex((prev) => (prev - 1 + generatedPages.length) % generatedPages.length);
-    }
   };
 
   // Generate prompt from uploaded image
@@ -161,6 +244,7 @@ export const AIColoringGenerator = () => {
         setGeneratedPrompt('');
       } else {
         setGeneratedPrompt(data.prompt);
+        setBasePrompt(data.prompt);
         toast.success('Prompt generated successfully');
       }
     } catch (error) {
@@ -171,46 +255,35 @@ export const AIColoringGenerator = () => {
     }
   };
 
-  // Use generated prompt in the coloring book tab
-  const usePromptForBook = () => {
-    if (!generatedPrompt) {
+  // Proceed with the generated prompt to the prompt variations section
+  const handleProceedWithGeneratedPrompt = () => {
+    if (!generatedPrompt.trim()) {
       toast.error('No prompt available');
       return;
     }
     
-    setBookPrompt(generatedPrompt);
-    document.getElementById('prompt-to-book-tab')?.click();
-    toast.success('Prompt added to coloring book generator');
+    setBasePrompt(generatedPrompt);
+    goToNextStep();
   };
-
-  // Generate a single test coloring page
-  const handleGenerateTestPage = async () => {
-    if (!bookPrompt.trim()) {
-      toast.error('Please enter a prompt for your coloring page');
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const pageUrl = await generateColoringPage(bookPrompt);
-      if (pageUrl) {
-        setGeneratedPages([pageUrl]);
-        setActivePreviewIndex(0);
-        toast.success('Test coloring page generated successfully');
-      } else {
-        throw new Error('Failed to generate test page');
-      }
-    } catch (error) {
-      console.error('Error generating test page:', error);
-      toast.error('Failed to generate test coloring page');
-    } finally {
-      setIsGenerating(false);
+  
+  // Update base prompt when writing directly
+  const handleBasePromptChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    setBasePrompt(e.target.value);
+  };
+  
+  // Handle toggling between single and multiple prompts
+  const handleToggleMultiplePrompts = (useMultiple: boolean) => {
+    setUseMultiplePrompts(useMultiple);
+    
+    // If switching to single prompt, clear expanded prompts
+    if (!useMultiple) {
+      setExpandedPrompts([]);
     }
   };
 
   // Handle generating multiple prompt variations
   const handleGeneratePrompts = async () => {
-    if (!bookPrompt.trim()) {
+    if (!basePrompt.trim()) {
       toast.error('Please enter a base prompt first');
       return;
     }
@@ -222,34 +295,89 @@ export const AIColoringGenerator = () => {
 
     setIsGeneratingPrompts(true);
     setExpandedPrompts([]);
+    setGenerationProgress(0);
 
     try {
       toast.info(`Generating ${coloringOptions.pageCount} prompt variations...`);
       
-      const variations = await expandPrompts(bookPrompt, coloringOptions.pageCount);
-      
-      if (!variations || variations.length === 0) {
-        throw new Error('Failed to generate prompt variations');
+      if (useMultiplePrompts) {
+        // Multiple unique prompts
+        const variations = await expandPrompts(basePrompt, coloringOptions.pageCount);
+        
+        if (!variations || variations.length === 0) {
+          throw new Error('Failed to generate prompt variations');
+        }
+        
+        setExpandedPrompts(variations);
+        toast.success(`Generated ${variations.length} unique prompt variations!`);
+      } else {
+        // Use the same prompt for all pages
+        setExpandedPrompts(Array(coloringOptions.pageCount).fill(basePrompt));
+        toast.success(`Using the same prompt for all ${coloringOptions.pageCount} pages`);
       }
       
-      setExpandedPrompts(variations);
-      toast.success(`Generated ${variations.length} unique prompt variations!`);
+      // Auto proceed to review
+      goToNextStep();
       
     } catch (error) {
       console.error('Error generating prompt variations:', error);
       toast.error('Failed to generate prompt variations');
     } finally {
       setIsGeneratingPrompts(false);
+      setGenerationProgress(100);
     }
   };
 
-  // Update expanded prompts when edited
+  // Update a single expanded prompt
   const updateExpandedPrompt = (index: number, newPrompt: string) => {
     const newPrompts = [...expandedPrompts];
     newPrompts[index] = newPrompt;
     setExpandedPrompts(newPrompts);
   };
-
+  
+  // Regenerate a single prompt
+  const regenerateSinglePrompt = async (index: number) => {
+    if (!basePrompt.trim()) return;
+    
+    const singlePromptId = `prompt-${index}`;
+    
+    try {
+      toast.info(`Regenerating prompt for page ${index + 1}...`, { id: singlePromptId });
+      
+      const variation = await expandPrompts(basePrompt, 1);
+      
+      if (!variation || variation.length === 0) {
+        throw new Error('Failed to regenerate prompt');
+      }
+      
+      updateExpandedPrompt(index, variation[0]);
+      toast.success(`Regenerated prompt for page ${index + 1}`, { id: singlePromptId });
+      
+    } catch (error) {
+      console.error(`Error regenerating prompt ${index + 1}:`, error);
+      toast.error(`Failed to regenerate prompt for page ${index + 1}`, { id: singlePromptId });
+    }
+  };
+  
+  // Shuffle all prompts (regenerate all)
+  const shuffleAllPrompts = async () => {
+    if (!basePrompt.trim() || !useMultiplePrompts) return;
+    
+    try {
+      toast.info(`Regenerating all prompts...`);
+      await handleGeneratePrompts();
+    } catch (error) {
+      console.error('Error regenerating prompts:', error);
+      toast.error('Failed to regenerate prompts');
+    }
+  };
+  
+  // Confirm prompts and proceed
+  const confirmPrompts = () => {
+    setPromptsConfirmed(true);
+    goToNextStep();
+  };
+  
   // Generate coloring book using expanded prompts
   const handleGenerateBook = async () => {
     if (expandedPrompts.length === 0) {
@@ -260,6 +388,8 @@ export const AIColoringGenerator = () => {
     setIsGenerating(true);
     setGeneratedPages([]);
     setPdfUrl(null);
+    setGenerationProgress(0);
+    setCurrentGeneratingPage(0);
 
     try {
       toast.info(`Generating ${expandedPrompts.length} unique coloring pages...`);
@@ -270,6 +400,9 @@ export const AIColoringGenerator = () => {
       // Generate pages for each prompt variation
       for (let i = 0; i < expandedPrompts.length; i++) {
         try {
+          setCurrentGeneratingPage(i + 1);
+          setGenerationProgress(Math.round((i / expandedPrompts.length) * 100));
+          
           toast.info(`Generating page ${i+1} of ${expandedPrompts.length}...`, {
             id: `page-${i}`,
             duration: 2000
@@ -287,17 +420,36 @@ export const AIColoringGenerator = () => {
         }
       }
       
+      setGenerationProgress(100);
+      
       if (pageUrls.length === 0) {
         throw new Error('Failed to generate any coloring pages');
       }
       
       setActivePreviewIndex(0);
       toast.success(`Generated ${pageUrls.length} coloring pages successfully`);
+      
+      // Automatically proceed to preview step
+      goToNextStep();
+      
     } catch (error) {
       console.error('Error generating coloring book:', error);
       toast.error('Failed to generate coloring book');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  // Preview navigation
+  const nextPreviewPage = () => {
+    if (generatedPages.length > 0) {
+      setActivePreviewIndex((prev) => (prev + 1) % generatedPages.length);
+    }
+  };
+
+  const prevPreviewPage = () => {
+    if (generatedPages.length > 0) {
+      setActivePreviewIndex((prev) => (prev - 1 + generatedPages.length) % generatedPages.length);
     }
   };
 
@@ -309,18 +461,27 @@ export const AIColoringGenerator = () => {
     }
 
     setIsCreatingPdf(true);
+    setPdfProgress(0);
+    
     try {
       toast.info('Creating PDF...');
+      setPdfProgress(30);
       
       const pdfUrlResult = await createColoringBookPDF(generatedPages, {
         trimSize: coloringOptions.trimSize,
         addBlankPages: coloringOptions.addBlankPages,
         showPageNumbers: coloringOptions.showPageNumbers,
         includeBleed: coloringOptions.includeBleed,
-        bookTitle: coloringOptions.bookTitle || 'Coloring Book'
+        bookTitle: coloringOptions.bookTitle || 'Coloring Book',
+        // Add title page if enabled
+        addTitlePage: coloringOptions.addTitlePage,
+        authorName: coloringOptions.authorName,
+        subtitle: coloringOptions.subtitle
       });
       
+      setPdfProgress(90);
       setPdfUrl(pdfUrlResult);
+      setPdfProgress(100);
       toast.success('PDF created successfully!');
       
       // Auto-download the PDF
@@ -355,8 +516,42 @@ export const AIColoringGenerator = () => {
     }
   };
 
+  // Progress indicator component
+  const StepIndicator = () => {
+    const steps = [
+      { name: 'Start', active: currentStep === 'start-method' },
+      { name: 'Prompt', active: currentStep === 'prompt-generation' },
+      { name: 'Review', active: currentStep === 'prompt-review' },
+      { name: 'Settings', active: currentStep === 'book-settings' },
+      { name: 'Title Page', active: currentStep === 'title-page', optional: true, show: coloringOptions.addTitlePage },
+      { name: 'Generate', active: currentStep === 'generate-book' },
+      { name: 'Preview', active: currentStep === 'preview-download' }
+    ].filter(step => !step.optional || step.show);
+
+    return (
+      <div className="w-full flex justify-between items-center mb-8 px-4">
+        {steps.map((step, index) => (
+          <div key={index} className="flex flex-col items-center">
+            <div 
+              className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                step.active 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {index + 1}
+            </div>
+            <span className={`text-xs mt-1 ${step.active ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+              {step.name}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background relative overflow-hidden">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background relative overflow-hidden pb-16">
       {/* Animated background elements */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-3xl animate-pulse" />
@@ -365,7 +560,7 @@ export const AIColoringGenerator = () => {
 
       <div className="max-w-7xl mx-auto p-6 relative z-10">
         {/* Hero Section */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -389,22 +584,54 @@ export const AIColoringGenerator = () => {
             Transform your imagination into magical coloring pages for kids and adults
           </motion.p>
         </div>
+        
+        {/* Step Indicator */}
+        <StepIndicator />
+        
+        {/* Main Content Area - Step based UI */}
+        <div className="space-y-6">
+          {/* STEP 1: Start Method Selection */}
+          {currentStep === 'start-method' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">How would you like to start your coloring book?</h2>
+                
+                <div className="grid md:grid-cols-2 gap-8 mt-8">
+                  {/* Upload Image Option */}
+                  <div 
+                    className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center cursor-pointer hover:bg-primary/5 transition-colors group hover:border-primary"
+                    onClick={() => handleStartMethodSelect('upload-image')}
+                  >
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                      <Upload className="w-10 h-10 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Upload a Coloring Page</h3>
+                    <p className="text-center text-muted-foreground">
+                      Upload an existing coloring page or line art and we'll analyze it
+                    </p>
+                  </div>
+                  
+                  {/* Write Prompt Option */}
+                  <div 
+                    className="border-2 border-dashed rounded-xl p-8 flex flex-col items-center cursor-pointer hover:bg-primary/5 transition-colors group hover:border-primary"
+                    onClick={() => handleStartMethodSelect('write-prompt')}
+                  >
+                    <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
+                      <PenLine className="w-10 h-10 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2">Write a Prompt or Idea</h3>
+                    <p className="text-center text-muted-foreground">
+                      Describe what you want in your coloring book and we'll create it
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
 
-        {/* Tabs */}
-        <Tabs defaultValue="prompt-to-book" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
-            <TabsTrigger value="image-to-prompt" className="text-lg py-3">
-              <ImageIcon className="w-5 h-5 mr-2" />
-              Coloring Image to Prompt
-            </TabsTrigger>
-            <TabsTrigger id="prompt-to-book-tab" value="prompt-to-book" className="text-lg py-3">
-              <BookOpen className="w-5 h-5 mr-2" />
-              Prompt to Coloring Book
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Image to Prompt Tab */}
-          <TabsContent value="image-to-prompt" className="space-y-8">
+          {/* STEP 2A: Upload Image and Generate Prompt */}
+          {currentStep === 'prompt-generation' && startMethod === 'upload-image' && (
             <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
               <div className="relative p-8 space-y-6">
@@ -461,90 +688,292 @@ export const AIColoringGenerator = () => {
                         onChange={(e) => setGeneratedPrompt(e.target.value)}
                         placeholder="Your generated prompt will appear here..."
                         className="min-h-[260px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg resize-none"
+                        maxLength={250}
                       />
-                      {generatedPrompt && (
-                        <div className="absolute bottom-4 right-4 flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (generatedPrompt) {
-                                // Set the book prompt
-                                setBookPrompt(generatedPrompt);
-                                // Generate prompts automatically
-                                handleGeneratePrompts();
-                                // Switch to the book tab
-                                document.getElementById('prompt-to-book-tab')?.click();
-                              }
-                            }}
-                          >
-                            <ListPlus className="h-4 w-4 mr-1" />
-                            Generate Book Prompts
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={usePromptForBook}
-                          >
-                            <Check className="h-4 w-4" />
-                            Use Prompt
-                          </Button>
-                        </div>
-                      )}
+                      <div className="absolute bottom-2 left-4 text-xs text-muted-foreground">
+                        {generatedPrompt.length}/250 characters
+                      </div>
                     </div>
-                    <Button
-                      onClick={handleGeneratePrompt}
-                      disabled={!uploadedImage || isGeneratingPrompt}
-                      className="w-full h-12 relative overflow-hidden group"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                      <span className="relative flex items-center justify-center gap-2">
-                        {isGeneratingPrompt ? (
-                          <>
-                            <Sparkles className="w-5 h-5 animate-spin" />
-                            Analyzing Image...
-                          </>
-                        ) : (
-                          <>
+                    
+                    {isGeneratingPrompt ? (
+                      <div className="space-y-2">
+                        <div className="flex justify-between mb-1 text-sm">
+                          <span>Analyzing image...</span>
+                          <span className="text-primary">Please wait</span>
+                        </div>
+                        <Progress value={50} className="h-2" />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button
+                          onClick={handleGeneratePrompt}
+                          disabled={!uploadedImage || isGeneratingPrompt}
+                          className="flex-1 relative overflow-hidden group"
+                        >
+                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                          <span className="relative flex items-center justify-center gap-2">
                             <MessageSquare className="w-5 h-5" />
                             Generate Prompt
-                          </>
+                          </span>
+                        </Button>
+                        
+                        {generatedPrompt && (
+                          <Button
+                            onClick={handleProceedWithGeneratedPrompt}
+                            className="flex-1 gap-2"
+                            variant="default"
+                          >
+                            <ArrowRight className="w-5 h-5" />
+                            Continue
+                          </Button>
                         )}
-                      </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex justify-between mt-8">
+                  <Button
+                    onClick={() => setCurrentStep('start-method')}
+                    variant="outline"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+          
+          {/* STEP 2B: Direct Prompt Input */}
+          {currentStep === 'prompt-generation' && startMethod === 'write-prompt' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Describe Your Coloring Book</h2>
+                <p className="text-muted-foreground mb-6">
+                  Be as descriptive as possible about what you want in your coloring book. For example: "Enchanted forest with magical creatures, fantasy mushrooms and hidden fairies"
+                </p>
+                
+                <div className="space-y-4">
+                  <Label className="text-lg font-semibold">Your Prompt</Label>
+                  <div className="relative">
+                    <Textarea
+                      value={basePrompt}
+                      onChange={handleBasePromptChange}
+                      placeholder="Describe what you want in your coloring book..."
+                      className="min-h-[200px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg"
+                      maxLength={250}
+                    />
+                    <div className="absolute bottom-2 left-4 text-xs text-muted-foreground">
+                      {basePrompt.length}/250 characters
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between mt-8">
+                    <Button
+                      onClick={() => setCurrentStep('start-method')}
+                      variant="outline"
+                    >
+                      Back
+                    </Button>
+                    
+                    <Button
+                      onClick={goToNextStep}
+                      disabled={!basePrompt.trim()}
+                      className="gap-2"
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      Continue
                     </Button>
                   </div>
                 </div>
               </div>
             </Card>
-          </TabsContent>
-
-          {/* Prompt to Coloring Book Tab */}
-          <TabsContent value="prompt-to-book" className="space-y-8">
+          )}
+          
+          {/* STEP 3: Prompt Variations Generation */}
+          {currentStep === 'prompt-review' && (
             <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
               <div className="relative p-8 space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Create Your Coloring Book</h2>
+                <h2 className="text-2xl font-bold mb-4">Prompt Variations for Each Page</h2>
                 
-                {/* Prompt Input */}
-                <div className="space-y-4">
-                  <Label className="text-lg font-semibold">Coloring Book Prompt</Label>
-                  <Textarea
-                    value={bookPrompt}
-                    onChange={(e) => setBookPrompt(e.target.value)}
-                    placeholder="Describe what you want in your coloring book (e.g., 'Enchanted forest with magical creatures, fantasy mushrooms and hidden fairies')"
-                    className="min-h-[100px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg"
-                  />
+                <div className="space-y-6">
+                  {/* Basic Settings */}
+                  <div className="flex flex-col md:flex-row gap-8 items-start">
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-lg font-semibold">Generate multiple unique prompts?</Label>
+                        <Switch
+                          checked={useMultiplePrompts}
+                          onCheckedChange={handleToggleMultiplePrompts}
+                        />
+                      </div>
+                      
+                      <p className="text-muted-foreground text-sm">
+                        {useMultiplePrompts 
+                          ? "Each page will have a unique variation of your prompt, creating diversity in your coloring book." 
+                          : "All pages will use the exact same prompt, creating consistency in your coloring book."}
+                      </p>
+                    </div>
+                    
+                    <div className="w-full md:w-48 space-y-2">
+                      <Label className="font-medium">Number of Pages</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={coloringOptions.pageCount}
+                        onChange={(e) => setColoringOptions({...coloringOptions, pageCount: parseInt(e.target.value) || 1})}
+                        className="bg-background/50 border-primary/20"
+                      />
+                      <p className="text-xs text-muted-foreground">Maximum: 100 pages</p>
+                    </div>
+                  </div>
+                  
+                  {/* Base Prompt Display */}
+                  <div className="space-y-2 bg-muted/30 p-4 rounded-lg">
+                    <Label className="font-medium">Base Prompt</Label>
+                    <div className="text-sm bg-background/50 p-3 rounded border border-border">
+                      {basePrompt}
+                    </div>
+                  </div>
+                  
+                  {/* Generate Button */}
+                  {!expandedPrompts.length ? (
+                    <Button
+                      onClick={handleGeneratePrompts}
+                      disabled={!basePrompt.trim() || isGeneratingPrompts}
+                      className="w-full h-12 relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        {isGeneratingPrompts ? (
+                          <Sparkles className="w-5 h-5 animate-pulse" />
+                        ) : (
+                          <ListPlus className="w-5 h-5" />
+                        )}
+                        Generate {coloringOptions.pageCount} Prompt{coloringOptions.pageCount > 1 ? 's' : ''}
+                      </span>
+                    </Button>
+                  ) : (
+                    <div className="flex gap-4">
+                      <Button 
+                        onClick={shuffleAllPrompts}
+                        disabled={!useMultiplePrompts || isGeneratingPrompts}
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Shuffle className="w-4 h-4" />
+                        Shuffle All
+                      </Button>
+                      
+                      <Button
+                        onClick={confirmPrompts}
+                        className="flex-1 gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Confirm Prompts
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Progress Indicator */}
+                  {isGeneratingPrompts && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between mb-1 text-sm">
+                        <span>Generating prompts...</span>
+                        <span className="text-primary">{generationProgress}%</span>
+                      </div>
+                      <Progress value={generationProgress} className="h-2" />
+                    </div>
+                  )}
+                  
+                  {/* Expanded Prompts List */}
+                  {expandedPrompts.length > 0 && (
+                    <div className="space-y-6 mt-8">
+                      <h3 className="text-xl font-semibold">Review and Edit Prompts</h3>
+                      <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2">
+                        {expandedPrompts.map((prompt, index) => (
+                          <div key={index} className="space-y-2 bg-muted/20 p-4 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center">
+                                <span className="bg-primary/10 text-primary font-medium rounded-full w-8 h-8 flex items-center justify-center mr-2">
+                                  {index + 1}
+                                </span>
+                                <Label className="font-medium">Page {index + 1} Prompt</Label>
+                              </div>
+                              
+                              {useMultiplePrompts && (
+                                <Button
+                                  onClick={() => regenerateSinglePrompt(index)}
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-8 gap-1"
+                                >
+                                  <RefreshCw className="w-3 h-3" />
+                                  Regenerate
+                                </Button>
+                              )}
+                            </div>
+                            
+                            <Textarea
+                              value={prompt}
+                              onChange={(e) => updateExpandedPrompt(index, e.target.value)}
+                              className="min-h-[80px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm"
+                              maxLength={250}
+                            />
+                            <div className="text-xs text-muted-foreground text-right">
+                              {prompt.length}/250 characters
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
+                
+                <div className="flex justify-between mt-8">
+                  <Button
+                    onClick={goToPreviousStep}
+                    variant="outline"
+                  >
+                    Back
+                  </Button>
+                  
+                  {expandedPrompts.length > 0 && (
+                    <Button
+                      onClick={confirmPrompts}
+                      className="gap-2"
+                    >
+                      <ArrowRight className="w-5 h-5" />
+                      Continue
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
 
-                {/* Book Options */}
+          {/* STEP 4: Book Configuration */}
+          {currentStep === 'book-settings' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Book Configuration</h2>
+                <p className="text-muted-foreground mb-6">
+                  Configure your coloring book settings for optimal print quality and layout
+                </p>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Trim Size */}
                   <div className="space-y-2">
-                    <Label className="text-base font-medium">Trim Size</Label>
+                    <Label className="font-medium">Trim Size</Label>
                     <Select 
                       value={coloringOptions.trimSize} 
                       onValueChange={(value) => setColoringOptions({...coloringOptions, trimSize: value})}
                     >
-                      <SelectTrigger className="h-10 bg-background/50 border-primary/20">
+                      <SelectTrigger className="bg-background/50 border-primary/20">
                         <SelectValue placeholder="Select trim size" />
                       </SelectTrigger>
                       <SelectContent>
@@ -554,35 +983,38 @@ export const AIColoringGenerator = () => {
                         <SelectItem value="7x10">7" x 10" (17.78 x 25.4 cm)</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  {/* Page Count */}
-                  <div className="space-y-2">
-                    <Label className="text-base font-medium">Number of Pages</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={coloringOptions.pageCount}
-                      onChange={(e) => setColoringOptions({...coloringOptions, pageCount: parseInt(e.target.value) || 1})}
-                      className="h-10 bg-background/50 border-primary/20"
-                    />
+                    <p className="text-xs text-muted-foreground">Standard KDP sizes available</p>
                   </div>
 
                   {/* Book Title */}
                   <div className="space-y-2">
-                    <Label className="text-base font-medium">Book Title (Optional)</Label>
+                    <Label className="font-medium">Book Title</Label>
                     <Input
                       value={coloringOptions.bookTitle}
                       onChange={(e) => setColoringOptions({...coloringOptions, bookTitle: e.target.value})}
                       placeholder="My Coloring Book"
-                      className="h-10 bg-background/50 border-primary/20"
+                      className="bg-background/50 border-primary/20"
+                    />
+                  </div>
+
+                  {/* Add Title Page Toggle */}
+                  <div className="flex items-center justify-between space-x-2">
+                    <div>
+                      <Label className="font-medium">Add Title Page</Label>
+                      <p className="text-xs text-muted-foreground">Include a professional title/author page</p>
+                    </div>
+                    <Switch
+                      checked={coloringOptions.addTitlePage}
+                      onCheckedChange={(checked) => setColoringOptions({...coloringOptions, addTitlePage: checked})}
                     />
                   </div>
 
                   {/* Add Blank Pages Toggle */}
                   <div className="flex items-center justify-between space-x-2">
-                    <Label className="text-base font-medium">Add Blank Pages Between</Label>
+                    <div>
+                      <Label className="font-medium">Add Blank Pages Between</Label>
+                      <p className="text-xs text-muted-foreground">For better printing experience</p>
+                    </div>
                     <Switch
                       checked={coloringOptions.addBlankPages}
                       onCheckedChange={(checked) => setColoringOptions({...coloringOptions, addBlankPages: checked})}
@@ -591,7 +1023,10 @@ export const AIColoringGenerator = () => {
 
                   {/* Show Page Numbers Toggle */}
                   <div className="flex items-center justify-between space-x-2">
-                    <Label className="text-base font-medium">Show Page Numbers</Label>
+                    <div>
+                      <Label className="font-medium">Show Page Numbers</Label>
+                      <p className="text-xs text-muted-foreground">Add page numbers at the bottom</p>
+                    </div>
                     <Switch
                       checked={coloringOptions.showPageNumbers}
                       onCheckedChange={(checked) => setColoringOptions({...coloringOptions, showPageNumbers: checked})}
@@ -600,115 +1035,335 @@ export const AIColoringGenerator = () => {
 
                   {/* Include Bleed Toggle */}
                   <div className="flex items-center justify-between space-x-2">
-                    <Label className="text-base font-medium">Include Bleed (0.125")</Label>
+                    <div>
+                      <Label className="font-medium">Include Bleed (0.125")</Label>
+                      <p className="text-xs text-muted-foreground">Required for professional printing</p>
+                    </div>
                     <Switch
                       checked={coloringOptions.includeBleed}
                       onCheckedChange={(checked) => setColoringOptions({...coloringOptions, includeBleed: checked})}
                     />
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-4">
+                
+                {/* DPI Info */}
+                <div className="bg-muted/30 p-4 rounded-lg mt-8">
+                  <div className="flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-primary" />
+                    <h3 className="font-medium">Advanced Settings</h3>
+                  </div>
+                  <div className="mt-2 grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm">DPI (Dots Per Inch)</Label>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                        <p className="text-sm">Fixed at 300 DPI (Print Quality)</p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm">Total Pages</Label>
+                      <p className="text-sm mt-1">
+                        {coloringOptions.addTitlePage ? '1 title page + ' : ''}
+                        {expandedPrompts.length} coloring pages
+                        {coloringOptions.addBlankPages ? ` + ${expandedPrompts.length - 1} blank pages` : ''}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between mt-8">
                   <Button
-                    onClick={handleGenerateTestPage}
-                    disabled={!bookPrompt.trim() || isGenerating}
+                    onClick={goToPreviousStep}
                     variant="outline"
-                    className="flex-1 h-12 text-base gap-2"
                   >
-                    {isGenerating ? (
-                      <Sparkles className="w-5 h-5 animate-pulse" />
-                    ) : (
-                      <PlusSquare className="w-5 h-5" />
-                    )}
-                    Generate Test Page
+                    Back
                   </Button>
                   
                   <Button
-                    onClick={handleGenerateBook}
-                    disabled={expandedPrompts.length === 0 || isGenerating}
-                    className="flex-1 h-12 text-base relative overflow-hidden group bg-primary/90 hover:bg-primary/80 gap-2"
+                    onClick={goToNextStep}
+                    className="gap-2"
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                    <span className="relative flex items-center justify-center gap-2">
-                      {isGenerating ? (
-                        <Sparkles className="w-5 h-5 animate-pulse" />
-                      ) : (
-                        <Wand2 className="w-5 h-5" />
-                      )}
-                      Generate Coloring Book
-                    </span>
+                    <ArrowRight className="w-5 h-5" />
+                    Continue
                   </Button>
                 </div>
               </div>
             </Card>
-
-            {/* Expanded Prompts Section - only show when prompts exist */}
-            {expandedPrompts.length > 0 && (
-              <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
-                <div className="relative p-8 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold">Generated Prompts</h2>
-                    <p className="text-sm text-muted-foreground">Edit any prompt before final generation</p>
+          )}
+          
+          {/* STEP 5: Title Page Configuration */}
+          {currentStep === 'title-page' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Title Page</h2>
+                <p className="text-muted-foreground mb-6">
+                  Add information for your title page. This will be the first page of your coloring book.
+                </p>
+                
+                <div className="grid grid-cols-1 gap-6 max-w-2xl mx-auto">
+                  {/* Book Title (already entered in previous step) */}
+                  <div className="space-y-2">
+                    <Label className="font-medium">Book Title</Label>
+                    <Input
+                      value={coloringOptions.bookTitle}
+                      onChange={(e) => setColoringOptions({...coloringOptions, bookTitle: e.target.value})}
+                      placeholder="My Amazing Coloring Book"
+                      className="bg-background/50 border-primary/20"
+                    />
                   </div>
                   
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                    {expandedPrompts.map((prompt, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center">
-                          <span className="bg-primary/10 text-primary font-medium rounded-full w-8 h-8 flex items-center justify-center mr-2">
-                            {index + 1}
-                          </span>
-                          <Label className="text-base font-medium">Page {index + 1} Prompt</Label>
-                        </div>
-                        <Textarea
-                          value={prompt}
-                          onChange={(e) => updateExpandedPrompt(index, e.target.value)}
-                          className="min-h-[80px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm"
-                        />
-                      </div>
-                    ))}
+                  {/* Author Name */}
+                  <div className="space-y-2">
+                    <Label className="font-medium">Author Name</Label>
+                    <Input
+                      value={coloringOptions.authorName}
+                      onChange={(e) => setColoringOptions({...coloringOptions, authorName: e.target.value})}
+                      placeholder="Your Name"
+                      className="bg-background/50 border-primary/20"
+                    />
+                    <p className="text-xs text-muted-foreground">Optional: Leave blank if you don't want to include an author name</p>
+                  </div>
+                  
+                  {/* Subtitle or Tagline */}
+                  <div className="space-y-2">
+                    <Label className="font-medium">Subtitle or Tagline</Label>
+                    <Input
+                      value={coloringOptions.subtitle}
+                      onChange={(e) => setColoringOptions({...coloringOptions, subtitle: e.target.value})}
+                      placeholder="A collection of beautiful designs to color"
+                      className="bg-background/50 border-primary/20"
+                    />
+                    <p className="text-xs text-muted-foreground">Optional: Add a subtitle or descriptive tagline</p>
                   </div>
                 </div>
-              </Card>
-            )}
-
-            {/* Generated Pages Preview */}
-            {generatedPages.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <h2 className="text-2xl font-bold">Your Coloring Book Preview</h2>
-                  
-                  <div className="flex flex-wrap gap-2">
-                    <Button 
-                      variant="default" 
-                      className="gap-2"
-                      onClick={handleCreatePdf}
-                      disabled={isCreatingPdf || generatedPages.length === 0}
-                    >
-                      {isCreatingPdf ? (
-                        <Sparkles className="w-5 h-5 animate-pulse" />
-                      ) : (
-                        <File className="w-5 h-5" />
+                
+                {/* Title Page Preview */}
+                <div className="mt-8 p-8 bg-background/70 border border-primary/20 rounded-lg">
+                  <div className="aspect-[1/1.4] bg-white rounded-lg shadow-md p-10 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
+                    <div className="h-full flex flex-col items-center justify-center gap-6">
+                      <div className="text-3xl font-bold text-primary">
+                        {coloringOptions.bookTitle || "My Coloring Book"}
+                      </div>
+                      
+                      {coloringOptions.subtitle && (
+                        <div className="text-lg text-muted-foreground italic">
+                          {coloringOptions.subtitle}
+                        </div>
                       )}
-                      Create & Download PDF
-                    </Button>
-                    
-                    <Button 
-                      variant="outline" 
-                      className="gap-2"
-                      onClick={handleDownloadImages}
-                      disabled={generatedPages.length === 0}
+                      
+                      <div className="flex-grow"></div>
+                      
+                      {coloringOptions.authorName && (
+                        <div className="text-xl mt-auto">
+                          by <span className="font-medium">{coloringOptions.authorName}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex justify-between mt-8">
+                  <Button
+                    onClick={goToPreviousStep}
+                    variant="outline"
+                  >
+                    Back
+                  </Button>
+                  
+                  <Button
+                    onClick={goToNextStep}
+                    className="gap-2"
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                    Continue
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* STEP 6: Generate Book */}
+          {currentStep === 'generate-book' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4 text-center">Generate Your Coloring Book</h2>
+                
+                <div className="max-w-2xl mx-auto">
+                  {/* Book Summary */}
+                  <div className="bg-muted/30 p-6 rounded-lg">
+                    <h3 className="text-xl font-semibold mb-4">Book Summary</h3>
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Title:</span> 
+                        <span className="ml-2 font-medium">{coloringOptions.bookTitle || "Coloring Book"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Pages:</span> 
+                        <span className="ml-2 font-medium">{expandedPrompts.length}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Size:</span> 
+                        <span className="ml-2 font-medium">{coloringOptions.trimSize}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Bleed:</span> 
+                        <span className="ml-2 font-medium">{coloringOptions.includeBleed ? "Yes" : "No"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Title Page:</span> 
+                        <span className="ml-2 font-medium">{coloringOptions.addTitlePage ? "Yes" : "No"}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Page Numbers:</span> 
+                        <span className="ml-2 font-medium">{coloringOptions.showPageNumbers ? "Yes" : "No"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Generate Button */}
+                  {!isGenerating && generatedPages.length === 0 ? (
+                    <Button
+                      onClick={handleGenerateBook}
+                      className="w-full h-14 text-lg mt-8 relative overflow-hidden group"
                     >
-                      <Download className="w-5 h-5" />
-                      Download All Images
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                      <span className="relative flex items-center justify-center gap-2">
+                        <Wand2 className="w-6 h-6" />
+                        Generate Coloring Book
+                      </span>
                     </Button>
+                  ) : isGenerating ? (
+                    <div className="space-y-8 mt-8">
+                      <div className="space-y-2">
+                        <div className="flex justify-between mb-1">
+                          <span>Generating coloring pages...</span>
+                          <span className="text-primary">Page {currentGeneratingPage} of {expandedPrompts.length}</span>
+                        </div>
+                        <Progress value={generationProgress} className="h-3" />
+                      </div>
+                      
+                      {/* Live Preview */}
+                      {generatedPages.length > 0 && (
+                        <div className="mt-8">
+                          <h3 className="text-lg font-medium mb-4">Live Preview</h3>
+                          <div className="grid grid-cols-4 gap-4">
+                            {generatedPages.map((page, index) => (
+                              <div 
+                                key={index}
+                                className="aspect-[1/1.4] bg-white rounded-md overflow-hidden border border-border"
+                              >
+                                <img 
+                                  src={page} 
+                                  alt={`Page ${index + 1}`}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    // Generation complete
+                    <div className="mt-8 text-center space-y-4">
+                      <div className="inline-flex items-center justify-center p-2 rounded-full bg-green-100 text-green-600">
+                        <Check className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-medium">Generation Complete!</h3>
+                      <p className="text-muted-foreground">Your coloring book is ready to preview and download.</p>
+                      <Button
+                        onClick={goToNextStep}
+                        className="mt-4"
+                      >
+                        Preview & Download
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {!isGenerating && generatedPages.length === 0 && (
+                  <div className="flex justify-between mt-8">
+                    <Button
+                      onClick={goToPreviousStep}
+                      variant="outline"
+                    >
+                      Back
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* STEP 7: Preview and Download */}
+          {currentStep === 'preview-download' && (
+            <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+              <div className="relative p-8 space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Your Coloring Book Preview</h2>
+                
+                {/* Download Buttons */}
+                <div className="flex flex-col sm:flex-row items-center gap-4 justify-end">
+                  <Button 
+                    variant="default" 
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={handleCreatePdf}
+                    disabled={isCreatingPdf || generatedPages.length === 0}
+                  >
+                    {isCreatingPdf ? (
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    ) : (
+                      <File className="w-5 h-5" />
+                    )}
+                    Create & Download PDF
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="gap-2 w-full sm:w-auto"
+                    onClick={handleDownloadImages}
+                    disabled={generatedPages.length === 0}
+                  >
+                    <Download className="w-5 h-5" />
+                    Download All Images (ZIP)
+                  </Button>
+                </div>
+                
+                {/* PDF Progress */}
+                {isCreatingPdf && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between mb-1">
+                      <span>Creating PDF...</span>
+                      <span className="text-primary">{pdfProgress}%</span>
+                    </div>
+                    <Progress value={pdfProgress} className="h-2" />
+                  </div>
+                )}
+                
+                {/* Book Metadata */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-lg text-sm">
+                  <div>
+                    <span className="text-muted-foreground block">Pages</span>
+                    <span className="font-medium">{generatedPages.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Size</span>
+                    <span className="font-medium">{coloringOptions.trimSize}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Format</span>
+                    <span className="font-medium">PDF, PNG</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block">Quality</span>
+                    <span className="font-medium">300 DPI</span>
                   </div>
                 </div>
                 
                 {/* Main Preview */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
                   {/* Large Preview */}
                   <div className="lg:col-span-2 aspect-[1/1.4] bg-white rounded-xl overflow-hidden shadow-md border border-primary/20 relative">
                     <img 
@@ -749,7 +1404,19 @@ export const AIColoringGenerator = () => {
                   
                   {/* Thumbnails Grid */}
                   <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">All Pages ({generatedPages.length})</h3>
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-semibold">All Pages ({generatedPages.length})</h3>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="gap-1"
+                        onClick={() => setActivePreviewIndex(0)}
+                      >
+                        <Eye className="w-4 h-4" />
+                        Show All
+                      </Button>
+                    </div>
+                    
                     <div className="grid grid-cols-2 gap-4 max-h-[600px] overflow-y-auto p-2">
                       {generatedPages.map((page, index) => (
                         <div 
@@ -770,11 +1437,36 @@ export const AIColoringGenerator = () => {
                     </div>
                   </div>
                 </div>
+                
+                <div className="flex justify-between mt-8">
+                  <Button
+                    onClick={goToPreviousStep}
+                    variant="outline"
+                  >
+                    Back
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      // Reset state for new project
+                      setCurrentStep('start-method');
+                      setStartMethod(null);
+                      setBasePrompt('');
+                      setGeneratedPrompt('');
+                      setUploadedImage(null);
+                      setExpandedPrompts([]);
+                      setPromptsConfirmed(false);
+                    }}
+                    className="gap-2"
+                  >
+                    Create Another Book
+                  </Button>
+                </div>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
-}; 
+};
