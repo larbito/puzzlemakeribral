@@ -13,34 +13,7 @@ console.log('API_URL configured as:', API_URL);
 console.log('Current environment:', process.env.NODE_ENV || 'not set');
 console.log('Window location origin:', window.location.origin);
 
-// Force any ideogram.ai URL through our proxy
-export function forceProxyForIdeogramUrl(url: string): string {
-  // Basic validation to prevent errors
-  if (!url || typeof url !== 'string') {
-    console.error("Invalid URL provided to proxy", url);
-    return url || '';
-  }
-  
-  try {
-    // If it's already a data URL or blob URL, return as is
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-      return url;
-    }
-    
-    // If it's an ideogram.ai URL, proxy it
-    if (url.includes('ideogram.ai')) {
-      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
-    }
-    
-    // Otherwise return the original URL
-    return url;
-  } catch (error) {
-    console.error("Error in proxy function:", error);
-    return url;
-  }
-}
-
-// For development/debugging - set to true to use placeholder images instead of real API
+// For development/debugging - set to false to use the real API service
 const USE_PLACEHOLDERS = false; // Set to false to use the real API service
 
 // Add debug logging for API URL and environment
@@ -1194,7 +1167,7 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
   try {
     console.log("Generating coloring page with prompt:", prompt);
     
-    // For testing UI interactivity
+    // For testing UI interactivity only
     if (USE_PLACEHOLDERS) {
       console.log("Using placeholder for coloring page");
       return getPlaceholderImage(prompt, 'coloring');
@@ -1218,22 +1191,33 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
       const fullUrl = `${API_URL}/api/ideogram/generate`;
       console.log("Making request to:", fullUrl);
 
+      // Add a timeout of 60 seconds for the API call
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      
       const response = await fetch(fullUrl, {
         method: 'POST',
-        body: formData
+        body: formData,
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
 
       console.log("Response status:", response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Raw error response:", errorText);
-        
         let errorData;
         try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText || 'Failed to parse error response' };
+          const errorText = await response.text();
+          console.error("Raw error response:", errorText);
+          
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText || 'Failed to parse error response' };
+          }
+        } catch (e) {
+          errorData = { error: `API error: ${response.status}` };
         }
         
         throw new Error(errorData.error || `API error: ${response.status}`);
@@ -1243,15 +1227,58 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
       console.log("API response data:", data);
 
       if (!data.url) {
+        console.error("No image URL in response:", data);
         throw new Error("Could not extract image URL from API response");
+      }
+
+      // Verify the image URL is accessible
+      try {
+        const imageResponse = await fetch(data.url, { method: 'HEAD' });
+        if (!imageResponse.ok) {
+          console.error("Image URL is not accessible:", data.url);
+          throw new Error("Image URL is not accessible");
+        }
+      } catch (imageError) {
+        console.error("Error verifying image URL:", imageError);
+        // Still return the URL but log the error
       }
 
       return data.url;
     } catch (error) {
       console.error("Error generating coloring page:", error);
       
-      // Fallback to placeholder for demo/testing
-      return getPlaceholderImage(prompt, 'coloring');
+      // Try again with a more basic prompt if the enhanced one failed
+      try {
+        console.log("Retrying with simpler prompt...");
+        
+        const simplePrompt = `coloring page: ${prompt}, line art, black and white, no color`;
+        
+        const retryFormData = new FormData();
+        retryFormData.append('prompt', simplePrompt);
+        retryFormData.append('aspect_ratio', '3:4');
+        retryFormData.append('style', 'LINE_ART');
+        
+        const response = await fetch(`${API_URL}/api/ideogram/generate`, {
+          method: 'POST',
+          body: retryFormData
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Retry failed: ${response.status}`);
+        }
+        
+        const retryData = await response.json();
+        
+        if (!retryData.url) {
+          throw new Error("No image URL in retry response");
+        }
+        
+        return retryData.url;
+      } catch (retryError) {
+        console.error("Retry also failed:", retryError);
+        // Fallback to placeholder for demo/testing
+        return getPlaceholderImage(prompt, 'coloring');
+      }
     }
   } catch (error) {
     console.error("Error in generateColoringPage:", error);
@@ -1468,5 +1495,32 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
       fallbackPrompts.push(`${basePrompt} - variation ${i + 1}`);
     }
     return fallbackPrompts;
+  }
+}
+
+// Force any ideogram.ai URL through our proxy
+export function forceProxyForIdeogramUrl(url: string): string {
+  // Basic validation to prevent errors
+  if (!url || typeof url !== 'string') {
+    console.error("Invalid URL provided to proxy", url);
+    return url || '';
+  }
+  
+  try {
+    // If it's already a data URL or blob URL, return as is
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+      return url;
+    }
+    
+    // If it's an ideogram.ai URL, proxy it
+    if (url.includes('ideogram.ai')) {
+      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+    }
+    
+    // Otherwise return the original URL
+    return url;
+  } catch (error) {
+    console.error("Error in proxy function:", error);
+    return url;
   }
 } 

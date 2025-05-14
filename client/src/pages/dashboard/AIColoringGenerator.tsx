@@ -413,7 +413,7 @@ export const AIColoringGenerator = () => {
           const enhancedPrompt = expandedPrompts[i];
           
           // Call the API with proper error handling and retry logic
-          let pageUrl = null;
+          let pageUrl: string | null = null;
           let retryCount = 0;
           const maxRetries = 2;
           
@@ -427,13 +427,13 @@ export const AIColoringGenerator = () => {
                   const img = new Image();
                   img.onload = () => resolve(true);
                   img.onerror = () => reject(new Error('Failed to load image'));
-                  img.src = pageUrl;
+                  img.src = pageUrl as string;
                 });
                 
                 // Image loaded successfully, add to our collection
                 pageUrls.push(pageUrl);
                 // Update UI immediately when each page is ready
-                setGeneratedPages(prevPages => [...prevPages, pageUrl]);
+                setGeneratedPages(prevPages => [...prevPages, pageUrl as string]);
                 
                 toast.success(`Generated page ${i+1} successfully`, {
                   id: toastId
