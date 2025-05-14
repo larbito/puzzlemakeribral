@@ -33,7 +33,8 @@ import {
   generateColoringPage, 
   generateColoringBook, 
   createColoringBookPDF, 
-  downloadColoringPages 
+  downloadColoringPages,
+  expandPrompts
 } from '@/services/ideogramService';
 import { toast } from 'sonner';
 
@@ -221,24 +222,44 @@ export const AIColoringGenerator = () => {
     setPdfUrl(null);
 
     try {
-      toast.info(`Generating ${coloringOptions.pageCount} coloring pages...`);
+      toast.info(`Expanding prompt variations for ${coloringOptions.pageCount} pages...`);
       
-      // Generate all pages
-      const pageUrls = await generateColoringBook({
-        prompt: bookPrompt,
-        pageCount: coloringOptions.pageCount,
-        trimSize: coloringOptions.trimSize,
-        addBlankPages: coloringOptions.addBlankPages,
-        showPageNumbers: coloringOptions.showPageNumbers,
-        includeBleed: coloringOptions.includeBleed,
-        bookTitle: coloringOptions.bookTitle
-      });
+      // First, expand the base prompt into variations for each page
+      const promptVariations = await expandPrompts(bookPrompt, coloringOptions.pageCount);
+      
+      if (!promptVariations || promptVariations.length === 0) {
+        throw new Error('Failed to generate prompt variations');
+      }
+      
+      toast.info(`Generating ${promptVariations.length} unique coloring pages...`);
+      
+      // Generate pages using the expanded prompts
+      const pageUrls: string[] = [];
+      
+      // Generate pages for each prompt variation
+      for (let i = 0; i < promptVariations.length; i++) {
+        try {
+          toast.info(`Generating page ${i+1} of ${promptVariations.length}...`, {
+            id: `page-${i}`,
+            duration: 2000
+          });
+          
+          const pageUrl = await generateColoringPage(promptVariations[i]);
+          if (pageUrl) {
+            pageUrls.push(pageUrl);
+            // Update UI immediately when each page is ready
+            setGeneratedPages(prevPages => [...prevPages, pageUrl]);
+          }
+        } catch (pageError) {
+          console.error(`Error generating page ${i+1}:`, pageError);
+          // Continue with other pages
+        }
+      }
       
       if (pageUrls.length === 0) {
         throw new Error('Failed to generate any coloring pages');
       }
       
-      setGeneratedPages(pageUrls);
       setActivePreviewIndex(0);
       toast.success(`Generated ${pageUrls.length} coloring pages successfully`);
     } catch (error) {
