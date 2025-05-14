@@ -463,14 +463,32 @@ export const AIColoringGenerator = () => {
                         className="min-h-[260px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg resize-none"
                       />
                       {generatedPrompt && (
-                        <Button
-                          size="sm"
-                          className="absolute bottom-4 right-4 gap-1"
-                          onClick={usePromptForBook}
-                        >
-                          <Check className="h-4 w-4" />
-                          Use Prompt
-                        </Button>
+                        <div className="absolute bottom-4 right-4 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (generatedPrompt) {
+                                // Set the book prompt
+                                setBookPrompt(generatedPrompt);
+                                // Generate prompts automatically
+                                handleGeneratePrompts();
+                                // Switch to the book tab
+                                document.getElementById('prompt-to-book-tab')?.click();
+                              }
+                            }}
+                          >
+                            <ListPlus className="h-4 w-4 mr-1" />
+                            Generate Book Prompts
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={usePromptForBook}
+                          >
+                            <Check className="h-4 w-4" />
+                            Use Prompt
+                          </Button>
+                        </div>
                       )}
                     </div>
                     <Button
@@ -592,20 +610,6 @@ export const AIColoringGenerator = () => {
 
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">
-                  <Button
-                    onClick={handleGeneratePrompts}
-                    disabled={!bookPrompt.trim() || isGeneratingPrompts}
-                    variant="outline"
-                    className="flex-1 h-12 text-base gap-2"
-                  >
-                    {isGeneratingPrompts ? (
-                      <Sparkles className="w-5 h-5 animate-pulse" />
-                    ) : (
-                      <ListPlus className="w-5 h-5" />
-                    )}
-                    Generate Prompts
-                  </Button>
-                  
                   <Button
                     onClick={handleGenerateTestPage}
                     disabled={!bookPrompt.trim() || isGenerating}
