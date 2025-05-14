@@ -230,7 +230,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
     // Create the appropriate prompt text based on the type
     const promptText = isColoringBook
-      ? 'Analyze this image and determine if it is a coloring book style image or line art suitable for coloring. If it IS suitable for a coloring book, provide a detailed prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. The prompt should describe a clean line art style suitable for coloring books. Make the prompt engaging and child-friendly. If the image is NOT suitable for a coloring book (e.g., a photograph, complex artwork, t-shirt design, etc.), start your response with "NOT A COLORING PAGE:" and explain why it is not suitable.'
+      ? 'Analyze this image and determine if it is a coloring book style image or line art suitable for coloring. If it IS suitable for a coloring book, provide a detailed, descriptive prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. Describe all the key elements in detail. The prompt should describe clean line art suitable for coloring books. Make the prompt engaging and child-friendly. Do not include phrases like "coloring book page" or "suitable for a coloring book" in your description - just describe the scene itself. If the image is NOT suitable for a coloring book (e.g., a photograph, complex artwork, t-shirt design, etc.), start your response with "NOT A COLORING PAGE:" and explain why it is not suitable.'
       : 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.';
 
     // Call OpenAI's GPT-4 Vision API for image analysis
@@ -259,7 +259,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             ]
           }
         ],
-        max_tokens: 300
+        max_tokens: 500
       })
     });
 
@@ -269,9 +269,59 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
     }
 
     const data = await response.json();
-    const prompt = data.choices[0].message.content;
+    const basePrompt = data.choices[0].message.content;
+    
+    // For coloring book images, also generate prompt variations if requested
+    if (isColoringBook && req.body.generateVariations === 'true') {
+      try {
+        console.log('Generating prompt variations from base prompt:', basePrompt);
+        const pageCount = parseInt(req.body.pageCount) || 10;
+        
+        // Use a relative path that works in both local and deployed environments
+        const expandPromptsUrl = '/api/coloring-book/expand-prompts';
+        console.log(`Calling expand-prompts API at relative URL: ${expandPromptsUrl}`);
+        
+        // Create the full URL by getting the host from the request
+        const protocol = req.secure ? 'https' : 'http';
+        const host = req.get('host');
+        const fullUrl = `${protocol}://${host}${expandPromptsUrl}`;
+        console.log(`Full expand-prompts URL: ${fullUrl}`);
+        
+        // Call the expand-prompts endpoint to generate variations
+        const variationsResponse = await fetch(fullUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            basePrompt,
+            pageCount
+          })
+        });
+        
+        if (!variationsResponse.ok) {
+          console.error('Failed to generate prompt variations:', await variationsResponse.text());
+          // Return just the base prompt if variations fail
+          return res.json({ prompt: basePrompt });
+        }
+        
+        const variationsData = await variationsResponse.json();
+        console.log('Generated variations:', variationsData.promptVariations.length);
+        
+        // Return both the base prompt and the variations
+        return res.json({ 
+          prompt: basePrompt,
+          promptVariations: variationsData.promptVariations
+        });
+      } catch (variationsError) {
+        console.error('Error generating prompt variations:', variationsError);
+        // Return just the base prompt if variations generation fails
+        return res.json({ prompt: basePrompt });
+      }
+    }
 
-    res.json({ prompt });
+    // Return just the base prompt for non-coloring book images or if variations not requested
+    res.json({ prompt: basePrompt });
   } catch (error) {
     console.error('Image analysis error:', error);
     res.status(500).json({ error: error.message });
