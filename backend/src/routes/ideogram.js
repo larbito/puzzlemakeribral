@@ -200,8 +200,17 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
       throw new Error('No image file provided');
     }
 
+    // Check if this is a request for coloring book analysis
+    const isColoringBook = req.body.type === 'coloring';
+    console.log('Image analysis request type:', isColoringBook ? 'coloring book' : 't-shirt design');
+
     // Convert the image buffer to base64
     const base64Image = req.file.buffer.toString('base64');
+
+    // Create the appropriate prompt text based on the type
+    const promptText = isColoringBook
+      ? 'Analyze this image and provide a detailed prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. The prompt should describe a clean line art style suitable for coloring books. Make the prompt engaging and child-friendly.'
+      : 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.';
 
     // Call OpenAI's GPT-4 Vision API for image analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -218,7 +227,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
             content: [
               {
                 type: 'text',
-                text: 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.'
+                text: promptText
               },
               {
                 type: 'image_url',

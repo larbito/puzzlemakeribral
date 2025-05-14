@@ -119,14 +119,33 @@ export const AIColoringGenerator = () => {
 
     setIsGeneratingPrompt(true);
     try {
-      // Convert data URL to File object
+      // Convert data URL to blob
       const response = await fetch(uploadedImage);
       const blob = await response.blob();
-      const file = new File([blob], 'uploaded-image.png', { type: blob.type });
-
-      // Use imageToPrompt service to analyze the image
-      const prompt = await imageToPrompt(file);
-      setGeneratedPrompt(prompt);
+      
+      // Create a FormData with the blob
+      const formData = new FormData();
+      formData.append('image', blob, 'uploaded-image.png');
+      formData.append('type', 'coloring');
+      
+      // Make a direct API call to the backend
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? window.location.origin.includes('vercel.app') 
+          ? 'https://puzzlemakeribral-production.up.railway.app'
+          : window.location.origin
+        : 'http://localhost:3000';
+      
+      const apiResponse = await fetch(`${apiUrl}/api/ideogram/analyze`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!apiResponse.ok) {
+        throw new Error(`API error: ${apiResponse.status}`);
+      }
+      
+      const data = await apiResponse.json();
+      setGeneratedPrompt(data.prompt);
       toast.success('Prompt generated successfully');
     } catch (error) {
       console.error('Error generating prompt:', error);
@@ -227,10 +246,7 @@ export const AIColoringGenerator = () => {
 
     setIsCreatingPdf(true);
     try {
-      toast('Creating PDF...', { 
-        description: 'Please wait while we prepare your PDF',
-        icon: <Sparkles className="h-4 w-4 animate-pulse" />
-      });
+      toast.info('Creating PDF...');
       
       const pdfUrlResult = await createColoringBookPDF(generatedPages, {
         trimSize: coloringOptions.trimSize,
@@ -241,7 +257,16 @@ export const AIColoringGenerator = () => {
       });
       
       setPdfUrl(pdfUrlResult);
-      // Toast notification is now handled in the createColoringBookPDF function
+      toast.success('PDF created successfully!');
+      
+      // Auto-download the PDF
+      const link = document.createElement('a');
+      link.href = pdfUrlResult;
+      link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Error creating PDF:', error);
       toast.error('Failed to create PDF');
@@ -257,23 +282,12 @@ export const AIColoringGenerator = () => {
       return;
     }
 
-    const toastId = toast('Preparing download...', {
-      description: 'Getting your coloring pages ready',
-      duration: 5000
-    });
-
     try {
-      console.log('Starting download of', generatedPages.length, 'coloring pages');
-      
-      // Call the downloadColoringPages function with proper error handling
+      toast.info('Preparing to download images...');
       await downloadColoringPages(generatedPages, coloringOptions.bookTitle);
-      
-      toast.dismiss(toastId);
-      toast.success('Images downloaded successfully');
     } catch (error) {
       console.error('Error downloading images:', error);
-      toast.dismiss(toastId);
-      toast.error('Failed to download images. Please try again.');
+      toast.error('Failed to download images');
     }
   };
 

@@ -533,10 +533,11 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
 // Re-export history-related functions
 export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites, saveToProject } from "@/services/designHistory";
 
-export async function imageToPrompt(imageFile: File): Promise<string> {
+export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring' = 'tshirt'): Promise<string> {
   try {
     const formData = new FormData();
     formData.append('image', imageFile);
+    formData.append('type', type);
 
     const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
       method: 'POST',
@@ -552,8 +553,12 @@ export async function imageToPrompt(imageFile: File): Promise<string> {
     return data.prompt;
   } catch (error) {
     console.error("Error analyzing image:", error);
-    // Return a mock prompt for now
-    return "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
+    // Return a generic prompt based on the type
+    if (type === 'coloring') {
+      return "A cute cartoon scene with animals in a forest setting, perfect for a children's coloring book";
+    } else {
+      return "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
+    }
   }
 }
 
