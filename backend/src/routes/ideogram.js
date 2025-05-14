@@ -317,6 +317,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
           }
         } else {
           console.log('No direct expandPrompts function found, falling back to HTTP');
+          console.log('Module exports:', Object.keys(expandPromptsModule));
         }
         
         // Fall back to HTTP method if direct call didn't work

@@ -1070,4 +1070,88 @@ Format your response as a simple numbered list with one variation per line, like
   }
 });
 
-module.exports = router; 
+// Export the expandPrompts function so it can be used directly by other modules
+module.exports = {
+  router,
+  expandPrompts: async (basePrompt, pageCount) => {
+    try {
+      // Only do minimal cleaning of the base prompt - remove common prefixes but preserve structure and detail
+      let cleanedBasePrompt = basePrompt.trim();
+      
+      // List of common prefixes that aren't part of the actual content
+      const prefixesToRemove = [
+        'This image is suitable for a coloring book:',
+        'Prompt for a Coloring Book Page:',
+        'Create a coloring book page with',
+        'Create a coloring book image of',
+        '**Prompt for a Coloring Book Page:**'
+      ];
+      
+      // Only remove exact matches at the beginning of the prompt
+      for (const prefix of prefixesToRemove) {
+        if (cleanedBasePrompt.toLowerCase().startsWith(prefix.toLowerCase())) {
+          cleanedBasePrompt = cleanedBasePrompt.substring(prefix.length).trim();
+        }
+      }
+      
+      // Ensure the prompt is properly capitalized if needed
+      if (cleanedBasePrompt.length > 0 && /[a-z]/.test(cleanedBasePrompt[0])) {
+        cleanedBasePrompt = cleanedBasePrompt.charAt(0).toUpperCase() + cleanedBasePrompt.slice(1);
+      }
+      
+      // Ensure the prompt ends with proper punctuation
+      if (cleanedBasePrompt.length > 0 && !/[.!?]$/.test(cleanedBasePrompt)) {
+        cleanedBasePrompt += '.';
+      }
+      
+      console.log(`Cleaned base prompt: "${cleanedBasePrompt}"`);
+      console.log(`Expanding base prompt into ${pageCount} consistent variations`);
+      
+      // Generate fallback variations
+      const generateFallbackVariations = () => {
+        const variations = [cleanedBasePrompt]; // Start with the original
+        
+        // Extract potential subjects from the prompt to maintain consistency
+        const potentialSubjects = cleanedBasePrompt.match(/\b(ladybug|rabbit|cat|dog|duckling|squirrel|hedgehog|bird|character|creature)\b/gi) || ['character'];
+        const subject = potentialSubjects[0].toLowerCase();
+        
+        // Extract potential settings from the prompt
+        const potentialSettings = cleanedBasePrompt.match(/\b(garden|forest|meadow|park|cottage|house|village|castle|field|farm)\b/gi) || ['garden'];
+        const setting = potentialSettings[0].toLowerCase();
+        
+        // Extract potential activities
+        const activities = [
+          'planting seeds', 'watering flowers', 'picking fruit', 'harvesting vegetables',
+          'carrying a basket', 'pushing a wheelbarrow', 'reading a book', 'writing a letter',
+          'painting a picture', 'building a small structure', 'arranging flowers',
+          'playing with toys', 'flying a kite', 'blowing bubbles'
+        ];
+        
+        // Generate variations with the same structure and setting but varied activities
+        for (let i = 1; i < pageCount; i++) {
+          // Take the first sentence or up to 100 characters of the base prompt as the foundation
+          let baseStructure = cleanedBasePrompt.split('.')[0] + '.';
+          if (baseStructure.length > 100) {
+            baseStructure = baseStructure.substring(0, 100) + '...';
+          }
+          
+          // Replace the action with a new one, but keep the same subject and setting
+          const activity = activities[Math.floor(Math.random() * activities.length)];
+          const variation = `${baseStructure} The ${subject} is now ${activity} in the ${setting}.`;
+          
+          variations.push(variation);
+        }
+        
+        return variations;
+      };
+      
+      // Use the fallback method for now to ensure we get variations
+      return generateFallbackVariations();
+      
+    } catch (error) {
+      console.error('Error in expandPrompts function:', error);
+      // Return an array with duplicates of the base prompt as fallback
+      return Array(pageCount).fill(basePrompt);
+    }
+  }
+}; 

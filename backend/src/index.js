@@ -35,7 +35,8 @@ try {
 let coloringBookRoutes;
 try {
   console.log('Attempting to require coloring-book.js');
-  coloringBookRoutes = require('./routes/coloring-book');
+  const coloringBookModule = require('./routes/coloring-book');
+  coloringBookRoutes = coloringBookModule.router || coloringBookModule;
   console.log('Successfully loaded coloring-book.js');
 } catch (e) {
   console.error('Failed to load coloring-book.js:', e.message);
