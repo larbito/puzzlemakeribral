@@ -597,131 +597,221 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     
     console.log(`Expanding base prompt into ${pageCount} variations`);
     
-    // Call OpenAI API to generate prompt variations
-    try {
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a creative assistant that specializes in generating coloring book pages for children. 
-              When asked to create variations, return ONLY a JSON array with the variations, nothing else.
-              Format your response as valid JSON containing an array of strings.`
-            },
-            {
-              role: 'user',
-              content: `Generate ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
-              Each variation should match the original theme but be unique. Make them suitable for coloring pages.
-              Return ONLY a JSON array of strings with no additional text or explanation.
-              Example of expected format: ["Variation 1", "Variation 2", ...]`
-            }
-          ],
-          response_format: { type: "json_object" },
-          temperature: 0.8,
-          max_tokens: 1000
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenAI API error:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to generate prompt variations');
-      }
-
-      const data = await response.json();
-      console.log('OpenAI API response:', data);
+    // Generate fallback variations if all else fails
+    const generateFallbackVariations = () => {
+      const variations = [];
+      const subjects = ["elephant", "giraffe", "lion", "tiger", "monkey", "bear", "panda", "koala", "dog", "cat", "rabbit", "fox"];
+      const actions = ["playing", "dancing", "jumping", "running", "sleeping", "eating", "flying", "swimming", "reading", "painting"];
+      const places = ["meadow", "forest", "jungle", "beach", "mountains", "garden", "playground", "circus", "zoo", "farm"];
+      const extras = ["with flowers", "under a rainbow", "with balloons", "with friends", "at sunset", "in the rain", "with butterflies"];
+  
+      // Extract core components from the base prompt
+      let mainSubject = subjects.find(s => basePrompt.toLowerCase().includes(s)) || "animal";
+      let mainAction = actions.find(a => basePrompt.toLowerCase().includes(a)) || "playing";
       
-      // Parse the response JSON from the content field
-      let promptVariations;
+      for (let i = 0; i < pageCount; i++) {
+        // For some variations, keep the same subject but change other elements
+        if (i < pageCount / 2) {
+          const randomAction = actions[Math.floor(Math.random() * actions.length)];
+          const randomPlace = places[Math.floor(Math.random() * places.length)];
+          const randomExtra = extras[Math.floor(Math.random() * extras.length)];
+          variations.push(`A cute ${mainSubject} ${randomAction} in a ${randomPlace} ${randomExtra}`);
+        } 
+        // For other variations, change the subject too
+        else {
+          const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+          const randomAction = actions[Math.floor(Math.random() * actions.length)];
+          const randomPlace = places[Math.floor(Math.random() * places.length)];
+          const randomExtra = extras[Math.floor(Math.random() * extras.length)];
+          variations.push(`A cute ${randomSubject} ${randomAction} in a ${randomPlace} ${randomExtra}`);
+        }
+      }
+      
+      return variations;
+    };
+    
+    try {
+      // First attempt with JSON formatting
       try {
-        // The content should be a JSON string with an array of prompts
-        const content = data.choices[0].message.content;
-        console.log('Raw content from OpenAI:', content);
+        // Original OpenAI API call with JSON format request
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-3.5-turbo',
+            messages: [
+              {
+                role: 'system',
+                content: `You are a creative assistant that specializes in generating coloring book pages for children. 
+                When asked to create variations, return ONLY a JSON array with the variations, nothing else.
+                Format your response as valid JSON containing an array of strings.`
+              },
+              {
+                role: 'user',
+                content: `Generate ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
+                Each variation should match the original theme but be unique. Make them suitable for coloring pages.
+                Return ONLY a JSON array of strings with no additional text or explanation.
+                Example of expected format: ["Variation 1", "Variation 2", ...]`
+              }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.8,
+            max_tokens: 1000
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('OpenAI API error:', errorData);
+          throw new Error(errorData.error?.message || 'Failed to generate prompt variations');
+        }
+
+        const data = await response.json();
+        console.log('OpenAI API response:', data);
         
-        // Try to parse as JSON first
+        // Parse the response JSON from the content field
+        let promptVariations;
         try {
-          const parsedContent = JSON.parse(content);
-          console.log('Parsed content:', parsedContent);
+          // The content should be a JSON string with an array of prompts
+          const content = data.choices[0].message.content;
+          console.log('Raw content from OpenAI:', content);
           
-          // Extract the array of prompts - check for common field names
-          if (Array.isArray(parsedContent)) {
-            promptVariations = parsedContent;
-          } else if (Array.isArray(parsedContent.prompts)) {
-            promptVariations = parsedContent.prompts;
-          } else if (Array.isArray(parsedContent.variations)) {
-            promptVariations = parsedContent.variations;
-          } else {
-            // If we can't find an array field, look for any array in the object
-            const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
-            if (arrayField) {
-              promptVariations = arrayField;
+          // Try to parse as JSON first
+          try {
+            const parsedContent = JSON.parse(content);
+            console.log('Parsed content:', parsedContent);
+            
+            // Extract the array of prompts - check for common field names
+            if (Array.isArray(parsedContent)) {
+              promptVariations = parsedContent;
+            } else if (Array.isArray(parsedContent.prompts)) {
+              promptVariations = parsedContent.prompts;
+            } else if (Array.isArray(parsedContent.variations)) {
+              promptVariations = parsedContent.variations;
             } else {
-              throw new Error('Could not find prompt variations in API response');
+              // If we can't find an array field, look for any array in the object
+              const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
+              if (arrayField) {
+                promptVariations = arrayField;
+              } else {
+                throw new Error('Could not find prompt variations in API response');
+              }
+            }
+          } catch (jsonError) {
+            console.error('Error parsing JSON from OpenAI:', jsonError);
+            console.log('Attempting to extract variations directly from text');
+            
+            // If JSON parsing fails, try to extract variations directly from text
+            // Split by line breaks or numbering patterns
+            let lines = content.split(/\n+/);
+            
+            // Filter out empty lines and remove any numbering
+            promptVariations = lines
+              .filter(line => line.trim().length > 0)
+              .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
+              .filter(line => line.length > 10); // Only keep substantial lines
+              
+            if (promptVariations.length === 0) {
+              throw new Error('Could not extract variations from text response');
             }
           }
-        } catch (jsonError) {
-          console.error('Error parsing JSON from OpenAI:', jsonError);
-          console.log('Attempting to extract variations directly from text');
+        } catch (parseError) {
+          console.error('Error parsing prompt variations:', parseError);
+          console.error('Content that failed to parse:', data.choices[0]?.message?.content);
+          throw new Error('Failed to parse prompt variations from API response');
+        }
+        
+        // Return the prompt variations to the client
+        res.json({ 
+          basePrompt,
+          promptVariations
+        });
+        
+      } catch (apiError) {
+        console.error('Error with JSON format request:', apiError);
+        console.log('Trying alternate approach...');
+        
+        // Second attempt with text response
+        try {
+          const simpleResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+              model: 'gpt-3.5-turbo',
+              messages: [
+                {
+                  role: 'system',
+                  content: 'You are a creative assistant that specializes in generating coloring book pages for children.'
+                },
+                {
+                  role: 'user',
+                  content: `Generate exactly ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
+                  Each variation should match the original theme but be unique.
+                  Format your response as a numbered list, one variation per line, nothing else.`
+                }
+              ],
+              temperature: 0.8,
+              max_tokens: 1000
+            })
+          });
           
-          // If JSON parsing fails, try to extract variations directly from text
-          // Split by line breaks or numbering patterns
-          let lines = content.split(/\n+/);
+          if (!simpleResponse.ok) {
+            throw new Error(`API error: ${simpleResponse.status}`);
+          }
           
-          // Filter out empty lines and remove any numbering
-          promptVariations = lines
-            .filter(line => line.trim().length > 0)
-            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
-            .filter(line => line.length > 10); // Only keep substantial lines
+          const simpleData = await simpleResponse.json();
+          const content = simpleData.choices[0].message.content;
+          
+          // Parse the numbered list format
+          const lines = content.split('\n');
+          const promptVariations = lines
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim());
             
           if (promptVariations.length === 0) {
-            throw new Error('Could not extract variations from text response');
+            throw new Error('No variations found in response');
           }
-        }
-      } catch (parseError) {
-        console.error('Error parsing prompt variations:', parseError);
-        console.error('Content that failed to parse:', data.choices[0]?.message?.content);
-        throw new Error('Failed to parse prompt variations from API response');
-      }
-      
-      // Ensure we have the requested number of variations
-      // If we have too few, repeat some with slight modifications
-      if (promptVariations.length < pageCount) {
-        const originalLength = promptVariations.length;
-        for (let i = originalLength; i < pageCount; i++) {
-          const index = i % originalLength;
-          const originalPrompt = promptVariations[index];
           
-          // Add a simple modification to create a variation
-          const modifiers = [
-            'with a different pose',
-            'from another angle',
-            'with slight variations',
-            'in a different style',
-            'with additional details'
-          ];
+          // Trim the list to the requested count
+          const finalVariations = promptVariations.slice(0, pageCount);
           
-          const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
-          promptVariations.push(`${originalPrompt} ${modifier}`);
+          res.json({
+            basePrompt,
+            promptVariations: finalVariations
+          });
+          
+        } catch (alternateError) {
+          console.error('Alternate approach also failed:', alternateError);
+          console.log('Using fallback generation method');
+          
+          // Use the fallback method
+          const fallbackVariations = generateFallbackVariations();
+          
+          res.json({
+            basePrompt,
+            promptVariations: fallbackVariations,
+            note: 'Using fallback variations due to API issues'
+          });
         }
       }
+    } catch (error) {
+      console.error('All attempts failed:', error);
       
-      // Limit to the requested count
-      promptVariations = promptVariations.slice(0, pageCount);
+      // Final fallback
+      const fallbackVariations = generateFallbackVariations();
       
-      res.json({ 
+      res.json({
         basePrompt,
-        promptVariations
+        promptVariations: fallbackVariations,
+        note: 'Using fallback variations due to API issues'
       });
-      
-    } catch (apiError) {
-      console.error('Error calling OpenAI API:', apiError);
-      res.status(500).json({ error: apiError.message || 'Failed to expand prompts' });
     }
   } catch (error) {
     console.error('Error expanding prompts:', error);
