@@ -278,6 +278,78 @@ export const AIColoringGenerator = () => {
     // If switching to single prompt, clear expanded prompts
     if (!useMultiple) {
       setExpandedPrompts([]);
+    } else if (expandedPrompts.length > 0) {
+      // If we already have prompts but are switching to multiple,
+      // regenerate them to get variations
+      handleGeneratePrompts();
+    }
+  };
+
+  // Handle changing the page count
+  const handlePageCountChange = (newCount: number) => {
+    // First, update the page count in options
+    setColoringOptions({...coloringOptions, pageCount: newCount});
+    
+    // If we already have generated prompts, update them based on the new count
+    if (expandedPrompts.length > 0) {
+      if (newCount < expandedPrompts.length) {
+        // If reducing the count, trim the array
+        setExpandedPrompts(expandedPrompts.slice(0, newCount));
+        toast.info(`Reduced to ${newCount} prompts`);
+      } else if (newCount > expandedPrompts.length) {
+        // If increasing the count, we need to generate more prompts
+        const additionalCount = newCount - expandedPrompts.length;
+        toast.info(`Generating ${additionalCount} additional prompts...`);
+        
+        // Generate additional prompts
+        if (useMultiplePrompts) {
+          // For multiple prompts, we need to call the API to get more variations
+          handleGenerateAdditionalPrompts(additionalCount);
+        } else {
+          // For single prompt, just duplicate the base prompt
+          const newPrompts = [...expandedPrompts];
+          for (let i = 0; i < additionalCount; i++) {
+            newPrompts.push(basePrompt);
+          }
+          setExpandedPrompts(newPrompts);
+        }
+      }
+    }
+  };
+  
+  // Generate additional prompts when increasing page count
+  const handleGenerateAdditionalPrompts = async (count: number) => {
+    if (!basePrompt.trim() || count <= 0) return;
+    
+    setIsGeneratingPrompts(true);
+    
+    try {
+      // Get additional variations
+      const additionalVariations = await expandPrompts(basePrompt, count);
+      
+      if (!additionalVariations || additionalVariations.length === 0) {
+        throw new Error('Failed to generate additional prompt variations');
+      }
+      
+      // Add the new variations to existing ones
+      setExpandedPrompts(prevPrompts => [...prevPrompts, ...additionalVariations]);
+      
+      toast.success(`Added ${additionalVariations.length} new prompt variations`);
+    } catch (error) {
+      console.error('Error generating additional prompts:', error);
+      toast.error('Failed to generate additional prompts');
+      
+      // Fallback: just duplicate the last prompt
+      if (expandedPrompts.length > 0) {
+        const lastPrompt = expandedPrompts[expandedPrompts.length - 1];
+        const newPrompts = [...expandedPrompts];
+        for (let i = 0; i < count; i++) {
+          newPrompts.push(lastPrompt);
+        }
+        setExpandedPrompts(newPrompts);
+      }
+    } finally {
+      setIsGeneratingPrompts(false);
     }
   };
 
@@ -301,12 +373,17 @@ export const AIColoringGenerator = () => {
       toast.info(`Generating ${coloringOptions.pageCount} prompt variations...`);
       
       if (useMultiplePrompts) {
-        // Multiple unique prompts
+        // Multiple unique prompts - pass the FULL base prompt without modification
+        console.log(`Sending complete base prompt to API: "${basePrompt}"`);
+        
         const variations = await expandPrompts(basePrompt, coloringOptions.pageCount);
         
         if (!variations || variations.length === 0) {
           throw new Error('Failed to generate prompt variations');
         }
+        
+        // Log the variations for debugging
+        console.log('Received prompt variations:', variations);
         
         setExpandedPrompts(variations);
         toast.success(`Generated ${variations.length} unique prompt variations!`);
@@ -945,7 +1022,7 @@ export const AIColoringGenerator = () => {
                         min="1"
                         max="100"
                         value={coloringOptions.pageCount}
-                        onChange={(e) => setColoringOptions({...coloringOptions, pageCount: parseInt(e.target.value) || 1})}
+                        onChange={(e) => handlePageCountChange(parseInt(e.target.value) || 1)}
                         className="bg-background/50 border-primary/20"
                       />
                       <p className="text-xs text-muted-foreground">Maximum: 100 pages</p>
