@@ -141,8 +141,13 @@ router.get('/create-pdf', async (req, res) => {
       addBlankPages,
       showPageNumbers,
       includeBleed,
-      bookTitle = 'coloring-book'
+      bookTitle = 'coloring-book',
+      addTitlePage = false,
+      authorName = '',
+      subtitle = ''
     } = data;
+    
+    console.log('Title page settings:', { addTitlePage, bookTitle, authorName, subtitle });
     
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
       return res.status(400).json({ error: 'Page URLs are required' });
@@ -178,6 +183,50 @@ router.get('/create-pdf', async (req, res) => {
     
     // Pipe PDF to response
     doc.pipe(res);
+    
+    // Add title page if requested
+    if (addTitlePage) {
+      console.log('Adding title page with author:', authorName);
+      doc.addPage({ size: pdfSize });
+      
+      const pageWidth = pdfSize[0];
+      const pageHeight = pdfSize[1];
+      const margin = includeBleed ? 36 : 72;
+      
+      // Add the title
+      doc.fontSize(36)
+         .font('Helvetica-Bold')
+         .fillColor('#000000')
+         .text(bookTitle, margin, pageHeight * 0.25, {
+           width: pageWidth - (margin * 2),
+           align: 'center'
+         });
+      
+      // Add subtitle if provided
+      if (subtitle) {
+        doc.fontSize(18)
+           .font('Helvetica-Oblique')
+           .fillColor('#444444')
+           .text(subtitle, margin, pageHeight * 0.4, {
+             width: pageWidth - (margin * 2),
+             align: 'center'
+           });
+      }
+      
+      // Add author name if provided
+      if (authorName) {
+        console.log('Adding author name to title page:', authorName);
+        doc.fontSize(16)
+           .font('Helvetica')
+           .fillColor('#000000')
+           .text(`by ${authorName}`, margin, pageHeight * 0.7, {
+             width: pageWidth - (margin * 2),
+             align: 'center'
+           });
+      }
+      
+      console.log('Title page added');
+    }
     
     // Add pages to PDF
     for (let i = 0; i < pageUrls.length; i++) {
@@ -295,8 +344,13 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
       addBlankPages,
       showPageNumbers,
       includeBleed,
-      bookTitle = 'coloring-book'
+      bookTitle = 'coloring-book',
+      addTitlePage = false,
+      authorName = '',
+      subtitle = ''
     } = data;
+    
+    console.log('Title page settings:', { addTitlePage, bookTitle, authorName, subtitle });
     
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
       return res.status(400).json({ error: 'Page URLs are required' });
@@ -332,6 +386,50 @@ router.post('/create-pdf', jsonParser, async (req, res) => {
     
     // Pipe PDF to response
     doc.pipe(res);
+    
+    // Add title page if requested
+    if (addTitlePage) {
+      console.log('Adding title page with author:', authorName);
+      doc.addPage({ size: pdfSize });
+      
+      const pageWidth = pdfSize[0];
+      const pageHeight = pdfSize[1];
+      const margin = includeBleed ? 36 : 72;
+      
+      // Add the title
+      doc.fontSize(36)
+         .font('Helvetica-Bold')
+         .fillColor('#000000')
+         .text(bookTitle, margin, pageHeight * 0.25, {
+           width: pageWidth - (margin * 2),
+           align: 'center'
+         });
+      
+      // Add subtitle if provided
+      if (subtitle) {
+        doc.fontSize(18)
+           .font('Helvetica-Oblique')
+           .fillColor('#444444')
+           .text(subtitle, margin, pageHeight * 0.4, {
+             width: pageWidth - (margin * 2),
+             align: 'center'
+           });
+      }
+      
+      // Add author name if provided
+      if (authorName) {
+        console.log('Adding author name to title page:', authorName);
+        doc.fontSize(16)
+           .font('Helvetica')
+           .fillColor('#000000')
+           .text(`by ${authorName}`, margin, pageHeight * 0.7, {
+             width: pageWidth - (margin * 2),
+             align: 'center'
+           });
+      }
+      
+      console.log('Title page added');
+    }
     
     // Add pages to PDF
     for (let i = 0; i < pageUrls.length; i++) {
@@ -437,13 +535,13 @@ router.get('/download-zip', async (req, res) => {
     
     console.log('Processing data:', data);
     
-    const { pageUrls, bookTitle = 'coloring-pages' } = data;
+    const { pageUrls, bookTitle = 'coloring-pages', highQuality = false } = data;
     
     if (!pageUrls || !Array.isArray(pageUrls) || pageUrls.length === 0) {
       return res.status(400).json({ error: 'Page URLs are required' });
     }
     
-    console.log(`Creating ZIP with ${pageUrls.length} images`);
+    console.log(`Creating ZIP with ${pageUrls.length} images, high quality: ${highQuality}`);
     
     // Set response headers for ZIP download
     res.setHeader('Content-Type', 'application/zip');
@@ -481,16 +579,32 @@ router.get('/download-zip', async (req, res) => {
           continue;
         }
         
+        // Skip placeholder images
+        if (imageUrl.includes('placehold.co')) {
+          console.log(`Skipping placeholder image ${i + 1}`);
+          // Add a text file instead explaining this is a placeholder
+          archive.append('This is a placeholder image that was not processed.\n', { name: `page-${i + 1}-placeholder.txt` });
+          continue;
+        }
+        
+        // Add a timestamp to prevent caching issues
+        if (imageUrl.includes('?')) {
+          imageUrl += `&t=${Date.now()}`;
+        } else {
+          imageUrl += `?t=${Date.now()}`;
+        }
+        
         // Add a timeout for fetching
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
         try {
           console.log(`Fetching image from: ${imageUrl.substring(0, 100)}...`);
           const imageResponse = await fetch(imageUrl, { 
             signal: controller.signal,
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36',
+              'Accept': 'image/png,image/jpeg,image/webp,*/*'
             }
           });
           
@@ -511,17 +625,36 @@ router.get('/download-zip', async (req, res) => {
           
           console.log(`Downloaded image ${i + 1} (${buffer.length} bytes)`);
           
+          // Process the image for better quality (enforce PNG with high resolution)
+          let processedBuffer = buffer;
+          try {
+            // Use ensurePDFCompatibleImage to process the image
+            processedBuffer = await ensurePDFCompatibleImage(buffer);
+            console.log(`Processed image ${i + 1} for better quality`);
+          } catch (processError) {
+            console.error(`Error processing image ${i + 1}:`, processError);
+            // Continue with original buffer if processing fails
+          }
+          
           // Create a unique name for the file
           const fileName = `page-${i + 1}.png`;
           
           // Add directly to ZIP
-          archive.append(buffer, { name: fileName });
+          archive.append(processedBuffer, { name: fileName });
           console.log(`Added image ${i + 1} to ZIP as ${fileName}`);
           
           successCount++;
         } catch (fetchError) {
           console.error(`Error fetching image ${i + 1}:`, fetchError);
           clearTimeout(timeoutId);
+          
+          // Try to add a placeholder explanation if fetch fails
+          try {
+            archive.append(`Failed to download image ${i + 1}: ${fetchError.message}\n`, 
+                          { name: `page-${i + 1}-error.txt` });
+          } catch (e) {
+            console.error(`Could not add error explanation to ZIP:`, e);
+          }
         }
       } catch (imageError) {
         console.error(`Error processing image ${i + 1}:`, imageError);

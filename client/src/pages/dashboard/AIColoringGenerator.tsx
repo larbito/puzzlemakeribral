@@ -316,8 +316,8 @@ export const AIColoringGenerator = () => {
         toast.success(`Using the same prompt for all ${coloringOptions.pageCount} pages`);
       }
       
-      // Auto proceed to review
-      goToNextStep();
+      // No longer auto-proceed to review - stay on this page so user can check prompts
+      // goToNextStep();
       
     } catch (error) {
       console.error('Error generating prompt variations:', error);

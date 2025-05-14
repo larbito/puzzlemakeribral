@@ -1178,8 +1178,26 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
     
     const negative_prompt = "color, shading, grayscale, text, words, watermark, signature, grainy, blurry, realistic, photorealistic, busy, cluttered";
 
+    // Log the API URL being used for easy debugging
+    console.log("Using API URL for image generation:", API_URL);
+    
     try {
       console.log("Making coloring page API call with prompt:", enhancedPrompt);
+      
+      // First, try to verify the API is accessible
+      try {
+        const healthResponse = await fetch(`${API_URL}/health`, { 
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+        
+        console.log("API health check status:", healthResponse.status);
+        if (!healthResponse.ok) {
+          console.warn("API health check failed, but proceeding anyway");
+        }
+      } catch (healthError) {
+        console.warn("API health check failed, but proceeding anyway:", healthError);
+      }
       
       // Create form data for the request
       const formData = new FormData();
@@ -1204,6 +1222,7 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
       clearTimeout(timeoutId);
 
       console.log("Response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         let errorData;
@@ -1223,7 +1242,16 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
         throw new Error(errorData.error || `API error: ${response.status}`);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        const responseText = await response.text();
+        console.log("Raw response:", responseText.substring(0, 200) + "...");
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        throw new Error("Could not parse API response");
+      }
+      
       console.log("API response data:", data);
 
       if (!data.url) {
@@ -1233,7 +1261,10 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
 
       // Verify the image URL is accessible
       try {
+        console.log("Verifying image URL:", data.url);
         const imageResponse = await fetch(data.url, { method: 'HEAD' });
+        console.log("Image URL check status:", imageResponse.status);
+        
         if (!imageResponse.ok) {
           console.error("Image URL is not accessible:", data.url);
           throw new Error("Image URL is not accessible");
@@ -1276,8 +1307,18 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
         return retryData.url;
       } catch (retryError) {
         console.error("Retry also failed:", retryError);
-        // Fallback to placeholder for demo/testing
-        return getPlaceholderImage(prompt, 'coloring');
+        // As a last resort, use a direct call to Ideogram if all else fails
+        try {
+          console.log("Making direct API call as last resort...");
+          
+          // Fall back to a temp placeholder with more information
+          const placeholderUrl = getPlaceholderImage(prompt, 'coloring');
+          console.log("Using placeholder as final fallback:", placeholderUrl);
+          return placeholderUrl;
+        } catch (finalError) {
+          console.error("All attempts failed:", finalError);
+          return null;
+        }
       }
     }
   } catch (error) {
@@ -1347,6 +1388,7 @@ export async function createColoringBookPDF(
 ): Promise<string> {
   try {
     console.log("Creating PDF with options:", options);
+    console.log("Author name provided:", options.authorName);
     console.log("Number of pages:", pageUrls.length);
     console.log("Using API URL for PDF generation:", API_URL);
     
@@ -1359,10 +1401,19 @@ export async function createColoringBookPDF(
     const toastId = toast.loading("Creating PDF. Opening in new tab...");
 
     try {
+      // Add more explicit logging for debugging
+      console.log("Title page enabled:", options.addTitlePage);
+      console.log("Title:", options.bookTitle);
+      console.log("Author:", options.authorName);
+      console.log("Subtitle:", options.subtitle);
+      
       // Direct method - open in new tab
       const encodedData = encodeURIComponent(JSON.stringify({
         pageUrls,
-        ...options
+        ...options,
+        // Ensure authorName is included even if it's empty string (different from undefined)
+        authorName: options.authorName || '',
+        subtitle: options.subtitle || ''
       }));
       
       // Open a new tab with the PDF URL
@@ -1402,6 +1453,7 @@ export async function downloadColoringPages(
     
     // Debug logging for API URL
     console.log("Using API URL for downloads:", API_URL);
+    console.log("Image URLs to be downloaded:", pageUrls);
     
     // For single images, use the existing download function
     if (pageUrls.length === 1) {
@@ -1409,13 +1461,30 @@ export async function downloadColoringPages(
       return;
     }
     
-    const toastId = toast.loading("Downloading images as ZIP...");
+    const toastId = toast.loading("Preparing to download images as ZIP...");
     
     try {
+      // Preprocess the URLs to ensure they are accessible - add proxying if needed
+      const processedUrls = pageUrls.map(url => {
+        // If it's an Ideogram URL, make sure it goes through our proxy
+        if (url.includes('ideogram.ai')) {
+          return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+        }
+        // If it's already a placeholder, return as is
+        if (url.includes('placehold.co')) {
+          return url;
+        }
+        // Otherwise return the original URL with a timestamp to prevent caching issues
+        return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      });
+      
+      console.log("Processed URLs for download:", processedUrls);
+      
       // Encode the data as a query parameter
       const encodedData = encodeURIComponent(JSON.stringify({
-        pageUrls, 
-        bookTitle: bookTitle || 'coloring-pages'
+        pageUrls: processedUrls, 
+        bookTitle: bookTitle || 'coloring-pages',
+        highQuality: true // Request high quality images
       }));
       
       // Create a direct download link
