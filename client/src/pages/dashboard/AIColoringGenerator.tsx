@@ -251,53 +251,26 @@ export const AIColoringGenerator = () => {
         toast.error('The uploaded image does not appear to be a coloring book page. Please upload a line art or coloring book style image.');
         setGeneratedPrompt('');
       } else {
+        // Set just the base prompt without variations initially
         setGeneratedPrompt(data.prompt);
         setBasePrompt(data.prompt);
         
-        // If we received prompt variations from the backend, use them directly
-        if (data.promptVariations && Array.isArray(data.promptVariations) && data.promptVariations.length > 0) {
-          console.log(`Received ${data.promptVariations.length} prompt variations from backend`);
-          
-          // Debug check: Are all variations the same?
-          const allSame = data.promptVariations.every((variation: string) => 
-            variation === data.promptVariations[0]
-          );
-          
-          if (allSame) {
-            console.warn('⚠️ All prompt variations are identical! This is likely a bug.');
-            // Don't use duplicate variations, we'll let the user generate them manually
-            console.log('Not using duplicate variations, will let user generate them manually');
-            // Set just the base prompt but don't set the expanded prompts yet
-            setPromptsConfirmed(false);
-          } else {
-            console.log('✅ Prompt variations are properly diverse');
-            // Only set the expanded prompts if they're actually different
-            setExpandedPrompts(data.promptVariations);
-            setPromptsConfirmed(true); // Mark as confirmed since they're already properly generated
-            toast.success('Generated base prompt and variations successfully');
-          }
-        } else {
-          // Otherwise we'll need to generate variations in a separate step
-          console.log('No prompt variations in response, will need to generate separately');
-          toast.success('Prompt generated successfully. Variations will be generated in the next step.');
-        }
+        // Instead of generating 10 prompts, start with just 1 (the base prompt)
+        setColoringOptions(prev => ({
+          ...prev,
+          pageCount: 1
+        }));
         
-        // Always go to prompt review first, even if we have variations,
-        // so the user can review and edit them if needed
+        // Set the base prompt as the only expanded prompt (1 page)
+        setExpandedPrompts([data.prompt]);
+        setPromptsConfirmed(true);
+        
+        // Skip the old code that tried to fetch or process variations
+        toast.success('Prompt generated successfully. You can add more pages in the next step.');
+        
+        // Always go to prompt review first
         setTimeout(() => {
           setCurrentStep('prompt-review');
-          // Update page count in the coloringOptions to match the number of variations if we have them
-          const hasUniqueVariations = data.promptVariations && 
-                               Array.isArray(data.promptVariations) && 
-                               data.promptVariations.length > 0 &&
-                               !data.promptVariations.every((v: string) => v === data.promptVariations[0]);
-          
-          if (hasUniqueVariations) {
-            setColoringOptions(prev => ({
-              ...prev,
-              pageCount: data.promptVariations.length
-            }));
-          }
         }, 1000);
       }
     } catch (error) {
@@ -328,45 +301,54 @@ export const AIColoringGenerator = () => {
   const handleToggleMultiplePrompts = (useMultiple: boolean) => {
     setUseMultiplePrompts(useMultiple);
     
-    // If switching to single prompt, clear expanded prompts
+    // If switching to single prompt mode
     if (!useMultiple) {
-      setExpandedPrompts([]);
-    } else if (expandedPrompts.length > 0) {
-      // If we already have prompts but are switching to multiple,
-      // regenerate them to get variations
-      handleGeneratePrompts();
+      // Use the base prompt for all pages
+      const singlePromptArray = Array(coloringOptions.pageCount).fill(basePrompt);
+      setExpandedPrompts(singlePromptArray);
+      toast.info(`Using the same prompt for all ${coloringOptions.pageCount} pages`);
+    } 
+    // If switching to multiple prompt mode, we'll need to generate variations
+    else {
+      // Keep the first prompt (base prompt) but clear the rest
+      // This will show the Generate button to create new variations
+      if (expandedPrompts.length > 0) {
+        setExpandedPrompts([expandedPrompts[0]]);
+        setColoringOptions(prev => ({
+          ...prev,
+          pageCount: 1
+        }));
+        toast.info('Switched to multiple unique prompts mode. Increase page count to generate variations.');
+      }
     }
   };
 
   // Handle changing the page count
-  const handlePageCountChange = (newCount: number) => {
+  const handlePageCountChange = async (newCount: number) => {
     // First, update the page count in options
     setColoringOptions({...coloringOptions, pageCount: newCount});
     
-    // If we already have generated prompts, update them based on the new count
-    if (expandedPrompts.length > 0) {
-      if (newCount < expandedPrompts.length) {
-        // If reducing the count, trim the array
-        setExpandedPrompts(expandedPrompts.slice(0, newCount));
-        toast.info(`Reduced to ${newCount} prompts`);
-      } else if (newCount > expandedPrompts.length) {
-        // If increasing the count, we need to generate more prompts
-        const additionalCount = newCount - expandedPrompts.length;
-        toast.info(`Generating ${additionalCount} additional prompts...`);
-        
-        // Generate additional prompts
-        if (useMultiplePrompts) {
-          // For multiple prompts, we need to call the API to get more variations
-          handleGenerateAdditionalPrompts(additionalCount);
-        } else {
-          // For single prompt, just duplicate the base prompt
-          const newPrompts = [...expandedPrompts];
-          for (let i = 0; i < additionalCount; i++) {
-            newPrompts.push(basePrompt);
-          }
-          setExpandedPrompts(newPrompts);
-        }
+    // If reducing the count, trim the array
+    if (newCount < expandedPrompts.length) {
+      setExpandedPrompts(expandedPrompts.slice(0, newCount));
+      toast.info(`Reduced to ${newCount} prompts`);
+      return;
+    } 
+    
+    // If increasing the count and using multiple prompts, generate more
+    if (newCount > expandedPrompts.length && useMultiplePrompts) {
+      const additionalCount = newCount - expandedPrompts.length;
+      toast.info(`Generating ${additionalCount} additional prompts...`);
+      
+      // Generate additional prompts
+      await handleGenerateAdditionalPrompts(additionalCount);
+    } else if (newCount > expandedPrompts.length) {
+      // For single prompt mode, just duplicate the base prompt
+      const newPrompts = [...expandedPrompts];
+      for (let i = 0; i < newCount - expandedPrompts.length; i++) {
+        newPrompts.push(basePrompt);
       }
+      setExpandedPrompts(newPrompts);
     }
   };
   
@@ -1099,16 +1081,6 @@ export const AIColoringGenerator = () => {
                         onChange={(e) => {
                           const newPageCount = parseInt(e.target.value) || 1;
                           handlePageCountChange(newPageCount);
-                          
-                          // If we have expanded prompts and the page count changed,
-                          // show a notification suggesting to regenerate prompts
-                          if (expandedPrompts.length > 0 && 
-                              newPageCount !== expandedPrompts.length && 
-                              useMultiplePrompts) {
-                            toast.info('Remember to generate new prompts after changing page count', {
-                              id: 'page-count-changed'
-                            });
-                          }
                         }}
                         className="bg-background/50 border-primary/20"
                       />
@@ -1125,7 +1097,7 @@ export const AIColoringGenerator = () => {
                   </div>
                   
                   {/* Generate Button */}
-                  {!expandedPrompts.length || (useMultiplePrompts && expandedPrompts.length !== coloringOptions.pageCount) ? (
+                  {(!expandedPrompts.length || expandedPrompts.length !== coloringOptions.pageCount) && useMultiplePrompts ? (
                     <Button
                       onClick={handleGeneratePrompts}
                       disabled={!basePrompt.trim() || isGeneratingPrompts}
@@ -1138,20 +1110,24 @@ export const AIColoringGenerator = () => {
                         ) : (
                           <ListPlus className="w-5 h-5" />
                         )}
-                        Generate {coloringOptions.pageCount} Prompt{coloringOptions.pageCount > 1 ? 's' : ''}
+                        {expandedPrompts.length === 0 
+                          ? `Generate Prompts` 
+                          : `Regenerate ${coloringOptions.pageCount} Prompts`}
                       </span>
                     </Button>
                   ) : (
                     <div className="flex gap-4">
-                      <Button 
-                        onClick={shuffleAllPrompts}
-                        disabled={!useMultiplePrompts || isGeneratingPrompts}
-                        variant="outline"
-                        className="gap-2"
-                      >
-                        <Shuffle className="w-4 h-4" />
-                        Shuffle All
-                      </Button>
+                      {useMultiplePrompts && (
+                        <Button 
+                          onClick={shuffleAllPrompts}
+                          disabled={!useMultiplePrompts || isGeneratingPrompts}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Shuffle className="w-4 h-4" />
+                          Shuffle All
+                        </Button>
+                      )}
                       
                       <Button
                         onClick={confirmPrompts}
@@ -1174,8 +1150,10 @@ export const AIColoringGenerator = () => {
                     </div>
                   )}
                   
-                  {/* Warning if page count doesn't match prompts count */}
-                  {expandedPrompts.length > 0 && expandedPrompts.length !== coloringOptions.pageCount && (
+                  {/* Warning if page count doesn't match prompts count in multiple mode */}
+                  {expandedPrompts.length > 0 && 
+                   expandedPrompts.length !== coloringOptions.pageCount && 
+                   useMultiplePrompts && (
                     <div className="flex items-center gap-2 p-3 bg-yellow-100/60 border border-yellow-300 rounded-md text-yellow-800">
                       <Wand2 className="w-5 h-5 flex-shrink-0" />
                       <p className="text-sm">Page count ({coloringOptions.pageCount}) doesn't match the number of prompts ({expandedPrompts.length}). Please generate new prompts.</p>
