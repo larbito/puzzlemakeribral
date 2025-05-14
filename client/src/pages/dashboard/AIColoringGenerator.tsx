@@ -218,9 +218,10 @@ export const AIColoringGenerator = () => {
       formData.append('image', blob, 'uploaded-image.png');
       formData.append('type', 'coloring'); // Explicitly specify this is for coloring book
       
-      // Request prompt variations directly from the analyze endpoint
-      formData.append('generateVariations', 'true');
-      formData.append('pageCount', coloringOptions.pageCount.toString());
+      // IMPORTANT: Do NOT request variations at this stage - only get the base prompt
+      // We will let the user decide how many pages they want later
+      formData.append('generateVariations', 'false'); // Change to false to prevent automatic variations
+      formData.append('pageCount', '1'); // Always use 1 for initial analysis
       
       // Make a direct API call to the backend
       const apiUrl = process.env.NODE_ENV === 'production' 
@@ -255,7 +256,7 @@ export const AIColoringGenerator = () => {
         setGeneratedPrompt(data.prompt);
         setBasePrompt(data.prompt);
         
-        // Instead of generating 10 prompts, start with just 1 (the base prompt)
+        // Start with just 1 page (the base prompt)
         setColoringOptions(prev => ({
           ...prev,
           pageCount: 1
@@ -263,14 +264,12 @@ export const AIColoringGenerator = () => {
         
         // Set the base prompt as the only expanded prompt (1 page)
         setExpandedPrompts([data.prompt]);
-        setPromptsConfirmed(true);
         
-        // Skip the old code that tried to fetch or process variations
-        toast.success('Prompt generated successfully. You can add more pages in the next step.');
+        toast.success('Prompt generated successfully. You can set the number of pages in the next step.');
         
-        // Always go to prompt review first
+        // Go to prompt review after a short delay
         setTimeout(() => {
-          setCurrentStep('prompt-review');
+          goToNextStep();
         }, 1000);
       }
     } catch (error) {
