@@ -95,8 +95,19 @@ router.post('/generate', upload.none(), async (req, res) => {
     
     // Log complete form data for debugging
     console.log('Form data contents:');
-    for (const [key, value] of form.entries()) {
-      console.log(`${key}: ${value}`);
+    try {
+      // For Node.js form-data, we can't use entries() method
+      // Instead, just log the keys we know we've added
+      console.log(`prompt: ${prompt}`);
+      console.log(`aspect_ratio: ${aspect_ratio || '3:4'}`);
+      console.log(`rendering_speed: ${rendering_speed || 'TURBO'}`);
+      console.log(`negative_prompt: ${negative_prompt || 'color, shading, watermark, text, grayscale, low quality'}`);
+      console.log(`style_type: ${style ? style.toUpperCase() : 'FLAT_ILLUSTRATION'}`);
+      console.log(`num_images: 1`);
+      console.log(`seed: ${form.getBoundary()}`); // Just to show something unique
+    } catch (logError) {
+      console.error('Error logging form data:', logError);
+      // Continue with the request even if logging fails
     }
     
     console.log('Making request to Ideogram API');
