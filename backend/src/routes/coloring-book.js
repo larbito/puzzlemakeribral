@@ -575,4 +575,130 @@ router.post('/process-image', express.json(), async (req, res) => {
   }
 });
 
+/**
+ * Expand a base prompt into multiple coloring book page prompts
+ * POST /api/coloring-book/expand-prompts
+ */
+router.post('/expand-prompts', express.json(), async (req, res) => {
+  try {
+    console.log('Expand prompts request received');
+    console.log('Request body:', req.body);
+    
+    const { basePrompt, pageCount = 10 } = req.body;
+    
+    if (!basePrompt) {
+      return res.status(400).json({ error: 'Base prompt is required' });
+    }
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is not configured');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    console.log(`Expanding base prompt into ${pageCount} variations`);
+    
+    // Call OpenAI API to generate prompt variations
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a creative assistant that specializes in generating coloring book pages for children.'
+            },
+            {
+              role: 'user',
+              content: `Generate ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
+              Each variation should match the original theme but be unique. Make them suitable for coloring pages.
+              Return the results as a JSON array of strings, with no additional text or explanation.`
+            }
+          ],
+          response_format: { type: "json_object" },
+          max_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OpenAI API error:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to generate prompt variations');
+      }
+
+      const data = await response.json();
+      console.log('OpenAI API response:', data);
+      
+      // Parse the response JSON from the content field
+      let promptVariations;
+      try {
+        // The content should be a JSON string with an array of prompts
+        const content = data.choices[0].message.content;
+        const parsedContent = JSON.parse(content);
+        
+        // Extract the array of prompts - check for common field names
+        if (Array.isArray(parsedContent)) {
+          promptVariations = parsedContent;
+        } else if (Array.isArray(parsedContent.prompts)) {
+          promptVariations = parsedContent.prompts;
+        } else if (Array.isArray(parsedContent.variations)) {
+          promptVariations = parsedContent.variations;
+        } else {
+          // If we can't find an array field, look for any array in the object
+          const arrayField = Object.values(parsedContent).find(Array.isArray);
+          if (arrayField) {
+            promptVariations = arrayField;
+          } else {
+            throw new Error('Could not find prompt variations in API response');
+          }
+        }
+      } catch (parseError) {
+        console.error('Error parsing prompt variations:', parseError);
+        throw new Error('Failed to parse prompt variations from API response');
+      }
+      
+      // Ensure we have the requested number of variations
+      // If we have too few, repeat some with slight modifications
+      if (promptVariations.length < pageCount) {
+        const originalLength = promptVariations.length;
+        for (let i = originalLength; i < pageCount; i++) {
+          const index = i % originalLength;
+          const originalPrompt = promptVariations[index];
+          
+          // Add a simple modification to create a variation
+          const modifiers = [
+            'with a different pose',
+            'from another angle',
+            'with slight variations',
+            'in a different style',
+            'with additional details'
+          ];
+          
+          const modifier = modifiers[Math.floor(Math.random() * modifiers.length)];
+          promptVariations.push(`${originalPrompt} ${modifier}`);
+        }
+      }
+      
+      // Limit to the requested count
+      promptVariations = promptVariations.slice(0, pageCount);
+      
+      res.json({ 
+        basePrompt,
+        promptVariations
+      });
+      
+    } catch (apiError) {
+      console.error('Error calling OpenAI API:', apiError);
+      res.status(500).json({ error: apiError.message || 'Failed to expand prompts' });
+    }
+  } catch (error) {
+    console.error('Error expanding prompts:', error);
+    res.status(500).json({ error: error.message || 'An error occurred while expanding prompts' });
+  }
+});
+
 module.exports = router; 

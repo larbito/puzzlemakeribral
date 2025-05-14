@@ -1187,23 +1187,70 @@ export interface GenerateColoringBookParams {
  */
 export async function generateColoringPage(prompt: string): Promise<string | null> {
   try {
-    // Enhanced prompt for coloring pages - make it clear that we want line art
-    const enhancedPrompt = `Coloring page with clean black outlines on white background, suitable for coloring book: ${prompt}`;
+    console.log("Generating coloring page with prompt:", prompt);
     
-    // Use the existing generateImage function but with specific parameters for coloring pages
-    const imageUrl = await generateImage({
-      prompt: enhancedPrompt,
-      style: "lineart", // Request line art style
-      colorScheme: "blackandwhite", // Black and white
-      transparentBackground: false, // White background
-      safeMode: true
-    });
+    // For testing UI interactivity
+    if (USE_PLACEHOLDERS) {
+      console.log("Using placeholder for coloring page");
+      return getPlaceholderImage(prompt, 'coloring');
+    }
+
+    // Build an enhanced prompt specifically for coloring books
+    const enhancedPrompt = `clean line drawing coloring page: ${prompt}, black and white outlines, no shading, no text, no watermarks, no signatures, suitable for coloring books, high contrast, clean vector style`;
     
-    return imageUrl;
+    const negative_prompt = "color, shading, grayscale, text, words, watermark, signature, grainy, blurry, realistic, photorealistic, busy, cluttered";
+
+    try {
+      console.log("Making coloring page API call with prompt:", enhancedPrompt);
+      
+      // Create form data for the request
+      const formData = new FormData();
+      formData.append('prompt', enhancedPrompt);
+      formData.append('aspect_ratio', '3:4'); // Portrait mode for coloring books
+      formData.append('negative_prompt', negative_prompt);
+      formData.append('style', 'LINE_ART'); // Use LINE_ART style for coloring pages
+      
+      const fullUrl = `${API_URL}/api/ideogram/generate`;
+      console.log("Making request to:", fullUrl);
+
+      const response = await fetch(fullUrl, {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Raw error response:", errorText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText || 'Failed to parse error response' };
+        }
+        
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API response data:", data);
+
+      if (!data.url) {
+        throw new Error("Could not extract image URL from API response");
+      }
+
+      return data.url;
+    } catch (error) {
+      console.error("Error generating coloring page:", error);
+      
+      // Fallback to placeholder for demo/testing
+      return getPlaceholderImage(prompt, 'coloring');
+    }
   } catch (error) {
-    console.error("Error generating coloring page:", error);
-    // Return a mock/placeholder for testing
-    return getPlaceholderImage(prompt, 'coloring', 1000, 1414); // ~8.5x11 at 120dpi
+    console.error("Error in generateColoringPage:", error);
+    return null;
   }
 }
 
@@ -1362,5 +1409,56 @@ export async function downloadColoringPages(
   } catch (error) {
     console.error("Error downloading coloring pages:", error);
     toast.error("Failed to download pages");
+  }
+}
+
+export async function expandPrompts(basePrompt: string, pageCount: number): Promise<string[]> {
+  try {
+    console.log(`Expanding prompt: ${basePrompt} into ${pageCount} variations`);
+    
+    // For testing/development, use placeholders if configured
+    if (USE_PLACEHOLDERS) {
+      console.log("Using placeholder prompts");
+      const placeholderPrompts = [];
+      for (let i = 0; i < pageCount; i++) {
+        placeholderPrompts.push(`${basePrompt} - variation ${i + 1}`);
+      }
+      return placeholderPrompts;
+    }
+    
+    const response = await fetch(`${API_URL}/api/coloring-book/expand-prompts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        basePrompt,
+        pageCount
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("Error expanding prompts:", errorData);
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("Expanded prompts:", data);
+    
+    if (!data.promptVariations || !Array.isArray(data.promptVariations)) {
+      console.error("Invalid response format:", data);
+      throw new Error("Invalid response format from prompt expansion API");
+    }
+    
+    return data.promptVariations;
+  } catch (error) {
+    console.error("Error in expandPrompts:", error);
+    // Return basic variations as fallback
+    const fallbackPrompts = [];
+    for (let i = 0; i < pageCount; i++) {
+      fallbackPrompts.push(`${basePrompt} - variation ${i + 1}`);
+    }
+    return fallbackPrompts;
   }
 } 
