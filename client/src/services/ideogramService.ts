@@ -1164,131 +1164,87 @@ export interface GenerateColoringBookParams {
  * This reuses the existing image generation functionality
  */
 export async function generateColoringPage(prompt: string): Promise<string | null> {
-  try {
-    console.log("[generateColoringPage] Starting with prompt:", prompt);
-    
-    // For testing UI interactivity only - we want real images now
-    if (USE_PLACEHOLDERS) {
-      console.log("[generateColoringPage] Using placeholder by configuration");
-      return getPlaceholderImage(prompt, 'coloring');
-    }
-
-    // Build an enhanced prompt specifically for coloring books
-    const enhancedPrompt = `clean line drawing coloring page: ${prompt}, black and white outlines, no shading, no text, no watermarks, no signatures, suitable for coloring books, high contrast, clean vector style`;
-    
-    const negative_prompt = "color, shading, grayscale, text, words, watermark, signature, grainy, blurry, realistic, photorealistic, busy, cluttered";
-
-    // Log the API URL being used for easy debugging
-    console.log("[generateColoringPage] Using API URL:", API_URL);
-    console.log("[generateColoringPage] Enhanced prompt:", enhancedPrompt);
-    
+  let attempts = 0;
+  const maxAttempts = 3;
+  const delayBetweenRetries = 2000; // 2 seconds
+  
+  // Clean the prompt as a safety measure (the backend should already do this)
+  const cleanedPrompt = prompt.trim()
+    // Remove common prefixes that might interfere with generation
+    .replace(/^(this image is|this is a|prompt for|coloring book page showing|create a)/i, '')
+    .trim();
+  
+  // Ensure the prompt is properly capitalized and punctuated
+  const finalPrompt = cleanedPrompt.charAt(0).toUpperCase() + cleanedPrompt.slice(1);
+  const promptWithPunctuation = /[.!?]$/.test(finalPrompt) ? finalPrompt : `${finalPrompt}.`;
+  
+  console.log(`Generating coloring page with prompt: "${promptWithPunctuation}"`);
+  
+  while (attempts < maxAttempts) {
+    attempts++;
     try {
-      // Create form data for the request
-      const formData = new FormData();
-      formData.append('prompt', enhancedPrompt);
-      formData.append('aspect_ratio', '3:4'); // Portrait mode for coloring books
-      formData.append('negative_prompt', negative_prompt);
-      formData.append('style', 'LINE_ART'); // Use LINE_ART style for coloring pages
+      if (USE_PLACEHOLDERS) {
+        console.log("Using placeholder coloring page image");
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+        return `https://placehold.co/512x512/f1f1f1/000000?text=${encodeURIComponent(promptWithPunctuation.substring(0, 30))}...&font=playfair`;
+      }
       
-      const endpoint = `${API_URL}/api/ideogram/generate`;
-      console.log("[generateColoringPage] Making request to:", endpoint);
-
-      // Add a timeout of 30 seconds for the API call
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      // Create form data for the backend request
+      const params = new URLSearchParams();
+      params.append('prompt', promptWithPunctuation);
+      params.append('style', 'LINE_ART'); // Force line art style for coloring pages
+      params.append('aspect_ratio', '3:4'); // Good ratio for coloring book pages
+      params.append('negative_prompt', 'color, colors, colored, shading, grayscale, busy, complex, details, text, words, letters, signature, watermark, grain, noise');
       
-      try {
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        console.log("[generateColoringPage] Response status:", response.status);
-        
-        if (!response.ok) {
-          let errorMessage = `API error: ${response.status}`;
-          try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } catch (parseError) {
-            console.error("[generateColoringPage] Error parsing error response:", parseError);
-          }
-          throw new Error(errorMessage);
-        }
-        
-        // Get the response as text first for better error logging
-        const responseText = await response.text();
-        
-        let data;
+      console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
+      console.log("Request parameters:", Object.fromEntries(params.entries()));
+      
+      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params
+      });
+      
+      if (!response.ok) {
+        let errorText;
         try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error("[generateColoringPage] Error parsing JSON response:", parseError);
-          console.log("[generateColoringPage] Raw response:", responseText.substring(0, 500));
-          throw new Error("Could not parse API response");
+          const errorData = await response.json();
+          errorText = errorData.error || `HTTP error ${response.status}`;
+          console.error("API error response:", errorData);
+        } catch (e) {
+          errorText = await response.text();
+          console.error("API error (non-JSON):", errorText);
         }
         
-        console.log("[generateColoringPage] Response data:", data);
-        
-        if (!data.url) {
-          console.error("[generateColoringPage] No image URL in response:", data);
-          throw new Error("No image URL in API response");
-        }
-        
-        console.log("[generateColoringPage] Successfully generated image:", data.url);
-        return data.url;
-      } catch (fetchError: unknown) {
-        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-          throw new Error('API request timed out after 30 seconds');
-        }
-        throw fetchError;
+        throw new Error(`Failed to generate coloring page: ${errorText}`);
       }
-    } catch (error) {
-      console.error("[generateColoringPage] Error:", error);
       
-      // Try again with a more basic prompt
-      try {
-        console.log("[generateColoringPage] Retrying with simpler prompt");
-        
-        const simplePrompt = `coloring page: ${prompt}, line art style, black and white only`;
-        
-        const simpleFormData = new FormData();
-        simpleFormData.append('prompt', simplePrompt);
-        simpleFormData.append('aspect_ratio', '3:4');
-        simpleFormData.append('negative_prompt', negative_prompt);
-        
-        const response = await fetch(`${API_URL}/api/ideogram/generate`, {
-          method: 'POST',
-          body: simpleFormData
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Retry failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.url) {
-          throw new Error("No image URL in retry response");
-        }
-        
-        console.log("[generateColoringPage] Retry succeeded with URL:", data.url);
-        return data.url;
-      } catch (retryError) {
-        console.error("[generateColoringPage] Retry failed:", retryError);
-        
-        // All attempts failed, use a placeholder
-        console.log("[generateColoringPage] All attempts failed, using placeholder");
-        return getPlaceholderImage(prompt, 'coloring');
+      const data = await response.json();
+      console.log("Image generation response:", data);
+      
+      if (!data || !data.url) {
+        throw new Error('No image URL in the response');
       }
+      
+      console.log("Successfully generated coloring page:", data.url);
+      return data.url;
+    } catch (error) {
+      console.error(`Attempt ${attempts}/${maxAttempts} failed:`, error);
+      
+      if (attempts >= maxAttempts) {
+        console.error("All attempts failed, returning error");
+        throw error;
+      }
+      
+      // Wait before retrying
+      console.log(`Retrying in ${delayBetweenRetries/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
     }
-  } catch (error) {
-    console.error("[generateColoringPage] Unexpected error:", error);
-    return getPlaceholderImage(prompt, 'coloring');
   }
+  
+  return null; // Should not reach here due to the throw in the catch block
 }
 
 /**
@@ -1303,33 +1259,88 @@ export async function generateColoringBook({
   includeBleed,
   bookTitle
 }: GenerateColoringBookParams): Promise<string[]> {
+  // Validate parameters
+  if (!prompt) {
+    throw new Error('Prompt is required');
+  }
+  
+  if (pageCount < 1 || pageCount > 50) {
+    throw new Error('Page count must be between 1 and 50');
+  }
+  
+  console.log(`Generating ${pageCount}-page coloring book with base prompt: "${prompt}"`);
+  console.log(`Settings: trimSize=${trimSize}, addBlankPages=${addBlankPages}, showPageNumbers=${showPageNumbers}`);
+  
   try {
-    const generatedPages: string[] = [];
+    // Generate multiple variations of the prompt
+    const promptVariations = await expandPrompts(prompt, pageCount);
     
-    // Generate each page
-    for (let i = 0; i < pageCount; i++) {
-      // Add some randomization to the prompt for variety
-      const pagePrompt = `${prompt} ${i % 2 === 0 ? 'variation' : 'design'} ${i+1}`;
-      
+    if (!promptVariations || promptVariations.length === 0) {
+      throw new Error('Failed to generate prompt variations');
+    }
+    
+    console.log(`Generated ${promptVariations.length} prompt variations`);
+    
+    // Create a progress callback
+    const progressCallback = typeof window !== 'undefined' && window.dispatchEvent ? 
+      (progress: number) => {
+        window.dispatchEvent(new CustomEvent('coloringBookProgress', { 
+          detail: { progress, type: 'generation' } 
+        }));
+      } : null;
+    
+    // Generate image for each prompt variation (in sequence to avoid rate limits)
+    const imagesToGenerate = Math.min(pageCount, promptVariations.length);
+    const generatedImages: string[] = [];
+    let failedPrompts = 0;
+    
+    for (let i = 0; i < imagesToGenerate; i++) {
       try {
-        const pageUrl = await generateColoringPage(pagePrompt);
-        if (pageUrl) {
-          generatedPages.push(pageUrl);
+        // Update progress
+        const progressPercent = Math.floor((i / imagesToGenerate) * 100);
+        if (progressCallback) progressCallback(progressPercent);
+        
+        console.log(`Generating page ${i+1}/${imagesToGenerate} with prompt: "${promptVariations[i]}"`);
+        
+        // Generate the coloring page
+        const imageUrl = await generateColoringPage(promptVariations[i]);
+        
+        if (!imageUrl) {
+          console.error(`Failed to generate image for page ${i+1}`);
+          failedPrompts++;
+          
+          // Add a placeholder for failed generations
+          generatedImages.push(`https://placehold.co/512x512/f1f1f1/000000?text=Failed+to+generate+page+${i+1}&font=playfair`);
+          continue;
         }
-      } catch (pageError) {
-        console.error(`Error generating page ${i+1}:`, pageError);
-        // Continue with other pages
-      }
-      
-      // For testing/demo, limit to 3 pages if we're using placeholders
-      if (USE_PLACEHOLDERS && generatedPages.length >= 3) {
-        break;
+        
+        generatedImages.push(imageUrl);
+        console.log(`Successfully generated page ${i+1}/${imagesToGenerate}`);
+      } catch (error) {
+        console.error(`Error generating page ${i+1}:`, error);
+        failedPrompts++;
+        
+        // Add a placeholder for failed generations
+        generatedImages.push(`https://placehold.co/512x512/f1f1f1/000000?text=Failed+to+generate+page+${i+1}&font=playfair`);
       }
     }
     
-    return generatedPages;
+    // Final progress update
+    if (progressCallback) progressCallback(100);
+    
+    // Check if all generations failed
+    if (failedPrompts === imagesToGenerate) {
+      throw new Error('Failed to generate any coloring pages');
+    }
+    
+    if (failedPrompts > 0) {
+      console.warn(`${failedPrompts} out of ${imagesToGenerate} pages failed to generate`);
+    }
+    
+    console.log(`Completed coloring book generation with ${generatedImages.length} pages`);
+    return generatedImages;
   } catch (error) {
-    console.error("Error generating coloring book:", error);
+    console.error('Error generating coloring book:', error);
     throw error;
   }
 }
@@ -1482,7 +1493,7 @@ export async function downloadColoringPages(
 
 export async function expandPrompts(basePrompt: string, pageCount: number): Promise<string[]> {
   try {
-    console.log(`Expanding prompt: ${basePrompt} into ${pageCount} variations`);
+    console.log(`Expanding prompt: "${basePrompt}" into ${pageCount} variations`);
     
     // For testing/development, use placeholders if configured
     if (USE_PLACEHOLDERS) {
@@ -1494,13 +1505,22 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
       return placeholderPrompts;
     }
     
+    // Clean the base prompt before sending to the API
+    // This is just a basic client-side clean to improve API results
+    const cleanedPrompt = basePrompt.trim()
+      // Remove common prefixes clients might add
+      .replace(/^(this image is|this is a|prompt for|coloring book page showing|create a)/i, '')
+      .trim();
+    
+    console.log(`Cleaned prompt for API: "${cleanedPrompt}"`);
+    
     const response = await fetch(`${API_URL}/api/coloring-book/expand-prompts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        basePrompt,
+        basePrompt: cleanedPrompt,
         pageCount
       })
     });
@@ -1512,14 +1532,39 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     }
     
     const data = await response.json();
-    console.log("Expanded prompts:", data);
+    console.log("API response for prompt expansion:", data);
     
     if (!data.promptVariations || !Array.isArray(data.promptVariations)) {
       console.error("Invalid response format:", data);
       throw new Error("Invalid response format from prompt expansion API");
     }
     
-    return data.promptVariations;
+    // Final processing: ensure all prompts are properly formatted sentences
+    // This is just a safety check, as the backend should already do this
+    const processedPrompts = data.promptVariations.map((prompt: string, index: number) => {
+      if (!prompt || typeof prompt !== 'string') {
+        console.warn(`Invalid prompt at index ${index}:`, prompt);
+        return cleanedPrompt; // Fallback to cleaned base prompt
+      }
+      
+      let processedPrompt = prompt.trim();
+      
+      // Ensure the prompt starts with a capital letter
+      if (processedPrompt.length > 0) {
+        processedPrompt = processedPrompt.charAt(0).toUpperCase() + processedPrompt.slice(1);
+        
+        // Ensure the prompt ends with punctuation
+        if (!/[.!?]$/.test(processedPrompt)) {
+          processedPrompt += '.';
+        }
+      }
+      
+      console.log(`Prompt ${index + 1}: "${processedPrompt}"`);
+      return processedPrompt;
+    });
+    
+    console.log(`Successfully generated ${processedPrompts.length} variations`);
+    return processedPrompts;
   } catch (error) {
     console.error("Error in expandPrompts:", error);
     // Return basic variations as fallback
