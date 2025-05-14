@@ -1107,7 +1107,7 @@ module.exports = {
       console.log(`Cleaned base prompt: "${cleanedBasePrompt}"`);
       console.log(`Expanding base prompt into ${pageCount} consistent variations`);
       
-      // Generate fallback variations
+      // Generate fallback variations if all else fails
       const generateFallbackVariations = () => {
         const variations = [cleanedBasePrompt]; // Start with the original
         
@@ -1145,8 +1145,144 @@ module.exports = {
         return variations;
       };
       
-      // Use the fallback method for now to ensure we get variations
-      return generateFallbackVariations();
+      // Use OpenAI API to generate better variations
+      try {
+        console.log('Making OpenAI API request for consistent prompt variations');
+        
+        // Use the exact system prompt format suggested for better consistency
+        const systemPrompt = `You are an AI assistant that generates high-quality, consistent coloring book page prompts for children.
+
+Your task is to create variations of a base prompt that maintain the same theme, characters, and setting while only varying small details.
+
+FOLLOW THESE GUIDELINES STRICTLY:
+1. Keep the same theme, style, and structure as the original prompt
+2. Maintain the same characters and setting
+3. Only change small scene details, actions, positions, or props
+4. Ensure the same level of detail and complexity in each variation
+5. Maintain the tone and writing style of the original
+6. Output clean text only - no labels, no numbers, no explanations
+7. Each prompt should be a standalone, complete description`;
+
+        // More structured user prompt with clear instructions and examples
+        const userPrompt = `Base Prompt:
+${cleanedBasePrompt}
+
+Task:
+Generate ${pageCount} similar coloring book prompts based on the base prompt above. Each variation should:
+
+- Maintain the same theme, structure, and visual style
+- Keep the same characters and setting
+- Change only small scene details, actions, or props 
+- Output only the prompts in clean text (no prefaces, no headings)
+
+Target audience is children. Use clean language and maintain a whimsical, inviting tone.
+
+IMPORTANT: Do not start prompts with phrases like "A coloring page of" or "This image shows". 
+Return ONLY the content of each prompt as direct descriptions.`;
+
+        // First API call attempt using JSON response format
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            response_format: { type: "json_object" },
+            temperature: 0.75
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('OpenAI API error:', errorData);
+          throw new Error(errorData.error?.message || 'Failed to generate prompt variations');
+        }
+
+        const data = await response.json();
+        console.log('OpenAI API response received');
+        
+        // Parse the response JSON from the content field
+        let promptVariations = [];
+        
+        // Extract the content
+        const content = data.choices[0].message.content;
+        console.log('Raw content from OpenAI:', content);
+        
+        // Parse the JSON response
+        const parsedContent = JSON.parse(content);
+        console.log('Parsed content structure:', Object.keys(parsedContent));
+        
+        // Check different possible array locations in the response
+        if (Array.isArray(parsedContent)) {
+          promptVariations = parsedContent;
+        } else if (Array.isArray(parsedContent.prompts)) {
+          promptVariations = parsedContent.prompts;
+        } else if (Array.isArray(parsedContent.variations)) {
+          promptVariations = parsedContent.variations;
+        } else {
+          // Look for any array in the response
+          const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
+          if (arrayField) {
+            promptVariations = arrayField;
+          }
+        }
+        
+        // If we still don't have prompt variations, use fallback
+        if (!promptVariations || promptVariations.length === 0) {
+          throw new Error('Could not find prompt variations array in API response');
+        }
+        
+        // Process the generated variations - minimal cleaning to preserve structure and detail
+        const processedVariations = promptVariations.map(prompt => {
+          if (!prompt || typeof prompt !== 'string') return '';
+          
+          // Remove quote marks if present
+          let cleanedPrompt = prompt.replace(/^["'](.+)["']$/s, '$1').trim();
+          
+          // Remove any numbered prefixes (like "1. ")
+          cleanedPrompt = cleanedPrompt.replace(/^\d+\.\s+/, '');
+          
+          // Ensure prompt is properly capitalized
+          if (cleanedPrompt.length > 0 && /[a-z]/.test(cleanedPrompt[0])) {
+            cleanedPrompt = cleanedPrompt.charAt(0).toUpperCase() + cleanedPrompt.slice(1);
+          }
+          
+          // Ensure prompt ends with proper punctuation
+          if (cleanedPrompt.length > 0 && !/[.!?]$/.test(cleanedPrompt)) {
+            cleanedPrompt += '.';
+          }
+          
+          return cleanedPrompt;
+        }).filter(prompt => prompt.length > 0);
+        
+        // Ensure the first prompt is the original if it's not already included
+        let finalVariations = processedVariations;
+        if (processedVariations.length > 0 && !processedVariations.includes(cleanedBasePrompt)) {
+          finalVariations = [cleanedBasePrompt, ...processedVariations.slice(0, pageCount - 1)];
+        }
+        
+        // Ensure we have the requested number of variations
+        if (finalVariations.length < pageCount) {
+          // Pad with duplicates of the original if needed
+          while (finalVariations.length < pageCount) {
+            finalVariations.push(cleanedBasePrompt);
+          }
+        } else if (finalVariations.length > pageCount) {
+          // Trim to requested size
+          finalVariations = finalVariations.slice(0, pageCount);
+        }
+        
+        return finalVariations;
+      } catch (apiError) {
+        console.error('API error, using fallback variations:', apiError);
+        return generateFallbackVariations();
+      }
       
     } catch (error) {
       console.error('Error in expandPrompts function:', error);
