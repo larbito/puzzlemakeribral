@@ -610,16 +610,20 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
           messages: [
             {
               role: 'system',
-              content: 'You are a creative assistant that specializes in generating coloring book pages for children.'
+              content: `You are a creative assistant that specializes in generating coloring book pages for children. 
+              When asked to create variations, return ONLY a JSON array with the variations, nothing else.
+              Format your response as valid JSON containing an array of strings.`
             },
             {
               role: 'user',
               content: `Generate ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
               Each variation should match the original theme but be unique. Make them suitable for coloring pages.
-              Return the results as a JSON array of strings, with no additional text or explanation.`
+              Return ONLY a JSON array of strings with no additional text or explanation.
+              Example of expected format: ["Variation 1", "Variation 2", ...]`
             }
           ],
           response_format: { type: "json_object" },
+          temperature: 0.8,
           max_tokens: 1000
         })
       });
@@ -638,26 +642,50 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
       try {
         // The content should be a JSON string with an array of prompts
         const content = data.choices[0].message.content;
-        const parsedContent = JSON.parse(content);
+        console.log('Raw content from OpenAI:', content);
         
-        // Extract the array of prompts - check for common field names
-        if (Array.isArray(parsedContent)) {
-          promptVariations = parsedContent;
-        } else if (Array.isArray(parsedContent.prompts)) {
-          promptVariations = parsedContent.prompts;
-        } else if (Array.isArray(parsedContent.variations)) {
-          promptVariations = parsedContent.variations;
-        } else {
-          // If we can't find an array field, look for any array in the object
-          const arrayField = Object.values(parsedContent).find(Array.isArray);
-          if (arrayField) {
-            promptVariations = arrayField;
+        // Try to parse as JSON first
+        try {
+          const parsedContent = JSON.parse(content);
+          console.log('Parsed content:', parsedContent);
+          
+          // Extract the array of prompts - check for common field names
+          if (Array.isArray(parsedContent)) {
+            promptVariations = parsedContent;
+          } else if (Array.isArray(parsedContent.prompts)) {
+            promptVariations = parsedContent.prompts;
+          } else if (Array.isArray(parsedContent.variations)) {
+            promptVariations = parsedContent.variations;
           } else {
-            throw new Error('Could not find prompt variations in API response');
+            // If we can't find an array field, look for any array in the object
+            const arrayField = Object.values(parsedContent).find(val => Array.isArray(val));
+            if (arrayField) {
+              promptVariations = arrayField;
+            } else {
+              throw new Error('Could not find prompt variations in API response');
+            }
+          }
+        } catch (jsonError) {
+          console.error('Error parsing JSON from OpenAI:', jsonError);
+          console.log('Attempting to extract variations directly from text');
+          
+          // If JSON parsing fails, try to extract variations directly from text
+          // Split by line breaks or numbering patterns
+          let lines = content.split(/\n+/);
+          
+          // Filter out empty lines and remove any numbering
+          promptVariations = lines
+            .filter(line => line.trim().length > 0)
+            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim())
+            .filter(line => line.length > 10); // Only keep substantial lines
+            
+          if (promptVariations.length === 0) {
+            throw new Error('Could not extract variations from text response');
           }
         }
       } catch (parseError) {
         console.error('Error parsing prompt variations:', parseError);
+        console.error('Content that failed to parse:', data.choices[0]?.message?.content);
         throw new Error('Failed to parse prompt variations from API response');
       }
       
