@@ -1309,7 +1309,267 @@ export const TShirtGenerator = () => {
             </CardContent>
           </Card>
 
-          {/* Rest of the UI should be conditionally rendered based on activeMode */}
+          {/* Prompt Input Section (for Prompt mode) */}
+          {activeMode === "prompt" && (
+            <Card className="w-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Design Details</CardTitle>
+                <CardDescription>Describe what you want in your t-shirt design</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Prompt input */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="prompt-input">Design Prompt</Label>
+                      <div className="relative">
+                        <Textarea
+                          id="prompt-input"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          placeholder="Describe your t-shirt design... (e.g., A cute cartoon cat wearing sunglasses and a baseball cap, minimalist line art)"
+                          className="min-h-[150px] resize-none"
+                          maxLength={MAX_PROMPT_LENGTH}
+                        />
+                        <div className="absolute bottom-2 right-2">
+                          <Badge variant="outline">
+                            {prompt.length}/{MAX_PROMPT_LENGTH}
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Be specific about what you want - include style, colors, and composition details.
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={handleGenerateImage}
+                      disabled={isGenerating || !prompt.trim()}
+                      className="w-full"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating Design...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate Design
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Settings panel */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="size-preset">Design Size</Label>
+                      <Select 
+                        defaultValue="merch-by-amazon" 
+                        onValueChange={(value) => {
+                          const preset = sizePresets.find(preset => preset.label.toLowerCase().replace(/\s+/g, '-') === value);
+                          if (preset && preset.width && preset.height) {
+                            setWidth(preset.width);
+                            setHeight(preset.height);
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select size preset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sizePresets.map(preset => (
+                            <SelectItem 
+                              key={preset.label.toLowerCase().replace(/\s+/g, '-')}
+                              value={preset.label.toLowerCase().replace(/\s+/g, '-')}
+                            >
+                              {preset.label} {preset.width && preset.height && `(${preset.width}×${preset.height}px)`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="num-designs">Number of Designs</Label>
+                      <Select value={designCount} onValueChange={setDesignCount}>
+                        <SelectTrigger id="num-designs">
+                          <SelectValue placeholder="How many designs?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {designCountOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="style">Design Style</Label>
+                      <Select defaultValue="realistic">
+                        <SelectTrigger id="style">
+                          <SelectValue placeholder="Select style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {styleOptions.map(option => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="transparent-bg" className="cursor-pointer">
+                        Transparent Background
+                      </Label>
+                      <Switch 
+                        id="transparent-bg" 
+                        checked={transparentBg} 
+                        onCheckedChange={setTransparentBg} 
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Results section - showing for all modes */}
+          {(currentDesigns.length > 0 || selectedImage) && (
+            <Card className="w-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl flex justify-between items-center">
+                  <span>Design Preview</span>
+                  <div className="flex gap-2">
+                    {selectedImage && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(selectedImage.url)}
+                          disabled={isDownloading}
+                          className="gap-1"
+                        >
+                          {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                          Download
+                        </Button>
+                        {currentDesigns.length > 1 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDownloadAll}
+                            disabled={isDownloadingAll}
+                            className="gap-1"
+                          >
+                            {isDownloadingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <DownloadCloud className="w-4 h-4" />}
+                            Download All
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Main preview */}
+                  {selectedImage ? (
+                    <div className="aspect-square bg-muted/30 rounded-md flex items-center justify-center relative overflow-hidden">
+                      <img 
+                        src={selectedImage.url} 
+                        alt={selectedImage.prompt || "T-shirt design"} 
+                        className="max-w-full max-h-full object-contain"
+                        style={{
+                          transform: `scale(${zoomLevel})`,
+                          transformOrigin: 'center'
+                        }}
+                      />
+                      
+                      {/* Zoom controls */}
+                      <div className="absolute top-4 right-4 flex items-center gap-1 bg-background/90 p-1 rounded-lg shadow-md border">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.1))}
+                          className="h-8 w-8"
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </Button>
+                        <span className="text-xs w-12 text-center font-medium">{Math.round(zoomLevel * 100)}%</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setZoomLevel(prev => Math.min(2, prev + 0.1))}
+                          className="h-8 w-8"
+                        >
+                          <ZoomIn className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Debug/hidden canvas for processing */}
+                      <canvas 
+                        ref={canvasRef}
+                        className="hidden"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-square bg-muted/30 rounded-md flex items-center justify-center">
+                      <div className="text-center p-6">
+                        <Shirt className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">No design selected</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Design grid */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">
+                      Generated Designs {currentDesigns.length > 0 && `(${currentDesigns.length})`}
+                    </h3>
+                    
+                    {isGenerating ? (
+                      <div className="aspect-square bg-muted/30 rounded-md flex flex-col items-center justify-center">
+                        <Loader2 className="w-12 h-12 text-primary animate-spin mb-4" />
+                        <p className="font-medium">Generating designs...</p>
+                        <p className="text-sm text-muted-foreground mt-1">This may take 15-30 seconds</p>
+                      </div>
+                    ) : currentDesigns.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {currentDesigns.map((design) => (
+                          <div 
+                            key={design.id} 
+                            className={cn(
+                              "aspect-square rounded-lg border-2 overflow-hidden cursor-pointer hover:shadow-md transition-all",
+                              selectedImage?.id === design.id ? "border-primary" : "border-transparent"
+                            )}
+                            onClick={() => handleSelectImage(design)}
+                          >
+                            <img 
+                              src={design.url} 
+                              alt={design.prompt || "T-shirt design"}
+                              className="w-full h-full object-cover" 
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="aspect-square bg-muted/30 rounded-md flex items-center justify-center">
+                        <div className="text-center p-6">
+                          <Sparkles className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground">Generate some designs to see them here</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </PageLayout>
