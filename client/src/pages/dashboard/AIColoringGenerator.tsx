@@ -223,12 +223,8 @@ export const AIColoringGenerator = () => {
       formData.append('generateVariations', 'false'); // Change to false to prevent automatic variations
       formData.append('pageCount', '1'); // Always use 1 for initial analysis
       
-      // Make a direct API call to the backend
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? window.location.origin.includes('vercel.app') 
-          ? 'https://puzzlemakeribral-production.up.railway.app'
-          : window.location.origin
-        : 'http://localhost:3000';
+      // Make a direct API call to the production backend on Railway
+      const apiUrl = 'https://puzzlemakeribral-production.up.railway.app';
       
       console.log(`Calling analyze API at ${apiUrl}/api/ideogram/analyze`);
       const apiResponse = await fetch(`${apiUrl}/api/ideogram/analyze`, {

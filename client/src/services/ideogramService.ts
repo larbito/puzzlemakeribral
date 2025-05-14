@@ -2,12 +2,12 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // Configuration
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 export const USE_PLACEHOLDERS = process.env.NEXT_PUBLIC_USE_PLACEHOLDERS === 'true';
 export const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/512x512/f1f1f1/000000?text=Coloring+Page+Placeholder&font=playfair';
 
 // Debug logging for API URL
-console.log('API_URL configured as:', API_URL);
+console.log('API_URL hardcoded to Railway production:', API_URL);
 console.log('Current environment:', process.env.NODE_ENV || 'not set');
 console.log('Window location origin:', window.location.origin);
 
