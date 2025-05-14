@@ -19,7 +19,6 @@ import { Overview } from '@/pages/dashboard/Overview';
 import { Puzzles } from '@/pages/dashboard/Puzzles';
 import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
-import { TShirtGenerator } from '@/pages/dashboard/TShirtGenerator';
 import KDPFullWrapGenerator from '@/pages/dashboard/KDPFullWrapGenerator';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
@@ -70,7 +69,6 @@ function App() {
                       <Route path="sudoku" element={<SudokuPage />} />
                       <Route path="bulk" element={<BulkGeneratorPage />} />
                       <Route path="ai-book" element={<AIBookPage />} />
-                      <Route path="t-shirts" element={<TShirtGenerator initialMode="prompt" />} />
                       <Route path="kdp-covers" element={<KDPFullWrapGenerator />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />

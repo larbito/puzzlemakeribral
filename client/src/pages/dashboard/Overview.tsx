@@ -1,44 +1,32 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import {
-  BookOpen,
-  Puzzle,
-  Star,
-  Clock,
-  Plus,
-  Download,
-  Brain,
-  Search,
-  Grid,
-  Sparkles,
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion } from "framer-motion";
+import { 
+  Activity, 
+  Package, 
+  FileText, 
+  Layers, 
+  PanelRight, 
+  Palette, 
+  BookOpen, 
+  Puzzle, 
+  CalendarDays, 
+  BarChart,
   TrendingUp,
-  Activity,
-  Zap,
-  BarChart3,
-  Palette,
-  Shirt,
-  FileText,
-  CalendarDays,
-  ChevronRight,
-  Layers,
-  ChevronDown,
-  LineChart
-} from 'lucide-react';
+  Check,
+  Clock
+} from "lucide-react";
+import { PageLayout } from '@/components/layout/PageLayout';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import { ChevronRight, ChevronDown, Plus, Download, Zap, LineChart } from 'lucide-react';
 
 const quickActions = [
-  {
-    title: 'T-shirt Generator',
-    description: 'Create AI-powered T-shirt designs',
-    icon: Shirt,
-    color: 'from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
-    iconColor: 'text-blue-500',
-    href: '/dashboard/t-shirts'
-  },
   {
     title: 'Coloring Page Generator',
     description: 'Design unique coloring pages with AI',
@@ -82,18 +70,6 @@ const quickActions = [
 ];
 
 const recentProjects = [
-  {
-    title: 'Summer T-Shirt Collection',
-    date: 'May 8, 2024',
-    type: 'T-shirt',
-    items: 12,
-    status: 'completed',
-    progress: 100,
-    trend: '+18%',
-    icon: Shirt,
-    iconColor: 'text-blue-500',
-    fileType: '.png'
-  },
   {
     title: 'Fantasy Coloring Book',
     date: 'May 6, 2024',
@@ -145,7 +121,6 @@ const recentProjects = [
 ];
 
 const usageBreakdown = [
-  { type: 'T-shirts', used: 356, limit: 500, color: 'bg-blue-500' },
   { type: 'Coloring Pages', used: 220, limit: 300, color: 'bg-purple-500' },
   { type: 'Book Covers', used: 78, limit: 100, color: 'bg-green-500' },
   { type: 'Puzzle Pages', used: 188, limit: 300, color: 'bg-amber-500' }
@@ -216,12 +191,12 @@ export const Overview = () => {
           <div className="absolute inset-0 bg-grid-white/[0.02]" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Top Tool Used</CardTitle>
-            <Shirt className="h-4 w-4 text-amber-500" />
+            <Palette className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-500">T-shirts</div>
+            <div className="text-2xl font-bold text-amber-500">Coloring Pages</div>
             <div className="flex items-center mt-1 text-xs">
-              <span className="text-muted-foreground">42% of all creations</span>
+              <span className="text-muted-foreground">45% of all creations</span>
             </div>
           </CardContent>
         </MotionCard>
@@ -258,7 +233,7 @@ export const Overview = () => {
         <div className="absolute inset-0 bg-grid-white/[0.02]" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
+            <BarChart className="h-5 w-5 text-primary" />
             Subscription Usage
           </CardTitle>
           <CardDescription>You've used {totalPercentage}% of your monthly quota</CardDescription>
