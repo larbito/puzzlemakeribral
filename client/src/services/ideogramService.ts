@@ -1186,25 +1186,47 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
         return PLACEHOLDER_IMAGE_URL;
       }
 
-      // Add a style parameter to ensure coloring book style, but don't modify the core prompt
-      const styleParam = 'coloring book style, clean black and white line art, suitable for children to color, no shading, no text';
+      // Add style parameters for coloring book style, but don't modify the core prompt
+      const styleParam = 'FLAT_ILLUSTRATION'; // Use a preset style that works well for coloring books
+      const negativePrompt = 'colored, filled in, shading, text, watermark, signature, grayscale, photorealistic, blurry, complex background, cluttered';
+      
+      // Create FormData - important: this is what the backend expects!
+      const formData = new FormData();
+      formData.append('prompt', `coloring book line art: ${finalPrompt}`);
+      formData.append('style', styleParam);
+      formData.append('negative_prompt', negativePrompt);
+      formData.append('aspect_ratio', '3:4');
+      formData.append('rendering_speed', 'STANDARD');
       
       console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
-      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          style: styleParam,
-          negative_prompt: 'colored, filled in, shading, text, watermark, signature, grayscale, photorealistic, blurry, complex background, cluttered'
-        })
+      console.log('FormData content:', {
+        prompt: finalPrompt,
+        style: styleParam,
+        negative_prompt: negativePrompt,
+        aspect_ratio: '3:4'
       });
       
+      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
+        method: 'POST',
+        body: formData // Send FormData, not JSON!
+      });
+      
+      // Log raw response for debugging
+      const responseText = await response.text();
+      console.log(`Response status: ${response.status}`);
+      console.log(`Raw response text: ${responseText.substring(0, 100)}`);
+      
+      // Parse the JSON response
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        throw new Error(`Failed to parse response: ${responseText.substring(0, 50)}...`);
+      }
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error(`API error (attempt ${attempts}/${maxAttempts}):`, errorData);
+        console.error(`API error (attempt ${attempts}/${maxAttempts}):`, data);
         
         if (attempts < maxAttempts) {
           console.log(`Retrying after ${delayBetweenRetries}ms...`);
@@ -1212,13 +1234,12 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
           continue;
         }
         
-        throw new Error(errorData.error || `API error: ${response.status}`);
+        throw new Error(data.error || `API error: ${response.status}`);
       }
       
-      const data = await response.json();
       console.log('Image generation successful:', data);
       
-      if (!data.imageUrl) {
+      if (!data.url) {
         console.error('No image URL in response:', data);
         
         if (attempts < maxAttempts) {
@@ -1230,7 +1251,7 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
         throw new Error('No image URL in response');
       }
       
-      return data.imageUrl;
+      return data.url;
     } catch (error) {
       console.error(`Error in attempt ${attempts}/${maxAttempts}:`, error);
       
