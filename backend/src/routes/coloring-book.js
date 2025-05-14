@@ -830,7 +830,9 @@ Generate ${pageCount} similar coloring book prompts based on the base prompt abo
 Target audience is children. Use clean language and maintain a whimsical, inviting tone.
 
 IMPORTANT: Do not start prompts with phrases like "A coloring page of" or "This image shows". 
-Return ONLY the content of each prompt as direct descriptions.`;
+Return ONLY the content of each prompt as direct descriptions.
+
+Format your response as a JSON object with an array of prompt variations.`;
 
       // First API call attempt using JSON response format
       try {
@@ -1178,7 +1180,9 @@ Generate ${pageCount} similar coloring book prompts based on the base prompt abo
 Target audience is children. Use clean language and maintain a whimsical, inviting tone.
 
 IMPORTANT: Do not start prompts with phrases like "A coloring page of" or "This image shows". 
-Return ONLY the content of each prompt as direct descriptions.`;
+Return ONLY the content of each prompt as direct descriptions.
+
+Format your response as a JSON object with an array of prompt variations.`;
 
         // First API call attempt using JSON response format
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
