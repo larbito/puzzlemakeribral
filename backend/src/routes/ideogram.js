@@ -86,8 +86,9 @@ router.post('/generate', upload.none(), async (req, res) => {
     if (style) {
       form.append('style_type', style.toUpperCase());
     } else {
-      // Default style for coloring books
-      form.append('style_type', 'FLAT_ILLUSTRATION');
+      // Default style for coloring books - using DESIGN instead of FLAT_ILLUSTRATION
+      // Valid options are: AUTO, GENERAL, REALISTIC, DESIGN
+      form.append('style_type', 'DESIGN');
     }
 
     // Add some default parameters
@@ -103,7 +104,7 @@ router.post('/generate', upload.none(), async (req, res) => {
       console.log(`aspect_ratio: ${aspectRatioFormatted}`);
       console.log(`rendering_speed: ${rendering_speed || 'TURBO'}`);
       console.log(`negative_prompt: ${negative_prompt || 'color, shading, watermark, text, grayscale, low quality'}`);
-      console.log(`style_type: ${style ? style.toUpperCase() : 'FLAT_ILLUSTRATION'}`);
+      console.log(`style_type: ${style ? style.toUpperCase() : 'DESIGN'}`);
       console.log(`num_images: 1`);
       console.log(`seed: ${form.getBoundary()}`); // Just to show something unique
     } catch (logError) {
@@ -600,8 +601,15 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     }
 
     if (style) {
-      // Make sure to format style correctly for Ideogram API
-      form.append('style_type', style.toUpperCase());
+      // Make sure style is one of the valid values: AUTO, GENERAL, REALISTIC, DESIGN
+      const validStyles = ['AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'];
+      const styleUpper = style.toUpperCase();
+      const finalStyle = validStyles.includes(styleUpper) ? styleUpper : 'REALISTIC';
+      form.append('style_type', finalStyle);
+      console.log(`Using style: ${finalStyle} (original: ${style})`);
+    } else {
+      // Default style for book covers
+      form.append('style_type', 'REALISTIC');
     }
 
     // Add some default parameters
@@ -617,7 +625,14 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     console.log(`height: ${parsedHeight.toString()}`);
     console.log(`rendering_speed: STANDARD`);
     console.log(`negative_prompt: ${negative_prompt || 'text overlays, watermark, signature, blurry, low quality, distorted'}`);
-    if (style) console.log(`style_type: ${style.toUpperCase()}`);
+    if (style) {
+      const validStyles = ['AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'];
+      const styleUpper = style.toUpperCase();
+      const finalStyle = validStyles.includes(styleUpper) ? styleUpper : 'REALISTIC';
+      console.log(`style_type: ${finalStyle}`);
+    } else {
+      console.log(`style_type: REALISTIC`);
+    }
     console.log(`num_images: 1`);
     console.log(`random seed: ${randomSeed}`);
     
