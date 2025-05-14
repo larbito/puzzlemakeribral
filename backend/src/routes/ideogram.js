@@ -72,7 +72,8 @@ router.post('/generate', upload.none(), async (req, res) => {
     form.append('prompt', prompt);
     
     // Handle optional parameters with sensible defaults
-    form.append('aspect_ratio', aspect_ratio || '3:4');
+    const aspectRatioFormatted = (aspect_ratio || '3:4').replace(':', 'x');
+    form.append('aspect_ratio', aspectRatioFormatted);
     form.append('rendering_speed', rendering_speed || 'TURBO');
 
     if (negative_prompt) {
@@ -99,7 +100,7 @@ router.post('/generate', upload.none(), async (req, res) => {
       // For Node.js form-data, we can't use entries() method
       // Instead, just log the keys we know we've added
       console.log(`prompt: ${prompt}`);
-      console.log(`aspect_ratio: ${aspect_ratio || '3:4'}`);
+      console.log(`aspect_ratio: ${aspectRatioFormatted}`);
       console.log(`rendering_speed: ${rendering_speed || 'TURBO'}`);
       console.log(`negative_prompt: ${negative_prompt || 'color, shading, watermark, text, grayscale, low quality'}`);
       console.log(`style_type: ${style ? style.toUpperCase() : 'FLAT_ILLUSTRATION'}`);
@@ -599,12 +600,14 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     }
 
     if (style) {
+      // Make sure to format style correctly for Ideogram API
       form.append('style_type', style.toUpperCase());
     }
 
     // Add some default parameters
     form.append('num_images', '1');
-    form.append('seed', Math.floor(Math.random() * 1000000));
+    const randomSeed = Math.floor(Math.random() * 1000000);
+    form.append('seed', randomSeed.toString());
 
     console.log('Making request to Ideogram API with custom dimensions');
     // Log form values directly rather than using entries()
@@ -616,7 +619,7 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     console.log(`negative_prompt: ${negative_prompt || 'text overlays, watermark, signature, blurry, low quality, distorted'}`);
     if (style) console.log(`style_type: ${style.toUpperCase()}`);
     console.log(`num_images: 1`);
-    console.log(`random seed: ${Math.floor(Math.random() * 1000000)}`);
+    console.log(`random seed: ${randomSeed}`);
     
     const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
       method: 'POST',
