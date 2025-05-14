@@ -25,7 +25,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  File
+  File,
+  ListPlus
 } from 'lucide-react';
 import { 
   generateImage, 
@@ -72,6 +73,8 @@ export const AIColoringGenerator = () => {
     dpi: 300
   });
   const [bookPrompt, setBookPrompt] = useState('');
+  const [expandedPrompts, setExpandedPrompts] = useState<string[]>([]);
+  const [isGeneratingPrompts, setIsGeneratingPrompts] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreatingPdf, setIsCreatingPdf] = useState(false);
   const [generatedPages, setGeneratedPages] = useState<string[]>([]);
@@ -205,10 +208,10 @@ export const AIColoringGenerator = () => {
     }
   };
 
-  // Generate coloring book
-  const handleGenerateBook = async () => {
+  // Handle generating multiple prompt variations
+  const handleGeneratePrompts = async () => {
     if (!bookPrompt.trim()) {
-      toast.error('Please enter a prompt for your coloring book');
+      toast.error('Please enter a base prompt first');
       return;
     }
 
@@ -217,34 +220,62 @@ export const AIColoringGenerator = () => {
       return;
     }
 
+    setIsGeneratingPrompts(true);
+    setExpandedPrompts([]);
+
+    try {
+      toast.info(`Generating ${coloringOptions.pageCount} prompt variations...`);
+      
+      const variations = await expandPrompts(bookPrompt, coloringOptions.pageCount);
+      
+      if (!variations || variations.length === 0) {
+        throw new Error('Failed to generate prompt variations');
+      }
+      
+      setExpandedPrompts(variations);
+      toast.success(`Generated ${variations.length} unique prompt variations!`);
+      
+    } catch (error) {
+      console.error('Error generating prompt variations:', error);
+      toast.error('Failed to generate prompt variations');
+    } finally {
+      setIsGeneratingPrompts(false);
+    }
+  };
+
+  // Update expanded prompts when edited
+  const updateExpandedPrompt = (index: number, newPrompt: string) => {
+    const newPrompts = [...expandedPrompts];
+    newPrompts[index] = newPrompt;
+    setExpandedPrompts(newPrompts);
+  };
+
+  // Generate coloring book using expanded prompts
+  const handleGenerateBook = async () => {
+    if (expandedPrompts.length === 0) {
+      toast.error('Please generate prompt variations first');
+      return;
+    }
+
     setIsGenerating(true);
     setGeneratedPages([]);
     setPdfUrl(null);
 
     try {
-      toast.info(`Expanding prompt variations for ${coloringOptions.pageCount} pages...`);
-      
-      // First, expand the base prompt into variations for each page
-      const promptVariations = await expandPrompts(bookPrompt, coloringOptions.pageCount);
-      
-      if (!promptVariations || promptVariations.length === 0) {
-        throw new Error('Failed to generate prompt variations');
-      }
-      
-      toast.info(`Generating ${promptVariations.length} unique coloring pages...`);
+      toast.info(`Generating ${expandedPrompts.length} unique coloring pages...`);
       
       // Generate pages using the expanded prompts
       const pageUrls: string[] = [];
       
       // Generate pages for each prompt variation
-      for (let i = 0; i < promptVariations.length; i++) {
+      for (let i = 0; i < expandedPrompts.length; i++) {
         try {
-          toast.info(`Generating page ${i+1} of ${promptVariations.length}...`, {
+          toast.info(`Generating page ${i+1} of ${expandedPrompts.length}...`, {
             id: `page-${i}`,
             duration: 2000
           });
           
-          const pageUrl = await generateColoringPage(promptVariations[i]);
+          const pageUrl = await generateColoringPage(expandedPrompts[i]);
           if (pageUrl) {
             pageUrls.push(pageUrl);
             // Update UI immediately when each page is ready
@@ -562,6 +593,20 @@ export const AIColoringGenerator = () => {
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button
+                    onClick={handleGeneratePrompts}
+                    disabled={!bookPrompt.trim() || isGeneratingPrompts}
+                    variant="outline"
+                    className="flex-1 h-12 text-base gap-2"
+                  >
+                    {isGeneratingPrompts ? (
+                      <Sparkles className="w-5 h-5 animate-pulse" />
+                    ) : (
+                      <ListPlus className="w-5 h-5" />
+                    )}
+                    Generate Prompts
+                  </Button>
+                  
+                  <Button
                     onClick={handleGenerateTestPage}
                     disabled={!bookPrompt.trim() || isGenerating}
                     variant="outline"
@@ -577,7 +622,7 @@ export const AIColoringGenerator = () => {
                   
                   <Button
                     onClick={handleGenerateBook}
-                    disabled={!bookPrompt.trim() || isGenerating}
+                    disabled={expandedPrompts.length === 0 || isGenerating}
                     className="flex-1 h-12 text-base relative overflow-hidden group bg-primary/90 hover:bg-primary/80 gap-2"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
@@ -587,12 +632,43 @@ export const AIColoringGenerator = () => {
                       ) : (
                         <Wand2 className="w-5 h-5" />
                       )}
-                      Generate Complete Book
+                      Generate Coloring Book
                     </span>
                   </Button>
                 </div>
               </div>
             </Card>
+
+            {/* Expanded Prompts Section - only show when prompts exist */}
+            {expandedPrompts.length > 0 && (
+              <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+                <div className="relative p-8 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold">Generated Prompts</h2>
+                    <p className="text-sm text-muted-foreground">Edit any prompt before final generation</p>
+                  </div>
+                  
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {expandedPrompts.map((prompt, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center">
+                          <span className="bg-primary/10 text-primary font-medium rounded-full w-8 h-8 flex items-center justify-center mr-2">
+                            {index + 1}
+                          </span>
+                          <Label className="text-base font-medium">Page {index + 1} Prompt</Label>
+                        </div>
+                        <Textarea
+                          value={prompt}
+                          onChange={(e) => updateExpandedPrompt(index, e.target.value)}
+                          className="min-h-[80px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Generated Pages Preview */}
             {generatedPages.length > 0 && (
