@@ -415,54 +415,81 @@ export const AIColoringGenerator = () => {
         console.log(`Sending complete base prompt to API: "${basePrompt.substring(0, 100)}..."`, 
                     'Target page count:', targetPageCount);
         
-        // For better UX, generate and display prompts one by one instead of all at once
-        let generatedPrompts: string[] = expandedPrompts.length > 0 ? [expandedPrompts[0]] : [basePrompt];
-        
-        // Calculate how many additional prompts we need
-        const promptsToGenerate = targetPageCount - generatedPrompts.length;
-        
-        // Generate each prompt individually and update the UI
-        for (let i = 0; i < promptsToGenerate; i++) {
-          try {
-            // Generate one prompt at a time
-            const newVariations = await expandPrompts(basePrompt, 1);
+        // For better UX and to enable proper error handling, call the expandPrompts API directly
+        // with the full count, but display the results as they arrive
+        try {
+          // Make a single API call to get all variations at once
+          const allVariations = await expandPrompts(basePrompt, targetPageCount);
+          
+          if (!allVariations || allVariations.length === 0) {
+            throw new Error('Failed to generate any prompt variations');
+          }
+          
+          console.log(`Received ${allVariations.length} prompt variations:`);
+          
+          // Start with the first prompt we already have in the UI
+          let currentPrompts = expandedPrompts.length > 0 ? [...expandedPrompts] : [basePrompt];
+          
+          // Simulate adding one by one for better UX feedback
+          for (let i = 0; i < allVariations.length; i++) {
+            // Skip if this would just replace an existing prompt
+            if (i < currentPrompts.length) continue;
             
-            if (newVariations && newVariations.length > 0) {
-              // Add the new variation to our collection
-              generatedPrompts.push(newVariations[0]);
+            // Add each new prompt with a delay to show progress
+            console.log(`Adding prompt variation ${i + 1}: "${allVariations[i].substring(0, 50)}..."`);
+            
+            // Add to our array of current prompts
+            currentPrompts.push(allVariations[i]);
+            
+            // Update the UI
+            setExpandedPrompts([...currentPrompts]);
+            
+            // Update progress percentage
+            const progress = Math.round(((i + 1) / allVariations.length) * 100);
+            setGenerationProgress(progress);
+            
+            // Add a small delay to make the progress visible
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
+          
+          // Final check to ensure all prompts are in place
+          if (currentPrompts.length < targetPageCount) {
+            console.warn(`Only generated ${currentPrompts.length} prompts, needed ${targetPageCount}`);
+            
+            // Fill in any missing prompts with the first variation
+            while (currentPrompts.length < targetPageCount) {
+              const fillIndex = currentPrompts.length;
+              console.log(`Filling in missing prompt at position ${fillIndex + 1}`);
               
-              // Update the UI immediately
-              setExpandedPrompts([...generatedPrompts]);
+              // Use the first prompt as a fallback
+              currentPrompts.push(currentPrompts[0] || basePrompt);
               
-              // Update progress
-              const progress = Math.round(((i + 1) / promptsToGenerate) * 100);
-              setGenerationProgress(progress);
-              
-              console.log(`Generated prompt ${i + 1} of ${promptsToGenerate}: "${newVariations[0].substring(0, 50)}..."`);
-              
-              // Add a small delay to make the progress visible
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
-          } catch (error) {
-            console.error(`Error generating prompt ${i + 1}:`, error);
-            // If one prompt fails, just duplicate the last successful one
-            if (generatedPrompts.length > 0) {
-              generatedPrompts.push(generatedPrompts[generatedPrompts.length - 1]);
-              setExpandedPrompts([...generatedPrompts]);
+              // Update UI
+              setExpandedPrompts([...currentPrompts]);
             }
           }
+          
+          // Check if all variations are the same
+          const allSame = currentPrompts.every(v => v === currentPrompts[0]);
+          if (allSame && currentPrompts.length > 1) {
+            console.warn('⚠️ All returned prompt variations are identical! This is likely a bug.');
+            toast.warning('Warning: Generated variations are very similar. You may want to regenerate or edit them manually.');
+          }
+          
+          toast.success(`Generated ${currentPrompts.length} prompt variations!`, {
+            id: 'generating-prompts'
+          });
+          
+        } catch (apiError) {
+          console.error('Error calling expand-prompts API:', apiError);
+          toast.error(`Failed to generate variations: ${apiError instanceof Error ? apiError.message : 'Unknown API error'}`, {
+            id: 'generating-prompts'
+          });
+          
+          // Fallback: duplicate the base prompt for all pages
+          console.log('Using fallback approach: duplicate base prompt');
+          setExpandedPrompts(Array(targetPageCount).fill(basePrompt));
         }
-        
-        // Check if all variations are the same
-        const allSame = generatedPrompts.every(v => v === generatedPrompts[0]);
-        if (allSame && generatedPrompts.length > 1) {
-          console.warn('⚠️ All returned prompt variations are identical! Using them anyway but this is likely a bug.');
-          toast.warning('Warning: Generated variations are very similar. You may want to regenerate or edit them manually.');
-        }
-        
-        toast.success(`Generated ${generatedPrompts.length} unique prompt variations!`, {
-          id: 'generating-prompts'
-        });
       } else {
         // Use the same prompt for all pages
         console.log('Using the same prompt for all pages:', basePrompt.substring(0, 100));
@@ -477,7 +504,9 @@ export const AIColoringGenerator = () => {
     } catch (error) {
       console.error('Error generating prompt variations:', error);
       toast.error('Failed to generate prompt variations: ' + 
-                 (error instanceof Error ? error.message : 'Unknown error'));
+                 (error instanceof Error ? error.message : 'Unknown error'), {
+        id: 'generating-prompts'
+      });
       
       // Fallback to a simple array with the base prompt repeated if all else fails
       setExpandedPrompts(Array(coloringOptions.pageCount).fill(basePrompt));

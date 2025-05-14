@@ -1495,7 +1495,9 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
       pageCount = 1;
     }
     
+    console.log(`======== EXPAND PROMPTS ========`);
     console.log(`Expanding prompt: "${basePrompt}" into ${pageCount} variations`);
+    console.log(`API URL: ${API_URL}`);
     
     // For testing/development, use placeholders if configured
     if (USE_PLACEHOLDERS) {
@@ -1526,7 +1528,8 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     }
     
     console.log(`Cleaned prompt for API: "${cleanedPrompt}"`);
-    console.log(`Sending request to expand-prompts API with pageCount=${pageCount}`);
+    console.log(`Making API request to ${API_URL}/api/coloring-book/expand-prompts`);
+    console.log(`Request body: ${JSON.stringify({ basePrompt: cleanedPrompt, pageCount })}`);
     
     const response = await fetch(`${API_URL}/api/coloring-book/expand-prompts`, {
       method: 'POST',
@@ -1540,9 +1543,15 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Error expanding prompts:", errorData);
-      throw new Error(errorData.error || `API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error("Error response from expand-prompts API:", errorText);
+      try {
+        const errorData = JSON.parse(errorText);
+        console.error("Parsed error data:", errorData);
+        throw new Error(errorData.error || `API error: ${response.status}`);
+      } catch (parseError) {
+        throw new Error(`API error: ${response.status} - ${errorText}`);
+      }
     }
     
     const data = await response.json();
@@ -1551,6 +1560,12 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     if (!data.promptVariations || !Array.isArray(data.promptVariations)) {
       console.error("Invalid response format:", data);
       throw new Error("Invalid response format from prompt expansion API");
+    }
+    
+    // Check if we actually got variations
+    if (data.promptVariations.length === 0) {
+      console.error("API returned empty variations array");
+      throw new Error("API returned empty variations array");
     }
     
     // Minimal processing to ensure formatting is consistent
@@ -1569,13 +1584,19 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     }).filter(Boolean);
     
     console.log(`Successfully generated ${processedPrompts.length} variations`);
+    console.log(`======== END EXPAND PROMPTS ========`);
+    
     return processedPrompts;
   } catch (error) {
     console.error("Error in expandPrompts:", error);
+    
+    // Show a detailed error to help troubleshoot
+    toast.error(`Failed to generate prompt variations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    
     // Return basic variations as fallback
     const fallbackPrompts = [];
     for (let i = 0; i < pageCount; i++) {
-      fallbackPrompts.push(`${basePrompt}`);
+      fallbackPrompts.push(`${basePrompt} - variation ${i + 1}`);
     }
     return fallbackPrompts;
   }
