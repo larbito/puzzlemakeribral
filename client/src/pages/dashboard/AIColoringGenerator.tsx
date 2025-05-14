@@ -257,6 +257,19 @@ export const AIColoringGenerator = () => {
         // If we received prompt variations from the backend, use them directly
         if (data.promptVariations && Array.isArray(data.promptVariations) && data.promptVariations.length > 0) {
           console.log(`Received ${data.promptVariations.length} prompt variations from backend`);
+          
+          // Debug check: Are all variations the same?
+          const allSame = data.promptVariations.every((variation: string) => 
+            variation === data.promptVariations[0]
+          );
+          
+          if (allSame) {
+            console.warn('⚠️ All prompt variations are identical! This is likely a bug.');
+            // Still use the variations, but log the warning
+          } else {
+            console.log('✅ Prompt variations are properly diverse');
+          }
+          
           setExpandedPrompts(data.promptVariations);
           setPromptsConfirmed(true); // Mark as confirmed since they're already properly generated
           toast.success('Generated base prompt and variations successfully');
@@ -266,15 +279,10 @@ export const AIColoringGenerator = () => {
           toast.success('Prompt generated successfully. Variations will be generated in the next step.');
         }
         
-        // Automatically proceed to the next step
+        // Always go to prompt review first, even if we have variations,
+        // so the user can review and edit them if needed
         setTimeout(() => {
-          if (data.promptVariations && Array.isArray(data.promptVariations) && data.promptVariations.length > 0) {
-            // Skip the prompt expansion step since we already have variations
-            setCurrentStep('book-settings');
-          } else {
-            // Go to prompt review as normal
-            setCurrentStep('prompt-review');
-          }
+          setCurrentStep('prompt-review');
         }, 1000);
       }
     } catch (error) {
