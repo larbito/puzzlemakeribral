@@ -9,13 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
-import {
+import { 
   Wand2, 
-  Sparkles,
-  Download,
-  BookOpen,
-  Palette,
-  Upload,
+  Sparkles, 
+  Download, 
+  BookOpen, 
+  Palette, 
+  Upload, 
   ImageIcon,
   MessageSquare,
   PlusSquare,
@@ -328,8 +328,8 @@ export const AIColoringGenerator = () => {
       setExpandedPrompts(expandedPrompts.slice(0, newCount));
       toast.info(`Reduced to ${newCount} prompts`);
       return;
-    } 
-    
+    }
+
     // If using single prompt mode, duplicate the base prompt
     if (!useMultiplePrompts && newCount > expandedPrompts.length) {
       // For single prompt mode, just duplicate the base prompt
@@ -770,13 +770,13 @@ export const AIColoringGenerator = () => {
       
       // Auto-download the PDF if it's not a server-generated one that opens in a new tab
       if (pdfUrlResult && pdfUrlResult !== 'success') {
-        const link = document.createElement('a');
-        link.href = pdfUrlResult;
-        link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      const link = document.createElement('a');
+      link.href = pdfUrlResult;
+      link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       }
     } catch (error) {
       console.error('Error creating PDF:', error);
@@ -834,7 +834,7 @@ export const AIColoringGenerator = () => {
       { name: 'Preview', active: currentStep === 'preview-download' }
     ].filter(step => !step.optional || step.show);
 
-    return (
+  return (
       <div className="w-full flex justify-between items-center mb-8 px-4">
         {steps.map((step, index) => (
           <div key={index} className="flex flex-col items-center">
@@ -890,7 +890,7 @@ export const AIColoringGenerator = () => {
             Transform your imagination into magical coloring pages for kids and adults
           </motion.p>
         </div>
-        
+
         {/* Step Indicator */}
         <StepIndicator />
         
@@ -998,7 +998,7 @@ export const AIColoringGenerator = () => {
                       />
                       <div className="absolute bottom-2 left-4 text-xs text-muted-foreground">
                         {generatedPrompt.length}/250 characters
-                      </div>
+                    </div>
                     </div>
                     
                     {isGeneratingPrompt ? (
@@ -1011,17 +1011,17 @@ export const AIColoringGenerator = () => {
                       </div>
                     ) : (
                       <div className="flex flex-col sm:flex-row gap-4">
-                        <Button
-                          onClick={handleGeneratePrompt}
-                          disabled={!uploadedImage || isGeneratingPrompt}
+                    <Button
+                      onClick={handleGeneratePrompt}
+                      disabled={!uploadedImage || isGeneratingPrompt}
                           className="flex-1 relative overflow-hidden group"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                          <span className="relative flex items-center justify-center gap-2">
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                      <span className="relative flex items-center justify-center gap-2">
                             <MessageSquare className="w-5 h-5" />
                             Generate Prompt
-                          </span>
-                        </Button>
+                      </span>
+                    </Button>
                         
                         {generatedPrompt && (
                           <Button
@@ -1033,7 +1033,7 @@ export const AIColoringGenerator = () => {
                             Continue
                           </Button>
                         )}
-                      </div>
+                  </div>
                     )}
                   </div>
                 </div>
@@ -1049,7 +1049,7 @@ export const AIColoringGenerator = () => {
               </div>
             </Card>
           )}
-          
+
           {/* STEP 2B: Direct Prompt Input */}
           {currentStep === 'prompt-generation' && startMethod === 'write-prompt' && (
             <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
@@ -1063,7 +1063,7 @@ export const AIColoringGenerator = () => {
                 <div className="space-y-4">
                   <Label className="text-lg font-semibold">Your Prompt</Label>
                   <div className="relative">
-                    <Textarea
+                  <Textarea
                       value={basePrompt}
                       onChange={handleBasePromptChange}
                       placeholder="Describe what you want in your coloring book..."
@@ -1073,8 +1073,8 @@ export const AIColoringGenerator = () => {
                     <div className="absolute bottom-2 left-4 text-xs text-muted-foreground">
                       {basePrompt.length}/250 characters
                     </div>
-                  </div>
-                  
+                </div>
+
                   <div className="flex justify-between mt-8">
                     <Button
                       onClick={() => setCurrentStep('start-method')}
@@ -1368,7 +1368,7 @@ export const AIColoringGenerator = () => {
                     />
                   </div>
                 </div>
-                
+
                 {/* DPI Info */}
                 <div className="bg-muted/30 p-4 rounded-lg mt-8">
                   <div className="flex items-center gap-2">
@@ -1547,12 +1547,12 @@ export const AIColoringGenerator = () => {
                   
                   {/* Generate Button */}
                   {!isGenerating && generatedPages.length === 0 ? (
-                    <Button
-                      onClick={handleGenerateBook}
+                  <Button
+                    onClick={handleGenerateBook}
                       className="w-full h-14 text-lg mt-8 relative overflow-hidden group"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-                      <span className="relative flex items-center justify-center gap-2">
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                    <span className="relative flex items-center justify-center gap-2">
                         <Wand2 className="w-6 h-6" />
                         Generate Coloring Book
                       </span>
@@ -1613,8 +1613,8 @@ export const AIColoringGenerator = () => {
                       variant="outline"
                     >
                       Back
-                    </Button>
-                  </div>
+                  </Button>
+                </div>
                 )}
               </div>
             </Card>
@@ -1696,27 +1696,27 @@ export const AIColoringGenerator = () => {
                   <Button 
                     variant="default" 
                     className="gap-2 w-full sm:w-auto"
-                    onClick={handleCreatePdf}
-                    disabled={isCreatingPdf || generatedPages.length === 0}
-                  >
-                    {isCreatingPdf ? (
-                      <Sparkles className="w-5 h-5 animate-pulse" />
-                    ) : (
-                      <File className="w-5 h-5" />
-                    )}
-                    Create & Download PDF
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
+                      onClick={handleCreatePdf}
+                      disabled={isCreatingPdf || generatedPages.length === 0}
+                    >
+                      {isCreatingPdf ? (
+                        <Sparkles className="w-5 h-5 animate-pulse" />
+                      ) : (
+                        <File className="w-5 h-5" />
+                      )}
+                      Create & Download PDF
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
                     className="gap-2 w-full sm:w-auto"
-                    onClick={handleDownloadImages}
-                    disabled={generatedPages.length === 0}
-                  >
-                    <Download className="w-5 h-5" />
+                      onClick={handleDownloadImages}
+                      disabled={generatedPages.length === 0}
+                    >
+                      <Download className="w-5 h-5" />
                     Download All Images (ZIP)
-                  </Button>
-                </div>
+                    </Button>
+                  </div>
                 
                 {/* PDF Progress */}
                 {isCreatingPdf && (
@@ -1766,11 +1766,11 @@ export const AIColoringGenerator = () => {
                   <div className="lg:col-span-2 aspect-[1/1.4] bg-white rounded-xl overflow-hidden shadow-md border border-primary/20 relative">
                     {generatedPages.length > 0 ? (
                       <>
-                        <img 
-                          src={generatedPages[activePreviewIndex]} 
-                          alt={`Coloring page ${activePreviewIndex + 1}`}
-                          className="w-full h-full object-contain"
-                        />
+                    <img 
+                      src={generatedPages[activePreviewIndex]} 
+                      alt={`Coloring page ${activePreviewIndex + 1}`}
+                      className="w-full h-full object-contain"
+                    />
                         
                         {/* Page prompt display */}
                         <div className="absolute bottom-12 left-0 right-0 text-center">
@@ -1811,18 +1811,18 @@ export const AIColoringGenerator = () => {
                     
                     {/* Page indicator */}
                     {generatedPages.length > 0 && (
-                      <div className="absolute bottom-2 left-0 right-0 text-center">
-                        <span className="px-2 py-1 bg-background/70 rounded-md text-sm font-medium">
-                          Page {activePreviewIndex + 1} of {generatedPages.length}
-                        </span>
-                      </div>
+                    <div className="absolute bottom-2 left-0 right-0 text-center">
+                      <span className="px-2 py-1 bg-background/70 rounded-md text-sm font-medium">
+                        Page {activePreviewIndex + 1} of {generatedPages.length}
+                      </span>
+                    </div>
                     )}
                   </div>
                   
                   {/* Thumbnails Grid */}
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-semibold">All Pages ({generatedPages.length})</h3>
+                    <h3 className="text-xl font-semibold">All Pages ({generatedPages.length})</h3>
                       <Button 
                         variant="ghost" 
                         size="sm" 
@@ -1878,12 +1878,12 @@ export const AIColoringGenerator = () => {
                   >
                     Create Another Book
                   </Button>
-                </div>
+              </div>
               </div>
             </Card>
-          )}
+            )}
         </div>
       </div>
     </div>
   );
-};
+}; 

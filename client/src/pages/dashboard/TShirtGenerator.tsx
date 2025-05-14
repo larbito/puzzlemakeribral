@@ -1107,7 +1107,7 @@ export const TShirtGenerator = () => {
                                 {isGenerating ? "Analyzing..." : "Generate Prompt"}
                               </Button>
                               <Button
-                                onClick={() => handleGenerateImage()}
+                                onClick={handleGenerateImage}
                                 disabled={isGenerating || !prompt.trim()}
                                 className="gap-2"
                               >
@@ -1435,6 +1435,364 @@ export const TShirtGenerator = () => {
                     </div>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Image to Prompt to Design mode */}
+          {activeMode === "image" && uploadedImage && uploadPreview && (
+            <Card className="w-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Image Analysis</CardTitle>
+                <CardDescription>Edit the AI-generated prompt before creating your design</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Image preview */}
+                  <div className="aspect-square bg-muted/30 rounded-md overflow-hidden relative">
+                    <img 
+                      src={uploadPreview} 
+                      alt="Uploaded image" 
+                      className="w-full h-full object-contain" 
+                    />
+                    <Button 
+                      variant="destructive" 
+                      size="sm" 
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setUploadedImage(null);
+                        setUploadPreview(null);
+                        setPrompt("");
+                      }}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Generated prompt */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="image-prompt">Generated Prompt</Label>
+                        <Badge variant={prompt ? "default" : "outline"}>
+                          {prompt ? "Ready to edit" : "Waiting for analysis"}
+                        </Badge>
+                      </div>
+                      <div className="relative">
+                        <Textarea
+                          id="image-prompt"
+                          value={prompt}
+                          onChange={(e) => setPrompt(e.target.value)}
+                          placeholder={isGenerating ? "Analyzing image..." : "AI-generated prompt will appear here..."}
+                          className="min-h-[150px] resize-none"
+                          maxLength={MAX_PROMPT_LENGTH}
+                          disabled={isGenerating}
+                        />
+                        <div className="absolute bottom-2 right-2">
+                          <Badge variant="outline">
+                            {prompt.length}/{MAX_PROMPT_LENGTH}
+                          </Badge>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Feel free to edit the AI-generated prompt to better match your vision.
+                      </p>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-4">
+                      <Button
+                        variant="secondary"
+                        onClick={handleGeneratePrompt}
+                        disabled={isGenerating || !uploadedImage}
+                        className="flex-1"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing Image...
+                          </>
+                        ) : (
+                          <>
+                            <Wand2 className="w-4 h-4 mr-2" />
+                            Generate Prompt
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={handleGenerateImage}
+                        disabled={isGenerating || !prompt.trim()}
+                        className="flex-1"
+                      >
+                        {isGenerating ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating Design...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate Design
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Settings accordion */}
+                    <div className="pt-2">
+                      <Card className="bg-muted/30">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-md flex items-center">
+                            <Settings2 className="w-4 h-4 mr-2" />
+                            Design Settings
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pb-3">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="image-size-preset">Size Preset</Label>
+                              <Select 
+                                defaultValue="merch-by-amazon" 
+                                onValueChange={(value) => {
+                                  const preset = sizePresets.find(preset => preset.label.toLowerCase().replace(/\s+/g, '-') === value);
+                                  if (preset && preset.width && preset.height) {
+                                    setWidth(preset.width);
+                                    setHeight(preset.height);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger id="image-size-preset">
+                                  <SelectValue placeholder="Select size" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sizePresets.map(preset => (
+                                    <SelectItem 
+                                      key={preset.label.toLowerCase().replace(/\s+/g, '-')}
+                                      value={preset.label.toLowerCase().replace(/\s+/g, '-')}
+                                    >
+                                      {preset.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-center justify-between gap-2">
+                              <Label htmlFor="transparent-bg-image" className="cursor-pointer">
+                                Transparent Background
+                              </Label>
+                              <Switch 
+                                id="transparent-bg-image" 
+                                checked={transparentBg} 
+                                onCheckedChange={setTransparentBg} 
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bulk Image to Designs mode - Results panel for bulk items */}
+          {activeMode === "bulk" && bulkItems.length > 0 && (
+            <Card className="w-full">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Bulk Processing Status</CardTitle>
+                <CardDescription>
+                  {isProcessingBulk 
+                    ? `Analyzing ${bulkItems.length} images...` 
+                    : `${bulkItems.filter(item => item.status === 'completed').length} of ${bulkItems.length} prompts ready`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Processing status bar */}
+                <div className="bg-muted/50 rounded-lg p-4 flex flex-col sm:flex-row gap-4 justify-between items-center">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={isProcessingBulk ? "secondary" : "outline"}>
+                        {isProcessingBulk ? (
+                          <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Processing</>
+                        ) : (
+                          <><CheckCircle className="w-3 h-3 mr-1" /> Ready</>
+                        )}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {bulkItems.filter(item => item.status === 'completed').length} of {bulkItems.length} prompts generated
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setUploadedImages([]);
+                        setBulkItems([]);
+                      }}
+                      disabled={isGenerating || isProcessingBulk}
+                    >
+                      Clear All
+                    </Button>
+                    <Button
+                      onClick={handleGenerateBulkDesigns}
+                      disabled={
+                        isGenerating || 
+                        isProcessingBulk || 
+                        bulkItems.filter(item => item.status === 'completed').length === 0
+                      }
+                      className="gap-1"
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      {isGenerating ? "Generating..." : "Generate All Designs"}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Bulk items with editing capabilities */}
+                <div className="space-y-4">
+                  {bulkItems.map((item) => (
+                    <Card key={item.id} className="overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-0">
+                          {/* Image preview */}
+                          <div className="aspect-square bg-muted/30 relative">
+                            <img 
+                              src={item.imageUrl} 
+                              alt="Source image" 
+                              className="w-full h-full object-contain"
+                            />
+                            <div className="absolute top-2 right-2">
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                className="h-7 w-7 rounded-full"
+                                onClick={() => {
+                                  setBulkItems(bulkItems.filter(i => i.id !== item.id));
+                                }}
+                                disabled={isGenerating || isProcessingBulk}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Prompt input */}
+                          <div className="md:col-span-2 p-4 border-t md:border-t-0 md:border-l border-r">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label>Generated Prompt</Label>
+                                <Badge variant={
+                                  item.status === 'processing' ? 'secondary' : 
+                                  item.status === 'completed' ? 'default' : 'destructive'
+                                }>
+                                  {item.status === 'processing' ? (
+                                    <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Processing</>
+                                  ) : item.status === 'completed' ? (
+                                    <><CheckCircle className="w-3 h-3 mr-1" /> Ready</>
+                                  ) : (
+                                    <><AlertTriangle className="w-3 h-3 mr-1" /> Failed</>
+                                  )}
+                                </Badge>
+                              </div>
+                              <Textarea 
+                                value={item.prompt}
+                                onChange={(e) => handleUpdateBulkPrompt(item.id, e.target.value)}
+                                placeholder={item.status === 'processing' ? "Analyzing image..." : "Edit prompt here..."}
+                                disabled={item.status === 'processing' || isGenerating}
+                                className="min-h-[120px] resize-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Result preview */}
+                          <div className="aspect-square bg-muted/30 border-t md:border-t-0 md:border-l relative">
+                            {item.designUrl ? (
+                              <div className="relative h-full">
+                                <img 
+                                  src={item.designUrl} 
+                                  alt="Generated design" 
+                                  className="w-full h-full object-contain"
+                                />
+                                <div className="absolute bottom-2 right-2">
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => downloadImage(item.designUrl!, 'png', `t-shirt-design-${item.id}`)}
+                                    className="h-8 rounded-full shadow-lg"
+                                  >
+                                    <Download className="w-3.5 h-3.5 mr-1" />
+                                    <span className="text-xs">Download</span>
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                {isGenerating && item.status === 'completed' ? (
+                                  <div className="text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground mt-2">Generating...</p>
+                                  </div>
+                                ) : item.status === 'completed' ? (
+                                  <div className="text-center p-2">
+                                    <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground mt-1">Ready to generate</p>
+                                  </div>
+                                ) : item.status === 'processing' ? (
+                                  <div className="text-center">
+                                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground mt-2">Analyzing image...</p>
+                                  </div>
+                                ) : (
+                                  <div className="text-center">
+                                    <AlertTriangle className="w-8 h-8 text-destructive/50 mx-auto" />
+                                    <p className="text-xs text-muted-foreground mt-2">Analysis failed</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Bulk download action if we have generated designs */}
+                {bulkItems.some(item => item.designUrl) && (
+                  <div className="flex justify-end pt-2">
+                    <Button 
+                      onClick={() => {
+                        // Get all successfully generated designs
+                        const designs = bulkItems
+                          .filter(item => item.designUrl)
+                          .map(item => ({
+                            url: item.designUrl!,
+                            prompt: item.prompt
+                          }));
+                          
+                        if (designs.length > 0) {
+                          downloadAllImages(designs);
+                        }
+                      }}
+                      disabled={isDownloadingAll}
+                      className="gap-2"
+                    >
+                      {isDownloadingAll ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <DownloadCloud className="w-4 h-4" />
+                      )}
+                      Download All Designs ({bulkItems.filter(item => item.designUrl).length})
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
