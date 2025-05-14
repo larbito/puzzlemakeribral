@@ -47,73 +47,89 @@ router.get('/test', (req, res) => {
   });
 });
 
-// Use multer to handle multipart form data
+// Handle image generation with Ideogram API
 router.post('/generate', upload.none(), async (req, res) => {
-  console.log('Received generate request');
-  console.log('Content-Type:', req.get('content-type'));
-  console.log('Request body after multer:', req.body);
-  
   try {
-    // Check if API key is configured - add more detailed logging
+    console.log('Ideogram image generation request received');
+    console.log('Request body:', req.body);
+    
     if (!process.env.IDEOGRAM_API_KEY) {
-      console.error('Ideogram API key is not configured in environment variables');
-      return res.status(500).json({ error: 'API key not configured' });
+      console.error('Missing IDEOGRAM_API_KEY environment variable');
+      return res.status(500).json({ error: 'Ideogram API key not configured' });
     }
     
-    // Log a masked version of the API key for debugging
-    const maskedKey = process.env.IDEOGRAM_API_KEY.substring(0, 4) + '...' + 
-                     process.env.IDEOGRAM_API_KEY.substring(process.env.IDEOGRAM_API_KEY.length - 4);
-    console.log('Using Ideogram API key starting with:', maskedKey);
-
-    const { prompt, style, aspect_ratio = '3:4', negative_prompt } = req.body;
+    const { prompt, negative_prompt, aspect_ratio, style, rendering_speed } = req.body;
     
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
-
-    console.log('Generating image with params:', { prompt, style, aspect_ratio, negative_prompt });
     
-    // Create form data for the new API
+    console.log('Generating image with prompt:', prompt);
+    console.log('Using Ideogram API key:', process.env.IDEOGRAM_API_KEY.substring(0, 5) + '...');
+    
+    // Create multipart form-data request
     const form = new FormData();
     form.append('prompt', prompt);
-    form.append('aspect_ratio', aspect_ratio.replace(':', 'x')); // Convert 3:4 to 3x4 format
-    form.append('rendering_speed', 'TURBO');
+    
+    // Handle optional parameters with sensible defaults
+    form.append('aspect_ratio', aspect_ratio || '3:4');
+    form.append('rendering_speed', rendering_speed || 'TURBO');
 
     if (negative_prompt) {
       form.append('negative_prompt', negative_prompt);
+    } else {
+      // Default negative prompt for coloring books
+      form.append('negative_prompt', 'color, shading, watermark, text, grayscale, low quality');
     }
 
     if (style) {
       form.append('style_type', style.toUpperCase());
+    } else {
+      // Default style for coloring books
+      form.append('style_type', 'FLAT_ILLUSTRATION');
     }
 
     // Add some default parameters
     form.append('num_images', '1');
     form.append('seed', Math.floor(Math.random() * 1000000));
-
-    // Log form data for debugging
+    
+    // Log complete form data for debugging
     console.log('Form data contents:');
-    for (const [key, value] of Object.entries(form)) {
+    for (const [key, value] of form.entries()) {
       console.log(`${key}: ${value}`);
     }
     
-    console.log('Making request to Ideogram API with form data');
+    console.log('Making request to Ideogram API');
+    const ideogramApiUrl = 'https://api.ideogram.ai/v1/ideogram-v3/generate';
+    console.log('Ideogram API URL:', ideogramApiUrl);
     
-    const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+    // Make the request with explicit headers
+    const formHeaders = form.getHeaders ? form.getHeaders() : {};
+    const response = await fetch(ideogramApiUrl, {
       method: 'POST',
       headers: {
         'Api-Key': process.env.IDEOGRAM_API_KEY,
-        ...form.getHeaders()
+        ...formHeaders
       },
       body: form
     });
 
     console.log('Ideogram API response status:', response.status);
-    console.log('Ideogram API response headers:', response.headers);
+    
+    // If response status indicates an error, log more details
+    if (!response.ok) {
+      const responseHeaders = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      console.log('Ideogram API error response headers:', responseHeaders);
+    }
 
+    // Get the raw response text
     const responseText = await response.text();
-    console.log('Raw response:', responseText.substring(0, 200) + '...');
+    console.log('Ideogram API raw response preview:', responseText.substring(0, 200));
 
+    // Try to parse the response as JSON
     let data;
     try {
       data = JSON.parse(responseText);
@@ -125,6 +141,7 @@ router.post('/generate', upload.none(), async (req, res) => {
       });
     }
 
+    // Handle error responses
     if (!response.ok) {
       console.error('Ideogram API error:', data);
       return res.status(response.status).json({ 
@@ -133,24 +150,27 @@ router.post('/generate', upload.none(), async (req, res) => {
       });
     }
 
-    console.log('Ideogram API response data:', data);
+    console.log('Ideogram API response data structure:', Object.keys(data));
     
-    // Extract the image URL from the response
+    // Extract the image URL from the response - handle multiple possible response formats
     let imageUrl = null;
     if (data?.data?.[0]?.url) {
       imageUrl = data.data[0].url;
-    } else if (data?.images?.[0]?.url) { // Alternative structure
+      console.log('Found image URL in data[0].url');
+    } else if (data?.images?.[0]?.url) {
       imageUrl = data.images[0].url;
-    } else if (data?.url) { // Simplest structure
+      console.log('Found image URL in images[0].url');
+    } else if (data?.url) {
       imageUrl = data.url;
+      console.log('Found image URL in root url property');
     }
 
     if (!imageUrl) {
-      console.error('No image URL in response:', data);
-      throw new Error('No image URL in API response');
+      console.error('No image URL found in response:', data);
+      return res.status(500).json({ error: 'No image URL in API response' });
     }
 
-    console.log('Found image URL:', imageUrl);
+    console.log('Successfully generated image:', imageUrl);
 
     // Return the image URL to the client
     res.json({ url: imageUrl });
