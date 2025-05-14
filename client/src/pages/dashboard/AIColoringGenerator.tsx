@@ -403,16 +403,65 @@ export const AIColoringGenerator = () => {
           setCurrentGeneratingPage(i + 1);
           setGenerationProgress(Math.round((i / expandedPrompts.length) * 100));
           
-          toast.info(`Generating page ${i+1} of ${expandedPrompts.length}...`, {
-            id: `page-${i}`,
-            duration: 2000
+          const toastId = `page-${i}`;
+          toast.loading(`Generating page ${i+1} of ${expandedPrompts.length}...`, {
+            id: toastId,
+            duration: Infinity
           });
           
-          const pageUrl = await generateColoringPage(expandedPrompts[i]);
-          if (pageUrl) {
-            pageUrls.push(pageUrl);
-            // Update UI immediately when each page is ready
-            setGeneratedPages(prevPages => [...prevPages, pageUrl]);
+          // Use a more specific prompt format optimized for coloring books
+          const enhancedPrompt = expandedPrompts[i];
+          
+          // Call the API with proper error handling and retry logic
+          let pageUrl = null;
+          let retryCount = 0;
+          const maxRetries = 2;
+          
+          while (!pageUrl && retryCount <= maxRetries) {
+            try {
+              pageUrl = await generateColoringPage(enhancedPrompt);
+              
+              if (pageUrl) {
+                // Verify that the image URL is valid by preloading it
+                await new Promise((resolve, reject) => {
+                  const img = new Image();
+                  img.onload = () => resolve(true);
+                  img.onerror = () => reject(new Error('Failed to load image'));
+                  img.src = pageUrl;
+                });
+                
+                // Image loaded successfully, add to our collection
+                pageUrls.push(pageUrl);
+                // Update UI immediately when each page is ready
+                setGeneratedPages(prevPages => [...prevPages, pageUrl]);
+                
+                toast.success(`Generated page ${i+1} successfully`, {
+                  id: toastId
+                });
+                break;
+              } else {
+                throw new Error('No image URL returned');
+              }
+            } catch (error) {
+              retryCount++;
+              console.error(`Error generating page ${i+1} (attempt ${retryCount}):`, error);
+              
+              if (retryCount > maxRetries) {
+                toast.error(`Failed to generate page ${i+1} after ${maxRetries} attempts`, {
+                  id: toastId
+                });
+                // Add a placeholder instead to maintain page count
+                const placeholder = getPlaceholderImage(enhancedPrompt);
+                pageUrls.push(placeholder);
+                setGeneratedPages(prevPages => [...prevPages, placeholder]);
+              } else {
+                toast.loading(`Retrying page ${i+1} (attempt ${retryCount + 1})...`, {
+                  id: toastId
+                });
+                // Wait before retrying
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
           }
         } catch (pageError) {
           console.error(`Error generating page ${i+1}:`, pageError);
@@ -440,6 +489,13 @@ export const AIColoringGenerator = () => {
     }
   };
 
+  // Helper function to get placeholder image when generation fails
+  const getPlaceholderImage = (prompt: string): string => {
+    // Create a text description from the prompt
+    const shortPrompt = prompt.length > 30 ? prompt.substring(0, 30) + '...' : prompt;
+    return `https://placehold.co/800x1100/e2e8f0/475569?text=Coloring+Page:+${encodeURIComponent(shortPrompt)}`;
+  };
+
   // Preview navigation
   const nextPreviewPage = () => {
     if (generatedPages.length > 0) {
@@ -465,15 +521,32 @@ export const AIColoringGenerator = () => {
     
     try {
       toast.info('Creating PDF...');
-      setPdfProgress(30);
+      setPdfProgress(10);
       
+      // Preload all images to ensure they're ready for PDF creation
+      const preloadPromises = generatedPages.map((url) => 
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+          img.src = url;
+        })
+      );
+      
+      try {
+        await Promise.all(preloadPromises);
+        setPdfProgress(40);
+      } catch (preloadError) {
+        console.warn('Some images failed to preload, but proceeding anyway', preloadError);
+      }
+      
+      // Create the PDF
       const pdfUrlResult = await createColoringBookPDF(generatedPages, {
         trimSize: coloringOptions.trimSize,
         addBlankPages: coloringOptions.addBlankPages,
         showPageNumbers: coloringOptions.showPageNumbers,
         includeBleed: coloringOptions.includeBleed,
         bookTitle: coloringOptions.bookTitle || 'Coloring Book',
-        // Add title page if enabled
         addTitlePage: coloringOptions.addTitlePage,
         authorName: coloringOptions.authorName,
         subtitle: coloringOptions.subtitle
@@ -484,14 +557,16 @@ export const AIColoringGenerator = () => {
       setPdfProgress(100);
       toast.success('PDF created successfully!');
       
-      // Auto-download the PDF
-      const link = document.createElement('a');
-      link.href = pdfUrlResult;
-      link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Auto-download the PDF if it's not a server-generated one that opens in a new tab
+      if (pdfUrlResult && pdfUrlResult !== 'success') {
+        const link = document.createElement('a');
+        link.href = pdfUrlResult;
+        link.download = `${coloringOptions.bookTitle || 'coloring-book'}.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
     } catch (error) {
       console.error('Error creating PDF:', error);
       toast.error('Failed to create PDF');
@@ -509,6 +584,26 @@ export const AIColoringGenerator = () => {
 
     try {
       toast.info('Preparing to download images...');
+      
+      // Preload all images to ensure they're ready for download
+      const preloadPromises = generatedPages.map((url, index) => 
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => {
+            console.error(`Failed to load image at index ${index}: ${url}`);
+            // Replace with a placeholder instead of failing
+            generatedPages[index] = getPlaceholderImage(expandedPrompts[index] || `Page ${index + 1}`);
+            resolve(false);
+          };
+          img.src = url;
+        })
+      );
+      
+      // Wait for all images to preload
+      await Promise.all(preloadPromises);
+      
+      // Now download the ZIP with potentially fixed image URLs
       await downloadColoringPages(generatedPages, coloringOptions.bookTitle);
     } catch (error) {
       console.error('Error downloading images:', error);
@@ -1304,6 +1399,70 @@ export const AIColoringGenerator = () => {
               <div className="relative p-8 space-y-6">
                 <h2 className="text-2xl font-bold mb-4">Your Coloring Book Preview</h2>
                 
+                {/* Prompts Editing Panel */}
+                <div className="bg-muted/30 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-primary" />
+                      Page Prompts
+                    </h3>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1"
+                      onClick={shuffleAllPrompts}
+                      disabled={!useMultiplePrompts || isGeneratingPrompts}
+                    >
+                      <Shuffle className="w-4 h-4" />
+                      Regenerate All
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
+                    {expandedPrompts.map((prompt, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row gap-2 items-start">
+                        <div className="bg-primary/10 text-primary shrink-0 font-medium rounded-full w-8 h-8 flex items-center justify-center">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1 relative">
+                          <Textarea
+                            value={prompt}
+                            onChange={(e) => updateExpandedPrompt(index, e.target.value)}
+                            className="min-h-[60px] py-2 pr-20 resize-none bg-background/70 border-primary/20 focus:border-primary/50"
+                            placeholder={`Prompt for page ${index + 1}`}
+                            maxLength={250}
+                          />
+                          <div className="absolute right-3 bottom-2 text-xs text-muted-foreground">
+                            {prompt.length}/250
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0 mt-2 sm:mt-0 h-10 gap-1"
+                          onClick={() => regenerateSinglePrompt(index)}
+                          disabled={!useMultiplePrompts}
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          Regenerate
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Apply Prompt Changes Button */}
+                  <div className="mt-4 flex justify-end">
+                    <Button
+                      onClick={handleGenerateBook} 
+                      className="gap-2"
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="w-4 h-4" />
+                      Apply Changes & Regenerate
+                    </Button>
+                  </div>
+                </div>
+                
                 {/* Download Buttons */}
                 <div className="flex flex-col sm:flex-row items-center gap-4 justify-end">
                   <Button 
@@ -1342,6 +1501,17 @@ export const AIColoringGenerator = () => {
                   </div>
                 )}
                 
+                {/* Image Generation Progress */}
+                {isGenerating && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between mb-1">
+                      <span>Regenerating coloring pages...</span>
+                      <span className="text-primary">Page {currentGeneratingPage} of {expandedPrompts.length}</span>
+                    </div>
+                    <Progress value={generationProgress} className="h-2" />
+                  </div>
+                )}
+                
                 {/* Book Metadata */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/30 p-4 rounded-lg text-sm">
                   <div>
@@ -1366,11 +1536,28 @@ export const AIColoringGenerator = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
                   {/* Large Preview */}
                   <div className="lg:col-span-2 aspect-[1/1.4] bg-white rounded-xl overflow-hidden shadow-md border border-primary/20 relative">
-                    <img 
-                      src={generatedPages[activePreviewIndex]} 
-                      alt={`Coloring page ${activePreviewIndex + 1}`}
-                      className="w-full h-full object-contain"
-                    />
+                    {generatedPages.length > 0 ? (
+                      <>
+                        <img 
+                          src={generatedPages[activePreviewIndex]} 
+                          alt={`Coloring page ${activePreviewIndex + 1}`}
+                          className="w-full h-full object-contain"
+                        />
+                        
+                        {/* Page prompt display */}
+                        <div className="absolute bottom-12 left-0 right-0 text-center">
+                          <div className="px-4 py-2 bg-background/80 backdrop-blur-sm mx-auto max-w-md rounded-md text-sm">
+                            <span className="font-medium">Prompt: </span>
+                            {expandedPrompts[activePreviewIndex] || "No prompt available"}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted/20 p-8 text-center gap-4">
+                        <Wand2 className="w-12 h-12 text-muted-foreground/50" />
+                        <p className="text-muted-foreground/70">No coloring pages generated yet. Click "Apply Changes & Regenerate" to create your coloring book.</p>
+                      </div>
+                    )}
                     
                     {/* Navigation Arrows */}
                     {generatedPages.length > 1 && (
@@ -1395,11 +1582,13 @@ export const AIColoringGenerator = () => {
                     )}
                     
                     {/* Page indicator */}
-                    <div className="absolute bottom-2 left-0 right-0 text-center">
-                      <span className="px-2 py-1 bg-background/70 rounded-md text-sm font-medium">
-                        Page {activePreviewIndex + 1} of {generatedPages.length}
-                      </span>
-                    </div>
+                    {generatedPages.length > 0 && (
+                      <div className="absolute bottom-2 left-0 right-0 text-center">
+                        <span className="px-2 py-1 bg-background/70 rounded-md text-sm font-medium">
+                          Page {activePreviewIndex + 1} of {generatedPages.length}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Thumbnails Grid */}

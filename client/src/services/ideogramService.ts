@@ -1313,6 +1313,9 @@ export async function createColoringBookPDF(
     showPageNumbers: boolean;
     includeBleed: boolean;
     bookTitle?: string;
+    addTitlePage?: boolean;
+    authorName?: string;
+    subtitle?: string;
   }
 ): Promise<string> {
   try {
