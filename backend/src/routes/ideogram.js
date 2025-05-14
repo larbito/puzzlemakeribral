@@ -224,6 +224,13 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
     // Check if this is a request for coloring book analysis
     const isColoringBook = req.body.type === 'coloring';
     console.log('Image analysis request type:', isColoringBook ? 'coloring book' : 't-shirt design');
+    console.log('Request body:', req.body);
+
+    // Extract other request parameters
+    const generateVariations = req.body.generateVariations === 'true';
+    const pageCount = parseInt(req.body.pageCount) || 10;
+    
+    console.log(`Generating variations: ${generateVariations}, Page count: ${pageCount}`);
 
     // Convert the image buffer to base64
     const base64Image = req.file.buffer.toString('base64');
@@ -270,13 +277,49 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
     const data = await response.json();
     const basePrompt = data.choices[0].message.content;
+    console.log('Generated base prompt from image:', basePrompt);
     
     // For coloring book images, also generate prompt variations if requested
-    if (isColoringBook && req.body.generateVariations === 'true') {
+    if (isColoringBook && generateVariations) {
       try {
         console.log('Generating prompt variations from base prompt:', basePrompt);
-        const pageCount = parseInt(req.body.pageCount) || 10;
         
+        // Instead of using a relative URL, call the expand-prompts function directly
+        // This avoids any network routing issues
+        // First, create a simple JSON object with our parameters
+        const expansionParams = {
+          basePrompt,
+          pageCount
+        };
+        
+        console.log('Expansion parameters:', expansionParams);
+        
+        // We'll call the expandPrompts function directly within our backend code
+        // Load the coloring-book.js module
+        const expandPromptsModule = require('./coloring-book');
+        
+        // Check if the module has an expandPrompts function we can call directly
+        if (typeof expandPromptsModule.expandPrompts === 'function') {
+          console.log('Found expandPrompts function, calling directly');
+          try {
+            // Call the function directly
+            const promptVariations = await expandPromptsModule.expandPrompts(basePrompt, pageCount);
+            console.log('Generated variations directly:', promptVariations.length);
+            
+            // Return both the base prompt and the variations
+            return res.json({ 
+              prompt: basePrompt,
+              promptVariations
+            });
+          } catch (directError) {
+            console.error('Error calling expandPrompts directly:', directError);
+            // Fall back to HTTP method
+          }
+        } else {
+          console.log('No direct expandPrompts function found, falling back to HTTP');
+        }
+        
+        // Fall back to HTTP method if direct call didn't work
         // Use a relative path that works in both local and deployed environments
         const expandPromptsUrl = '/api/coloring-book/expand-prompts';
         console.log(`Calling expand-prompts API at relative URL: ${expandPromptsUrl}`);
@@ -300,7 +343,8 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
         });
         
         if (!variationsResponse.ok) {
-          console.error('Failed to generate prompt variations:', await variationsResponse.text());
+          const errorText = await variationsResponse.text();
+          console.error('Failed to generate prompt variations:', errorText);
           // Return just the base prompt if variations fail
           return res.json({ prompt: basePrompt });
         }
