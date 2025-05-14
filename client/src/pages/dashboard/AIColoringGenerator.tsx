@@ -409,62 +409,88 @@ export const AIColoringGenerator = () => {
             duration: Infinity
           });
           
-          // Use a more specific prompt format optimized for coloring books
-          const enhancedPrompt = expandedPrompts[i];
+          // Log the prompt being used
+          console.log(`Generating coloring page ${i+1} with prompt: "${expandedPrompts[i]}"`);
           
-          // Call the API with proper error handling and retry logic
-          let pageUrl: string | null = null;
-          let retryCount = 0;
-          const maxRetries = 2;
+          // Direct API call with proper error handling
+          let imageUrl: string | null = null;
           
-          while (!pageUrl && retryCount <= maxRetries) {
+          try {
+            // Call the generateColoringPage function with the current prompt
+            imageUrl = await generateColoringPage(expandedPrompts[i]);
+            
+            if (!imageUrl) {
+              throw new Error("No image URL returned from API");
+            }
+            
+            console.log(`Successfully generated image for page ${i+1}: ${imageUrl.substring(0, 100)}...`);
+            
+            // Verify the image URL is valid by trying to fetch it
             try {
-              pageUrl = await generateColoringPage(enhancedPrompt);
-              
-              if (pageUrl) {
-                // Verify that the image URL is valid by preloading it
-                await new Promise((resolve, reject) => {
-                  const img = new Image();
-                  img.onload = () => resolve(true);
-                  img.onerror = () => reject(new Error('Failed to load image'));
-                  img.src = pageUrl as string;
-                });
-                
-                // Image loaded successfully, add to our collection
-                pageUrls.push(pageUrl);
-                // Update UI immediately when each page is ready
-                setGeneratedPages(prevPages => [...prevPages, pageUrl as string]);
-                
-                toast.success(`Generated page ${i+1} successfully`, {
-                  id: toastId
-                });
-                break;
-              } else {
-                throw new Error('No image URL returned');
+              const imageCheck = await fetch(imageUrl, { method: 'HEAD' });
+              if (!imageCheck.ok) {
+                console.error(`Image URL validation failed for page ${i+1}: ${imageCheck.status}`);
+                throw new Error(`Image validation failed: ${imageCheck.status}`);
               }
-            } catch (error) {
-              retryCount++;
-              console.error(`Error generating page ${i+1} (attempt ${retryCount}):`, error);
+            } catch (validationError) {
+              console.warn(`Image validation error (continuing anyway): ${validationError}`);
+            }
+            
+            // Add to our collection
+            pageUrls.push(imageUrl);
+            
+            // Update UI immediately when each page is ready
+            setGeneratedPages(prevPages => [...prevPages, imageUrl as string]);
+            
+            toast.success(`Generated page ${i+1} successfully`, {
+              id: toastId
+            });
+          } catch (apiError) {
+            console.error(`API error generating page ${i+1}:`, apiError);
+            toast.error(`Error generating page ${i+1}. Retrying...`, {
+              id: toastId
+            });
+            
+            // Wait a moment before retrying
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Retry once with a simplified prompt
+            try {
+              console.log(`Retrying page ${i+1} with simplified prompt...`);
+              const simplifiedPrompt = `Simple line art coloring page: ${expandedPrompts[i].split(',')[0]}`;
               
-              if (retryCount > maxRetries) {
-                toast.error(`Failed to generate page ${i+1} after ${maxRetries} attempts`, {
-                  id: toastId
-                });
-                // Add a placeholder instead to maintain page count
-                const placeholder = getPlaceholderImage(enhancedPrompt);
-                pageUrls.push(placeholder);
-                setGeneratedPages(prevPages => [...prevPages, placeholder]);
-              } else {
-                toast.loading(`Retrying page ${i+1} (attempt ${retryCount + 1})...`, {
-                  id: toastId
-                });
-                // Wait before retrying
-                await new Promise(resolve => setTimeout(resolve, 1000));
+              imageUrl = await generateColoringPage(simplifiedPrompt);
+              
+              if (!imageUrl) {
+                throw new Error("No image URL returned from retry");
               }
+              
+              console.log(`Successfully generated image on retry for page ${i+1}`);
+              
+              // Add to our collection
+              pageUrls.push(imageUrl);
+              
+              // Update UI immediately when each page is ready
+              setGeneratedPages(prevPages => [...prevPages, imageUrl as string]);
+              
+              toast.success(`Generated page ${i+1} on retry`, {
+                id: toastId
+              });
+            } catch (retryError) {
+              console.error(`Retry also failed for page ${i+1}:`, retryError);
+              
+              // Use a placeholder as last resort
+              const placeholder = getPlaceholderImage(expandedPrompts[i]);
+              pageUrls.push(placeholder);
+              setGeneratedPages(prevPages => [...prevPages, placeholder]);
+              
+              toast.error(`Failed to generate page ${i+1}, using placeholder`, {
+                id: toastId
+              });
             }
           }
         } catch (pageError) {
-          console.error(`Error generating page ${i+1}:`, pageError);
+          console.error(`Error processing page ${i+1}:`, pageError);
           // Continue with other pages
         }
       }

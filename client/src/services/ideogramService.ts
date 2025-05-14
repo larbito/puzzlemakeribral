@@ -1165,11 +1165,11 @@ export interface GenerateColoringBookParams {
  */
 export async function generateColoringPage(prompt: string): Promise<string | null> {
   try {
-    console.log("Generating coloring page with prompt:", prompt);
+    console.log("[generateColoringPage] Starting with prompt:", prompt);
     
-    // For testing UI interactivity only
+    // For testing UI interactivity only - we want real images now
     if (USE_PLACEHOLDERS) {
-      console.log("Using placeholder for coloring page");
+      console.log("[generateColoringPage] Using placeholder by configuration");
       return getPlaceholderImage(prompt, 'coloring');
     }
 
@@ -1179,26 +1179,10 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
     const negative_prompt = "color, shading, grayscale, text, words, watermark, signature, grainy, blurry, realistic, photorealistic, busy, cluttered";
 
     // Log the API URL being used for easy debugging
-    console.log("Using API URL for image generation:", API_URL);
+    console.log("[generateColoringPage] Using API URL:", API_URL);
+    console.log("[generateColoringPage] Enhanced prompt:", enhancedPrompt);
     
     try {
-      console.log("Making coloring page API call with prompt:", enhancedPrompt);
-      
-      // First, try to verify the API is accessible
-      try {
-        const healthResponse = await fetch(`${API_URL}/health`, { 
-          method: 'GET',
-          headers: { 'Accept': 'application/json' }
-        });
-        
-        console.log("API health check status:", healthResponse.status);
-        if (!healthResponse.ok) {
-          console.warn("API health check failed, but proceeding anyway");
-        }
-      } catch (healthError) {
-        console.warn("API health check failed, but proceeding anyway:", healthError);
-      }
-      
       // Create form data for the request
       const formData = new FormData();
       formData.append('prompt', enhancedPrompt);
@@ -1206,124 +1190,104 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
       formData.append('negative_prompt', negative_prompt);
       formData.append('style', 'LINE_ART'); // Use LINE_ART style for coloring pages
       
-      const fullUrl = `${API_URL}/api/ideogram/generate`;
-      console.log("Making request to:", fullUrl);
+      const endpoint = `${API_URL}/api/ideogram/generate`;
+      console.log("[generateColoringPage] Making request to:", endpoint);
 
-      // Add a timeout of 60 seconds for the API call
+      // Add a timeout of 30 seconds for the API call
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
       
-      const response = await fetch(fullUrl, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-
-      console.log("Response status:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-
-      if (!response.ok) {
-        let errorData;
-        try {
-          const errorText = await response.text();
-          console.error("Raw error response:", errorText);
-          
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        console.log("[generateColoringPage] Response status:", response.status);
+        
+        if (!response.ok) {
+          let errorMessage = `API error: ${response.status}`;
           try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: errorText || 'Failed to parse error response' };
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (parseError) {
+            console.error("[generateColoringPage] Error parsing error response:", parseError);
           }
-        } catch (e) {
-          errorData = { error: `API error: ${response.status}` };
+          throw new Error(errorMessage);
         }
         
-        throw new Error(errorData.error || `API error: ${response.status}`);
-      }
-
-      let data;
-      try {
+        // Get the response as text first for better error logging
         const responseText = await response.text();
-        console.log("Raw response:", responseText.substring(0, 200) + "...");
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error("Error parsing response:", parseError);
-        throw new Error("Could not parse API response");
-      }
-      
-      console.log("API response data:", data);
-
-      if (!data.url) {
-        console.error("No image URL in response:", data);
-        throw new Error("Could not extract image URL from API response");
-      }
-
-      // Verify the image URL is accessible
-      try {
-        console.log("Verifying image URL:", data.url);
-        const imageResponse = await fetch(data.url, { method: 'HEAD' });
-        console.log("Image URL check status:", imageResponse.status);
         
-        if (!imageResponse.ok) {
-          console.error("Image URL is not accessible:", data.url);
-          throw new Error("Image URL is not accessible");
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error("[generateColoringPage] Error parsing JSON response:", parseError);
+          console.log("[generateColoringPage] Raw response:", responseText.substring(0, 500));
+          throw new Error("Could not parse API response");
         }
-      } catch (imageError) {
-        console.error("Error verifying image URL:", imageError);
-        // Still return the URL but log the error
+        
+        console.log("[generateColoringPage] Response data:", data);
+        
+        if (!data.url) {
+          console.error("[generateColoringPage] No image URL in response:", data);
+          throw new Error("No image URL in API response");
+        }
+        
+        console.log("[generateColoringPage] Successfully generated image:", data.url);
+        return data.url;
+      } catch (fetchError: unknown) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('API request timed out after 30 seconds');
+        }
+        throw fetchError;
       }
-
-      return data.url;
     } catch (error) {
-      console.error("Error generating coloring page:", error);
+      console.error("[generateColoringPage] Error:", error);
       
-      // Try again with a more basic prompt if the enhanced one failed
+      // Try again with a more basic prompt
       try {
-        console.log("Retrying with simpler prompt...");
+        console.log("[generateColoringPage] Retrying with simpler prompt");
         
-        const simplePrompt = `coloring page: ${prompt}, line art, black and white, no color`;
+        const simplePrompt = `coloring page: ${prompt}, line art style, black and white only`;
         
-        const retryFormData = new FormData();
-        retryFormData.append('prompt', simplePrompt);
-        retryFormData.append('aspect_ratio', '3:4');
-        retryFormData.append('style', 'LINE_ART');
+        const simpleFormData = new FormData();
+        simpleFormData.append('prompt', simplePrompt);
+        simpleFormData.append('aspect_ratio', '3:4');
+        simpleFormData.append('negative_prompt', negative_prompt);
         
         const response = await fetch(`${API_URL}/api/ideogram/generate`, {
           method: 'POST',
-          body: retryFormData
+          body: simpleFormData
         });
         
         if (!response.ok) {
           throw new Error(`Retry failed: ${response.status}`);
         }
         
-        const retryData = await response.json();
+        const data = await response.json();
         
-        if (!retryData.url) {
+        if (!data.url) {
           throw new Error("No image URL in retry response");
         }
         
-        return retryData.url;
+        console.log("[generateColoringPage] Retry succeeded with URL:", data.url);
+        return data.url;
       } catch (retryError) {
-        console.error("Retry also failed:", retryError);
-        // As a last resort, use a direct call to Ideogram if all else fails
-        try {
-          console.log("Making direct API call as last resort...");
-          
-          // Fall back to a temp placeholder with more information
-          const placeholderUrl = getPlaceholderImage(prompt, 'coloring');
-          console.log("Using placeholder as final fallback:", placeholderUrl);
-          return placeholderUrl;
-        } catch (finalError) {
-          console.error("All attempts failed:", finalError);
-          return null;
-        }
+        console.error("[generateColoringPage] Retry failed:", retryError);
+        
+        // All attempts failed, use a placeholder
+        console.log("[generateColoringPage] All attempts failed, using placeholder");
+        return getPlaceholderImage(prompt, 'coloring');
       }
     }
   } catch (error) {
-    console.error("Error in generateColoringPage:", error);
-    return null;
+    console.error("[generateColoringPage] Unexpected error:", error);
+    return getPlaceholderImage(prompt, 'coloring');
   }
 }
 
