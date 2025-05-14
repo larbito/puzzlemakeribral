@@ -1186,72 +1186,76 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
         return PLACEHOLDER_IMAGE_URL;
       }
 
-      // Add style parameters for coloring book style, but don't modify the core prompt
-      const styleParam = 'FLAT_ILLUSTRATION'; // Use a preset style that works well for coloring books
-      const negativePrompt = 'colored, filled in, shading, text, watermark, signature, grayscale, photorealistic, blurry, complex background, cluttered';
-      
-      // Create FormData - important: this is what the backend expects!
+      // Create a very simple FormData with minimal parameters to match what the backend expects
       const formData = new FormData();
-      formData.append('prompt', `coloring book line art: ${finalPrompt}`);
-      formData.append('style', styleParam);
-      formData.append('negative_prompt', negativePrompt);
-      formData.append('aspect_ratio', '3:4');
-      formData.append('rendering_speed', 'STANDARD');
+      
+      // Add the most essential parameters only
+      formData.append('prompt', `Coloring book page with clean line art, white background, black outlines: ${finalPrompt}`);
+      formData.append('negative_prompt', 'color, shading, watermark, text, grayscale');
       
       console.log(`Sending request to ${API_URL}/api/ideogram/generate`);
-      console.log('FormData content:', {
-        prompt: finalPrompt,
-        style: styleParam,
-        negative_prompt: negativePrompt,
-        aspect_ratio: '3:4'
-      });
+      console.log('Using prompt:', finalPrompt);
       
-      const response = await fetch(`${API_URL}/api/ideogram/generate`, {
-        method: 'POST',
-        body: formData // Send FormData, not JSON!
-      });
-      
-      // Log raw response for debugging
-      const responseText = await response.text();
-      console.log(`Response status: ${response.status}`);
-      console.log(`Raw response text: ${responseText.substring(0, 100)}`);
-      
-      // Parse the JSON response
-      let data;
+      // Add detailed error logging
       try {
-        data = JSON.parse(responseText);
-      } catch (parseError) {
-        console.error('Failed to parse response:', parseError);
-        throw new Error(`Failed to parse response: ${responseText.substring(0, 50)}...`);
-      }
-      
-      if (!response.ok) {
-        console.error(`API error (attempt ${attempts}/${maxAttempts}):`, data);
+        const response = await fetch(`${API_URL}/api/ideogram/generate`, {
+          method: 'POST',
+          body: formData
+        });
         
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+        
+        // Get the raw response text for debugging
+        const responseText = await response.text();
+        console.log('Response preview:', responseText.substring(0, 200));
+        
+        // Try to parse the JSON
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse response as JSON:', parseError);
+          throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
+        }
+        
+        // Handle error response
+        if (!response.ok) {
+          console.error('API error response:', data);
+          if (attempts < maxAttempts) {
+            console.log(`Retrying after ${delayBetweenRetries}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
+            continue;
+          }
+          throw new Error(data.error || `API error: ${response.status}`);
+        }
+        
+        console.log('Image generation successful:', data);
+        
+        // Check for URL in multiple possible locations in the response
+        const imageUrl = data.url || (data.data && data.data[0] && data.data[0].url) || 
+                        (data.images && data.images[0] && data.images[0].url);
+        
+        if (!imageUrl) {
+          console.error('No image URL found in response:', data);
+          if (attempts < maxAttempts) {
+            console.log(`Retrying after ${delayBetweenRetries}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
+            continue;
+          }
+          throw new Error('No image URL found in response');
+        }
+        
+        return imageUrl;
+      } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
         if (attempts < maxAttempts) {
           console.log(`Retrying after ${delayBetweenRetries}ms...`);
           await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
           continue;
         }
-        
-        throw new Error(data.error || `API error: ${response.status}`);
+        throw fetchError;
       }
-      
-      console.log('Image generation successful:', data);
-      
-      if (!data.url) {
-        console.error('No image URL in response:', data);
-        
-        if (attempts < maxAttempts) {
-          console.log(`Retrying after ${delayBetweenRetries}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
-          continue;
-        }
-        
-        throw new Error('No image URL in response');
-      }
-      
-      return data.url;
     } catch (error) {
       console.error(`Error in attempt ${attempts}/${maxAttempts}:`, error);
       
@@ -1266,7 +1270,9 @@ export async function generateColoringPage(prompt: string): Promise<string | nul
   }
   
   console.error(`Failed after ${maxAttempts} attempts`);
-  return null;
+  // If all attempts fail, use a placeholder
+  toast.error("Failed to generate image. Using placeholder instead.");
+  return PLACEHOLDER_IMAGE_URL;
 }
 
 /**
