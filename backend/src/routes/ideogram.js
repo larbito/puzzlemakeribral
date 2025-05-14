@@ -607,6 +607,16 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     form.append('seed', Math.floor(Math.random() * 1000000));
 
     console.log('Making request to Ideogram API with custom dimensions');
+    // Log form values directly rather than using entries()
+    console.log('Form data:');
+    console.log(`prompt: ${prompt}`);
+    console.log(`width: ${parsedWidth.toString()}`);
+    console.log(`height: ${parsedHeight.toString()}`);
+    console.log(`rendering_speed: STANDARD`);
+    console.log(`negative_prompt: ${negative_prompt || 'text overlays, watermark, signature, blurry, low quality, distorted'}`);
+    if (style) console.log(`style_type: ${style.toUpperCase()}`);
+    console.log(`num_images: 1`);
+    console.log(`random seed: ${Math.floor(Math.random() * 1000000)}`);
     
     const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
       method: 'POST',
