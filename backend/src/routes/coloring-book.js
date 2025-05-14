@@ -728,35 +728,57 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
       return res.status(500).json({ error: 'OpenAI API key not configured' });
     }
     
-    console.log(`Expanding base prompt into ${pageCount} variations`);
+    console.log(`Expanding base prompt into ${pageCount} consistent variations`);
     
     // Generate fallback variations if all else fails
     const generateFallbackVariations = () => {
       const variations = [];
-      const subjects = ["elephant", "giraffe", "lion", "tiger", "monkey", "bear", "panda", "koala", "dog", "cat", "rabbit", "fox"];
-      const actions = ["playing", "dancing", "jumping", "running", "sleeping", "eating", "flying", "swimming", "reading", "painting"];
-      const places = ["meadow", "forest", "jungle", "beach", "mountains", "garden", "playground", "circus", "zoo", "farm"];
-      const extras = ["with flowers", "under a rainbow", "with balloons", "with friends", "at sunset", "in the rain", "with butterflies"];
-  
-      // Extract core components from the base prompt
-      let mainSubject = subjects.find(s => basePrompt.toLowerCase().includes(s)) || "animal";
-      let mainAction = actions.find(a => basePrompt.toLowerCase().includes(a)) || "playing";
       
+      // Extract key elements from the base prompt
+      const words = basePrompt.split(' ');
+      const baseLength = words.length;
+      
+      // Try to identify the main subject and action in the base prompt
+      let mainSubject = words.find(w => ['cat', 'dog', 'bear', 'animal', 'bunny', 'elephant', 'dinosaur', 'unicorn', 'princess', 'knight', 'fairy', 'dragon'].includes(w.toLowerCase())) || 'character';
+      
+      // Core structure to preserve across variations
+      const baseStructure = basePrompt.replace(/\b(in|on|at|with|by|near|under|over|beside)\b.*$/, '').trim();
+      
+      // Different locations/scenarios to vary
+      const locations = ['in a garden', 'at the beach', 'in the forest', 'on a mountain', 'in a meadow', 
+                         'at a playground', 'in a magical castle', 'under a rainbow', 'by a lake', 
+                         'in a treehouse', 'on a cloud', 'at a birthday party'];
+      
+      // Different actions to vary (if applicable)
+      const actions = ['playing with', 'dancing with', 'reading', 'singing', 'jumping', 'exploring', 
+                       'painting', 'drawing', 'building', 'collecting', 'planting', 'discovering'];
+      
+      // Different objects to interact with (if applicable)
+      const objects = ['flowers', 'toys', 'bubbles', 'balloons', 'stars', 'butterflies', 
+                      'musical instruments', 'a treasure map', 'magic stones', 'paint brushes', 'shells'];
+      
+      // Generate variations with the same structure but different scenarios
       for (let i = 0; i < pageCount; i++) {
-        // For some variations, keep the same subject but change other elements
-        if (i < pageCount / 2) {
-          const randomAction = actions[Math.floor(Math.random() * actions.length)];
-          const randomPlace = places[Math.floor(Math.random() * places.length)];
-          const randomExtra = extras[Math.floor(Math.random() * extras.length)];
-          variations.push(`A cute ${mainSubject} ${randomAction} in a ${randomPlace} ${randomExtra}`);
-        } 
-        // For other variations, change the subject too
-        else {
-          const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
-          const randomAction = actions[Math.floor(Math.random() * actions.length)];
-          const randomPlace = places[Math.floor(Math.random() * places.length)];
-          const randomExtra = extras[Math.floor(Math.random() * extras.length)];
-          variations.push(`A cute ${randomSubject} ${randomAction} in a ${randomPlace} ${randomExtra}`);
+        if (i === 0) {
+          // The first variation is the original prompt
+          variations.push(basePrompt);
+        } else {
+          // For subsequent variations, keep core structure but change scenario/details
+          const location = locations[Math.floor(Math.random() * locations.length)];
+          const action = actions[Math.floor(Math.random() * actions.length)];
+          const object = objects[Math.floor(Math.random() * objects.length)];
+          
+          // Construct variation while preserving approximate length and structure
+          let variation;
+          if (baseLength < 8) {
+            // For short prompts, add a bit more detail
+            variation = `${baseStructure} ${location} ${action} ${object}`;
+          } else {
+            // For longer prompts, maintain similar length
+            variation = `${baseStructure} ${location}`;
+          }
+          
+          variations.push(variation);
         }
       }
       
@@ -764,9 +786,45 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     };
     
     try {
-      // First attempt with JSON formatting
+      console.log('Making OpenAI API request for consistent prompt variations');
+      
+      // First attempt with JSON formatting and improved system prompt
       try {
-        // Original OpenAI API call with JSON format request
+        // Enhanced system prompt to ensure consistency
+        const systemPrompt = `You are a creative assistant specializing in coloring book page design.
+When generating variations of a prompt, maintain strict CONSISTENCY with the base prompt:
+
+1. PRESERVE the exact art style described in the original prompt
+2. MAINTAIN the same theme, subjects, and overall concept
+3. MATCH the tone, complexity, and approximate word count
+4. VARY ONLY the poses, actions, or minor scene elements
+5. KEEP all style descriptors (like "cute", "cartoon", "outline-style", etc.)
+
+The variations should feel like different pages in the same coloring book.
+Return ONLY a JSON array with the variations, nothing else.`;
+
+        // Enhanced user prompt with examples of good variations
+        const userPrompt = `Generate ${pageCount} consistent variations of this coloring book page prompt: "${basePrompt}"
+
+RULES:
+- Each variation must MAINTAIN the exact same art style, theme, and structure
+- Change ONLY poses, activities, or small scene elements
+- DO NOT introduce new characters or completely different scenes
+- KEEP approximately the same word count
+- ALL variations should be clearly related to the original prompt
+
+For example, if the base prompt is:
+"A happy llama wearing sunglasses and relaxing on a beach chair"
+
+Good variations would be:
+- "A happy llama wearing sunglasses and floating in a pool"
+- "A happy llama wearing sunglasses building a sandcastle"
+- "A happy llama wearing sunglasses playing beach volleyball"
+
+Return ONLY a JSON array of strings containing ${pageCount} variations.
+Example format: ["Variation 1", "Variation 2", ...]`;
+
+        // OpenAI API call with enhanced prompts
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -778,20 +836,15 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a creative assistant that specializes in generating coloring book pages for children. 
-                When asked to create variations, return ONLY a JSON array with the variations, nothing else.
-                Format your response as valid JSON containing an array of strings.`
+                content: systemPrompt
               },
               {
                 role: 'user',
-                content: `Generate ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
-                Each variation should match the original theme but be unique. Make them suitable for coloring pages.
-                Return ONLY a JSON array of strings with no additional text or explanation.
-                Example of expected format: ["Variation 1", "Variation 2", ...]`
+                content: userPrompt
               }
             ],
             response_format: { type: "json_object" },
-            temperature: 0.8,
+            temperature: 0.7,  // Lower temperature for more consistency
             max_tokens: 1000
           })
         });
@@ -857,6 +910,16 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
           throw new Error('Failed to parse prompt variations from API response');
         }
         
+        // Ensure the first prompt is always the original prompt for consistency
+        if (promptVariations.length > 0 && promptVariations[0] !== basePrompt) {
+          promptVariations.unshift(basePrompt);
+          
+          // If we now have too many prompts, remove the last one
+          if (promptVariations.length > pageCount) {
+            promptVariations = promptVariations.slice(0, pageCount);
+          }
+        }
+        
         // Return the prompt variations to the client
         res.json({ 
           basePrompt,
@@ -867,7 +930,7 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
         console.error('Error with JSON format request:', apiError);
         console.log('Trying alternate approach...');
         
-        // Second attempt with text response
+        // Second attempt with improved text-based response format
         try {
           const simpleResponse = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -880,16 +943,30 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
               messages: [
                 {
                   role: 'system',
-                  content: 'You are a creative assistant that specializes in generating coloring book pages for children.'
+                  content: `You are a creative assistant specializing in coloring book page design.
+When generating variations of a prompt, maintain strict CONSISTENCY with the base prompt.
+All variations should preserve the exact same art style, theme, and structure as the original.
+Only change small details like poses, activities, or minor scene elements.`
                 },
                 {
                   role: 'user',
-                  content: `Generate exactly ${pageCount} creative variations of this coloring book prompt: "${basePrompt}". 
-                  Each variation should match the original theme but be unique.
-                  Format your response as a numbered list, one variation per line, nothing else.`
+                  content: `Generate exactly ${pageCount} consistent variations of this coloring book prompt: "${basePrompt}"
+
+Requirements:
+1. MAINTAIN the same art style, theme, and structure
+2. Keep approximately the same length and complexity  
+3. Change only poses, activities, or small details
+4. All variations should clearly belong to the same coloring book
+
+For example, if the base prompt is "A happy llama wearing sunglasses and relaxing on a beach chair"
+Good variations would be:
+- "A happy llama wearing sunglasses and floating in a pool"
+- "A happy llama wearing sunglasses building a sandcastle"
+
+Format your response as a numbered list with one variation per line, nothing else.`
                 }
               ],
-              temperature: 0.8,
+              temperature: 0.7,
               max_tokens: 1000
             })
           });
@@ -912,8 +989,15 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
             throw new Error('No variations found in response');
           }
           
-          // Trim the list to the requested count
-          const finalVariations = promptVariations.slice(0, pageCount);
+          // Trim the list to the requested count and ensure the first one is the base prompt
+          let finalVariations = promptVariations.slice(0, pageCount);
+          
+          if (finalVariations[0] !== basePrompt) {
+            finalVariations.unshift(basePrompt);
+            if (finalVariations.length > pageCount) {
+              finalVariations = finalVariations.slice(0, pageCount);
+            }
+          }
           
           res.json({
             basePrompt,
