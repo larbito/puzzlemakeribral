@@ -228,7 +228,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
     // Extract other request parameters
     const generateVariations = req.body.generateVariations === 'true';
-    const pageCount = parseInt(req.body.pageCount) || 10;
+    const pageCount = parseInt(req.body.pageCount) || 1;
     
     console.log(`Generating variations: ${generateVariations}, Page count: ${pageCount}`);
 
