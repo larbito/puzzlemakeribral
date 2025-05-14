@@ -733,24 +733,49 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     
     // Remove common prefixes that might be in the input
     const prefixesToRemove = [
-      'This image is suitable for a coloring book.',
+      'This image is suitable for a coloring book',
       'It\'s a clean line art illustration',
       'Here\'s a prompt to generate',
       'Prompt for a Coloring Book Page:',
       'Create a coloring book page',
-      '**Prompt for a Coloring Book Page:**'
+      '**Prompt for a Coloring Book Page:**',
+      'The image should be',
+      'Featuring',
+      'This is',
+      'This will be',
+      'This should be',
+      'A coloring book page showing',
+      'A coloring book image of',
+      'The coloring page shows',
+      'A clean black and white line drawing of'
     ];
     
     for (const prefix of prefixesToRemove) {
-      if (cleanedBasePrompt.includes(prefix)) {
-        cleanedBasePrompt = cleanedBasePrompt.replace(prefix, '').trim();
+      if (cleanedBasePrompt.toLowerCase().includes(prefix.toLowerCase())) {
+        cleanedBasePrompt = cleanedBasePrompt.replace(new RegExp(prefix, 'i'), '').trim();
       }
     }
     
-    // Extract the core prompt if it has a pattern of "...featuring a [actual content]"
-    const featuringMatch = cleanedBasePrompt.match(/featuring an?(.+)/i);
-    if (featuringMatch && featuringMatch[1]) {
-      cleanedBasePrompt = featuringMatch[1].trim();
+    // Extract the core prompt from patterns like "...featuring a [actual content]"
+    const patternMatches = [
+      cleanedBasePrompt.match(/featuring\s+an?\s+(.+)/i),
+      cleanedBasePrompt.match(/showing\s+an?\s+(.+)/i),
+      cleanedBasePrompt.match(/depicting\s+an?\s+(.+)/i),
+      cleanedBasePrompt.match(/with\s+an?\s+(.+)/i),
+      cleanedBasePrompt.match(/of\s+an?\s+(.+)/i)
+    ].filter(Boolean);
+    
+    if (patternMatches.length > 0 && patternMatches[0] && patternMatches[0][1]) {
+      cleanedBasePrompt = patternMatches[0][1].trim();
+    }
+    
+    // Capitalize the first letter if needed
+    if (cleanedBasePrompt.length > 0) {
+      cleanedBasePrompt = cleanedBasePrompt.charAt(0).toUpperCase() + cleanedBasePrompt.slice(1);
+      // Ensure the prompt ends with punctuation
+      if (!/[.!?]$/.test(cleanedBasePrompt)) {
+        cleanedBasePrompt += '.';
+      }
     }
     
     console.log(`Cleaned base prompt: "${cleanedBasePrompt}"`);
@@ -806,35 +831,38 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     try {
       console.log('Making OpenAI API request for consistent prompt variations');
       
-      // Create a clear, direct system prompt
-      const systemPrompt = `You are an AI assistant that generates coloring book page prompts.
-When given a base prompt, create variations that maintain the same style, characters, and theme, 
-but change small details like poses, actions, or background elements.
+      // Stricter, more direct system prompt
+      const systemPrompt = `You are an API that generates standalone coloring book page prompts.
+Your only job is to generate variations on a base prompt for coloring book pages.
 
-YOUR OUTPUTS MUST:
-1. Be DIRECT prompts with NO introductory text
-2. Be COMPLETE standalone sentences that can be used to generate images
-3. MAINTAIN the exact same art style and theme as the original
-4. KEEP the same main characters/objects from the original
-5. AVOID adding phrases like "This image is" or "Prompt for a coloring book"
+CRITICAL REQUIREMENTS:
+1. Output ONLY complete, standalone prompts with NO explanatory text
+2. NEVER include phrases like "This image is..." or "A coloring page featuring..."
+3. Just give the direct description, like "A cute rabbit picking carrots in a garden"
+4. Maintain the EXACT same style, theme, and main subject(s) from the original prompt
+5. Only vary minor details like poses, activities, or settings
+6. Each prompt must work as a direct input to an image generator`;
 
-DO NOT include any meta-text, prefaces, or explanations.`;
+      // More structured user prompt with explicit examples
+      const userPrompt = `Base prompt: "${cleanedBasePrompt}"
 
-      // Create a straightforward user prompt with examples
-      const userPrompt = `Base coloring book prompt: "${cleanedBasePrompt}"
+Generate ${pageCount} variations of this prompt. Each must be a COMPLETE, STANDALONE sentence that directly describes what should appear in the coloring book page.
 
-Generate ${pageCount} variations of this prompt. Each variation should be a DIRECT image generation prompt 
-that maintains the same style, tone, and main elements, but varies in small details like poses, actions, or settings.
+IMPORTANT RULES:
+- DO NOT include any meta-text like "Prompt:" or "This is a coloring page showing..."
+- START each prompt with the main subject, NOT with phrases like "This image is..."
+- KEEP the same main character(s), style, and theme as the original
+- ONLY vary poses, actions, backgrounds, or small details
+- Make each prompt grammatically complete and punctuated
 
-For example, if the base prompt is:
-"A happy hedgehog painting flowers in a meadow"
+Example of what I want:
+Original: "A cute rabbit picking carrots in a garden"
+Good variations:
+"A cute rabbit planting seeds in a garden bed"
+"A cute rabbit watering flowers with a small watering can"
+"A cute rabbit sitting under a tree with a basket of carrots"
 
-Good variations would be:
-"A happy hedgehog holding a sunflower under a tree"
-"A happy hedgehog playing with butterflies near a garden fence"
-"A happy hedgehog sitting on a rock sketching tulips"
-
-Return ONLY a JSON array containing the variations as direct prompts without any introduction or explanation text.`;
+Return ONLY a JSON array containing the variations as strings.`;
 
       // First API call attempt using JSON response format
       try {
@@ -899,37 +927,53 @@ Return ONLY a JSON array containing the variations as direct prompts without any
           throw parseError; // Let the next handler try a different approach
         }
         
-        // Process the generated variations
+        // Process the generated variations to ensure no preface text
         const processedVariations = promptVariations.map(prompt => {
-          // Remove any boilerplate text patterns
-          let cleanedPrompt = prompt;
+          if (!prompt || typeof prompt !== 'string') return '';
           
+          // Remove quote marks if present
+          let cleanedPrompt = prompt.replace(/^["'](.+)["']$/, '$1').trim();
+          
+          // Remove any remaining prefixes
           for (const prefix of prefixesToRemove) {
-            if (cleanedPrompt.includes(prefix)) {
-              cleanedPrompt = cleanedPrompt.replace(prefix, '').trim();
+            if (cleanedPrompt.toLowerCase().includes(prefix.toLowerCase())) {
+              cleanedPrompt = cleanedPrompt.replace(new RegExp(prefix, 'i'), '').trim();
             }
           }
           
-          // Remove quote marks if present
-          cleanedPrompt = cleanedPrompt.replace(/^["'](.+)["']$/, '$1');
+          // Capitalize first letter if needed
+          if (cleanedPrompt.length > 0) {
+            cleanedPrompt = cleanedPrompt.charAt(0).toUpperCase() + cleanedPrompt.slice(1);
+            // Add period if missing ending punctuation
+            if (!/[.!?]$/.test(cleanedPrompt)) {
+              cleanedPrompt += '.';
+            }
+          }
           
           return cleanedPrompt;
-        });
+        }).filter(prompt => prompt.length > 0);
         
-        // Ensure the first prompt is the original
-        if (processedVariations.length > 0 && processedVariations[0] !== cleanedBasePrompt) {
-          processedVariations.unshift(cleanedBasePrompt);
-          
-          // If we now have too many, remove the last one
-          if (processedVariations.length > pageCount) {
-            processedVariations.pop();
+        // Ensure the first prompt is the original if it's not already included
+        let finalVariations = processedVariations;
+        if (processedVariations.length > 0 && !processedVariations.includes(cleanedBasePrompt)) {
+          finalVariations = [cleanedBasePrompt, ...processedVariations.slice(0, pageCount - 1)];
+        }
+        
+        // Ensure we have the requested number of variations
+        if (finalVariations.length < pageCount) {
+          // Pad with duplicates of the original if needed
+          while (finalVariations.length < pageCount) {
+            finalVariations.push(cleanedBasePrompt);
           }
+        } else if (finalVariations.length > pageCount) {
+          // Trim to requested size
+          finalVariations = finalVariations.slice(0, pageCount);
         }
         
         // Return the processed variations
         res.json({ 
           basePrompt: cleanedBasePrompt,
-          promptVariations: processedVariations
+          promptVariations: finalVariations
         });
         
       } catch (jsonError) {
@@ -938,21 +982,34 @@ Return ONLY a JSON array containing the variations as direct prompts without any
         
         // Second attempt - request a list format instead
         try {
-          const listSystemPrompt = `You are an AI assistant that generates variations of coloring book prompts.
-Your outputs MUST be direct, standalone prompts without any preface or explanation.
-Do not include phrases like "This is a coloring page featuring..." or "Prompt for a coloring book:".
-Each variation should be a complete sentence that could be sent directly to an image generator.`;
+          const listSystemPrompt = `You are an API that generates standalone coloring book page prompts.
+Your only job is to generate variations on a base prompt for coloring book pages.
+
+CRITICAL REQUIREMENTS:
+1. Output ONLY complete, standalone prompts with NO explanatory text
+2. NEVER include phrases like "This image is..." or "A coloring page featuring..."
+3. Just give the direct description, like "A cute rabbit picking carrots in a garden"
+4. Maintain the EXACT same style, theme, and main subject(s) from the original prompt
+5. Only vary minor details like poses, activities, or settings
+6. Each prompt must work as a direct input to an image generator`;
 
           const listUserPrompt = `Base prompt: "${cleanedBasePrompt}"
 
-Create exactly ${pageCount} variations of this prompt for a coloring book.
-Each variation should maintain the same style and main elements, but vary in small details.
+Generate exactly ${pageCount} variations of this prompt for coloring book pages.
 
-IMPORTANT:
-- Each variation must be a DIRECT prompt with NO introductory text
-- KEEP the same main character(s) and overall theme
-- VARY only poses, actions, or background elements
-- Each prompt should be a complete, standalone sentence
+IMPORTANT RULES:
+- DO NOT include any meta-text like "Prompt:" or "This is a coloring page showing..."
+- START each prompt with the main subject, NOT with phrases like "This image is..."
+- KEEP the same main character(s), style, and theme as the original
+- ONLY vary poses, actions, backgrounds, or small details
+- Make each prompt grammatically complete and punctuated
+
+Example of what I want:
+Original: "A cute rabbit picking carrots in a garden"
+Good variations:
+"A cute rabbit planting seeds in a garden bed"
+"A cute rabbit watering flowers with a small watering can"
+"A cute rabbit sitting under a tree with a basket of carrots"
 
 Format your response as a simple numbered list with one variation per line.`;
 
@@ -984,36 +1041,51 @@ Format your response as a simple numbered list with one variation per line.`;
           const rawVariations = lines
             .map(line => line.trim())
             .filter(line => line.length > 0)
-            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim()); // Remove numbering
+            .map(line => line.replace(/^\d+[\.\)]\s*/, '').trim()) // Remove numbering
+            .map(line => line.replace(/^["'](.+)["']$/, '$1').trim()); // Remove quotes
             
           if (rawVariations.length === 0) {
             throw new Error('No variations found in response');
           }
           
-          // Process variations to remove any remaining boilerplate
+          // Process variations to clean them
           const processedVariations = rawVariations.map(prompt => {
-            // Remove any remaining boilerplate text
+            // Remove any remaining prefixes
             let cleanedPrompt = prompt;
             
             for (const prefix of prefixesToRemove) {
-              if (cleanedPrompt.includes(prefix)) {
-                cleanedPrompt = cleanedPrompt.replace(prefix, '').trim();
+              if (cleanedPrompt.toLowerCase().includes(prefix.toLowerCase())) {
+                cleanedPrompt = cleanedPrompt.replace(new RegExp(prefix, 'i'), '').trim();
               }
             }
             
-            // Remove quote marks if present
-            cleanedPrompt = cleanedPrompt.replace(/^["'](.+)["']$/, '$1');
+            // Capitalize first letter if needed
+            if (cleanedPrompt.length > 0) {
+              cleanedPrompt = cleanedPrompt.charAt(0).toUpperCase() + cleanedPrompt.slice(1);
+              // Add period if missing ending punctuation
+              if (!/[.!?]$/.test(cleanedPrompt)) {
+                cleanedPrompt += '.';
+              }
+            }
             
             return cleanedPrompt;
-          });
+          }).filter(prompt => prompt.length > 0);
           
           // Ensure the first prompt is the original
-          let finalVariations = processedVariations.slice(0, pageCount);
-          if (finalVariations[0] !== cleanedBasePrompt) {
-            finalVariations.unshift(cleanedBasePrompt);
-            if (finalVariations.length > pageCount) {
-              finalVariations.pop();
+          let finalVariations = processedVariations;
+          if (processedVariations.length > 0 && !processedVariations.includes(cleanedBasePrompt)) {
+            finalVariations = [cleanedBasePrompt, ...processedVariations.slice(0, pageCount - 1)];
+          }
+          
+          // Ensure we have the requested number of variations
+          if (finalVariations.length < pageCount) {
+            // Pad with duplicates of the original if needed
+            while (finalVariations.length < pageCount) {
+              finalVariations.push(cleanedBasePrompt);
             }
+          } else if (finalVariations.length > pageCount) {
+            // Trim to requested size
+            finalVariations = finalVariations.slice(0, pageCount);
           }
           
           res.json({

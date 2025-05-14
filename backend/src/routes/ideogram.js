@@ -54,11 +54,16 @@ router.post('/generate', upload.none(), async (req, res) => {
   console.log('Request body after multer:', req.body);
   
   try {
-    // Check if API key is configured
+    // Check if API key is configured - add more detailed logging
     if (!process.env.IDEOGRAM_API_KEY) {
-      console.error('Ideogram API key is not configured');
+      console.error('Ideogram API key is not configured in environment variables');
       return res.status(500).json({ error: 'API key not configured' });
     }
+    
+    // Log a masked version of the API key for debugging
+    const maskedKey = process.env.IDEOGRAM_API_KEY.substring(0, 4) + '...' + 
+                     process.env.IDEOGRAM_API_KEY.substring(process.env.IDEOGRAM_API_KEY.length - 4);
+    console.log('Using Ideogram API key starting with:', maskedKey);
 
     const { prompt, style, aspect_ratio = '3:4', negative_prompt } = req.body;
     
@@ -86,6 +91,12 @@ router.post('/generate', upload.none(), async (req, res) => {
     form.append('num_images', '1');
     form.append('seed', Math.floor(Math.random() * 1000000));
 
+    // Log form data for debugging
+    console.log('Form data contents:');
+    for (const [key, value] of Object.entries(form)) {
+      console.log(`${key}: ${value}`);
+    }
+    
     console.log('Making request to Ideogram API with form data');
     
     const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
@@ -98,16 +109,20 @@ router.post('/generate', upload.none(), async (req, res) => {
     });
 
     console.log('Ideogram API response status:', response.status);
+    console.log('Ideogram API response headers:', response.headers);
 
     const responseText = await response.text();
-    console.log('Raw response:', responseText);
+    console.log('Raw response:', responseText.substring(0, 200) + '...');
 
     let data;
     try {
       data = JSON.parse(responseText);
     } catch (error) {
       console.error('Failed to parse Ideogram API response:', error);
-      return res.status(500).json({ error: 'Invalid response from image generation service' });
+      return res.status(500).json({ 
+        error: 'Invalid response from image generation service',
+        rawResponse: responseText.substring(0, 500)
+      });
     }
 
     if (!response.ok) {
@@ -124,12 +139,18 @@ router.post('/generate', upload.none(), async (req, res) => {
     let imageUrl = null;
     if (data?.data?.[0]?.url) {
       imageUrl = data.data[0].url;
+    } else if (data?.images?.[0]?.url) { // Alternative structure
+      imageUrl = data.images[0].url;
+    } else if (data?.url) { // Simplest structure
+      imageUrl = data.url;
     }
 
     if (!imageUrl) {
       console.error('No image URL in response:', data);
       throw new Error('No image URL in API response');
     }
+
+    console.log('Found image URL:', imageUrl);
 
     // Return the image URL to the client
     res.json({ url: imageUrl });
