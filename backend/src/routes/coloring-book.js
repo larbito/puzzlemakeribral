@@ -717,7 +717,8 @@ router.post('/expand-prompts', express.json(), async (req, res) => {
     console.log('Expand prompts request received');
     console.log('Request body:', req.body);
     
-    const { basePrompt, pageCount = 10 } = req.body;
+    const { basePrompt, pageCount = 1 } = req.body;
+    console.log(`Using pageCount: ${pageCount} (explicitly provided: ${req.body.pageCount !== undefined})`);
     
     if (!basePrompt) {
       return res.status(400).json({ error: 'Base prompt is required' });
@@ -929,13 +930,17 @@ Format your response as a JSON object with an array of prompt variations.`;
         // Ensure we have the requested number of variations
         if (finalVariations.length < pageCount) {
           // Pad with duplicates of the original if needed
+          console.log(`Padding variations array: generated ${finalVariations.length}, needed ${pageCount}`);
           while (finalVariations.length < pageCount) {
             finalVariations.push(cleanedBasePrompt);
           }
         } else if (finalVariations.length > pageCount) {
           // Trim to requested size
+          console.log(`Trimming variations array: generated ${finalVariations.length}, needed ${pageCount}`);
           finalVariations = finalVariations.slice(0, pageCount);
         }
+        
+        console.log(`Returning ${finalVariations.length} variations for request with pageCount=${pageCount}`);
         
         // Return the processed variations
         res.json({ 
@@ -1027,11 +1032,13 @@ Format your response as a simple numbered list with one variation per line, like
           // Ensure we have the requested number of variations
           if (finalVariations.length < pageCount) {
             // Pad with duplicates of the original if needed
+            console.log(`Padding variations array: generated ${finalVariations.length}, needed ${pageCount}`);
             while (finalVariations.length < pageCount) {
               finalVariations.push(cleanedBasePrompt);
             }
           } else if (finalVariations.length > pageCount) {
             // Trim to requested size
+            console.log(`Trimming variations array: generated ${finalVariations.length}, needed ${pageCount}`);
             finalVariations = finalVariations.slice(0, pageCount);
           }
           
@@ -1075,8 +1082,16 @@ Format your response as a simple numbered list with one variation per line, like
 // Export the expandPrompts function so it can be used directly by other modules
 module.exports = {
   router,
-  expandPrompts: async (basePrompt, pageCount) => {
+  expandPrompts: async (basePrompt, pageCount = 1) => {
     try {
+      console.log(`expandPrompts function called with pageCount: ${pageCount || 1}`);
+      
+      // Default to 1 if pageCount is invalid
+      if (!pageCount || pageCount < 1) {
+        console.log('Invalid pageCount provided, defaulting to 1');
+        pageCount = 1;
+      }
+      
       // Only do minimal cleaning of the base prompt - remove common prefixes but preserve structure and detail
       let cleanedBasePrompt = basePrompt.trim();
       
@@ -1274,13 +1289,17 @@ Format your response as a JSON object with an array of prompt variations.`;
         // Ensure we have the requested number of variations
         if (finalVariations.length < pageCount) {
           // Pad with duplicates of the original if needed
+          console.log(`Padding variations array: generated ${finalVariations.length}, needed ${pageCount}`);
           while (finalVariations.length < pageCount) {
             finalVariations.push(cleanedBasePrompt);
           }
         } else if (finalVariations.length > pageCount) {
           // Trim to requested size
+          console.log(`Trimming variations array: generated ${finalVariations.length}, needed ${pageCount}`);
           finalVariations = finalVariations.slice(0, pageCount);
         }
+        
+        console.log(`Returning ${finalVariations.length} variations for request with pageCount=${pageCount}`);
         
         return finalVariations;
       } catch (apiError) {

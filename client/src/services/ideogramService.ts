@@ -1489,6 +1489,12 @@ export async function downloadColoringPages(
 
 export async function expandPrompts(basePrompt: string, pageCount: number): Promise<string[]> {
   try {
+    // Validate pageCount (ensure it's at least 1)
+    if (!pageCount || pageCount < 1) {
+      console.warn(`Invalid pageCount provided: ${pageCount}, defaulting to 1`);
+      pageCount = 1;
+    }
+    
     console.log(`Expanding prompt: "${basePrompt}" into ${pageCount} variations`);
     
     // For testing/development, use placeholders if configured
@@ -1520,6 +1526,7 @@ export async function expandPrompts(basePrompt: string, pageCount: number): Prom
     }
     
     console.log(`Cleaned prompt for API: "${cleanedPrompt}"`);
+    console.log(`Sending request to expand-prompts API with pageCount=${pageCount}`);
     
     const response = await fetch(`${API_URL}/api/coloring-book/expand-prompts`, {
       method: 'POST',

@@ -283,6 +283,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
     if (isColoringBook && generateVariations) {
       try {
         console.log('Generating prompt variations from base prompt:', basePrompt);
+        console.log(`Using pageCount: ${pageCount} (from request parameter)`);
         
         // Instead of using a relative URL, call the expand-prompts function directly
         // This avoids any network routing issues
