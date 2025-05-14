@@ -209,7 +209,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
     // Create the appropriate prompt text based on the type
     const promptText = isColoringBook
-      ? 'Analyze this image and provide a detailed prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. The prompt should describe a clean line art style suitable for coloring books. Make the prompt engaging and child-friendly.'
+      ? 'Analyze this image and determine if it is a coloring book style image or line art suitable for coloring. If it IS suitable for a coloring book, provide a detailed prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. The prompt should describe a clean line art style suitable for coloring books. Make the prompt engaging and child-friendly. If the image is NOT suitable for a coloring book (e.g., a photograph, complex artwork, t-shirt design, etc.), start your response with "NOT A COLORING PAGE:" and explain why it is not suitable.'
       : 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.';
 
     // Call OpenAI's GPT-4 Vision API for image analysis
@@ -311,7 +311,7 @@ router.post('/batch-download', async (req, res) => {
     
     // Set the response headers for zip download
     res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="tshirt-designs-${Date.now()}.zip"`);
+    res.setHeader('Content-Disposition', `attachment; filename="coloring-pages-${Date.now()}.zip"`);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'no-cache');
     
@@ -331,8 +331,8 @@ router.post('/batch-download', async (req, res) => {
         
         // Generate a filename based on the prompt or index
         const filename = prompt 
-          ? `tshirt-${prompt.split(' ').slice(0, 3).join('-').toLowerCase()}-${uniqueId}.png`.replace(/[^a-zA-Z0-9\-_.]/g, '_')
-          : `tshirt-design-${i+1}-${uniqueId}.png`;
+          ? `coloring-page-${prompt.split(' ').slice(0, 3).join('-').toLowerCase()}-${uniqueId}.png`.replace(/[^a-zA-Z0-9\-_.]/g, '_')
+          : `coloring-page-${i+1}-${uniqueId}.png`;
         
         // Fetch the image
         const imageResponse = await fetch(url, {

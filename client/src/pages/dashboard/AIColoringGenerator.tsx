@@ -88,6 +88,9 @@ export const AIColoringGenerator = () => {
       return;
     }
 
+    // Add warning about coloring book images
+    toast.info('Please ensure you are uploading a coloring book style image. Other types of images may not work properly.');
+
     // Read and display the image
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -126,7 +129,7 @@ export const AIColoringGenerator = () => {
       // Create a FormData with the blob
       const formData = new FormData();
       formData.append('image', blob, 'uploaded-image.png');
-      formData.append('type', 'coloring');
+      formData.append('type', 'coloring'); // Explicitly specify this is for coloring book
       
       // Make a direct API call to the backend
       const apiUrl = process.env.NODE_ENV === 'production' 
@@ -145,11 +148,20 @@ export const AIColoringGenerator = () => {
       }
       
       const data = await apiResponse.json();
-      setGeneratedPrompt(data.prompt);
-      toast.success('Prompt generated successfully');
+      
+      // Check if the response contains an error indicating this isn't a coloring page
+      if (data.prompt?.toLowerCase().includes('not a coloring') || 
+          data.prompt?.toLowerCase().includes('not suitable for coloring') ||
+          data.prompt?.toLowerCase().includes('t-shirt design')) {
+        toast.error('The uploaded image does not appear to be a coloring book page. Please upload a line art or coloring book style image.');
+        setGeneratedPrompt('');
+      } else {
+        setGeneratedPrompt(data.prompt);
+        toast.success('Prompt generated successfully');
+      }
     } catch (error) {
       console.error('Error generating prompt:', error);
-      toast.error('Failed to generate prompt');
+      toast.error('Failed to generate prompt. Please ensure you are uploading a coloring book style image.');
     } finally {
       setIsGeneratingPrompt(false);
     }
@@ -322,7 +334,7 @@ export const AIColoringGenerator = () => {
             transition={{ delay: 0.1 }}
             className="text-xl text-muted-foreground"
           >
-            Transform your imagination into magical coloring adventures
+            Transform your imagination into magical coloring pages for kids and adults
           </motion.p>
         </div>
 
@@ -331,7 +343,7 @@ export const AIColoringGenerator = () => {
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="image-to-prompt" className="text-lg py-3">
               <ImageIcon className="w-5 h-5 mr-2" />
-              Image to Prompt
+              Coloring Image to Prompt
             </TabsTrigger>
             <TabsTrigger id="prompt-to-book-tab" value="prompt-to-book" className="text-lg py-3">
               <BookOpen className="w-5 h-5 mr-2" />
@@ -344,7 +356,8 @@ export const AIColoringGenerator = () => {
             <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
               <div className="relative p-8 space-y-6">
-                <h2 className="text-2xl font-bold mb-4">Upload a Coloring Style Image</h2>
+                <h2 className="text-2xl font-bold mb-4">Upload a Coloring Book Style Image</h2>
+                <p className="text-muted-foreground mb-6">This tool only works with coloring book style images or line art. Photos, complex artwork, or t-shirt designs are not supported.</p>
                 
                 <div className="grid md:grid-cols-2 gap-8">
                   {/* Image Upload Section */}
@@ -363,9 +376,9 @@ export const AIColoringGenerator = () => {
                       ) : (
                         <>
                           <Upload className="w-16 h-16 text-primary/60 mb-4" />
-                          <p className="text-lg font-medium text-center">Click to upload a reference image</p>
+                          <p className="text-lg font-medium text-center">Click to upload a coloring book style image</p>
                           <p className="text-sm text-muted-foreground text-center mt-2">
-                            Upload a coloring book style image to generate a similar prompt
+                            Upload ONLY line art or coloring book style images. Photos or complex images are not supported.
                           </p>
                         </>
                       )}
@@ -383,7 +396,7 @@ export const AIColoringGenerator = () => {
                       className="w-full"
                     >
                       <Upload className="w-4 h-4 mr-2" />
-                      {uploadedImage ? 'Change Image' : 'Upload Image'}
+                      {uploadedImage ? 'Change Coloring Image' : 'Upload Coloring Image'}
                     </Button>
                   </div>
 
