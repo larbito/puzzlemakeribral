@@ -64,6 +64,7 @@ import {
 import type { DesignHistoryItem } from "@/services/designHistory";
 import { HISTORY_STORAGE_KEY } from "@/services/designHistory";
 import { PageLayout } from '@/components/layout/PageLayout';
+import { useSearchParams, useLocation } from "react-router-dom";
 
 // CSS utility for the grid pattern background
 const gridPatternStyle = {
@@ -193,7 +194,14 @@ declare module "@/services/designHistory" {
   }
 }
 
-export const TShirtGenerator = () => {
+// Export the interface for the component props
+export interface TShirtGeneratorProps {
+  initialMode?: string; // Optional initialMode prop
+}
+
+export const TShirtGenerator: React.FC<TShirtGeneratorProps> = ({ initialMode }) => {
+  const [searchParams] = useSearchParams();
+  
   // Prompt state
   const [prompt, setPrompt] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -211,7 +219,7 @@ export const TShirtGenerator = () => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [currentTab, setCurrentTab] = useState("design"); // design, upload, bulk
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [activeMode, setActiveMode] = useState("prompt"); // prompt, image, bulk
+  const [activeMode, setActiveMode] = useState(initialMode || "prompt"); // Use initialMode if provided, otherwise default to "prompt"
   
   // Upload state
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
@@ -257,6 +265,16 @@ export const TShirtGenerator = () => {
     const savedHistory = getDesignHistory();
     setHistory(savedHistory);
   }, []);
+
+  // Check for mode parameter in URL if initialMode is not provided
+  useEffect(() => {
+    if (!initialMode) {
+      const modeParam = searchParams.get('mode');
+      if (modeParam && ['prompt', 'image', 'bulk'].includes(modeParam)) {
+        setActiveMode(modeParam);
+      }
+    }
+  }, [searchParams, initialMode]);
 
   // Handle mode change (tab switching)
   const handleModeChange = (mode: string) => {
