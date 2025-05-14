@@ -218,6 +218,10 @@ export const AIColoringGenerator = () => {
       formData.append('image', blob, 'uploaded-image.png');
       formData.append('type', 'coloring'); // Explicitly specify this is for coloring book
       
+      // Request prompt variations directly from the analyze endpoint
+      formData.append('generateVariations', 'true');
+      formData.append('pageCount', coloringOptions.pageCount.toString());
+      
       // Make a direct API call to the backend
       const apiUrl = process.env.NODE_ENV === 'production' 
         ? window.location.origin.includes('vercel.app') 
@@ -225,16 +229,20 @@ export const AIColoringGenerator = () => {
           : window.location.origin
         : 'http://localhost:3000';
       
+      console.log(`Calling analyze API at ${apiUrl}/api/ideogram/analyze`);
       const apiResponse = await fetch(`${apiUrl}/api/ideogram/analyze`, {
         method: 'POST',
         body: formData
       });
       
       if (!apiResponse.ok) {
+        const errorText = await apiResponse.text();
+        console.error('Error response from analyze API:', errorText);
         throw new Error(`API error: ${apiResponse.status}`);
       }
       
       const data = await apiResponse.json();
+      console.log('Analyze API response:', data);
       
       // Check if the response contains an error indicating this isn't a coloring page
       if (data.prompt?.toLowerCase().includes('not a coloring') || 
@@ -245,11 +253,33 @@ export const AIColoringGenerator = () => {
       } else {
         setGeneratedPrompt(data.prompt);
         setBasePrompt(data.prompt);
-        toast.success('Prompt generated successfully');
+        
+        // If we received prompt variations from the backend, use them directly
+        if (data.promptVariations && Array.isArray(data.promptVariations) && data.promptVariations.length > 0) {
+          console.log(`Received ${data.promptVariations.length} prompt variations from backend`);
+          setExpandedPrompts(data.promptVariations);
+          setPromptsConfirmed(true); // Mark as confirmed since they're already properly generated
+          toast.success('Generated base prompt and variations successfully');
+        } else {
+          // Otherwise we'll need to generate variations in a separate step
+          console.log('No prompt variations in response, will need to generate separately');
+          toast.success('Prompt generated successfully. Variations will be generated in the next step.');
+        }
+        
+        // Automatically proceed to the next step
+        setTimeout(() => {
+          if (data.promptVariations && Array.isArray(data.promptVariations) && data.promptVariations.length > 0) {
+            // Skip the prompt expansion step since we already have variations
+            setCurrentStep('book-settings');
+          } else {
+            // Go to prompt review as normal
+            setCurrentStep('prompt-review');
+          }
+        }, 1000);
       }
     } catch (error) {
-      console.error('Error generating prompt:', error);
-      toast.error('Failed to generate prompt. Please ensure you are uploading a coloring book style image.');
+      console.error('Error generating prompt from image:', error);
+      toast.error(`Failed to analyze image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsGeneratingPrompt(false);
     }
