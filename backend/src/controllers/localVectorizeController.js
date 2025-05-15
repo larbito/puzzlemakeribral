@@ -1,6 +1,8 @@
 const Jimp = require('jimp');
 const potrace = require('potrace');
 const { Buffer } = require('buffer');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Vectorize an image using local processing with Potrace
@@ -23,21 +25,41 @@ exports.vectorizeImage = async (req, res) => {
     console.log(`Processing image: ${req.file.originalname}, Size: ${imageBuffer.length / 1024} KB`);
     
     try {
-      console.log('Reading image with Jimp...');
-      // Use Jimp to process the image (handle transparency, etc.)
-      const image = await Jimp.read(imageBuffer);
-      console.log('Image loaded successfully');
+      // Handle image with multiple Jimp versions (more compatible)
+      console.log('Processing image with Jimp...');
+      
+      // Save buffer to temp file as a workaround for Jimp compatibility issues
+      const tempImagePath = path.join(__dirname, '../../temp-image.png');
+      fs.writeFileSync(tempImagePath, imageBuffer);
+      console.log('Saved temp image file');
+      
+      // Load the image using different methods to support different Jimp versions
+      let image;
+      try {
+        // Try modern version
+        console.log('Trying Jimp.read() method...');
+        image = await Jimp.read(tempImagePath);
+        console.log('Image loaded with Jimp.read()');
+      } catch (err) {
+        console.error('Error with Jimp.read():', err.message);
+        // Try constructor
+        try {
+          console.log('Trying new Jimp() constructor...');
+          image = new Jimp(tempImagePath);
+          console.log('Image loaded with new Jimp()');
+        } catch (err2) {
+          console.error('Error with new Jimp():', err2.message);
+          throw new Error('Failed to load image with Jimp - all methods failed');
+        }
+      }
       
       // Get image dimensions
-      const width = image.getWidth();
-      const height = image.getHeight();
+      const width = image.bitmap.width;
+      const height = image.bitmap.height;
       console.log(`Image dimensions: ${width}x${height}`);
       
       // Image preprocessing to improve vectorization
       console.log('Preprocessing image...');
-      image.rgba(true)  // Ensure alpha channel is preserved (transparency)
-           .background(0x00000000) // Transparent background
-           .quality(100); // Preserve quality
       
       // For t-shirt design, we may want to ensure the background is transparent
       // Scan for black background and make it transparent
@@ -54,9 +76,13 @@ exports.vectorizeImage = async (req, res) => {
         }
       });
       
-      // Convert to buffer for Potrace
-      console.log('Converting processed image to buffer...');
-      const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+      // Write the processed image to temp file for Potrace
+      console.log('Saving preprocessed image...');
+      const processedImagePath = path.join(__dirname, '../../temp-processed.png');
+      await image.writeAsync(processedImagePath);
+      
+      // Use the file directly with Potrace
+      console.log('Tracing image with Potrace...');
       
       // Options for Potrace vectorization
       const potraceOptions = {
@@ -68,10 +94,17 @@ exports.vectorizeImage = async (req, res) => {
         background: null // For transparent SVG background
       };
       
-      console.log('Tracing image with Potrace...');
       // Use Potrace to convert to SVG
       const svgData = await new Promise((resolve, reject) => {
-        potrace.trace(processedBuffer, potraceOptions, (err, svg) => {
+        potrace.trace(processedImagePath, potraceOptions, (err, svg) => {
+          // Clean up temp files
+          try {
+            if (fs.existsSync(tempImagePath)) fs.unlinkSync(tempImagePath);
+            if (fs.existsSync(processedImagePath)) fs.unlinkSync(processedImagePath);
+          } catch (cleanupErr) {
+            console.warn('Error cleaning up temp files:', cleanupErr.message);
+          }
+          
           if (err) {
             console.error('Potrace error:', err);
             reject(err);
