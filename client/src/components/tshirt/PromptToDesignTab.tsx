@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Sparkles, 
   Download, 
-  FileText, 
   Loader2, 
   ImageIcon,
   LightbulbIcon,
@@ -27,7 +26,8 @@ export const PromptToDesignTab = () => {
   // State management
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
@@ -59,31 +59,46 @@ export const PromptToDesignTab = () => {
     }
 
     setIsGenerating(true);
+    setImageUrls([]);
     
     try {
-      // Generate image with Ideogram API
-      console.log('Calling generateImage with:', { prompt, transparentBg, size });
-      const imageUrl = await generateImage({
-        prompt,
-        transparentBackground: transparentBg,
-        format: size
-      });
+      // Convert variationCount to number
+      const count = parseInt(variationCount, 10);
       
-      if (imageUrl) {
-        console.log('Generated image URL:', imageUrl);
-        setImageUrl(imageUrl);
-        
-        // Save to history
-        saveToHistory({
+      // Generate multiple images based on the chosen variation count
+      const generatedUrls: string[] = [];
+      const toastId = toast.loading(`Generating ${count} design${count > 1 ? 's' : ''}...`);
+      
+      for (let i = 0; i < count; i++) {
+        // Generate image with Ideogram API
+        console.log(`Generating design ${i+1} of ${count} with:`, { prompt, transparentBg, size });
+        const imageUrl = await generateImage({
           prompt,
-          imageUrl,
-          thumbnail: imageUrl,
-          isFavorite: false
+          transparentBackground: transparentBg,
+          format: size
         });
         
-        toast.success('T-shirt design generated successfully!');
+        if (imageUrl) {
+          console.log(`Generated image ${i+1} URL:`, imageUrl);
+          generatedUrls.push(imageUrl);
+          
+          // Save to history
+          saveToHistory({
+            prompt,
+            imageUrl,
+            thumbnail: imageUrl,
+            isFavorite: false
+          });
+        }
+      }
+      
+      if (generatedUrls.length > 0) {
+        setImageUrls(generatedUrls);
+        setCurrentIndex(0);
+        toast.dismiss(toastId);
+        toast.success(`${generatedUrls.length} T-shirt design${generatedUrls.length > 1 ? 's' : ''} generated successfully!`);
       } else {
-        throw new Error('Failed to generate image');
+        throw new Error('Failed to generate any images');
       }
     } catch (error) {
       console.error('Error generating design:', error);
@@ -94,14 +109,16 @@ export const PromptToDesignTab = () => {
   };
   
   // Handle downloading the image
-  const handleDownload = async (format = 'png') => {
-    console.log('Download button clicked for format:', format);
-    if (!imageUrl) {
+  const handleDownload = async () => {
+    const currentUrl = imageUrls[currentIndex];
+    console.log('Download button clicked for image:', currentUrl);
+    if (!currentUrl) {
       toast.error('No design to download');
       return;
     }
     
     setIsDownloading(true);
+    const toastId = toast.loading(`Processing download...`);
     
     try {
       // Format filename using the first few words of the prompt
@@ -109,13 +126,30 @@ export const PromptToDesignTab = () => {
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
       console.log('Downloading image with filename:', filename);
-      await downloadImage(imageUrl, format, filename);
-      toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      await downloadImage(currentUrl, 'png', filename);
+      
+      // Ensure toast is dismissed before showing success
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        toast.success(`Design downloaded as PNG`);
+      }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);
+      toast.dismiss(toastId);
       toast.error('Failed to download design');
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  // Change the currently displayed design
+  const navigateDesign = (direction: 'prev' | 'next') => {
+    if (imageUrls.length <= 1) return;
+    
+    if (direction === 'prev') {
+      setCurrentIndex(prev => (prev === 0 ? imageUrls.length - 1 : prev - 1));
+    } else {
+      setCurrentIndex(prev => (prev === imageUrls.length - 1 ? 0 : prev + 1));
     }
   };
 
@@ -126,7 +160,7 @@ export const PromptToDesignTab = () => {
   };
 
   console.log('Current prompt value:', prompt);
-  console.log('Current image URL:', imageUrl);
+  console.log('Current image URLs:', imageUrls);
 
   return (
     <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
@@ -219,6 +253,7 @@ export const PromptToDesignTab = () => {
                     <SelectItem value="1">1 Design</SelectItem>
                     <SelectItem value="2">2 Designs</SelectItem>
                     <SelectItem value="3">3 Designs</SelectItem>
+                    <SelectItem value="4">4 Designs</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -248,7 +283,7 @@ export const PromptToDesignTab = () => {
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Design
+                  Generate Design{parseInt(variationCount) > 1 ? 's' : ''}
                 </>
               )}
             </Button>
@@ -264,12 +299,39 @@ export const PromptToDesignTab = () => {
             Preview & Download
           </h3>
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {imageUrl ? (
-              <img 
-                src={imageUrl} 
-                alt="Generated T-shirt design" 
-                className="w-full h-full object-contain p-4"
-              />
+            {imageUrls.length > 0 ? (
+              <div className="relative w-full h-full">
+                <img 
+                  src={imageUrls[currentIndex]} 
+                  alt="Generated T-shirt design" 
+                  className="w-full h-full object-contain p-4"
+                />
+                
+                {/* Navigation buttons for multiple designs */}
+                {imageUrls.length > 1 && (
+                  <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigateDesign('prev')}
+                      className="bg-white/80 dark:bg-gray-800/80 h-8 w-8 p-0 rounded-full"
+                    >
+                      &lt;
+                    </Button>
+                    <span className="bg-white/80 dark:bg-gray-800/80 px-3 py-1 rounded-full text-xs">
+                      {currentIndex + 1} / {imageUrls.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigateDesign('next')}
+                      className="bg-white/80 dark:bg-gray-800/80 h-8 w-8 p-0 rounded-full"
+                    >
+                      &gt;
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : isGenerating ? (
               <div className="h-full flex flex-col items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -287,28 +349,17 @@ export const PromptToDesignTab = () => {
             )}
           </div>
           
-          {imageUrl && (
+          {imageUrls.length > 0 && (
             <div className="space-y-4 relative z-[105]">
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                  onClick={() => handleDownload('png')}
-                  disabled={isDownloading}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download as PNG
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                  onClick={() => handleDownload('pdf')}
-                  disabled={isDownloading}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Download as PDF
-                </Button>
-              </div>
+              <Button 
+                variant="outline" 
+                className="w-full border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                onClick={handleDownload}
+                disabled={isDownloading}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download as PNG
+              </Button>
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
