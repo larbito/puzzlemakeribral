@@ -23,6 +23,9 @@ router.get('/vectorize-test', (req, res) => {
   });
 });
 
+// Get available background removal models
+router.get('/background-removal-models', replicateBackgroundRemovalController.getModels);
+
 // Background removal endpoints (support both paths for backward compatibility)
 router.post('/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 router.post('/vectorize/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);

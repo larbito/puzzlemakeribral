@@ -6,8 +6,21 @@ const axios = require('axios');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Model info - updated to a current version
-const BACKGROUND_REMOVAL_MODEL = "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003";
+// Define available background removal models
+const BACKGROUND_REMOVAL_MODELS = {
+  // Default model
+  "default": "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+  
+  // Additional models
+  "men1scus/birefnet": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
+  "lucataco/remove-bg": "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
+  "alexgenovese/remove-background-bria-2": "alexgenovese/remove-background-bria-2:8a67c9d842f7c06fef1b6bcf44bfdccb48b6cca3b420843e705d4a64e04f8974",
+  "851-labs/background-remover": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
+  "smoretalk/rembg-enhance": "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919",
+  "codeplugtech/background_remover": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
+  "cjwbw/rmgb": "cjwbw/rmgb:e89200fbc08c5c5e9314e246db83a79d43f16c552dc4005e46cd7896800a989e",
+  "pollinations/modnet": "pollinations/modnet:da7d45f3b836795f945f221fc0b01a6d3ab7f5e163f13208948ad436001e2255"
+};
 
 /**
  * Remove background from image using Replicate API
@@ -31,6 +44,13 @@ exports.removeBackground = async (req, res) => {
       });
     }
     
+    // Get model ID from request (if provided)
+    const modelId = req.body.modelId || 'default';
+    
+    // Get the model version
+    const modelVersion = BACKGROUND_REMOVAL_MODELS[modelId] || BACKGROUND_REMOVAL_MODELS.default;
+    console.log(`Using background removal model: ${modelId} (${modelVersion})`);
+    
     try {
       // Get the image data
       const imageBuffer = req.file.buffer;
@@ -47,12 +67,9 @@ exports.removeBackground = async (req, res) => {
       // Create Replicate instance
       const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
       
-      // Log the model being used
-      console.log(`Using background removal model: ${BACKGROUND_REMOVAL_MODEL}`);
-      
       // Make the API call with a simple structure
       const prediction = await replicate.predictions.create({
-        version: BACKGROUND_REMOVAL_MODEL,
+        version: modelVersion,
         input: { image: dataUri }
       });
       
@@ -93,7 +110,8 @@ exports.removeBackground = async (req, res) => {
       // Return success response with the image URL
       return res.status(200).json({
         imageUrl: outputUrl,
-        success: true
+        success: true,
+        modelUsed: modelId
       });
     } catch (error) {
       console.error('Error in Replicate background removal process:', error);
@@ -107,6 +125,65 @@ exports.removeBackground = async (req, res) => {
     return res.status(500).json({
       error: 'Internal server error',
       details: error.message || 'An unexpected error occurred'
+    });
+  }
+};
+
+/**
+ * Get available background removal models
+ */
+exports.getModels = async (req, res) => {
+  try {
+    // Format models for frontend display
+    const models = Object.entries(BACKGROUND_REMOVAL_MODELS).map(([id, version]) => {
+      // Generate a friendly name
+      let friendlyName = id;
+      switch (id) {
+        case 'default':
+          friendlyName = 'Standard Removal (Default)';
+          break;
+        case 'men1scus/birefnet':
+          friendlyName = 'Pro Edge Detection';
+          break;
+        case 'lucataco/remove-bg':
+          friendlyName = 'Perfect Cutout';
+          break;
+        case 'alexgenovese/remove-background-bria-2':
+          friendlyName = 'Bria AI Precision';
+          break;
+        case '851-labs/background-remover':
+          friendlyName = 'Precision Focus';
+          break;
+        case 'smoretalk/rembg-enhance':
+          friendlyName = 'Enhanced Detail';
+          break;
+        case 'codeplugtech/background_remover':
+          friendlyName = 'Clean Edges';
+          break;
+        case 'cjwbw/rmgb':
+          friendlyName = 'Fast Remove';
+          break;
+        case 'pollinations/modnet':
+          friendlyName = 'Portrait Specialist';
+          break;
+      }
+      
+      return {
+        id,
+        name: friendlyName,
+        version
+      };
+    });
+    
+    return res.status(200).json({
+      models,
+      success: true
+    });
+  } catch (error) {
+    console.error('Error fetching background removal models:', error);
+    return res.status(500).json({
+      error: 'Failed to get background removal models',
+      details: error.message || 'Unknown error'
     });
   }
 }; 

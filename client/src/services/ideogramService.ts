@@ -415,30 +415,69 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
 // Define available background removal models with friendly names
 export const backgroundRemovalModels = {
   "default": {
-    id: null,
-    name: "Standard (Default)"
+    id: "default",
+    name: "Standard Removal (Default)"
   },
   "men1scus/birefnet": {
-    id: "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
+    id: "men1scus/birefnet",
     name: "Pro Edge Detection"
   },
-  "cjwbw/rembg": {
-    id: "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
-    name: "High Definition"
-  },
   "lucataco/remove-bg": {
-    id: "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
+    id: "lucataco/remove-bg",
     name: "Perfect Cutout"
   },
+  "alexgenovese/remove-background-bria-2": {
+    id: "alexgenovese/remove-background-bria-2",
+    name: "Bria AI Precision"
+  },
   "851-labs/background-remover": {
-    id: "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
+    id: "851-labs/background-remover",
     name: "Precision Focus"
   },
   "smoretalk/rembg-enhance": {
-    id: "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919",
+    id: "smoretalk/rembg-enhance",
     name: "Enhanced Detail"
+  },
+  "codeplugtech/background_remover": {
+    id: "codeplugtech/background_remover", 
+    name: "Clean Edges"
+  },
+  "cjwbw/rmgb": {
+    id: "cjwbw/rmgb",
+    name: "Fast Remove"
+  },
+  "pollinations/modnet": {
+    id: "pollinations/modnet",
+    name: "Portrait Specialist"
   }
 };
+
+// Fetch available background removal models from the API
+export async function getBackgroundRemovalModels(): Promise<{id: string, name: string}[]> {
+  try {
+    const response = await fetch(`${API_URL}/api/background-removal-models`);
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.models || !Array.isArray(data.models)) {
+      throw new Error('Invalid response format');
+    }
+    
+    return data.models.map((model: any) => ({
+      id: model.id,
+      name: model.name
+    }));
+  } catch (error) {
+    console.error('Error fetching background removal models:', error);
+    
+    // Return the hardcoded models as fallback
+    return Object.values(backgroundRemovalModels);
+  }
+}
 
 // Replace the existing removeBackground function with this updated version
 export async function removeBackground(imageUrl: string, modelId: string | null = null): Promise<string> {
@@ -594,7 +633,7 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       toast.dismiss(toastId);
       toast.success("Background removed successfully!", {
         duration: 4000,
-        description: 'Your design now has a transparent background'
+        description: `Using model: ${data.modelUsed || modelId || 'default'}`
       });
       
       console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
