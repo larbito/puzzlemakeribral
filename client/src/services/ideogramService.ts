@@ -1603,11 +1603,12 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
  * @param imageUrl URL of the image to vectorize
  * @returns URL to the vectorized SVG
  */
-export async function vectorizeImage(imageUrl: string): Promise<string> {
+export async function vectorizeImage(imageUrl: string, useLocalVectorization: boolean = true): Promise<string> {
   try {
     console.log("========== VECTORIZATION DEBUG ==========");
     console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
+    console.log("Using local vectorization:", useLocalVectorization);
     
     // Create a toast to indicate vectorization is in progress
     const toastId = toast.loading("Vectorizing image...");
@@ -1643,7 +1644,7 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       }
       
       // Check if image is too large (> 5MB) after resizing
-      const MAX_SIZE = 5 * 1024 * 1024; // 5MB for better performance
+      const MAX_SIZE = 5 * 1024 * 1024;
       if (imageBlob.size > MAX_SIZE) {
         toast.dismiss(toastId);
         toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
@@ -1657,8 +1658,10 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       console.log("Submitting image to backend vectorization service");
       
       // Use the backend URL - try both with and without www
-      // This is a direct, absolute URL to avoid any routing issues
-      const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
+      // Choose the endpoint based on whether to use local (free) vectorization or the API
+      const vectorizeEndpoint = useLocalVectorization 
+        ? 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local' // Use local Potrace-based vectorization (free)
+        : 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';      // Use external API-based vectorization (costs $)
       
       console.log("Vectorize endpoint URL:", vectorizeEndpoint);
       console.log("Form data contents:");

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const vectorizeController = require('../controllers/vectorizeController');
+const localVectorizeController = require('../controllers/localVectorizeController');
 
 // Configure multer for memory storage
 const upload = multer({
@@ -24,7 +25,10 @@ router.get('/vectorize-test', (req, res) => {
   });
 });
 
-// Vectorization endpoint
+// API-based vectorization endpoint (uses external Vectorizer.AI API)
 router.post('/vectorize', upload.single('image'), vectorizeController.vectorizeImage);
+
+// Local vectorization endpoint (uses Potrace library locally - no API costs)
+router.post('/vectorize-local', upload.single('image'), localVectorizeController.vectorizeImage);
 
 module.exports = router; 

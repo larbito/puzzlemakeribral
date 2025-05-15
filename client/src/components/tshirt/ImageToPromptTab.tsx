@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { 
   Upload, 
-  Image as ImageIcon, 
+  ImageIcon, 
   Wand2, 
   Sparkles, 
   Loader2, 
@@ -17,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateImage, downloadImage, imageToPrompt, saveToHistory, vectorizeImage } from '@/services/ideogramService';
+import { cn } from '@/lib/utils';
 
 export const ImageToPromptTab = () => {
   // State management
@@ -29,6 +31,7 @@ export const ImageToPromptTab = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isVectorizing, setIsVectorizing] = useState(false);
   const [vectorizedDesign, setVectorizedDesign] = useState<string | null>(null);
+  const [useLocalVectorization, setUseLocalVectorization] = useState(true);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -164,8 +167,8 @@ export const ImageToPromptTab = () => {
     setIsVectorizing(true);
     
     try {
-      // Call the vectorization service
-      const svgUrl = await vectorizeImage(generatedDesign);
+      // Call the vectorization service with the local vectorization preference
+      const svgUrl = await vectorizeImage(generatedDesign, useLocalVectorization);
       
       // Preview the SVG immediately before saving it
       // This ensures the user can see the vectorized result with transparency
@@ -471,6 +474,25 @@ export const ImageToPromptTab = () => {
                   </Button>
                 )}
               </div>
+              
+              {/* Add vectorization method toggle */}
+              {!vectorizedDesign && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
+                  <span className="flex items-center gap-1">
+                    <Code className="h-3 w-3" />
+                    Use free, local vectorization:
+                  </span>
+                  <Switch 
+                    checked={useLocalVectorization}
+                    onCheckedChange={setUseLocalVectorization}
+                    aria-label="Use local vectorization"
+                  />
+                  <span className="text-xs text-green-600 font-medium">
+                    {useLocalVectorization ? 'Free (Local)' : 'API-Based ($)'}
+                  </span>
+                </div>
+              )}
+              
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
