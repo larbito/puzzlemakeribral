@@ -181,10 +181,12 @@ export const PromptToDesignTab = () => {
     // Get the current image URL - use the CURRENTLY DISPLAYED image
     // This ensures we're using the enhanced version if it exists
     const currentImageUrl = getCurrentDisplayedUrl();
+    console.log('Starting background removal process');
     console.log('Getting current displayed URL for background removal:', currentImageUrl.substring(0, 100));
-    console.log('Current image state - original:', imageUrls[currentIndex].substring(0, 100));
-    console.log('Current image state - enhanced:', enhancedUrls[currentIndex] ? enhancedUrls[currentIndex].substring(0, 100) : 'none');
-    console.log('Current image state - processed:', processedUrls[currentIndex] ? processedUrls[currentIndex].substring(0, 100) : 'none');
+    console.log('Current image state:');
+    console.log('- From imageUrls array:', imageUrls[currentIndex].substring(0, 100));
+    console.log('- From enhancedUrls record:', enhancedUrls[currentIndex] ? enhancedUrls[currentIndex].substring(0, 100) : 'none');
+    console.log('- From processedUrls record:', processedUrls[currentIndex] ? processedUrls[currentIndex].substring(0, 100) : 'none');
     
     if (!currentImageUrl) {
       toast.error('No design to process');
@@ -218,8 +220,11 @@ export const PromptToDesignTab = () => {
         return;
       }
       
-      // Use the current image as source - this will be the enhanced version if enhancement was applied
-      console.log('Using current image for background removal:', currentImageUrl);
+      // Use the current image as source
+      // This will be the imageUrls[currentIndex] which should now contain the enhanced version if it was enhanced
+      console.log('Using image for background removal:', currentImageUrl.substring(0, 100));
+      console.log('This should match the imageUrls array value:', 
+        currentImageUrl.substring(0, 50) === imageUrls[currentIndex].substring(0, 50) ? 'Yes, matches!' : 'No, different!');
       
       // Make the API call with the current image
       const processedImageUrl = await removeBackground(currentImageUrl, modelId);
@@ -343,39 +348,40 @@ export const PromptToDesignTab = () => {
       const enhancedImageUrl = await enhanceImage(currentUrl);
       console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
-      // ALWAYS update the base image with the enhanced version
-      // This ensures background removal will always use the enhanced version
+      // COMPLETELY REPLACE the original image with the enhanced version
+      // by updating all relevant state variables
+      
+      // 1. Update the main imageUrls array - this is the most important change
       const newImageUrls = [...imageUrls];
       newImageUrls[currentIndex] = enhancedImageUrl;
       setImageUrls(newImageUrls);
-      console.log('Updated base image URLs array with enhanced image');
+      console.log('Replaced original image with enhanced image in imageUrls array');
       
-      // Save the enhanced URL for this index
+      // 2. Update the enhancedUrls record
+      setEnhancedUrls(prev => ({
+        ...prev,
+        [currentIndex]: enhancedImageUrl
+      }));
+      
+      // 3. Update processedUrls if there was a background-removed version
       if (processedUrls[currentIndex]) {
-        // If there was already a background removed version, update that
+        // If there was already a background removed version, update that too
         setProcessedUrls(prev => ({
           ...prev,
           [currentIndex]: enhancedImageUrl
         }));
         console.log('Updated processed URLs record with enhanced image');
-      } else {
-        // First store as enhanced
-        setEnhancedUrls(prev => ({
-          ...prev,
-          [currentIndex]: enhancedImageUrl
-        }));
-        console.log('Added to enhanced URLs record');
       }
       
-      // Also update the original URLs record so background removal works correctly
+      // 4. Update the originalUrls record for reference
       setOriginalUrls(prev => ({
         ...prev,
         [currentIndex]: enhancedImageUrl
       }));
-      console.log('Updated original URLs record with enhanced image');
+      console.log('Completely replaced all image references with enhanced version');
       
       // Show success message
-      toast.success('Image enhanced successfully! Enhanced image is now your base image.');
+      toast.success('Image enhanced successfully! Enhanced image has replaced the original.');
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
@@ -535,6 +541,10 @@ export const PromptToDesignTab = () => {
                   src={getCurrentDisplayedUrl()} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
+                  style={{ 
+                    backgroundColor: isCurrentDesignProcessed ? 'white' : 'transparent',
+                    borderRadius: isCurrentDesignProcessed ? '0.5rem' : '0'
+                  }}
                 />
                 
                 {/* Navigation buttons for multiple designs */}
