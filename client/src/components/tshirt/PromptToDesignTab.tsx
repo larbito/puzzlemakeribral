@@ -341,15 +341,26 @@ export const PromptToDesignTab = () => {
           [currentIndex]: enhancedImageUrl
         }));
       } else {
-        // Otherwise just store as enhanced
+        // First store as enhanced
         setEnhancedUrls(prev => ({
+          ...prev,
+          [currentIndex]: enhancedImageUrl
+        }));
+        
+        // Then replace the base image
+        const newImageUrls = [...imageUrls];
+        newImageUrls[currentIndex] = enhancedImageUrl;
+        setImageUrls(newImageUrls);
+        
+        // Also update the original URLs record so background removal works correctly
+        setOriginalUrls(prev => ({
           ...prev,
           [currentIndex]: enhancedImageUrl
         }));
       }
       
       // Show success message
-      toast.success('Image enhanced successfully!');
+      toast.success('Image enhanced successfully! Enhanced image is now your base image.');
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
