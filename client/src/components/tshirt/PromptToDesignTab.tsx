@@ -641,7 +641,7 @@ export const PromptToDesignTab = () => {
                       
                       <div className="py-1.5 px-3 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2 border-b border-blue-100 dark:border-blue-900">
                         <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models, which have proven to be most reliable.</span>
+                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models, which have proven to be most reliable. If you encounter timeout errors, try a smaller image or one of the other recommended models.</span>
                       </div>
                       
                       <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">

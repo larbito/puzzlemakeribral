@@ -61,7 +61,10 @@ function getModelParameters(modelId) {
         ...defaultParams,
         // Fix for "tensor a (4) must match tensor b (3)" error
         // This model has issues with alpha channels
-        alpha_channel: false
+        alpha_channel: false,
+        // Add a lower resolution parameter to help with timeouts
+        // This trades quality for reliability
+        low_res_mode: true
       };
     case 'smoretalk/rembg-enhance':
       return {
@@ -77,12 +80,36 @@ function getModelParameters(modelId) {
         // This model needs different parameters
         // to avoid timeouts and tensor dimension issues
         return_mask: false,
-        only_mask: false
+        only_mask: false,
+        // Set low_res_mode to help with timeouts
+        low_res_mode: true,
+        // Disable features that might cause tensor issues
+        alpha_matting: false
       };
     case 'lucataco/remove-bg':
       return {
         // Simplified parameters for this model
-        alpha_matting: false
+        alpha_matting: false,
+        low_res_mode: true
+      };
+    case '851-labs/background-remover':
+      return {
+        // This is one of our most reliable models
+        // Already optimized, just ensure consistent parameters
+        ...defaultParams
+      };
+    case 'men1scus/birefnet':
+      return {
+        // One of our most reliable models
+        // Minimal parameters for reliable results
+        ...defaultParams
+      };
+    case 'pollinations/modnet':
+      return {
+        // Custom parameters for this portrait-focused model
+        ...defaultParams,
+        // Trade quality for reliability
+        low_res_mode: true
       };
     default:
       return defaultParams;
@@ -179,7 +206,8 @@ exports.removeBackground = async (req, res) => {
       // Wait for the prediction to complete
       let outputUrl = '';
       let retries = 0;
-      const maxRetries = 20;
+      const maxRetries = 30; // Increased from 20 to 30
+      let pollInterval = 1000; // Start with 1 second
       
       while (retries < maxRetries) {
         const result = await replicate.predictions.get(prediction.id);
@@ -192,15 +220,30 @@ exports.removeBackground = async (req, res) => {
         } else if (result.status === 'failed') {
           console.error('Prediction failed:', result.error);
           throw new Error(`Prediction failed: ${result.error || 'Unknown error'}`);
+        } else if (result.status === 'canceled') {
+          console.error('Prediction canceled by the service');
+          throw new Error('Background removal job was canceled by the service');
         }
         
-        // Wait before checking again
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Increment retry counter and implement exponential backoff
         retries++;
+        
+        // Use exponential backoff to increase wait time between checks
+        // This helps reduce API load and gives more time for processing
+        pollInterval = Math.min(pollInterval * 1.5, 5000); // Cap at 5 seconds max
+        console.log(`Waiting ${pollInterval}ms before next status check (retry ${retries}/${maxRetries})...`);
+        
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
       }
       
       if (!outputUrl) {
-        throw new Error(`Prediction timed out after ${maxRetries} retries`);
+        if (retries >= maxRetries) {
+          console.error(`Prediction timed out after ${maxRetries} retries for model: ${modelId || 'default'}`);
+          throw new Error(`Prediction timed out after ${maxRetries} retries. Please try again with another model or a smaller image.`);
+        } else {
+          throw new Error(`No output URL returned from background removal service`);
+        }
       }
       
       // Clean up the temp file if it exists
@@ -271,9 +314,9 @@ exports.getModels = async (req, res) => {
         id,
         name: friendlyName,
         version,
-        isRecommended: id === 'codeplugtech/background_remover' || 
-                     id === '851-labs/background-remover' || 
-                     id === 'men1scus/birefnet'
+        isRecommended: id === '851-labs/background-remover' || 
+                     id === 'men1scus/birefnet' ||
+                     id === 'smoretalk/rembg-enhance'
       };
     });
     
@@ -288,4 +331,4 @@ exports.getModels = async (req, res) => {
       details: error.message || 'Unknown error'
     });
   }
-}; 
+};
