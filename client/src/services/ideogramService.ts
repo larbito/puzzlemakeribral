@@ -1599,7 +1599,7 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
 }
 
 /**
- * Vectorize an image using Vectorizer.AI API
+ * Vectorize an image using Vectorizer.AI API via our backend
  * @param imageUrl URL of the image to vectorize
  * @returns URL to the vectorized SVG
  */
@@ -1648,29 +1648,26 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
         throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
       }
       
-      // Now send the image to Vectorizer.AI API through our backend proxy
+      // Now send the image to our backend vectorization endpoint
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
       
-      console.log("Submitting image to vectorizer API via backend");
+      console.log("Submitting image to backend vectorization service");
       
-      // Use the absolute Railway URL for the vectorize endpoint
+      // Use the backend URL that's guaranteed to work (no CORS issues)
       const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
       console.log("Vectorize endpoint URL:", vectorizeEndpoint);
       
       // Set up an AbortController for timeout
       const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 second timeout (longer for large images)
       
       try {
         const response = await fetch(vectorizeEndpoint, {
           method: 'POST',
           body: formData,
           signal: abortController.signal,
-          mode: 'cors',
-          headers: {
-            'Accept': 'application/json'
-          }
+          mode: 'cors'
         });
         
         // Clear the timeout since we got a response

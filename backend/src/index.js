@@ -64,13 +64,36 @@ try {
   });
 }
 
+// Load the vectorize routes module
+let vectorizeRoutes;
+try {
+  console.log('Attempting to require vectorizeRoutes.js');
+  vectorizeRoutes = require('./routes/vectorizeRoutes');
+  console.log('Successfully loaded vectorizeRoutes.js');
+} catch (e) {
+  console.error('Failed to load vectorizeRoutes.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  vectorizeRoutes = express.Router();
+  vectorizeRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load vectorize routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Simple CORS setup
-app.use(cors());
-app.use(express.json());
+// Configure CORS to allow requests from any origin
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
+}));
+
+// Increase the payload size limit for large images
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {
@@ -98,11 +121,15 @@ console.log('Registered route: /api/coloring-book/*');
 app.use('/api/ideogram', ideogramRoutes);
 console.log('Registered route: /api/ideogram/*');
 
+// Register vectorize routes
+app.use('/api', vectorizeRoutes);
+console.log('Registered route: /api/vectorize');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
     status: 'ok', 
-    message: 'Minimal test server running',
+    message: 'Server running',
     routes: [
       '/health', 
       '/api/coloring-book/test', 
@@ -110,7 +137,8 @@ app.get('/', (req, res) => {
       '/api/coloring-book/download-zip',
       '/api/ideogram/test',
       '/api/ideogram/generate',
-      '/api/ideogram/proxy-image'
+      '/api/ideogram/proxy-image',
+      '/api/vectorize'
     ]
   });
 });
