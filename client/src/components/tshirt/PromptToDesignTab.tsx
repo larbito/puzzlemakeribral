@@ -21,7 +21,8 @@ import {
   ChevronDown,
   Wand2,
   Zap,
-  InfoIcon
+  InfoIcon,
+  CheckIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -47,9 +48,9 @@ export const PromptToDesignTab = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   
-  // Image state management with clear intent
-  const [baseImageUrls, setBaseImageUrls] = useState<string[]>([]); // Current working images (source of truth)
-  const [originalImageUrls, setOriginalImageUrls] = useState<string[]>([]); // Initial Ideogram outputs
+  // Single source of truth image state management
+  const [baseImages, setBaseImages] = useState<string[]>([]); // Current working images (source of truth)
+  const [originalImages, setOriginalImages] = useState<string[]>([]); // Initial Ideogram outputs (for reference/reset)
   const [currentIndex, setCurrentIndex] = useState(0); // Selected design index
   
   // Tracking of processing states
@@ -89,8 +90,8 @@ export const PromptToDesignTab = () => {
     setIsGenerating(true);
     
     // Reset all state for a new design generation
-    setBaseImageUrls([]);
-    setOriginalImageUrls([]);
+    setBaseImages([]);
+    setOriginalImages([]);
     setIsBackgroundRemoved({});
     setIsImageEnhanced({});
     setActiveModel(null);
@@ -127,8 +128,8 @@ export const PromptToDesignTab = () => {
       
       if (generatedUrls.length > 0) {
         // Set both base and original URLs to the generated URLs
-        setBaseImageUrls(generatedUrls);
-        setOriginalImageUrls(generatedUrls);
+        setBaseImages(generatedUrls);
+        setOriginalImages(generatedUrls);
         
         setCurrentIndex(0);
         toast.dismiss(toastId);
@@ -147,8 +148,8 @@ export const PromptToDesignTab = () => {
   // Handle downloading the image
   const handleDownload = async () => {
     // Always use the current base image - the single source of truth
-    const currentUrl = baseImageUrls[currentIndex];
-    console.log('Download button clicked for image:', currentUrl.substring(0, 100));
+    const currentUrl = baseImages[currentIndex];
+    console.log('Download button clicked for image:', currentUrl?.substring(0, 100));
     
     if (!currentUrl) {
       toast.error('No design to download');
@@ -183,9 +184,9 @@ export const PromptToDesignTab = () => {
   // Handle removing background
   const handleRemoveBackground = async (modelId: string | null = null) => {
     // Always use the current base image (could be original or enhanced)
-    const currentUrl = baseImageUrls[currentIndex];
+    const currentUrl = baseImages[currentIndex];
     console.log('Starting background removal process');
-    console.log('Using base image for background removal:', currentUrl.substring(0, 100));
+    console.log('Using base image for background removal:', currentUrl?.substring(0, 100));
     console.log('Is this image enhanced?', isImageEnhanced[currentIndex] ? 'Yes' : 'No');
     
     if (!currentUrl) {
@@ -200,17 +201,23 @@ export const PromptToDesignTab = () => {
       // If reverting to original, reset to the original image
       if (modelId === 'original') {
         // Get the original image URL
-        const originalUrl = originalImageUrls[currentIndex];
+        const originalUrl = originalImages[currentIndex];
         
         // Update the base image URL
-        const newBaseImageUrls = [...baseImageUrls];
-        newBaseImageUrls[currentIndex] = originalUrl;
-        setBaseImageUrls(newBaseImageUrls);
+        const newBaseImages = [...baseImages];
+        newBaseImages[currentIndex] = originalUrl;
+        setBaseImages(newBaseImages);
         
-        // Reset the background removed flag
+        // Reset the status flags
         const newIsBackgroundRemoved = {...isBackgroundRemoved};
         delete newIsBackgroundRemoved[currentIndex];
         setIsBackgroundRemoved(newIsBackgroundRemoved);
+        
+        if (isImageEnhanced[currentIndex]) {
+          const newIsImageEnhanced = {...isImageEnhanced};
+          delete newIsImageEnhanced[currentIndex];
+          setIsImageEnhanced(newIsImageEnhanced);
+        }
         
         toast.success('Reverted to original image');
         setIsProcessing(false);
@@ -251,9 +258,9 @@ export const PromptToDesignTab = () => {
       });
       
       // Update the base image URL with the background-removed version
-      const newBaseImageUrls = [...baseImageUrls];
-      newBaseImageUrls[currentIndex] = processedImageUrl;
-      setBaseImageUrls(newBaseImageUrls);
+      const newBaseImages = [...baseImages];
+      newBaseImages[currentIndex] = processedImageUrl;
+      setBaseImages(newBaseImages);
       
       // Mark this image as having background removed
       setIsBackgroundRemoved({
@@ -288,12 +295,12 @@ export const PromptToDesignTab = () => {
 
   // Change the currently displayed design
   const navigateDesign = (direction: 'prev' | 'next') => {
-    if (baseImageUrls.length <= 1) return;
+    if (baseImages.length <= 1) return;
     
     if (direction === 'prev') {
-      setCurrentIndex(prev => (prev === 0 ? baseImageUrls.length - 1 : prev - 1));
+      setCurrentIndex(prev => (prev === 0 ? baseImages.length - 1 : prev - 1));
     } else {
-      setCurrentIndex(prev => (prev === baseImageUrls.length - 1 ? 0 : prev + 1));
+      setCurrentIndex(prev => (prev === baseImages.length - 1 ? 0 : prev + 1));
     }
   };
 
@@ -318,8 +325,8 @@ export const PromptToDesignTab = () => {
   // Handle enhancing the image
   const handleEnhanceImage = async () => {
     // Always use the current base image as the source
-    const currentUrl = baseImageUrls[currentIndex];
-    console.log('Enhancing current base image:', currentUrl.substring(0, 100));
+    const currentUrl = baseImages[currentIndex];
+    console.log('Enhancing current base image:', currentUrl?.substring(0, 100));
     
     if (!currentUrl) {
       toast.error('No design to enhance');
@@ -334,9 +341,9 @@ export const PromptToDesignTab = () => {
       console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
       // Update the base image with the enhanced version
-      const newBaseImageUrls = [...baseImageUrls];
-      newBaseImageUrls[currentIndex] = enhancedImageUrl;
-      setBaseImageUrls(newBaseImageUrls);
+      const newBaseImages = [...baseImages];
+      newBaseImages[currentIndex] = enhancedImageUrl;
+      setBaseImages(newBaseImages);
       
       // Mark this image as enhanced
       setIsImageEnhanced({
@@ -344,7 +351,7 @@ export const PromptToDesignTab = () => {
         [currentIndex]: true
       });
       
-      toast.success('Image enhanced successfully! Enhanced image is now your base image.');
+      toast.success('Image enhanced successfully!');
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
@@ -357,11 +364,11 @@ export const PromptToDesignTab = () => {
   const getCurrentDisplayedUrl = () => {
     // Priority: 1. Processed (bg removed), 2. Enhanced, 3. Original
     if (isBackgroundRemoved[currentIndex]) {
-      return baseImageUrls[currentIndex];
+      return baseImages[currentIndex];
     } else if (isImageEnhanced[currentIndex]) {
-      return baseImageUrls[currentIndex];
+      return baseImages[currentIndex];
     } else {
-      return originalImageUrls[currentIndex];
+      return originalImages[currentIndex];
     }
   };
 
@@ -369,7 +376,7 @@ export const PromptToDesignTab = () => {
   const isCurrentDesignEnhanced = isImageEnhanced[currentIndex];
 
   console.log('Current prompt value:', prompt);
-  console.log('Current image URLs:', baseImageUrls);
+  console.log('Current image URLs:', baseImages);
   console.log('Processed URLs:', isBackgroundRemoved);
 
   return (
@@ -498,10 +505,10 @@ export const PromptToDesignTab = () => {
             Preview & Download
           </h3>
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {baseImageUrls.length > 0 ? (
+            {baseImages.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
-                  src={baseImageUrls[currentIndex]} 
+                  src={baseImages[currentIndex]} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                   style={{ 
@@ -511,7 +518,7 @@ export const PromptToDesignTab = () => {
                 />
                 
                 {/* Navigation buttons for multiple designs */}
-                {baseImageUrls.length > 1 && (
+                {baseImages.length > 1 && (
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
                     <Button
                       variant="outline"
@@ -522,7 +529,7 @@ export const PromptToDesignTab = () => {
                       &lt;
                     </Button>
                     <span className="bg-white/80 dark:bg-gray-800/80 px-3 py-1 rounded-full text-xs">
-                      {currentIndex + 1} / {baseImageUrls.length}
+                      {currentIndex + 1} / {baseImages.length}
                     </span>
                     <Button
                       variant="outline"
@@ -562,7 +569,7 @@ export const PromptToDesignTab = () => {
             )}
           </div>
           
-          {baseImageUrls.length > 0 && (
+          {baseImages.length > 0 && (
             <div className="space-y-4 relative z-[105]">
               {/* First Row: Action Buttons */}
               <div className="grid grid-cols-2 gap-3">
@@ -597,7 +604,7 @@ export const PromptToDesignTab = () => {
                     >
                       <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1 bg-gray-50 dark:bg-gray-900">Background Removal Models</div>
                       
-                      {isBackgroundRemoved[currentIndex] && (
+                      {(isBackgroundRemoved[currentIndex] || isImageEnhanced[currentIndex]) && (
                         <DropdownMenuItem 
                           onClick={() => handleRemoveBackground('original')}
                           className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-3 py-2 bg-white dark:bg-gray-950"
