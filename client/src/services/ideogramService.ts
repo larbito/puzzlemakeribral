@@ -480,6 +480,66 @@ export async function getBackgroundRemovalModels(): Promise<{id: string, name: s
   }
 }
 
+/**
+ * Resize an image to a maximum width while maintaining aspect ratio
+ * This helps avoid 413 Payload Too Large errors when vectorizing
+ */
+async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        // Calculate new dimensions
+        let width = img.width;
+        let height = img.height;
+        
+        console.log(`Original image dimensions: ${width}x${height}`);
+        
+        // Always resize to reduce vectorization complexity
+        const aspectRatio = width / height;
+        width = Math.min(width, maxWidth);
+        height = Math.round(width / aspectRatio);
+        console.log(`Resizing to: ${width}x${height}`);
+        
+        // Create a canvas to resize the image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw the image on the canvas
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error("Could not create canvas context"));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Failed to convert canvas to blob"));
+            return;
+          }
+          
+          console.log(`Resized image size: ${Math.round(blob.size / 1024)} KB`);
+          resolve(blob);
+        }, 'image/png', 0.8); // Use PNG with 80% quality
+      };
+      
+      img.onerror = () => {
+        reject(new Error("Failed to load image for resizing"));
+      };
+      
+      img.src = imageUrl;
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
 // Replace the existing removeBackground function with this updated version
 export async function removeBackground(imageUrl: string, modelId: string | null = null): Promise<string> {
   try {
@@ -494,10 +554,12 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
     try {
       let imageBlob: Blob;
       
-      // Always resize the image to make processing more efficient
+      // Process the image while preserving as much of the original quality as possible
       try {
-        console.log("Resizing image for processing...");
-        imageBlob = await resizeImageForVectorization(imageUrl, 800); // Smaller max width for better performance
+        console.log("Preparing image for processing...");
+        // Match enhancement scale - use 1200 for standard and 2400 for enhanced images
+        // This is higher than before (800) to preserve enhanced image quality
+        imageBlob = await resizeImageForVectorization(imageUrl, 2400); // Much higher max width to preserve enhanced quality
         console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
       } catch (resizeError) {
         console.error("Error resizing image:", resizeError);
@@ -521,12 +583,12 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
         }
       }
       
-      // Check if image is too large (> 5MB) after resizing
-      const MAX_SIZE = 5 * 1024 * 1024;
+      // Increase max size limit to accommodate enhanced images (from 5MB to 20MB)
+      const MAX_SIZE = 20 * 1024 * 1024;
       if (imageBlob.size > MAX_SIZE) {
         toast.dismiss(toastId);
-        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
-        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
+        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 20MB.`);
+        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 20MB.`);
       }
       
       // Now send the image to our backend background removal endpoint
@@ -537,6 +599,9 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       if (modelId) {
         formData.append('modelId', modelId);
       }
+      
+      // Add flag to indicate this is a high-resolution image that should maintain quality
+      formData.append('preserveQuality', 'true');
       
       console.log("Submitting image to background removal service");
       
@@ -1642,66 +1707,6 @@ export function forceProxyForIdeogramUrl(url: string): string {
     console.error("Error in proxy function:", error);
     return url;
   }
-}
-
-/**
- * Resize an image to a maximum width while maintaining aspect ratio
- * This helps avoid 413 Payload Too Large errors when vectorizing
- */
-async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        // Calculate new dimensions
-        let width = img.width;
-        let height = img.height;
-        
-        console.log(`Original image dimensions: ${width}x${height}`);
-        
-        // Always resize to reduce vectorization complexity
-        const aspectRatio = width / height;
-        width = Math.min(width, maxWidth);
-        height = Math.round(width / aspectRatio);
-        console.log(`Resizing to: ${width}x${height}`);
-        
-        // Create a canvas to resize the image
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Draw the image on the canvas
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error("Could not create canvas context"));
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Convert canvas to blob
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error("Failed to convert canvas to blob"));
-            return;
-          }
-          
-          console.log(`Resized image size: ${Math.round(blob.size / 1024)} KB`);
-          resolve(blob);
-        }, 'image/png', 0.8); // Use PNG with 80% quality
-      };
-      
-      img.onerror = () => {
-        reject(new Error("Failed to load image for resizing"));
-      };
-      
-      img.src = imageUrl;
-    } catch (error) {
-      reject(error);
-    }
-  });
 }
 
 /**
