@@ -3,8 +3,8 @@ import type { DesignHistoryItem } from "@/services/designHistory";
 
 // Configuration
 export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
-// Force placeholders for testing until backend is fully functional
-export const USE_PLACEHOLDERS = true;
+// Allow real API calls to the backend
+export const USE_PLACEHOLDERS = false;
 export const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/512x512/f1f1f1/000000?text=Coloring+Page+Placeholder&font=playfair';
 
 // Debug logging for API URL
@@ -39,8 +39,11 @@ export async function generateImage({
     // For testing UI interactivity
     console.log("Generating image with prompt:", prompt);
     
-    // Always use placeholders for now until backend is fully functional
-    return getPlaceholderImage(prompt, 'tshirt');
+    // If using placeholders for testing, return immediately
+    if (USE_PLACEHOLDERS) {
+      console.log("Using placeholder by configuration");
+      return getPlaceholderImage(prompt, 'tshirt');
+    }
 
     // Build the prompt with style and color scheme preferences
     let enhancedPrompt = `t-shirt design: ${prompt}`;
@@ -60,32 +63,22 @@ export async function generateImage({
     console.log("Enhanced prompt:", enhancedPrompt);
 
     try {
-      // Simulate async delay to test interactivity
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      try {
-        const imageUrl = await generateWithProxy(enhancedPrompt, style);
-        console.log("Successfully generated image");
-        return imageUrl;
-      } catch (error) {
-        console.error("Error with image generation from proxy:", error);
-        
-        // Fallback to placeholder for demo/testing
-        console.log("Using placeholder as fallback");
-        return getPlaceholderImage(prompt, 'tshirt');
-      }
+      // Send real API request
+      const imageUrl = await generateWithProxy(enhancedPrompt, style);
+      console.log("Successfully generated image:", imageUrl);
+      return imageUrl;
     } catch (error) {
-      console.error("Error in generateImage:", error);
+      console.error("Error with image generation from proxy:", error);
       
-      // Always return a placeholder for demo purposes
-      console.log("Using placeholder due to error");
+      // Fallback to placeholder for demo/testing
+      console.log("Using placeholder as fallback");
       return getPlaceholderImage(prompt, 'tshirt');
     }
   } catch (error) {
-    console.error("Error in generateImage outer block:", error);
+    console.error("Error in generateImage:", error);
     
-    // Ensure we always return something
-    console.log("Using placeholder in catch block");
+    // Always return a placeholder for demo purposes
+    console.log("Using placeholder due to error");
     return getPlaceholderImage(prompt, 'tshirt');
   }
 }
@@ -120,7 +113,11 @@ async function generateWithProxy(prompt: string, style?: string): Promise<string
 
     const response = await fetch(fullUrl, {
       method: 'POST',
-      body: formData // Send the FormData object directly
+      body: formData, // Send the FormData object directly
+      mode: 'cors', // Enable CORS
+      headers: {
+        'Accept': 'application/json',
+      }
     });
 
     console.log("Response status:", response.status);
@@ -186,66 +183,6 @@ function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' | 'col
   });
 }
 
-// Create a simple fallback image as a data URI
-function createFallbackImage(text: string, bgColor: string, typeText: string, width = 1024, height = 1365): string {
-  // Create a canvas to draw the fallback image
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    // If canvas context isn't available, return an empty data URI
-    return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  }
-  
-  // Set background color
-  ctx.fillStyle = `#${bgColor}`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  
-  // Add text
-  ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 40px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  
-  // Break long text into multiple lines
-  const words = text.split(' ');
-  let lines = [];
-  let currentLine = typeText;
-  
-  // Add first line
-  lines.push(currentLine);
-  currentLine = '';
-  
-  // Split remaining words into lines
-  for (const word of words) {
-    const testLine = currentLine + ' ' + word;
-    if (testLine.length > 20) {
-      lines.push(currentLine);
-      currentLine = word;
-    } else {
-      currentLine = testLine;
-    }
-  }
-  
-  // Add the last line if it's not empty
-  if (currentLine.length > 0) {
-    lines.push(currentLine);
-  }
-  
-  // Draw the lines of text
-  const lineHeight = 50;
-  const startY = canvas.height / 2 - (lines.length * lineHeight) / 2;
-  
-  lines.forEach((line, index) => {
-    ctx.fillText(line, canvas.width / 2, startY + index * lineHeight);
-  });
-  
-  // Convert canvas to data URL
-  return canvas.toDataURL('image/png');
-}
-
 // Helper function to select background colors based on prompt style
 function getColorForStyle(prompt: string): string {
   const lowerPrompt = prompt.toLowerCase();
@@ -269,15 +206,58 @@ function getColorForStyle(prompt: string): string {
 
 export async function downloadImage(imageUrl: string, format: string, filename: string = "tshirt-design"): Promise<void> {
   try {
-    toast.success(`Design downloaded as ${format.toUpperCase()}`);
+    if (USE_PLACEHOLDERS) {
+      toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      
+      // Create a link to download the image
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${filename}.${format.toLowerCase()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
     
-    // Create a link to download the image
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = `${filename}.${format.toLowerCase()}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    console.log("Starting download of image:", imageUrl.substring(0, 100) + "...");
+    
+    // For data URLs (which is what our background removal function returns)
+    if (imageUrl.startsWith('data:')) {
+      console.log("Handling data URL download");
+      // Create a direct download link for data URLs
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${filename}.${format.toLowerCase()}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Design downloaded as ${format}`);
+      return;
+    }
+    
+    // For regular URLs, use our backend proxy to avoid CORS issues
+    try {
+      console.log("Using backend proxy to download image");
+      
+      // Create a temporary download indicator
+      toast.loading("Processing download...");
+      
+      // Use our own backend proxy endpoint
+      const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
+      const encodedUrl = encodeURIComponent(imageUrl);
+      
+      // Direct download approach - create a link to our backend proxy
+      const downloadUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
+      
+      // Open the download in a new window to trigger the download
+      window.open(downloadUrl, '_blank');
+      
+      toast.dismiss();
+      toast.success(`Design download initiated`);
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast.error("Failed to download image. Please try again.");
+    }
   } catch (error) {
     console.error("Error downloading image:", error);
     toast.error("Failed to download image. Please try again.");
@@ -286,27 +266,138 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
 
 // New function to download multiple images at once
 export async function downloadAllImages(images: { url: string, prompt: string }[]): Promise<void> {
-  toast.success(`Downloaded ${images.length} designs as a ZIP file`);
+  if (!images || images.length === 0) {
+    toast.error("No images to download");
+    return;
+  }
+  
+  // Show a loading toast for the batch download
+  const toastId = toast.loading(`Preparing to download ${images.length} images as a zip file...`);
+  
+  try {
+    // Call the backend batch-download endpoint that creates a zip file
+    console.log("Using batch download endpoint for", images.length, "images");
+    console.log("API URL:", API_URL);
+    
+    const batchEndpoint = `${API_URL}/api/ideogram/batch-download`;
+    console.log("Full endpoint URL:", batchEndpoint);
+    
+    // Format the request body
+    const requestBody = JSON.stringify({ images });
+    console.log("Request body size:", new Blob([requestBody]).size, "bytes");
+    
+    // Use the Fetch API to make a direct request to our backend
+    const response = await fetch(batchEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/zip',
+      },
+      body: requestBody,
+    });
+    
+    console.log("Response status:", response.status);
+    
+    if (!response.ok) {
+      throw new Error(`Server responded with status: ${response.status}`);
+    }
+    
+    // Get response as a blob
+    const blob = await response.blob();
+    console.log("Response blob size:", blob.size, "bytes");
+    
+    // Create a download link for the blob
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `tshirt-designs-${Date.now()}.zip`;
+    
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    }, 100);
+    
+    // Show success message
+    toast.dismiss(toastId);
+    toast.success(`Downloaded ${images.length} images as a zip file`);
+  } catch (error) {
+    console.error("Error in batch download:", error);
+    toast.dismiss(toastId);
+    toast.error(`Failed to download images: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 // Re-export history-related functions
 export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites } from "@/services/designHistory";
 
 export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring' = 'tshirt'): Promise<string> {
-  // Simulate loading
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  // If we're using placeholders, return mock data
+  if (USE_PLACEHOLDERS) {
+    // Simulate loading
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Return a mock prompt based on the filename
+    const filename = imageFile.name.toLowerCase();
+    
+    if (filename.includes('cat') || filename.includes('kitten')) {
+      return "A cute cartoon cat with sunglasses and a bowtie, minimalist style with pastel colors";
+    } else if (filename.includes('dog') || filename.includes('puppy')) {
+      return "Playful cartoon dog with a tennis ball, bright vibrant colors, simple background";
+    } else if (filename.includes('mountain') || filename.includes('nature')) {
+      return "Abstract geometric mountain landscape at sunset, minimalist design with purple and orange gradients";
+    } else {
+      return "Creative t-shirt design with abstract patterns in blue and teal colors, modern minimalist style";
+    }
+  }
   
-  // Return a mock prompt based on the filename
-  const filename = imageFile.name.toLowerCase();
-  
-  if (filename.includes('cat') || filename.includes('kitten')) {
-    return "A cute cartoon cat with sunglasses and a bowtie, minimalist style with pastel colors";
-  } else if (filename.includes('dog') || filename.includes('puppy')) {
-    return "Playful cartoon dog with a tennis ball, bright vibrant colors, simple background";
-  } else if (filename.includes('mountain') || filename.includes('nature')) {
-    return "Abstract geometric mountain landscape at sunset, minimalist design with purple and orange gradients";
-  } else {
-    return "Creative t-shirt design with abstract patterns in blue and teal colors, modern minimalist style";
+  try {
+    console.log("Starting image-to-prompt analysis for file:", imageFile.name);
+    
+    const formData = new FormData();
+    formData.append('image', imageFile);
+    formData.append('type', type);
+
+    console.log("Making API request to analyze image:", `${API_URL}/api/ideogram/analyze`);
+    
+    const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
+      method: 'POST',
+      body: formData,
+      mode: 'cors'
+    });
+
+    console.log("Response status from analyze API:", response.status);
+    
+    if (!response.ok) {
+      let errorMessage = `API error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        // If JSON parsing fails, try to get text
+        const errorText = await response.text();
+        if (errorText) errorMessage = errorText;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    console.log("Received prompt from API:", data.prompt);
+    return data.prompt;
+  } catch (error) {
+    console.error("Error analyzing image:", error);
+    toast.error("Failed to analyze image. Generating generic prompt instead.");
+    
+    // Return a generic prompt based on the type
+    if (type === 'coloring') {
+      return "A cute cartoon scene with animals in a forest setting, perfect for a children's coloring book";
+    } else {
+      return "A creative t-shirt design featuring a modern abstract pattern with vibrant colors suitable for streetwear";
+    }
   }
 }
 
