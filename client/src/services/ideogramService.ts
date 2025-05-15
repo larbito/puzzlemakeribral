@@ -2,13 +2,17 @@ import { toast } from "sonner";
 import type { DesignHistoryItem } from "@/services/designHistory";
 
 // Configuration
-export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
+// Use current domain in development, Railway URL in production
+export const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://puzzlemakeribral-production.up.railway.app'
+  : window.location.origin;
+
 // Allow real API calls to the backend
 export const USE_PLACEHOLDERS = false;
 export const PLACEHOLDER_IMAGE_URL = 'https://placehold.co/512x512/f1f1f1/000000?text=Coloring+Page+Placeholder&font=playfair';
 
 // Debug logging for API URL
-console.log('API_URL hardcoded to Railway production:', API_URL);
+console.log('API_URL:', API_URL);
 console.log('Current environment:', process.env.NODE_ENV || 'not set');
 console.log('Window location origin:', window.location.origin);
 console.log('Using placeholders for development:', USE_PLACEHOLDERS);
@@ -1653,18 +1657,38 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       formData.append('image', imageBlob, 'image.png');
       
       console.log("Submitting image to vectorizer API via backend");
+      console.log("API URL being used:", API_URL);
       
       // Make request to our backend proxy for Vectorizer.AI
-      const response = await fetch(`${API_URL}/api/vectorize`, {
+      const vectorizeEndpoint = `${API_URL}/api/vectorize`;
+      console.log("Full vectorize endpoint URL:", vectorizeEndpoint);
+      
+      const response = await fetch(vectorizeEndpoint, {
         method: 'POST',
-        body: formData
+        body: formData,
+        mode: 'cors',
+        headers: {
+          'Accept': 'application/json'
+        }
       });
+      
+      console.log("Vectorization response status:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`Vectorization API error: ${response.status}`, errorText);
         
         let errorMessage = "Failed to vectorize image";
+        try {
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) errorMessage = errorText;
+        }
+        
         if (response.status === 413) {
           errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
         } else if (response.status === 504 || response.status === 502) {

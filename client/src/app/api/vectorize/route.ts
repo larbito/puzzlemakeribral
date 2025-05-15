@@ -6,6 +6,20 @@ const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY;
 // Maximum file size allowed (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+// Helper function to add CORS headers
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
+
+// Handle OPTIONS requests for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders() });
+}
+
 /**
  * API endpoint to proxy requests to Vectorizer.AI
  * This helps avoid CORS issues and keeps API keys secure
@@ -20,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         error: 'Vectorizer.AI API key is not configured on the server', 
         details: 'Please contact the administrator to set up the VECTORIZER_API_KEY environment variable'
-      }, { status: 500 });
+      }, { status: 500, headers: corsHeaders() });
     }
     
     // Get the image file from the form data
@@ -28,7 +42,7 @@ export async function POST(req: NextRequest) {
     const imageFile = formData.get('image') as File;
     
     if (!imageFile) {
-      return NextResponse.json({ error: 'No image file provided' }, { status: 400 });
+      return NextResponse.json({ error: 'No image file provided' }, { status: 400, headers: corsHeaders() });
     }
     
     console.log('Image received:', imageFile.name, 'Size:', imageFile.size);
@@ -39,7 +53,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ 
         error: 'File too large', 
         details: `Maximum file size is ${Math.round(MAX_FILE_SIZE / 1024 / 1024)}MB, but got ${Math.round(imageFile.size / 1024 / 1024)}MB`
-      }, { status: 413 });
+      }, { status: 413, headers: corsHeaders() });
     }
     
     // Build a new FormData to send to Vectorizer.AI
@@ -91,7 +105,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ 
           error: errorMessage,
           details: errorText
-        }, { status: vectorizerResponse.status });
+        }, { status: vectorizerResponse.status, headers: corsHeaders() });
       }
       
       // Assuming Vectorizer.AI returns the SVG data directly
@@ -103,7 +117,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ 
           error: 'Invalid SVG received from vectorization service',
           details: 'The service returned data that does not appear to be valid SVG'
-        }, { status: 500 });
+        }, { status: 500, headers: corsHeaders() });
       }
       
       // Create a data URL for the SVG
@@ -113,19 +127,19 @@ export async function POST(req: NextRequest) {
       console.log('Successfully vectorized image, returning SVG');
       
       // Return the SVG URL to the client
-      return NextResponse.json({ svgUrl });
+      return NextResponse.json({ svgUrl }, { headers: corsHeaders() });
     } catch (fetchError) {
       console.error('Error calling Vectorizer.AI API:', fetchError);
       return NextResponse.json({ 
         error: 'Failed to communicate with vectorization service',
         details: fetchError instanceof Error ? fetchError.message : 'Unknown error'
-      }, { status: 500 });
+      }, { status: 500, headers: corsHeaders() });
     }
   } catch (error) {
     console.error('Error in vectorize API:', error);
     return NextResponse.json({ 
       error: 'Failed to vectorize image',
       details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    }, { status: 500, headers: corsHeaders() });
   }
 } 
