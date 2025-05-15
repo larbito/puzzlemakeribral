@@ -72,28 +72,128 @@ exports.removeBackground = async (req, res) => {
       const base64Image = imageBuffer.toString('base64');
       const dataUri = `data:image/png;base64,${base64Image}`;
       
-      // Step 3: Remove the background using Replicate's chosen model
-      console.log(`Removing background with Replicate using model: ${modelToUse}`);
-      const bgRemovalOutput = await replicate.run(
-        modelToUse,
-        {
-          input: {
-            image: dataUri
-          }
-        }
-      );
+      let outputUrl = '';
       
-      console.log('Background removal completed');
-      console.log('Background removal output URL:', bgRemovalOutput);
+      // Check if we're using the problematic men1scus/birefnet model
+      if (modelToUse.includes('men1scus/birefnet')) {
+        // For this model, we need a different approach as it returns ReadableStream
+        console.log('Using men1scus/birefnet model special handling');
+        
+        try {
+          // Try with the default rembg model instead
+          console.log('Falling back to default rembg model due to known men1scus/birefnet issues');
+          const fallbackOutput = await replicate.run(
+            "replicate/rembg:99375fd7b66f8a9fd65dad75a79d8889f4157370b798a5d5a98e6ed41e302664",
+            { input: { image: dataUri } }
+          );
+          
+          if (typeof fallbackOutput === 'string' && fallbackOutput.startsWith('http')) {
+            outputUrl = fallbackOutput;
+            console.log('Successfully got URL from fallback model:', outputUrl);
+          } else {
+            throw new Error('Failed to get proper URL from fallback model');
+          }
+        } catch (fallbackError) {
+          console.error('Error with fallback model:', fallbackError);
+          throw new Error('Background removal failed with fallback model');
+        }
+      } else {
+        // Step 3: Remove the background using Replicate's chosen model for all other models
+        console.log(`Removing background with Replicate using model: ${modelToUse}`);
+        const bgRemovalOutput = await replicate.run(
+          modelToUse,
+          {
+            input: {
+              image: dataUri
+            }
+          }
+        );
+        
+        console.log('Background removal completed');
+        
+        // Check response type and extract URL
+        if (typeof bgRemovalOutput === 'string') {
+          // Direct URL response (most common)
+          outputUrl = bgRemovalOutput;
+          console.log('Background removal output URL (string):', outputUrl);
+        } else if (bgRemovalOutput && typeof bgRemovalOutput === 'object') {
+          // Object response with URL inside
+          console.log('Response type:', typeof bgRemovalOutput);
+          console.log('Response constructor:', bgRemovalOutput.constructor ? bgRemovalOutput.constructor.name : 'unknown');
+          
+          // For ReadableStream response or other problematic formats
+          if (bgRemovalOutput.constructor && bgRemovalOutput.constructor.name === 'ReadableStream') {
+            console.log('Got ReadableStream response - trying alternative model');
+            
+            // Fall back to default model
+            const fallbackOutput = await replicate.run(
+              DEFAULT_BACKGROUND_REMOVAL_MODEL,
+              { input: { image: dataUri } }
+            );
+            
+            if (typeof fallbackOutput === 'string' && fallbackOutput.startsWith('http')) {
+              outputUrl = fallbackOutput;
+              console.log('Successfully got URL from fallback model after stream error:', outputUrl);
+            } else {
+              throw new Error('Failed to get URL from fallback model after stream error');
+            }
+          } else if (bgRemovalOutput.url) {
+            outputUrl = bgRemovalOutput.url;
+            console.log('Background removal output URL (object.url):', outputUrl);
+          } else if (bgRemovalOutput.output) {
+            outputUrl = bgRemovalOutput.output;
+            console.log('Background removal output URL (object.output):', outputUrl);
+          } else if (bgRemovalOutput.image) {
+            outputUrl = bgRemovalOutput.image;
+            console.log('Background removal output URL (object.image):', outputUrl);
+          } else {
+            console.error('Cannot extract URL from response object:', bgRemovalOutput);
+            
+            // Try to stringify and extract URL using regex
+            try {
+              const objStr = JSON.stringify(bgRemovalOutput);
+              const urlMatch = objStr.match(/(https?:\/\/[^\s"']+)/);
+              if (urlMatch && urlMatch[0]) {
+                outputUrl = urlMatch[0];
+                console.log('Extracted URL from object using regex:', outputUrl);
+              } else {
+                throw new Error('No URL found in object');
+              }
+            } catch (stringifyError) {
+              console.error('Error stringifying response:', stringifyError);
+              // Final fallback to default model
+              const fallbackOutput = await replicate.run(
+                DEFAULT_BACKGROUND_REMOVAL_MODEL,
+                { input: { image: dataUri } }
+              );
+              
+              if (typeof fallbackOutput === 'string' && fallbackOutput.startsWith('http')) {
+                outputUrl = fallbackOutput;
+                console.log('Got URL from fallback model after stringify error:', outputUrl);
+              } else {
+                throw new Error('All background removal attempts failed');
+              }
+            }
+          }
+        } else {
+          console.error('Invalid response from Replicate API:', bgRemovalOutput);
+          throw new Error('Invalid response from background removal service');
+        }
+      }
       
       // Clean up the temp file
       if (fs.existsSync(tempImagePath)) {
         fs.unlinkSync(tempImagePath);
       }
       
+      // Verify we have a valid URL before returning
+      if (!outputUrl || typeof outputUrl !== 'string' || !outputUrl.startsWith('http')) {
+        throw new Error('Invalid URL returned from background removal service');
+      }
+      
       // Return success response with the image URL
       return res.status(200).json({
-        imageUrl: bgRemovalOutput,
+        imageUrl: outputUrl,
         success: true
       });
     } catch (error) {
