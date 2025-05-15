@@ -68,21 +68,21 @@ export async function generateImage({
 
     try {
       // Send real API request
-      const imageUrl = await generateWithProxy(enhancedPrompt, style);
+        const imageUrl = await generateWithProxy(enhancedPrompt, style);
       console.log("Successfully generated image:", imageUrl);
-      return imageUrl;
+        return imageUrl;
+      } catch (error) {
+        console.error("Error with image generation from proxy:", error);
+        
+        // Fallback to placeholder for demo/testing
+        console.log("Using placeholder as fallback");
+        return getPlaceholderImage(prompt, 'tshirt');
+      }
     } catch (error) {
-      console.error("Error with image generation from proxy:", error);
+      console.error("Error in generateImage:", error);
       
-      // Fallback to placeholder for demo/testing
-      console.log("Using placeholder as fallback");
-      return getPlaceholderImage(prompt, 'tshirt');
-    }
-  } catch (error) {
-    console.error("Error in generateImage:", error);
-    
-    // Always return a placeholder for demo purposes
-    console.log("Using placeholder due to error");
+      // Always return a placeholder for demo purposes
+      console.log("Using placeholder due to error");
     return getPlaceholderImage(prompt, 'tshirt');
   }
 }
@@ -181,8 +181,8 @@ function getPlaceholderImage(prompt: string, type: 'tshirt' | 'bookcover' | 'col
   
   return new Promise((resolve) => {
     // Add a delay to simulate API call
-    setTimeout(() => {
-      resolve(placeholderUrl);
+      setTimeout(() => {
+        resolve(placeholderUrl);
     }, 1500);
   });
 }
@@ -374,7 +374,7 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
     formData.append('type', type);
 
     console.log("Making API request to analyze image:", `${API_URL}/api/ideogram/analyze`);
-    
+
     const response = await fetch(`${API_URL}/api/ideogram/analyze`, {
       method: 'POST',
       body: formData,
@@ -382,11 +382,11 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
     });
 
     console.log("Response status from analyze API:", response.status);
-    
+
     if (!response.ok) {
       let errorMessage = `API error: ${response.status}`;
       try {
-        const errorData = await response.json();
+      const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
       } catch {
         // If JSON parsing fails, try to get text
@@ -1774,7 +1774,7 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
       formData.append('image', imageBlob, 'image.png');
       
       // Add optional parameters
-      formData.append('scale', '8'); // Default to 8x upscaling for best quality results
+      formData.append('scale', '6'); // Default to 6x upscaling for optimal quality/performance balance
       
       console.log("Submitting image to enhancement service");
       

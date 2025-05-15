@@ -6,8 +6,8 @@ const axios = require('axios');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Real-ESRGAN upscaler model
-const ENHANCEMENT_MODEL = "cjwbw/real-esrgan:d0ee3d708c9b911f122a4ad90046c5d26a0293b99476d697f6bb7f2e251ce2d4";
+// Real-ESRGAN upscaler model - updated to nightmareai/real-esrgan
+const ENHANCEMENT_MODEL = "nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa";
 
 // In-memory cache to store ongoing enhancements
 const enhancementCache = new Map();
@@ -100,7 +100,7 @@ exports.enhanceImage = async (req, res) => {
       }
       
       // Get optional parameters with defaults
-      const scale = parseInt(req.body.scale) || 8; // Default to 8x upscaling for highest quality
+      const scale = parseInt(req.body.scale) || 6; // Default to 6x upscaling for optimal quality/performance balance
       console.log(`Enhancing image with scale factor: ${scale}x`);
       
       // Create Replicate instance
