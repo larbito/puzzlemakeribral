@@ -6,7 +6,7 @@ const path = require('path');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Default background removal model
+// Default background removal model - this is the most reliable one
 const DEFAULT_BACKGROUND_REMOVAL_MODEL = "replicate/rembg:99375fd7b66f8a9fd65dad75a79d8889f4157370b798a5d5a98e6ed41e302664";
 
 // Available background removal models
@@ -18,8 +18,14 @@ const BACKGROUND_REMOVAL_MODELS = {
   "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919": "Enhanced Detail"
 };
 
+// List of problematic models that need special handling or should be avoided
+const PROBLEMATIC_MODELS = [
+  "men1scus/birefnet",
+  "smoretalk/rembg-enhance"
+];
+
 /**
- * Remove background from image using Replicate API's REMBG model
+ * Remove background from image using Replicate API
  */
 exports.removeBackground = async (req, res) => {
   try {
@@ -48,12 +54,24 @@ exports.removeBackground = async (req, res) => {
     
     // Determine which model to use
     let modelToUse = DEFAULT_BACKGROUND_REMOVAL_MODEL;
+    let isProblematicModel = false;
     
-    if (requestedModelId && BACKGROUND_REMOVAL_MODELS[requestedModelId]) {
-      console.log(`Using requested model: ${requestedModelId} (${BACKGROUND_REMOVAL_MODELS[requestedModelId]})`);
-      modelToUse = requestedModelId;
-    } else if (requestedModelId) {
-      console.warn(`Requested model ${requestedModelId} not found, using default model`);
+    if (requestedModelId) {
+      // Check if the requested model is known to be problematic
+      for (const problematicPrefix of PROBLEMATIC_MODELS) {
+        if (requestedModelId.includes(problematicPrefix)) {
+          console.warn(`Requested model ${requestedModelId} is known to be problematic, using default model instead`);
+          isProblematicModel = true;
+          break;
+        }
+      }
+      
+      if (!isProblematicModel && BACKGROUND_REMOVAL_MODELS[requestedModelId]) {
+        console.log(`Using requested model: ${requestedModelId} (${BACKGROUND_REMOVAL_MODELS[requestedModelId]})`);
+        modelToUse = requestedModelId;
+      } else if (!isProblematicModel) {
+        console.warn(`Requested model ${requestedModelId} not found, using default model`);
+      }
     } else {
       console.log(`Using default model: ${DEFAULT_BACKGROUND_REMOVAL_MODEL}`);
     }
@@ -74,16 +92,86 @@ exports.removeBackground = async (req, res) => {
       
       let outputUrl = '';
       
-      // Check if we're using the problematic men1scus/birefnet model
-      if (modelToUse.includes('men1scus/birefnet')) {
-        // For this model, we need a different approach as it returns ReadableStream
-        console.log('Using men1scus/birefnet model special handling');
+      // Always use the default model - it's the most reliable
+      console.log(`Removing background with Replicate using model: ${DEFAULT_BACKGROUND_REMOVAL_MODEL}`);
+      
+      try {
+        const bgRemovalOutput = await replicate.run(
+          DEFAULT_BACKGROUND_REMOVAL_MODEL,
+          {
+            input: {
+              image: dataUri
+            }
+          }
+        );
         
+        console.log('Background removal completed');
+        
+        // Check if we got a direct string URL (most common with reliable models)
+        if (typeof bgRemovalOutput === 'string') {
+          outputUrl = bgRemovalOutput;
+          console.log('Background removal output URL (string):', outputUrl);
+        } else if (bgRemovalOutput && typeof bgRemovalOutput === 'object') {
+          // Log what we got to help debugging
+          console.log('Response type:', typeof bgRemovalOutput);
+          console.log('Response constructor:', bgRemovalOutput.constructor ? bgRemovalOutput.constructor.name : 'unknown');
+          
+          // Handle different object formats
+          if (bgRemovalOutput.url) {
+            if (typeof bgRemovalOutput.url === 'function') {
+              console.log('URL is a function, attempting to call it');
+              try {
+                const urlResult = bgRemovalOutput.url();
+                if (typeof urlResult === 'string' && urlResult.startsWith('http')) {
+                  outputUrl = urlResult;
+                  console.log('Successfully called URL function:', outputUrl);
+                } else {
+                  throw new Error('URL function did not return a valid URL');
+                }
+              } catch (funcError) {
+                console.error('Error calling URL function:', funcError);
+                throw new Error('Failed to get URL from function');
+              }
+            } else {
+              outputUrl = bgRemovalOutput.url;
+              console.log('Background removal output URL (object.url):', outputUrl);
+            }
+          } else if (bgRemovalOutput.output) {
+            outputUrl = bgRemovalOutput.output;
+            console.log('Background removal output URL (object.output):', outputUrl);
+          } else if (bgRemovalOutput.image) {
+            outputUrl = bgRemovalOutput.image;
+            console.log('Background removal output URL (object.image):', outputUrl);
+          } else {
+            // Last resort - try to stringify and extract URL using regex
+            try {
+              const objStr = JSON.stringify(bgRemovalOutput);
+              console.log('Stringified object:', objStr.substring(0, 200) + '...');
+              
+              const urlMatch = objStr.match(/(https?:\/\/[^\s"']+)/);
+              if (urlMatch && urlMatch[0]) {
+                outputUrl = urlMatch[0];
+                console.log('Extracted URL from object using regex:', outputUrl);
+              } else {
+                throw new Error('No URL found in object');
+              }
+            } catch (stringifyError) {
+              console.error('Error processing object response:', stringifyError);
+              throw new Error('Could not extract URL from response');
+            }
+          }
+        } else {
+          console.error('Invalid response from Replicate API:', bgRemovalOutput);
+          throw new Error('Invalid response from background removal service');
+        }
+      } catch (modelError) {
+        console.error('Error with primary model, trying alternative:', modelError);
+        
+        // Try with a different reliable model as backup
         try {
-          // Try with the default rembg model instead
-          console.log('Falling back to default rembg model due to known men1scus/birefnet issues');
+          console.log('Falling back to another reliable model: cjwbw/rembg');
           const fallbackOutput = await replicate.run(
-            "replicate/rembg:99375fd7b66f8a9fd65dad75a79d8889f4157370b798a5d5a98e6ed41e302664",
+            "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
             { input: { image: dataUri } }
           );
           
@@ -94,90 +182,8 @@ exports.removeBackground = async (req, res) => {
             throw new Error('Failed to get proper URL from fallback model');
           }
         } catch (fallbackError) {
-          console.error('Error with fallback model:', fallbackError);
-          throw new Error('Background removal failed with fallback model');
-        }
-      } else {
-        // Step 3: Remove the background using Replicate's chosen model for all other models
-        console.log(`Removing background with Replicate using model: ${modelToUse}`);
-        const bgRemovalOutput = await replicate.run(
-          modelToUse,
-          {
-            input: {
-              image: dataUri
-            }
-          }
-        );
-        
-        console.log('Background removal completed');
-        
-        // Check response type and extract URL
-        if (typeof bgRemovalOutput === 'string') {
-          // Direct URL response (most common)
-          outputUrl = bgRemovalOutput;
-          console.log('Background removal output URL (string):', outputUrl);
-        } else if (bgRemovalOutput && typeof bgRemovalOutput === 'object') {
-          // Object response with URL inside
-          console.log('Response type:', typeof bgRemovalOutput);
-          console.log('Response constructor:', bgRemovalOutput.constructor ? bgRemovalOutput.constructor.name : 'unknown');
-          
-          // For ReadableStream response or other problematic formats
-          if (bgRemovalOutput.constructor && bgRemovalOutput.constructor.name === 'ReadableStream') {
-            console.log('Got ReadableStream response - trying alternative model');
-            
-            // Fall back to default model
-            const fallbackOutput = await replicate.run(
-              DEFAULT_BACKGROUND_REMOVAL_MODEL,
-              { input: { image: dataUri } }
-            );
-            
-            if (typeof fallbackOutput === 'string' && fallbackOutput.startsWith('http')) {
-              outputUrl = fallbackOutput;
-              console.log('Successfully got URL from fallback model after stream error:', outputUrl);
-            } else {
-              throw new Error('Failed to get URL from fallback model after stream error');
-            }
-          } else if (bgRemovalOutput.url) {
-            outputUrl = bgRemovalOutput.url;
-            console.log('Background removal output URL (object.url):', outputUrl);
-          } else if (bgRemovalOutput.output) {
-            outputUrl = bgRemovalOutput.output;
-            console.log('Background removal output URL (object.output):', outputUrl);
-          } else if (bgRemovalOutput.image) {
-            outputUrl = bgRemovalOutput.image;
-            console.log('Background removal output URL (object.image):', outputUrl);
-          } else {
-            console.error('Cannot extract URL from response object:', bgRemovalOutput);
-            
-            // Try to stringify and extract URL using regex
-            try {
-              const objStr = JSON.stringify(bgRemovalOutput);
-              const urlMatch = objStr.match(/(https?:\/\/[^\s"']+)/);
-              if (urlMatch && urlMatch[0]) {
-                outputUrl = urlMatch[0];
-                console.log('Extracted URL from object using regex:', outputUrl);
-              } else {
-                throw new Error('No URL found in object');
-              }
-            } catch (stringifyError) {
-              console.error('Error stringifying response:', stringifyError);
-              // Final fallback to default model
-              const fallbackOutput = await replicate.run(
-                DEFAULT_BACKGROUND_REMOVAL_MODEL,
-                { input: { image: dataUri } }
-              );
-              
-              if (typeof fallbackOutput === 'string' && fallbackOutput.startsWith('http')) {
-                outputUrl = fallbackOutput;
-                console.log('Got URL from fallback model after stringify error:', outputUrl);
-              } else {
-                throw new Error('All background removal attempts failed');
-              }
-            }
-          }
-        } else {
-          console.error('Invalid response from Replicate API:', bgRemovalOutput);
-          throw new Error('Invalid response from background removal service');
+          console.error('All fallback attempts failed:', fallbackError);
+          throw new Error('All background removal attempts failed');
         }
       }
       
