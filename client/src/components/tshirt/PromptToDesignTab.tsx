@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
   Select, 
   SelectContent, 
@@ -17,10 +17,9 @@ import {
   ImageIcon,
   LightbulbIcon,
   PanelRight,
-  Code,
   Image,
   ChevronDown,
-  MagicWand
+  Wand2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -30,11 +29,6 @@ import {
   removeBackground,
   backgroundRemovalModels
 } from '@/services/ideogramService';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -212,9 +206,17 @@ export const PromptToDesignTab = () => {
       }));
       
       // Show success message with model info
-      const modelName = modelId 
-        ? Object.values(backgroundRemovalModels).find(m => m.id === modelId)?.name || "Custom Model"
-        : "Standard";
+      let modelName = "Standard";
+      if (modelId) {
+        // Safely access the model by checking if the key exists
+        const modelKeys = Object.keys(backgroundRemovalModels);
+        for (const key of modelKeys) {
+          if (backgroundRemovalModels[key as keyof typeof backgroundRemovalModels].id === modelId) {
+            modelName = backgroundRemovalModels[key as keyof typeof backgroundRemovalModels].name;
+            break;
+          }
+        }
+      }
         
       toast.success(`Background removed successfully!`, {
         duration: 4000,
@@ -248,7 +250,8 @@ export const PromptToDesignTab = () => {
   // Select a background removal model
   const selectModel = (modelKey: string) => {
     console.log('Selected model:', modelKey);
-    const model = backgroundRemovalModels[modelKey];
+    // Use type assertion to safely access the model
+    const model = backgroundRemovalModels[modelKey as keyof typeof backgroundRemovalModels];
     setSelectedModel(model.id);
     handleRemoveBackground(model.id);
   };
@@ -469,13 +472,21 @@ export const PromptToDesignTab = () => {
                     <Download className="mr-2 h-4 w-4" />
                     Download Transparent PNG
                   </Button>
+                ) : isProcessing ? (
+                  <Button
+                    variant="outline"
+                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                    disabled={true}
+                  >
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Removing Background...
+                  </Button>
                 ) : (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
                         className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106] w-full flex justify-between"
-                        disabled={isProcessing}
                       >
                         <div className="flex items-center">
                           <Image className="mr-2 h-4 w-4" />
@@ -484,14 +495,14 @@ export const PromptToDesignTab = () => {
                         <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56">
+                    <DropdownMenuContent align="end" className="w-56">
                       {Object.entries(backgroundRemovalModels).map(([key, model]) => (
                         <DropdownMenuItem 
                           key={key}
                           onClick={() => selectModel(key)}
                           className="cursor-pointer"
                         >
-                          <MagicWand className="mr-2 h-4 w-4" />
+                          <Wand2 className="mr-2 h-4 w-4" />
                           <span>{model.name}</span>
                         </DropdownMenuItem>
                       ))}
