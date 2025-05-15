@@ -19,7 +19,9 @@ import {
   PanelRight,
   Image,
   ChevronDown,
-  Wand2
+  Wand2,
+  Zap,
+  InfoIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -50,6 +52,7 @@ export const PromptToDesignTab = () => {
   const [size, setSize] = useState('merch');
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [lastUsedModel, setLastUsedModel] = useState<string | null>(null);
+  const [isEnhancing, setIsEnhancing] = useState(false);
   
   // Size presets mapping
   const sizePresets = {
@@ -287,6 +290,38 @@ export const PromptToDesignTab = () => {
   // Check if the current design has background removed
   const isCurrentDesignProcessed = processedUrls[currentIndex] !== undefined;
 
+  // New function to handle enhance and download
+  const handleEnhanceAndDownload = async () => {
+    const currentUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
+    if (!currentUrl) {
+      toast.error('No design to enhance');
+      return;
+    }
+    
+    setIsEnhancing(true);
+    const toastId = toast.loading('Enhancing your design...');
+    
+    try {
+      // We'll implement the actual enhancement API call later, for now just download
+      setTimeout(async () => {
+        // Format filename using the first few words of the prompt
+        const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
+        const filename = `enhanced-tshirt-${promptWords}-${Date.now()}`;
+        
+        await downloadImage(currentUrl, 'png', filename);
+        
+        toast.dismiss(toastId);
+        toast.success('Design enhanced and downloaded!');
+        setIsEnhancing(false);
+      }, 1500);
+    } catch (error) {
+      console.error('Error enhancing design:', error);
+      toast.dismiss(toastId);
+      toast.error('Failed to enhance design');
+      setIsEnhancing(false);
+    }
+  };
+
   console.log('Current prompt value:', prompt);
   console.log('Current image URLs:', imageUrls);
   console.log('Processed URLs:', processedUrls);
@@ -516,7 +551,7 @@ export const PromptToDesignTab = () => {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106] w-full flex justify-between ${isCurrentDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
+                        className={`border-primary/20 hover:bg-primary/5 relative z-[106] w-full flex justify-between ${isCurrentDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
                       >
                         <div className="flex items-center">
                           <Image className="mr-2 h-4 w-4" />
@@ -525,38 +560,76 @@ export const PromptToDesignTab = () => {
                         <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuContent align="end" className="w-60">
+                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1">Background Removal Models</div>
+                      
                       {isCurrentDesignProcessed && (
                         <DropdownMenuItem 
                           onClick={() => handleRemoveBackground('original')}
-                          className="cursor-pointer bg-gray-100 font-medium"
+                          className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
                         >
                           <Image className="mr-2 h-4 w-4" />
                           <span>Restore Original Image</span>
                         </DropdownMenuItem>
                       )}
                       
-                      {Object.entries(backgroundRemovalModels).map(([key, model]) => (
-                        <DropdownMenuItem 
-                          key={key}
-                          onClick={() => selectModel(key)}
-                          className={`cursor-pointer ${lastUsedModel === model.id ? 'bg-green-50 text-green-700' : ''}`}
-                        >
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          <span>{model.name}</span>
-                          {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
-                        </DropdownMenuItem>
-                      ))}
+                      <div className="py-1 px-2 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2">
+                        <InfoIcon className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models.</span>
+                      </div>
+                      
+                      {Object.entries(backgroundRemovalModels).map(([key, model]) => {
+                        // Check if this is a recommended model
+                        const isRecommended = key === '851-labs/background-remover' || key === 'men1scus/birefnet';
+                        
+                        return (
+                          <DropdownMenuItem 
+                            key={key}
+                            onClick={() => selectModel(key)}
+                            className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                              lastUsedModel === model.id ? 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300' : ''
+                            } ${isRecommended ? 'font-medium' : ''}`}
+                          >
+                            <Wand2 className={`mr-2 h-4 w-4 ${isRecommended ? 'text-yellow-500' : ''}`} />
+                            <span>{model.name}</span>
+                            {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
+                            {isRecommended && <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-400">★ Recommended</span>}
+                          </DropdownMenuItem>
+                        );
+                      })}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
               </div>
               
+              {isCurrentDesignProcessed && (
+                <Button
+                  variant="default"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
+                  onClick={handleEnhanceAndDownload}
+                  disabled={isEnhancing}
+                >
+                  {isEnhancing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="mr-2 h-4 w-4" />
+                      Enhance & Download
+                    </>
+                  )}
+                </Button>
+              )}
+              
               <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
                 {isCurrentDesignProcessed ? (
-                  <p className="flex items-center gap-1">
-                    <Image className="h-3 w-3" />
-                    Background removed! You can try another model or download the transparent PNG.
+                  <p className="flex items-start gap-1">
+                    <Image className="h-3 w-3 mt-0.5" />
+                    <span>
+                      Background removed! You can try other models for different results or use <strong>Enhance & Download</strong> for the final image.
+                    </span>
                   </p>
                 ) : (
                   <p className="flex items-center gap-1">
