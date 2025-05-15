@@ -240,7 +240,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       console.log("Using backend proxy to download image");
       
       // Create a temporary download indicator
-      toast.loading("Processing download...");
+      const toastId = toast.loading("Processing download...");
       
       // Use our own backend proxy endpoint
       const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
@@ -252,14 +252,21 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       // Open the download in a new window to trigger the download
       window.open(downloadUrl, '_blank');
       
-      toast.dismiss();
-      toast.success(`Design download initiated`);
+      // Dismiss the toast after a short delay to ensure window.open has processed
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        toast.success(`Design download initiated`);
+      }, 1000);
     } catch (error) {
       console.error("Error downloading image:", error);
+      // Dismiss any existing download toasts to prevent stuck notifications
+      toast.dismiss();
       toast.error("Failed to download image. Please try again.");
     }
   } catch (error) {
     console.error("Error downloading image:", error);
+    // Dismiss any existing download toasts to prevent stuck notifications
+    toast.dismiss();
     toast.error("Failed to download image. Please try again.");
   }
 }

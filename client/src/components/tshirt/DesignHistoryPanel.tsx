@@ -99,15 +99,24 @@ export const DesignHistoryPanel = () => {
     console.log('Downloading design:', item.id);
     setIsDownloading(true);
     
+    // Show loading toast with ID for proper dismissal
+    const toastId = toast.loading(`Processing download...`);
+    
     try {
       // Format filename using id for uniqueness
       const filename = `tshirt-${item.id.substring(0, 8)}`;
       console.log('Downloading with filename:', filename);
       
       await downloadImage(item.imageUrl, format, filename);
-      toast.success(`Downloaded as ${format.toUpperCase()}`);
+      
+      // Ensure toast is dismissed before showing success
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        toast.success(`Downloaded as ${format.toUpperCase()}`);
+      }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);
+      toast.dismiss(toastId);
       toast.error('Failed to download design');
     } finally {
       setIsDownloading(false);
