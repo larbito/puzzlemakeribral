@@ -82,6 +82,7 @@ export const PromptToDesignTab = () => {
     setIsGenerating(true);
     setImageUrls([]);
     setProcessedUrls({});
+    setOriginalUrls({}); // Clear original URLs when generating new designs
     
     try {
       // Convert variationCount to number
@@ -115,6 +116,14 @@ export const PromptToDesignTab = () => {
       
       if (generatedUrls.length > 0) {
         setImageUrls(generatedUrls);
+        
+        // Store original URLs immediately
+        const originalUrlsMap: Record<number, string> = {};
+        generatedUrls.forEach((url, index) => {
+          originalUrlsMap[index] = url;
+        });
+        setOriginalUrls(originalUrlsMap);
+        
         setCurrentIndex(0);
         toast.dismiss(toastId);
         toast.success(`${generatedUrls.length} T-shirt design${generatedUrls.length > 1 ? 's' : ''} generated successfully!`);
@@ -165,17 +174,19 @@ export const PromptToDesignTab = () => {
 
   // Handle removing background
   const handleRemoveBackground = async (modelId: string | null = null) => {
-    const currentImageUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
+    // Get the current image URL
+    const currentImageUrl = imageUrls[currentIndex];
     if (!currentImageUrl) {
       toast.error('No design to process');
       return;
     }
     
-    // Store the original image URL if this is the first time processing this image
+    // If we don't have the original image stored yet, store it now
     if (!originalUrls[currentIndex]) {
+      console.log('Storing original image for the first time');
       setOriginalUrls(prev => ({
         ...prev,
-        [currentIndex]: imageUrls[currentIndex]
+        [currentIndex]: currentImageUrl
       }));
     }
     
@@ -197,9 +208,12 @@ export const PromptToDesignTab = () => {
         return;
       }
       
-      // Otherwise, call the background removal service with the selected model
-      // Important: Always use the original image as the source for best results
-      const sourceUrl = originalUrls[currentIndex] || imageUrls[currentIndex];
+      // Get the original image URL - this is critical!
+      // Always use the original image as source, never a processed one
+      const sourceUrl = originalUrls[currentIndex];
+      console.log('Using original image as source for background removal:', sourceUrl);
+      
+      // Make the API call with the original image
       const processedImageUrl = await removeBackground(sourceUrl, modelId);
       
       // Preview the image immediately before saving it
@@ -223,6 +237,7 @@ export const PromptToDesignTab = () => {
         // Timeout just in case
         setTimeout(() => {
           if (document.body.contains(imgPreview)) {
+            console.warn("Preview load timed out");
             document.body.removeChild(imgPreview);
           }
           resolve(false);
