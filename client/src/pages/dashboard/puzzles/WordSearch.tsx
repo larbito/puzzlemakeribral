@@ -77,11 +77,11 @@ export const WordSearchForm = ({
   };
 
   const handlePageNumbersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSettingChange('includePageNumbers', e.target.checked);
+    onSettingChange('includePageNumbers', !settings.includePageNumbers);
   };
 
   const handleIncludeAnswersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSettingChange('includeAnswers', e.target.checked);
+    onSettingChange('includeAnswers', !settings.includeAnswers);
   };
 
   const handleThemeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +93,10 @@ export const WordSearchForm = ({
   };
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSettingChange('quantity', parseInt(e.target.value));
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value >= 5 && value <= 100) {
+      onSettingChange('quantity', value);
+    }
   };
 
   const handleCustomWordsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -108,9 +111,9 @@ export const WordSearchForm = ({
     <MotionCard
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative backdrop-blur-3xl border-primary/20 overflow-hidden w-full max-w-full"
+      className="relative backdrop-blur-3xl border-primary/20 overflow-hidden w-full max-w-full bg-card"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-secondary/10 to-transparent" />
       <CardHeader className="flex flex-row items-center space-y-0 pb-2">
         <Button
           variant="ghost"
@@ -141,7 +144,7 @@ export const WordSearchForm = ({
                 value={settings.title}
                 onChange={handleTitleChange}
                 placeholder="Enter a title for your puzzle book"
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Book Title"
               />
@@ -150,7 +153,7 @@ export const WordSearchForm = ({
               <label htmlFor="page-size" className="text-sm font-medium">Page Size</label>
               <select 
                 id="page-size"
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 value={settings.pageSize}
                 onChange={handlePageSizeChange}
                 style={{ width: '100%', boxSizing: 'border-box' }}
@@ -170,7 +173,7 @@ export const WordSearchForm = ({
               <label htmlFor="puzzles-per-page" className="text-sm font-medium">Puzzles Per Page</label>
               <select 
                 id="puzzles-per-page"
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 value={settings.puzzlesPerPage}
                 onChange={handlePuzzlesPerPageChange}
                 style={{ width: '100%', boxSizing: 'border-box' }}
@@ -188,7 +191,7 @@ export const WordSearchForm = ({
                   id="include-page-numbers"
                   checked={settings.includePageNumbers}
                   onChange={handlePageNumbersChange}
-                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
+                  className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
                   aria-label="Include Page Numbers"
                 />
                 <label htmlFor="include-page-numbers" className="text-sm">
@@ -201,7 +204,7 @@ export const WordSearchForm = ({
                   id="include-answers"
                   checked={settings.includeAnswers}
                   onChange={handleIncludeAnswersChange}
-                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
+                  className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
                   aria-label="Include Answer Key"
                 />
                 <label htmlFor="include-answers" className="text-sm">
@@ -224,7 +227,7 @@ export const WordSearchForm = ({
                 value={settings.theme}
                 onChange={handleThemeChange}
                 placeholder="e.g., Animals, Space, Sports"
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Theme"
               />
@@ -233,7 +236,7 @@ export const WordSearchForm = ({
               <label htmlFor="difficulty" className="text-sm font-medium">Difficulty Level</label>
               <select 
                 id="difficulty"
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 value={settings.difficulty}
                 onChange={handleDifficultyChange}
                 style={{ width: '100%', boxSizing: 'border-box' }}
@@ -254,7 +257,7 @@ export const WordSearchForm = ({
                 max="100"
                 value={settings.quantity}
                 onChange={handleQuantityChange}
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Number of Puzzles"
               />
@@ -266,7 +269,7 @@ export const WordSearchForm = ({
                 value={settings.customWords}
                 onChange={handleCustomWordsChange}
                 placeholder="Enter words separated by commas"
-                className="w-full px-3 py-2 h-[80px] rounded-md bg-white/5 border border-primary/20 text-foreground"
+                className="w-full px-3 py-2 h-[80px] rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Custom Words"
               />
@@ -287,7 +290,7 @@ export const WordSearchForm = ({
               value={settings.aiPrompt}
               onChange={handleAIPromptChange}
               placeholder="Add specific instructions for word search generation..."
-              className="w-full px-3 py-2 h-[100px] rounded-md bg-white/5 border border-primary/20 text-foreground"
+              className="w-full px-3 py-2 h-[100px] rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
               style={{ width: '100%', boxSizing: 'border-box' }}
               aria-label="AI Prompt"
             />

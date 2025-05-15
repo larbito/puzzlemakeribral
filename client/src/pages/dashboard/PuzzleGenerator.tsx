@@ -34,7 +34,7 @@ const MotionCard = motion(Card);
 
 export const PuzzleGenerator = () => {
   // State for selection and generation
-  const [selectedPuzzleType, setSelectedPuzzleType] = useState<string | null>(null);
+  const [selectedPuzzleType, setSelectedPuzzleType] = useState<string>('word-search');
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'generating' | 'complete' | 'error'>('idle');
   const [showPreview, setShowPreview] = useState(false);
   
@@ -43,7 +43,7 @@ export const PuzzleGenerator = () => {
 
   // Handle back to selection
   const handleBackToSelection = () => {
-    setSelectedPuzzleType(null);
+    setSelectedPuzzleType('word-search');
     setGenerationStatus('idle');
     setShowPreview(false);
   };
@@ -91,7 +91,7 @@ export const PuzzleGenerator = () => {
     
     // Reset after download
     setGenerationStatus('idle');
-    setSelectedPuzzleType(null);
+    setSelectedPuzzleType('word-search');
     setShowPreview(false);
   };
 
