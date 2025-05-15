@@ -176,8 +176,10 @@ export const PromptToDesignTab = () => {
 
   // Handle removing background
   const handleRemoveBackground = async (modelId: string | null = null) => {
-    // Get the current image URL
-    const currentImageUrl = imageUrls[currentIndex];
+    // Get the current image URL - use the CURRENTLY DISPLAYED image
+    // This ensures we're using the enhanced version if it exists
+    const currentImageUrl = getCurrentDisplayedUrl();
+    
     if (!currentImageUrl) {
       toast.error('No design to process');
       return;
@@ -211,11 +213,10 @@ export const PromptToDesignTab = () => {
       }
       
       // Use the current image as source - this will be the enhanced version if enhancement was applied
-      const sourceUrl = imageUrls[currentIndex];
-      console.log('Using current image as source for background removal:', sourceUrl);
+      console.log('Using current image for background removal:', currentImageUrl);
       
       // Make the API call with the current image
-      const processedImageUrl = await removeBackground(sourceUrl, modelId);
+      const processedImageUrl = await removeBackground(currentImageUrl, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
