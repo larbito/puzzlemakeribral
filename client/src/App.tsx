@@ -17,6 +17,7 @@ import { Contact } from '@/pages/Contact';
 import { About } from '@/pages/About';
 import { Overview } from '@/pages/dashboard/Overview';
 import { Puzzles } from '@/pages/dashboard/Puzzles';
+import { PuzzleGenerator } from '@/pages/dashboard/PuzzleGenerator';
 import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
 import KDPFullWrapGenerator from '@/pages/dashboard/KDPFullWrapGenerator';
@@ -59,6 +60,7 @@ function App() {
                   <DashboardLayout>
                     <Routes>
                       <Route path="puzzles" element={<Puzzles />} />
+                      <Route path="puzzle-generator" element={<PuzzleGenerator />} />
                       <Route path="content" element={<Content />} />
                       <Route path="pricing" element={<KDPRoyaltiesCalculator />} />
                       <Route path="coloring" element={<AIColoringGenerator />} />
