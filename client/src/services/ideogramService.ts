@@ -1535,6 +1535,70 @@ export function forceProxyForIdeogramUrl(url: string): string {
 }
 
 /**
+ * Resize an image to a maximum width while maintaining aspect ratio
+ * This helps avoid 413 Payload Too Large errors when vectorizing
+ */
+async function resizeImageForVectorization(imageUrl: string, maxWidth = 1200): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      
+      img.onload = () => {
+        // Calculate new dimensions
+        let width = img.width;
+        let height = img.height;
+        
+        console.log(`Original image dimensions: ${width}x${height}`);
+        
+        // Only resize if the image is larger than maxWidth
+        if (width > maxWidth) {
+          const aspectRatio = width / height;
+          width = maxWidth;
+          height = Math.round(width / aspectRatio);
+          console.log(`Resizing to: ${width}x${height}`);
+        } else {
+          console.log("Image is already small enough, no resizing needed");
+        }
+        
+        // Create a canvas to resize the image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw the image on the canvas
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error("Could not create canvas context"));
+          return;
+        }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error("Failed to convert canvas to blob"));
+            return;
+          }
+          
+          console.log(`Resized image size: ${Math.round(blob.size / 1024)} KB`);
+          resolve(blob);
+        }, 'image/png', 0.85); // Use PNG with 85% quality
+      };
+      
+      img.onerror = () => {
+        reject(new Error("Failed to load image for resizing"));
+      };
+      
+      img.src = imageUrl;
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+/**
  * Vectorize an image using Vectorizer.AI API
  * @param imageUrl URL of the image to vectorize
  * @returns URL to the vectorized SVG
@@ -1547,23 +1611,41 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
     const toastId = toast.loading("Vectorizing image...");
     
     try {
-      // For data URLs, first convert to blob
       let imageBlob: Blob;
       
-      if (imageUrl.startsWith('data:')) {
-        // Convert data URL to blob
-        const response = await fetch(imageUrl);
-        imageBlob = await response.blob();
-      } else {
-        // For regular URLs, proxy through our backend to avoid CORS issues
-        const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-        const response = await fetch(proxyUrl);
+      // Resize the image first to avoid 413 Payload Too Large errors
+      try {
+        console.log("Resizing image for vectorization...");
+        imageBlob = await resizeImageForVectorization(imageUrl);
+        console.log(`Image prepared for vectorization, size: ${Math.round(imageBlob.size / 1024)} KB`);
+      } catch (resizeError) {
+        console.error("Error resizing image:", resizeError);
         
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image: ${response.status}`);
+        // Fallback to direct fetch if resizing fails
+        console.log("Falling back to direct image fetch...");
+        if (imageUrl.startsWith('data:')) {
+          // Convert data URL to blob
+          const response = await fetch(imageUrl);
+          imageBlob = await response.blob();
+        } else {
+          // For regular URLs, proxy through our backend to avoid CORS issues
+          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
+          
+          imageBlob = await response.blob();
         }
-        
-        imageBlob = await response.blob();
+      }
+      
+      // Check if image is too large (> 10MB) after resizing
+      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+      if (imageBlob.size > MAX_SIZE) {
+        toast.dismiss(toastId);
+        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
+        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
       }
       
       // Now send the image to Vectorizer.AI API through our backend proxy
@@ -1580,7 +1662,18 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Vectorization API error: ${response.status} - ${errorText}`);
+        console.error(`Vectorization API error: ${response.status}`, errorText);
+        
+        let errorMessage = "Failed to vectorize image";
+        if (response.status === 413) {
+          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+        } else if (response.status === 504 || response.status === 502) {
+          errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
+        }
+        
+        toast.dismiss(toastId);
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
       }
       
       const data = await response.json();
@@ -1589,7 +1682,7 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
         throw new Error("No SVG URL found in response");
       }
       
-      console.log("Vectorization successful, SVG URL:", data.svgUrl);
+      console.log("Vectorization successful, SVG URL:", data.svgUrl.substring(0, 100) + "...");
       
       // Dismiss the toast and show success
       toast.dismiss(toastId);
@@ -1599,7 +1692,12 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
     } catch (error) {
       console.error("Error in vectorization process:", error);
       toast.dismiss(toastId);
-      toast.error(`Failed to vectorize image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // If we haven't already shown an error toast
+      if (error instanceof Error && !error.message.includes("too large") && !error.message.includes("timed out")) {
+        toast.error(`Failed to vectorize image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+      
       throw error;
     }
   } catch (error) {
