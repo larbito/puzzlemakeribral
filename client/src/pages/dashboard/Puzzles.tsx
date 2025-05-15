@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
 
 const puzzles = [
   {
@@ -51,6 +52,52 @@ const puzzles = [
 const MotionCard = motion(Card);
 
 export const Puzzles = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredPuzzles, setFilteredPuzzles] = useState(puzzles);
+
+  // Handle search input change
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value.toLowerCase();
+    setSearchTerm(term);
+    
+    if (!term.trim()) {
+      setFilteredPuzzles(puzzles);
+    } else {
+      const filtered = puzzles.filter(puzzle => 
+        puzzle.title.toLowerCase().includes(term) || 
+        puzzle.type.toLowerCase().includes(term) ||
+        puzzle.difficulty.toLowerCase().includes(term)
+      );
+      setFilteredPuzzles(filtered);
+    }
+  };
+
+  // Handle button actions
+  const handleEdit = (puzzleTitle: string) => {
+    console.log(`Editing puzzle: ${puzzleTitle}`);
+    alert(`Editing puzzle: ${puzzleTitle}`);
+  };
+
+  const handleDownload = (puzzleTitle: string) => {
+    console.log(`Downloading puzzle: ${puzzleTitle}`);
+    alert(`Downloading puzzle: ${puzzleTitle}`);
+  };
+
+  const handleDelete = (puzzleTitle: string) => {
+    console.log(`Deleting puzzle: ${puzzleTitle}`);
+    alert(`Deleting puzzle: ${puzzleTitle}`);
+  };
+
+  const handleCreateNew = () => {
+    console.log('Creating new puzzle');
+    alert('Creating new puzzle');
+  };
+
+  const handleFilter = () => {
+    console.log('Filter button clicked');
+    alert('Filter button clicked');
+  };
+
   return (
     <div className="space-y-8 p-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -65,13 +112,22 @@ export const Puzzles = () => {
               type="text"
               placeholder="Search puzzles..."
               className="pl-9 pr-4 py-2 bg-white/5 border border-border/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all w-[200px]"
+              value={searchTerm}
+              onChange={handleSearch}
             />
           </div>
-          <Button variant="outline" className="bg-white/5 backdrop-blur-xl hover:bg-white/10">
+          <Button 
+            variant="outline" 
+            className="bg-white/5 backdrop-blur-xl hover:bg-white/10"
+            onClick={handleFilter}
+          >
             <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
-          <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+          <Button 
+            className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+            onClick={handleCreateNew}
+          >
             <Plus className="mr-2 h-4 w-4" />
             New Puzzle
           </Button>
@@ -79,7 +135,7 @@ export const Puzzles = () => {
       </div>
 
       <div className="grid gap-6">
-        {puzzles.map((puzzle, index) => (
+        {filteredPuzzles.map((puzzle, index) => (
           <MotionCard
             key={index}
             initial={{ opacity: 0, y: 20 }}
@@ -118,6 +174,7 @@ export const Puzzles = () => {
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 bg-white/5 backdrop-blur-xl hover:bg-white/10"
+                  onClick={() => handleEdit(puzzle.title)}
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
@@ -125,6 +182,7 @@ export const Puzzles = () => {
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 bg-white/5 backdrop-blur-xl hover:bg-white/10"
+                  onClick={() => handleDownload(puzzle.title)}
                 >
                   <Download className="h-4 w-4" />
                 </Button>
@@ -132,6 +190,7 @@ export const Puzzles = () => {
                   variant="outline" 
                   size="icon" 
                   className="h-8 w-8 bg-white/5 backdrop-blur-xl hover:bg-white/10 hover:text-destructive"
+                  onClick={() => handleDelete(puzzle.title)}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
