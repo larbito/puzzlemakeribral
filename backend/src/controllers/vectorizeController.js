@@ -2,8 +2,10 @@ const fetch = require('node-fetch');
 const FormData = require('form-data');
 const { Buffer } = require('buffer');
 
-// Get API key from environment variables
-const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY || 'vkwdt19mmgyspjb';
+// Get API key from environment variables - this should be the API ID
+const VECTORIZER_API_ID = process.env.VECTORIZER_API_ID || 'vkwdt19mmgyspjb';
+// This should be the API Secret
+const VECTORIZER_API_SECRET = process.env.VECTORIZER_API_SECRET || 'bcdostpk73s4ec6lubl3hl7gshsg3a3r85ka5i3423va7hlkhqj4';
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB max
 const TIMEOUT_MS = 30000; // 30 second timeout
 
@@ -43,18 +45,19 @@ exports.vectorizeImage = async (req, res) => {
       formData.append('simplify', '0.3'); // Higher value = more simplification
       
       console.log('Calling Vectorizer.AI API');
+      console.log(`Using API ID: ${VECTORIZER_API_ID}`);
       
       // Setup a timeout promise
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Request timed out')), TIMEOUT_MS);
       });
       
-      // Make request with timeout
+      // Make request with timeout - Use proper auth: API ID as username, API Secret as password
       const fetchPromise = fetch('https://vectorizer.ai/api/v1/vectorize', {
         method: 'POST',
         body: formData,
         headers: {
-          'Authorization': `Basic ${Buffer.from(`${VECTORIZER_API_KEY}:`).toString('base64')}`
+          'Authorization': `Basic ${Buffer.from(`${VECTORIZER_API_ID}:${VECTORIZER_API_SECRET}`).toString('base64')}`
         }
       });
       
