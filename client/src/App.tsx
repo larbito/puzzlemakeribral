@@ -30,13 +30,8 @@ function App() {
       <Toaster position="top-right" />
       <Router>
         <div className="min-h-screen bg-background text-foreground">
-          {/* Background gradients - fixed z-index issue */}
-          <div className="fixed inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50 z-[-1] pointer-events-none" />
-          <div className="fixed inset-0 bg-gradient-radial from-secondary/5 via-transparent to-transparent translate-x-full opacity-50 z-[-1] pointer-events-none" />
-          <div className="fixed inset-0 bg-gradient-radial from-accent/5 via-transparent to-transparent -translate-x-full opacity-50 z-[-1] pointer-events-none" />
-          
           {/* Content */}
-          <div className="relative z-10">
+          <div className="relative">
             <Routes>
               {/* Public routes */}
               <Route path="/" element={<><Navbar /><Home /><Footer /></>} />

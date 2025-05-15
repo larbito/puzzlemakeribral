@@ -129,7 +129,7 @@ export const PromptToDesignTab = () => {
   console.log('Current image URL:', imageUrl);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
       <div className="grid lg:grid-cols-2 gap-8">
         {/* Left column - Prompt and settings */}
         <div className="space-y-6">
@@ -140,11 +140,11 @@ export const PromptToDesignTab = () => {
               </span>
               Describe Your Design
             </h3>
-            <div className="space-y-2">
+            <div className="space-y-2 relative z-[105]">
               <Textarea
                 id="prompt"
                 placeholder="Describe your t-shirt design in detail... (e.g., 'A cute cartoon cat with sunglasses, minimalist style with blue accent colors')"
-                className="min-h-[180px] resize-none border-primary/20 focus:border-primary"
+                className="min-h-[180px] resize-none border-primary/20 focus:border-primary relative z-[105]"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
@@ -158,7 +158,7 @@ export const PromptToDesignTab = () => {
           </div>
           
           {/* Inspiration section */}
-          <div className="border border-primary/10 rounded-lg p-4 bg-primary/5">
+          <div className="border border-primary/10 rounded-lg p-4 bg-primary/5 relative z-[104]">
             <div className="flex items-center gap-2 mb-3 text-primary">
               <LightbulbIcon className="h-4 w-4" />
               <h4 className="font-medium">Need inspiration?</h4>
@@ -170,7 +170,7 @@ export const PromptToDesignTab = () => {
                   variant="outline" 
                   size="sm" 
                   onClick={() => useSamplePrompt(sample)}
-                  className="bg-white dark:bg-gray-800 border-primary/20 hover:border-primary"
+                  className="bg-white dark:bg-gray-800 border-primary/20 hover:border-primary relative z-[106]"
                 >
                   {sample.slice(0, 20)}...
                 </Button>
@@ -179,7 +179,7 @@ export const PromptToDesignTab = () => {
           </div>
           
           {/* Settings section */}
-          <div className="space-y-3">
+          <div className="space-y-3 relative z-[104]">
             <h3 className="text-lg font-medium flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
                 2
@@ -187,7 +187,7 @@ export const PromptToDesignTab = () => {
               Customize Settings
             </h3>
             <div className="grid sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="space-y-2 relative z-[105]">
                 <Label htmlFor="size" className="text-sm font-medium">Output Size</Label>
                 <Select 
                   value={size} 
@@ -206,7 +206,7 @@ export const PromptToDesignTab = () => {
                 </Select>
               </div>
               
-              <div className="space-y-2">
+              <div className="space-y-2 relative z-[105]">
                 <Label htmlFor="variationCount" className="text-sm font-medium">Variations</Label>
                 <Select 
                   value={variationCount} 
@@ -224,7 +224,7 @@ export const PromptToDesignTab = () => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 pt-2">
+            <div className="flex items-center space-x-2 pt-2 relative z-[105]">
               <Switch 
                 id="transparent" 
                 checked={transparentBg} 
@@ -238,7 +238,7 @@ export const PromptToDesignTab = () => {
             <Button 
               onClick={handleGenerateDesign} 
               disabled={isGenerating || !prompt.trim()}
-              className="w-full mt-4 bg-primary hover:bg-primary/90"
+              className="w-full mt-4 bg-primary hover:bg-primary/90 relative z-[106]"
             >
               {isGenerating ? (
                 <>
@@ -256,7 +256,7 @@ export const PromptToDesignTab = () => {
         </div>
         
         {/* Right column - Preview */}
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-[104]">
           <h3 className="text-lg font-medium flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
               3
@@ -288,11 +288,11 @@ export const PromptToDesignTab = () => {
           </div>
           
           {imageUrl && (
-            <div className="space-y-4">
+            <div className="space-y-4 relative z-[105]">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button 
                   variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
                   onClick={() => handleDownload('png')}
                   disabled={isDownloading}
                 >
@@ -301,7 +301,7 @@ export const PromptToDesignTab = () => {
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
                   onClick={() => handleDownload('pdf')}
                   disabled={isDownloading}
                 >
