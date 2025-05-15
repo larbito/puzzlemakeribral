@@ -8,8 +8,8 @@ const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
 // Define available background removal models
 const BACKGROUND_REMOVAL_MODELS = {
-  // Default model
-  "default": "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+  // Default model - changed to codeplugtech/background_remover
+  "default": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
   
   // Additional models
   "men1scus/birefnet": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
@@ -18,7 +18,7 @@ const BACKGROUND_REMOVAL_MODELS = {
   "851-labs/background-remover": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
   "smoretalk/rembg-enhance": "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919",
   "codeplugtech/background_remover": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
-  "cjwbw/rmgb": "cjwbw/rmgb:e89200fbc08c5c5e9314e246db83a79d43f16c552dc4005e46cd7896800a989e",
+  // Fast Remove model removed as it's not working properly
   "pollinations/modnet": "pollinations/modnet:da7d45f3b836795f945f221fc0b01a6d3ab7f5e163f13208948ad436001e2255"
 };
 
@@ -160,9 +160,6 @@ exports.getModels = async (req, res) => {
         case 'codeplugtech/background_remover':
           friendlyName = 'Clean Edges';
           break;
-        case 'cjwbw/rmgb':
-          friendlyName = 'Fast Remove';
-          break;
         case 'pollinations/modnet':
           friendlyName = 'Portrait Specialist';
           break;
@@ -171,7 +168,10 @@ exports.getModels = async (req, res) => {
       return {
         id,
         name: friendlyName,
-        version
+        version,
+        isRecommended: id === 'codeplugtech/background_remover' || 
+                     id === '851-labs/background-remover' || 
+                     id === 'men1scus/birefnet'
       };
     });
     

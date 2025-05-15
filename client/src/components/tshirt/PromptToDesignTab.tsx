@@ -600,7 +600,9 @@ export const PromptToDesignTab = () => {
                       <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">
                         {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
                           // Check if this is a recommended model
-                          const isRecommended = key === '851-labs/background-remover' || key === 'men1scus/birefnet';
+                          const isRecommended = key === '851-labs/background-remover' || 
+                                              key === 'men1scus/birefnet' ||
+                                              key === 'codeplugtech/background_remover';
                           
                           return (
                             <DropdownMenuItem 
