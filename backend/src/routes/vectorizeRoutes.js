@@ -31,8 +31,9 @@ router.get('/background-removal-models', replicateBackgroundRemovalController.ge
 router.post('/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 router.post('/vectorize/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 
-// Image enhancement endpoint
+// Image enhancement endpoints (support both paths for backward compatibility)
 router.post('/enhance-image', upload.single('image'), imageEnhancementController.enhanceImage);
+router.post('/vectorize/enhance-image', upload.single('image'), imageEnhancementController.enhanceImage);
 
 // SVG vectorization endpoint (placeholder for future implementation)
 router.post('/vectorize', (req, res) => {

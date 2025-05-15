@@ -1778,8 +1778,8 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
       
       console.log("Submitting image to enhancement service");
       
-      // Use the enhancement endpoint
-      const enhancementEndpoint = `${API_URL}/api/enhance-image`;
+      // Use the enhancement endpoint with correct path
+      const enhancementEndpoint = `${API_URL}/api/vectorize/enhance-image`;
       
       console.log("Enhancement endpoint URL:", enhancementEndpoint);
       console.log("Form data contents:");
