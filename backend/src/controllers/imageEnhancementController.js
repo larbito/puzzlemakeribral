@@ -13,6 +13,53 @@ const ENHANCEMENT_MODEL = "cjwbw/real-esrgan:d0ee3d708c9b911f122a4ad90046c5d26a0
 const enhancementCache = new Map();
 
 /**
+ * Proxy for ideogram images to avoid CORS issues
+ */
+exports.proxyIdeogramImage = async (req, res) => {
+  try {
+    const imageUrl = req.query.url;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'No image URL provided' });
+    }
+    
+    console.log(`Proxying ideogram image: ${imageUrl.substring(0, 100)}...`);
+    
+    try {
+      // Set appropriate response headers for CORS
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      
+      // Fetch the image
+      const response = await axios({
+        method: 'GET',
+        url: imageUrl,
+        responseType: 'stream'
+      });
+      
+      // Forward the content type
+      res.setHeader('Content-Type', response.headers['content-type']);
+      
+      // Pipe the image data to the response
+      response.data.pipe(res);
+    } catch (error) {
+      console.error('Error proxying image:', error);
+      return res.status(500).json({
+        error: 'Failed to proxy image',
+        details: error.message
+      });
+    }
+  } catch (error) {
+    console.error('Error in proxyIdeogramImage:', error);
+    return res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+};
+
+/**
  * Enhance image quality using Real-ESRGAN upscaler via Replicate API
  */
 exports.enhanceImage = async (req, res) => {
@@ -66,9 +113,7 @@ exports.enhanceImage = async (req, res) => {
           image: imageData,
           scale: scale,
           face_enhance: true // Enable face enhancement
-        },
-        webhook: req.body.webhook || null, // Support webhook callbacks if provided
-        webhook_events_filter: ["completed"]
+        }
       });
       
       console.log('Enhancement prediction created:', prediction.id);

@@ -39,6 +39,10 @@ router.post('/vectorize/enhance-image', upload.single('image'), imageEnhancement
 router.get('/check-enhancement-status/:predictionId', imageEnhancementController.checkEnhancementStatus);
 router.get('/vectorize/check-enhancement-status/:predictionId', imageEnhancementController.checkEnhancementStatus);
 
+// Proxy for ideogram images to avoid CORS issues
+router.get('/proxy-ideogram-image', imageEnhancementController.proxyIdeogramImage);
+router.get('/vectorize/proxy-ideogram-image', imageEnhancementController.proxyIdeogramImage);
+
 // SVG vectorization endpoint (placeholder for future implementation)
 router.post('/vectorize', (req, res) => {
   return res.status(501).json({

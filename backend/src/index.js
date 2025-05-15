@@ -86,9 +86,11 @@ const PORT = process.env.PORT || 3000;
 
 // Configure CORS to allow requests from any origin
 app.use(cors({
-  origin: '*',
+  origin: ['https://puzzlemakeribral.vercel.app', 'http://puzzlemakeribral.vercel.app', 'http://localhost:3000', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // Cache preflight request results for 24 hours (86400 seconds)
 }));
 
 // Increase the payload size limit for large images
