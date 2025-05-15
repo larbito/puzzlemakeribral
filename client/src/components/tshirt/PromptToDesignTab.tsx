@@ -40,22 +40,27 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const PromptToDesignTab = () => {
-  // State management
+  // Core state variables
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processedUrls, setProcessedUrls] = useState<Record<number, string>>({});
-  const [originalUrls, setOriginalUrls] = useState<Record<number, string>>({});
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  
+  // Image state management with clear intent
+  const [baseImageUrls, setBaseImageUrls] = useState<string[]>([]); // Current working images (source of truth)
+  const [originalImageUrls, setOriginalImageUrls] = useState<string[]>([]); // Initial Ideogram outputs
+  const [currentIndex, setCurrentIndex] = useState(0); // Selected design index
+  
+  // Tracking of processing states
+  const [isBackgroundRemoved, setIsBackgroundRemoved] = useState<Record<number, boolean>>({});
+  const [isImageEnhanced, setIsImageEnhanced] = useState<Record<number, boolean>>({});
+  const [activeModel, setActiveModel] = useState<string | null>(null);
+
+  // Configuration state
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [lastUsedModel, setLastUsedModel] = useState<string | null>(null);
-  const [isEnhancing, setIsEnhancing] = useState(false);
-  const [enhancedUrls, setEnhancedUrls] = useState<Record<number, string>>({});
-  
+
   // Size presets mapping
   const sizePresets = {
     'merch': { width: 4500, height: 5400, label: 'Merch by Amazon (4500×5400)' },
@@ -82,9 +87,13 @@ export const PromptToDesignTab = () => {
     }
 
     setIsGenerating(true);
-    setImageUrls([]);
-    setProcessedUrls({});
-    setOriginalUrls({}); // Clear original URLs when generating new designs
+    
+    // Reset all state for a new design generation
+    setBaseImageUrls([]);
+    setOriginalImageUrls([]);
+    setIsBackgroundRemoved({});
+    setIsImageEnhanced({});
+    setActiveModel(null);
     
     try {
       // Convert variationCount to number
@@ -117,14 +126,9 @@ export const PromptToDesignTab = () => {
       }
       
       if (generatedUrls.length > 0) {
-        setImageUrls(generatedUrls);
-        
-        // Store original URLs immediately
-        const originalUrlsMap: Record<number, string> = {};
-        generatedUrls.forEach((url, index) => {
-          originalUrlsMap[index] = url;
-        });
-        setOriginalUrls(originalUrlsMap);
+        // Set both base and original URLs to the generated URLs
+        setBaseImageUrls(generatedUrls);
+        setOriginalImageUrls(generatedUrls);
         
         setCurrentIndex(0);
         toast.dismiss(toastId);
@@ -142,8 +146,8 @@ export const PromptToDesignTab = () => {
   
   // Handle downloading the image
   const handleDownload = async () => {
-    // Get the most current version of the image - use the same priority logic as display
-    const currentUrl = getCurrentDisplayedUrl();
+    // Always use the current base image - the single source of truth
+    const currentUrl = baseImageUrls[currentIndex];
     console.log('Download button clicked for image:', currentUrl.substring(0, 100));
     
     if (!currentUrl) {
@@ -178,56 +182,45 @@ export const PromptToDesignTab = () => {
 
   // Handle removing background
   const handleRemoveBackground = async (modelId: string | null = null) => {
-    // Get the current image URL - use the CURRENTLY DISPLAYED image
-    // This ensures we're using the enhanced version if it exists
-    const currentImageUrl = getCurrentDisplayedUrl();
+    // Always use the current base image (could be original or enhanced)
+    const currentUrl = baseImageUrls[currentIndex];
     console.log('Starting background removal process');
-    console.log('Getting current displayed URL for background removal:', currentImageUrl.substring(0, 100));
-    console.log('Current image state:');
-    console.log('- From imageUrls array:', imageUrls[currentIndex].substring(0, 100));
-    console.log('- From enhancedUrls record:', enhancedUrls[currentIndex] ? enhancedUrls[currentIndex].substring(0, 100) : 'none');
-    console.log('- From processedUrls record:', processedUrls[currentIndex] ? processedUrls[currentIndex].substring(0, 100) : 'none');
+    console.log('Using base image for background removal:', currentUrl.substring(0, 100));
+    console.log('Is this image enhanced?', isImageEnhanced[currentIndex] ? 'Yes' : 'No');
     
-    if (!currentImageUrl) {
+    if (!currentUrl) {
       toast.error('No design to process');
       return;
     }
     
-    // If we don't have the original image stored yet, store it now
-    if (!originalUrls[currentIndex]) {
-      console.log('Storing original image for the first time');
-      setOriginalUrls(prev => ({
-        ...prev,
-        [currentIndex]: currentImageUrl
-      }));
-    }
-    
     setIsProcessing(true);
-    setSelectedModel(modelId);
+    setActiveModel(modelId);
     
     try {
-      // If reverting to original, just clear the processed URL for this index
+      // If reverting to original, reset to the original image
       if (modelId === 'original') {
-        setProcessedUrls(prev => {
-          const newProcessed = {...prev};
-          delete newProcessed[currentIndex];
-          return newProcessed;
-        });
+        // Get the original image URL
+        const originalUrl = originalImageUrls[currentIndex];
+        
+        // Update the base image URL
+        const newBaseImageUrls = [...baseImageUrls];
+        newBaseImageUrls[currentIndex] = originalUrl;
+        setBaseImageUrls(newBaseImageUrls);
+        
+        // Reset the background removed flag
+        const newIsBackgroundRemoved = {...isBackgroundRemoved};
+        delete newIsBackgroundRemoved[currentIndex];
+        setIsBackgroundRemoved(newIsBackgroundRemoved);
         
         toast.success('Reverted to original image');
         setIsProcessing(false);
-        setLastUsedModel(null);
+        setActiveModel(null);
         return;
       }
       
-      // Use the current image as source
-      // This will be the imageUrls[currentIndex] which should now contain the enhanced version if it was enhanced
-      console.log('Using image for background removal:', currentImageUrl.substring(0, 100));
-      console.log('This should match the imageUrls array value:', 
-        currentImageUrl.substring(0, 50) === imageUrls[currentIndex].substring(0, 50) ? 'Yes, matches!' : 'No, different!');
-      
-      // Make the API call with the current image
-      const processedImageUrl = await removeBackground(currentImageUrl, modelId);
+      // Make the API call with the current base image
+      console.log('Sending image to background removal API:', currentUrl.substring(0, 100));
+      const processedImageUrl = await removeBackground(currentUrl, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -257,13 +250,18 @@ export const PromptToDesignTab = () => {
         }, 3000);
       });
       
-      // Save the processed URL for this index
-      setProcessedUrls(prev => ({
-        ...prev,
-        [currentIndex]: processedImageUrl
-      }));
+      // Update the base image URL with the background-removed version
+      const newBaseImageUrls = [...baseImageUrls];
+      newBaseImageUrls[currentIndex] = processedImageUrl;
+      setBaseImageUrls(newBaseImageUrls);
       
-      // Show success message with model info and store the last used model
+      // Mark this image as having background removed
+      setIsBackgroundRemoved({
+        ...isBackgroundRemoved,
+        [currentIndex]: true
+      });
+      
+      // Show success message with model info
       let modelName = "Standard";
       if (modelId) {
         // Safely access the model by checking if the key exists
@@ -276,7 +274,6 @@ export const PromptToDesignTab = () => {
         }
       }
       
-      setLastUsedModel(modelId);
       toast.success(`Background removed successfully!`, {
         duration: 4000,
         description: `Using ${modelName} model`
@@ -291,12 +288,12 @@ export const PromptToDesignTab = () => {
 
   // Change the currently displayed design
   const navigateDesign = (direction: 'prev' | 'next') => {
-    if (imageUrls.length <= 1) return;
+    if (baseImageUrls.length <= 1) return;
     
     if (direction === 'prev') {
-      setCurrentIndex(prev => (prev === 0 ? imageUrls.length - 1 : prev - 1));
+      setCurrentIndex(prev => (prev === 0 ? baseImageUrls.length - 1 : prev - 1));
     } else {
-      setCurrentIndex(prev => (prev === imageUrls.length - 1 ? 0 : prev + 1));
+      setCurrentIndex(prev => (prev === baseImageUrls.length - 1 ? 0 : prev + 1));
     }
   };
 
@@ -311,30 +308,18 @@ export const PromptToDesignTab = () => {
     console.log('Selected model:', modelKey);
     // Use type assertion to safely access the model
     const model = backgroundRemovalModels[modelKey as keyof typeof backgroundRemovalModels];
-    setSelectedModel(model.id);
+    setActiveModel(model.id);
     handleRemoveBackground(model.id);
   };
 
   // Check if the current design has background removed
-  const isCurrentDesignProcessed = processedUrls[currentIndex] !== undefined;
+  const isCurrentDesignProcessed = isBackgroundRemoved[currentIndex];
 
   // Handle enhancing the image
   const handleEnhanceImage = async () => {
-    // Determine current image URL - prioritize what's visible to the user
-    let currentUrl;
-    if (processedUrls[currentIndex]) {
-      // If background has been removed, use that version
-      currentUrl = processedUrls[currentIndex];
-      console.log('Using processed image for enhancement:', currentUrl.substring(0, 100));
-    } else if (enhancedUrls[currentIndex]) {
-      // If already enhanced (but no bg removal), use that version
-      currentUrl = enhancedUrls[currentIndex];
-      console.log('Using already enhanced image for re-enhancement:', currentUrl.substring(0, 100));
-    } else {
-      // Otherwise use the original
-      currentUrl = imageUrls[currentIndex];
-      console.log('Using original image for enhancement:', currentUrl.substring(0, 100));
-    }
+    // Always use the current base image as the source
+    const currentUrl = baseImageUrls[currentIndex];
+    console.log('Enhancing current base image:', currentUrl.substring(0, 100));
     
     if (!currentUrl) {
       toast.error('No design to enhance');
@@ -348,40 +333,18 @@ export const PromptToDesignTab = () => {
       const enhancedImageUrl = await enhanceImage(currentUrl);
       console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
-      // COMPLETELY REPLACE the original image with the enhanced version
-      // by updating all relevant state variables
+      // Update the base image with the enhanced version
+      const newBaseImageUrls = [...baseImageUrls];
+      newBaseImageUrls[currentIndex] = enhancedImageUrl;
+      setBaseImageUrls(newBaseImageUrls);
       
-      // 1. Update the main imageUrls array - this is the most important change
-      const newImageUrls = [...imageUrls];
-      newImageUrls[currentIndex] = enhancedImageUrl;
-      setImageUrls(newImageUrls);
-      console.log('Replaced original image with enhanced image in imageUrls array');
+      // Mark this image as enhanced
+      setIsImageEnhanced({
+        ...isImageEnhanced,
+        [currentIndex]: true
+      });
       
-      // 2. Update the enhancedUrls record
-      setEnhancedUrls(prev => ({
-        ...prev,
-        [currentIndex]: enhancedImageUrl
-      }));
-      
-      // 3. Update processedUrls if there was a background-removed version
-      if (processedUrls[currentIndex]) {
-        // If there was already a background removed version, update that too
-        setProcessedUrls(prev => ({
-          ...prev,
-          [currentIndex]: enhancedImageUrl
-        }));
-        console.log('Updated processed URLs record with enhanced image');
-      }
-      
-      // 4. Update the originalUrls record for reference
-      setOriginalUrls(prev => ({
-        ...prev,
-        [currentIndex]: enhancedImageUrl
-      }));
-      console.log('Completely replaced all image references with enhanced version');
-      
-      // Show success message
-      toast.success('Image enhanced successfully! Enhanced image has replaced the original.');
+      toast.success('Image enhanced successfully! Enhanced image is now your base image.');
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
@@ -393,21 +356,21 @@ export const PromptToDesignTab = () => {
   // Get the current displayed image URL
   const getCurrentDisplayedUrl = () => {
     // Priority: 1. Processed (bg removed), 2. Enhanced, 3. Original
-    if (processedUrls[currentIndex]) {
-      return processedUrls[currentIndex];
-    } else if (enhancedUrls[currentIndex]) {
-      return enhancedUrls[currentIndex];
+    if (isBackgroundRemoved[currentIndex]) {
+      return baseImageUrls[currentIndex];
+    } else if (isImageEnhanced[currentIndex]) {
+      return baseImageUrls[currentIndex];
     } else {
-      return imageUrls[currentIndex];
+      return originalImageUrls[currentIndex];
     }
   };
 
   // Check if the current design has been enhanced or had background removed
-  const isCurrentDesignEnhanced = enhancedUrls[currentIndex] !== undefined || processedUrls[currentIndex] !== undefined;
+  const isCurrentDesignEnhanced = isImageEnhanced[currentIndex];
 
   console.log('Current prompt value:', prompt);
-  console.log('Current image URLs:', imageUrls);
-  console.log('Processed URLs:', processedUrls);
+  console.log('Current image URLs:', baseImageUrls);
+  console.log('Processed URLs:', isBackgroundRemoved);
 
   return (
     <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
@@ -535,20 +498,20 @@ export const PromptToDesignTab = () => {
             Preview & Download
           </h3>
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {imageUrls.length > 0 ? (
+            {baseImageUrls.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
-                  src={getCurrentDisplayedUrl()} 
+                  src={baseImageUrls[currentIndex]} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                   style={{ 
-                    backgroundColor: isCurrentDesignProcessed ? 'white' : 'transparent',
-                    borderRadius: isCurrentDesignProcessed ? '0.5rem' : '0'
+                    backgroundColor: isBackgroundRemoved[currentIndex] ? 'white' : 'transparent',
+                    borderRadius: isBackgroundRemoved[currentIndex] ? '0.5rem' : '0'
                   }}
                 />
                 
                 {/* Navigation buttons for multiple designs */}
-                {imageUrls.length > 1 && (
+                {baseImageUrls.length > 1 && (
                   <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-2">
                     <Button
                       variant="outline"
@@ -559,7 +522,7 @@ export const PromptToDesignTab = () => {
                       &lt;
                     </Button>
                     <span className="bg-white/80 dark:bg-gray-800/80 px-3 py-1 rounded-full text-xs">
-                      {currentIndex + 1} / {imageUrls.length}
+                      {currentIndex + 1} / {baseImageUrls.length}
                     </span>
                     <Button
                       variant="outline"
@@ -599,7 +562,7 @@ export const PromptToDesignTab = () => {
             )}
           </div>
           
-          {imageUrls.length > 0 && (
+          {baseImageUrls.length > 0 && (
             <div className="space-y-4 relative z-[105]">
               {/* First Row: Action Buttons */}
               <div className="grid grid-cols-2 gap-3">
@@ -618,11 +581,11 @@ export const PromptToDesignTab = () => {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className={`border-primary/20 hover:bg-primary/5 relative z-[106] w-full flex justify-between ${isCurrentDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
+                        className={`border-primary/20 hover:bg-primary/5 relative z-[106] w-full flex justify-between ${isBackgroundRemoved[currentIndex] ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
                       >
                         <div className="flex items-center">
                           <Image className="mr-2 h-4 w-4" />
-                          <span>{isCurrentDesignProcessed ? 'Try Another Model' : 'Remove Background'}</span>
+                          <span>{isBackgroundRemoved[currentIndex] ? 'Try Another Model' : 'Remove Background'}</span>
                         </div>
                         <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
@@ -634,7 +597,7 @@ export const PromptToDesignTab = () => {
                     >
                       <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1 bg-gray-50 dark:bg-gray-900">Background Removal Models</div>
                       
-                      {isCurrentDesignProcessed && (
+                      {isBackgroundRemoved[currentIndex] && (
                         <DropdownMenuItem 
                           onClick={() => handleRemoveBackground('original')}
                           className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-3 py-2 bg-white dark:bg-gray-950"
@@ -661,12 +624,12 @@ export const PromptToDesignTab = () => {
                               key={key}
                               onClick={() => selectModel(key)}
                               className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-2 ${
-                                lastUsedModel === model.id ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''
+                                activeModel === model.id ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''
                               } ${isRecommended ? 'font-medium' : ''}`}
                             >
                               <Wand2 className={`mr-2 h-4 w-4 ${isRecommended ? 'text-yellow-500' : ''}`} />
                               <span>{model.name}</span>
-                              {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
+                              {activeModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
                               {isRecommended && <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded font-medium">★ Recommended</span>}
                             </DropdownMenuItem>
                           );
@@ -678,8 +641,8 @@ export const PromptToDesignTab = () => {
                 
                 {/* Enhance Image Button */}
                 <Button
-                  variant={isCurrentDesignEnhanced ? "outline" : "default"}
-                  className={`${isCurrentDesignEnhanced ? 'bg-green-50 text-green-700 border-primary/20' : 'bg-blue-600 hover:bg-blue-700'} relative z-[106]`}
+                  variant={isImageEnhanced[currentIndex] ? "outline" : "default"}
+                  className={`${isImageEnhanced[currentIndex] ? 'bg-green-50 text-green-700 border-primary/20' : 'bg-blue-600 hover:bg-blue-700'} relative z-[106]`}
                   onClick={handleEnhanceImage}
                   disabled={isEnhancing || isProcessing}
                 >
@@ -691,7 +654,7 @@ export const PromptToDesignTab = () => {
                   ) : (
                     <>
                       <Zap className="mr-2 h-4 w-4" />
-                      {isCurrentDesignEnhanced ? 'Re-Enhance' : 'Enhance Image'}
+                      {isImageEnhanced[currentIndex] ? 'Re-Enhance' : 'Enhance Image'}
                     </>
                   )}
                 </Button>
@@ -722,10 +685,10 @@ export const PromptToDesignTab = () => {
                   <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                   <span>
                     You can <strong>Enhance Image</strong> before or after <strong>Remove Background</strong> - for best results, we recommend enhancing first, then removing background.
-                    {(isCurrentDesignEnhanced || isCurrentDesignProcessed) && 
+                    {(isImageEnhanced[currentIndex] || isBackgroundRemoved[currentIndex]) && 
                       " Your design has been " + 
-                      (isCurrentDesignProcessed && isCurrentDesignEnhanced ? "enhanced with background removed" : 
-                       isCurrentDesignProcessed ? "processed with background removal" : 
+                      (isBackgroundRemoved[currentIndex] && isImageEnhanced[currentIndex] ? "enhanced with background removed" : 
+                       isBackgroundRemoved[currentIndex] ? "processed with background removal" : 
                        "enhanced")}
                   </span>
                 </p>
