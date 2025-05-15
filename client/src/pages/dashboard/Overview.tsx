@@ -18,7 +18,8 @@ import {
   BarChart,
   TrendingUp,
   Check,
-  Clock
+  Clock,
+  Shirt
 } from "lucide-react";
 import { PageLayout } from '@/components/layout/PageLayout';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,14 @@ import { useState } from 'react';
 import { ChevronRight, ChevronDown, Plus, Download, Zap, LineChart } from 'lucide-react';
 
 const quickActions = [
+  {
+    title: 'T-shirt Designer',
+    description: 'Create professional t-shirt designs with AI',
+    icon: Shirt,
+    color: 'from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
+    iconColor: 'text-blue-500',
+    href: '/dashboard/t-shirts'
+  },
   {
     title: 'Coloring Page Generator',
     description: 'Design unique coloring pages with AI',

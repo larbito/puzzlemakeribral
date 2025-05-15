@@ -1,5 +1,5 @@
 import { toast } from "sonner";
-// import type { DesignHistoryItem } from "@/services/designHistory";
+import type { DesignHistoryItem } from "@/services/designHistory";
 
 // Configuration
 export const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
@@ -499,7 +499,7 @@ export async function downloadAllImages(images: { url: string, prompt: string }[
 }
 
 // Re-export history-related functions
-// export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites, saveToProject } from "@/services/designHistory";
+export { getDesignHistory, saveToHistory, deleteFromHistory, saveToFavorites } from "@/services/designHistory";
 
 export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring' = 'tshirt'): Promise<string> {
   try {
