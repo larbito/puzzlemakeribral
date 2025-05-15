@@ -100,7 +100,7 @@ exports.enhanceImage = async (req, res) => {
       }
       
       // Get optional parameters with defaults
-      const scale = parseInt(req.body.scale) || 6; // Default to 6x upscaling for optimal quality/performance balance
+      const scale = parseInt(req.body.scale) || 4; // Default to 4x upscaling for better balance between quality and performance
       console.log(`Enhancing image with scale factor: ${scale}x`);
       
       // Create Replicate instance

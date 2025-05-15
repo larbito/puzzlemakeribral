@@ -1774,7 +1774,7 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
       formData.append('image', imageBlob, 'image.png');
       
       // Add optional parameters
-      formData.append('scale', '6'); // Default to 6x upscaling for optimal quality/performance balance
+      formData.append('scale', '4'); // Default to 4x upscaling for better balance between quality and performance
       
       console.log("Submitting image to enhancement service");
       

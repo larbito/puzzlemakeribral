@@ -142,8 +142,10 @@ export const PromptToDesignTab = () => {
   
   // Handle downloading the image
   const handleDownload = async () => {
-    const currentUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
-    console.log('Download button clicked for image:', currentUrl);
+    // Get the most current version of the image - use the same priority logic as display
+    const currentUrl = getCurrentDisplayedUrl();
+    console.log('Download button clicked for image:', currentUrl.substring(0, 100));
+    
     if (!currentUrl) {
       toast.error('No design to download');
       return;
@@ -179,6 +181,10 @@ export const PromptToDesignTab = () => {
     // Get the current image URL - use the CURRENTLY DISPLAYED image
     // This ensures we're using the enhanced version if it exists
     const currentImageUrl = getCurrentDisplayedUrl();
+    console.log('Getting current displayed URL for background removal:', currentImageUrl.substring(0, 100));
+    console.log('Current image state - original:', imageUrls[currentIndex].substring(0, 100));
+    console.log('Current image state - enhanced:', enhancedUrls[currentIndex] ? enhancedUrls[currentIndex].substring(0, 100) : 'none');
+    console.log('Current image state - processed:', processedUrls[currentIndex] ? processedUrls[currentIndex].substring(0, 100) : 'none');
     
     if (!currentImageUrl) {
       toast.error('No design to process');
@@ -314,12 +320,15 @@ export const PromptToDesignTab = () => {
     if (processedUrls[currentIndex]) {
       // If background has been removed, use that version
       currentUrl = processedUrls[currentIndex];
+      console.log('Using processed image for enhancement:', currentUrl.substring(0, 100));
     } else if (enhancedUrls[currentIndex]) {
       // If already enhanced (but no bg removal), use that version
       currentUrl = enhancedUrls[currentIndex];
+      console.log('Using already enhanced image for re-enhancement:', currentUrl.substring(0, 100));
     } else {
       // Otherwise use the original
       currentUrl = imageUrls[currentIndex];
+      console.log('Using original image for enhancement:', currentUrl.substring(0, 100));
     }
     
     if (!currentUrl) {
@@ -332,6 +341,14 @@ export const PromptToDesignTab = () => {
     try {
       // Call the enhancement service
       const enhancedImageUrl = await enhanceImage(currentUrl);
+      console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
+      
+      // ALWAYS update the base image with the enhanced version
+      // This ensures background removal will always use the enhanced version
+      const newImageUrls = [...imageUrls];
+      newImageUrls[currentIndex] = enhancedImageUrl;
+      setImageUrls(newImageUrls);
+      console.log('Updated base image URLs array with enhanced image');
       
       // Save the enhanced URL for this index
       if (processedUrls[currentIndex]) {
@@ -340,24 +357,22 @@ export const PromptToDesignTab = () => {
           ...prev,
           [currentIndex]: enhancedImageUrl
         }));
+        console.log('Updated processed URLs record with enhanced image');
       } else {
         // First store as enhanced
         setEnhancedUrls(prev => ({
           ...prev,
           [currentIndex]: enhancedImageUrl
         }));
-        
-        // Then replace the base image
-        const newImageUrls = [...imageUrls];
-        newImageUrls[currentIndex] = enhancedImageUrl;
-        setImageUrls(newImageUrls);
-        
-        // Also update the original URLs record so background removal works correctly
-        setOriginalUrls(prev => ({
-          ...prev,
-          [currentIndex]: enhancedImageUrl
-        }));
+        console.log('Added to enhanced URLs record');
       }
+      
+      // Also update the original URLs record so background removal works correctly
+      setOriginalUrls(prev => ({
+        ...prev,
+        [currentIndex]: enhancedImageUrl
+      }));
+      console.log('Updated original URLs record with enhanced image');
       
       // Show success message
       toast.success('Image enhanced successfully! Enhanced image is now your base image.');
