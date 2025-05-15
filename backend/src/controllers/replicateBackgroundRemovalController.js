@@ -43,6 +43,53 @@ async function processImageForML(imageBuffer) {
 }
 
 /**
+ * Get model-specific parameters for optimal results with each model
+ */
+function getModelParameters(modelId) {
+  // Default parameters that work for most models
+  const defaultParams = {
+    return_mask: false,
+    alpha_matting: false,
+    only_mask: false,
+    post_process_mask: false
+  };
+  
+  // Customize parameters based on specific model requirements
+  switch (modelId) {
+    case 'codeplugtech/background_remover':
+      return {
+        ...defaultParams,
+        // Fix for "tensor a (4) must match tensor b (3)" error
+        // This model has issues with alpha channels
+        alpha_channel: false
+      };
+    case 'smoretalk/rembg-enhance':
+      return {
+        ...defaultParams,
+        // This model works better with these settings
+        alpha_matting: true,
+        alpha_matting_foreground_threshold: 240,
+        alpha_matting_background_threshold: 10,
+        alpha_matting_erode_size: 10
+      };
+    case 'alexgenovese/remove-background-bria-2':
+      return {
+        // This model needs different parameters
+        // to avoid timeouts and tensor dimension issues
+        return_mask: false,
+        only_mask: false
+      };
+    case 'lucataco/remove-bg':
+      return {
+        // Simplified parameters for this model
+        alpha_matting: false
+      };
+    default:
+      return defaultParams;
+  }
+}
+
+/**
  * Remove background from image using Replicate API
  */
 exports.removeBackground = async (req, res) => {
@@ -82,6 +129,10 @@ exports.removeBackground = async (req, res) => {
       // Create Replicate instance
       const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
       
+      // Get model-specific parameters
+      const modelParams = getModelParameters(modelId);
+      console.log(`Using model-specific parameters:`, modelParams);
+      
       // Different approach for different models
       let prediction;
       
@@ -94,11 +145,8 @@ exports.removeBackground = async (req, res) => {
           version: modelVersion,
           input: { 
             image: dataUri,
-            // Specific parameters to help with tensor dimension issues
-            return_mask: false,
-            alpha_matting: false, // Disable alpha matting which can cause tensor issues
-            only_mask: false,
-            post_process_mask: false
+            // Use model-specific parameters
+            ...modelParams
           }
         });
         
@@ -106,7 +154,7 @@ exports.removeBackground = async (req, res) => {
       } catch (base64Error) {
         console.error('Base64 method failed, error:', base64Error);
         
-        // If that fails, we'll try with direct URL upload
+        // If that fails, we'll try with direct URL upload as fallback
         // Save the uploaded image to a temporary file
         const tempImagePath = path.join(__dirname, '../../temp-upload.png');
         fs.writeFileSync(tempImagePath, processedImageBuffer);
@@ -120,11 +168,8 @@ exports.removeBackground = async (req, res) => {
           version: modelVersion,
           input: { 
             image: imageUrl,
-            // Specific parameters to help with tensor dimension issues
-            return_mask: false,
-            alpha_matting: false, // Disable alpha matting which can cause tensor issues
-            only_mask: false,
-            post_process_mask: false
+            // Use model-specific parameters
+            ...modelParams
           }
         });
         

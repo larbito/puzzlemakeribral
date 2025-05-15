@@ -415,7 +415,7 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
 // Define available background removal models with friendly names
 export const backgroundRemovalModels = {
   "default": {
-    id: "codeplugtech/background_remover",
+    id: "851-labs/background-remover",
     name: "Standard Removal (Default)"
   },
   "men1scus/birefnet": {
@@ -425,10 +425,6 @@ export const backgroundRemovalModels = {
   "lucataco/remove-bg": {
     id: "lucataco/remove-bg",
     name: "Perfect Cutout"
-  },
-  "alexgenovese/remove-background-bria-2": {
-    id: "alexgenovese/remove-background-bria-2",
-    name: "Bria AI Precision"
   },
   "851-labs/background-remover": {
     id: "851-labs/background-remover",
@@ -442,11 +438,6 @@ export const backgroundRemovalModels = {
     id: "codeplugtech/background_remover", 
     name: "Clean Edges"
   },
-  // Temporarily disabled Fast Remove as it's not working
-  // "cjwbw/rmgb": {
-  //   id: "cjwbw/rmgb",
-  //   name: "Fast Remove"
-  // },
   "pollinations/modnet": {
     id: "pollinations/modnet",
     name: "Portrait Specialist"

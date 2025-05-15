@@ -815,7 +815,7 @@ export const BulkImageTab = () => {
                                       // Check if this is a recommended model
                                       const isRecommended = key === '851-labs/background-remover' || 
                                                         key === 'men1scus/birefnet' ||
-                                                        key === 'codeplugtech/background_remover';
+                                                        key === 'smoretalk/rembg-enhance';
                                       
                                       return (
                                         <DropdownMenuItem 
