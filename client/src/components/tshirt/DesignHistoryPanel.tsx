@@ -16,15 +16,15 @@ import {
   ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDesignHistory, deleteFromHistory, saveToFavorites } from '@/services/ideogramService';
+import { getDesignHistory, deleteFromHistory, saveToFavorites, downloadImage } from '@/services/ideogramService';
 import type { DesignHistoryItem } from '@/services/designHistory';
-import { downloadImage } from '@/services/ideogramService';
 
 export const DesignHistoryPanel = () => {
   // State management
   const [history, setHistory] = useState<DesignHistoryItem[]>([]);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [filter, setFilter] = useState<'all' | 'favorites'>('all');
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // Load history on mount
   useEffect(() => {
@@ -96,12 +96,21 @@ export const DesignHistoryPanel = () => {
   
   // Handle download
   const handleDownload = async (item: DesignHistoryItem, format = 'png') => {
+    console.log('Downloading design:', item.id);
+    setIsDownloading(true);
+    
     try {
-      await downloadImage(item.imageUrl, format, `tshirt-${item.id}`);
+      // Format filename using id for uniqueness
+      const filename = `tshirt-${item.id.substring(0, 8)}`;
+      console.log('Downloading with filename:', filename);
+      
+      await downloadImage(item.imageUrl, format, filename);
       toast.success(`Downloaded as ${format.toUpperCase()}`);
     } catch (error) {
       console.error('Error downloading design:', error);
       toast.error('Failed to download design');
+    } finally {
+      setIsDownloading(false);
     }
   };
   
@@ -117,7 +126,7 @@ export const DesignHistoryPanel = () => {
   const isHistoryEmpty = filteredHistory.length === 0;
 
   return (
-    <div className="border border-primary/10 rounded-lg bg-card overflow-hidden">
+    <div className="border border-primary/10 rounded-lg bg-card overflow-hidden relative z-[200]" style={{ pointerEvents: 'auto' }}>
       <div className="px-6 py-5 border-b border-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div className="flex items-center gap-2">
           <History className="h-5 w-5 text-primary" />
@@ -226,7 +235,7 @@ export const DesignHistoryPanel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20"
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
                         onClick={() => handleToggleFavorite(item.id)}
                       >
                         <Heart 
@@ -236,15 +245,16 @@ export const DesignHistoryPanel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20"
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
                         onClick={() => handleDownload(item)}
+                        disabled={isDownloading}
                       >
                         <Download className="h-3 w-3 text-white" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20"
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
                         onClick={() => handleDelete(item.id)}
                       >
                         <Trash2 className="h-3 w-3 text-white" />
@@ -291,7 +301,7 @@ export const DesignHistoryPanel = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 relative z-[201]"
                     onClick={() => handleToggleFavorite(item.id)}
                   >
                     <Heart 
@@ -301,15 +311,16 @@ export const DesignHistoryPanel = () => {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 relative z-[201]"
                     onClick={() => handleDownload(item)}
+                    disabled={isDownloading}
                   >
                     <Download className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 relative z-[201]"
                     onClick={() => handleDelete(item.id)}
                   >
                     <Trash2 className="h-4 w-4" />
