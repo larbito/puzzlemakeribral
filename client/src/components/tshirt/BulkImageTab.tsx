@@ -14,10 +14,13 @@ import {
   Check,
   DownloadCloud,
   AlertTriangle,
-  Folder
+  Folder,
+  Zap,
+  InfoIcon,
+  Image
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadAllImages, imageToPrompt, saveToHistory, downloadImage } from '@/services/ideogramService';
+import { generateImage, downloadAllImages, imageToPrompt, saveToHistory, downloadImage, removeBackground, enhanceImage } from '@/services/ideogramService';
 import { Progress } from '@/components/ui/progress';
 
 // Define interface for bulk item
@@ -28,6 +31,8 @@ interface BulkItem {
   prompt: string;
   status: 'pending' | 'analyzing' | 'ready' | 'generating' | 'completed' | 'failed';
   designUrl?: string;
+  isBackgroundRemoved?: boolean;
+  isEnhanced?: boolean;
 }
 
 export const BulkImageTab = () => {
@@ -36,6 +41,8 @@ export const BulkImageTab = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [processingItemId, setProcessingItemId] = useState<string | null>(null);
+  const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -283,6 +290,72 @@ export const BulkImageTab = () => {
     }
   };
   
+  // Handle removing background for a single item
+  const handleRemoveBackground = async (itemId: string) => {
+    const item = bulkItems.find(item => item.id === itemId);
+    if (!item || !item.designUrl) {
+      toast.error('No design to process');
+      return;
+    }
+    
+    setProcessingItemId(itemId);
+    
+    try {
+      // Call the background removal service
+      const processedImageUrl = await removeBackground(item.designUrl);
+      
+      // Update item with processed design
+      setBulkItems(prev => prev.map(i => 
+        i.id === itemId ? { 
+          ...i, 
+          designUrl: processedImageUrl,
+          isBackgroundRemoved: true,
+          // If it was enhanced before, now it's just background removed
+          isEnhanced: false
+        } : i
+      ));
+      
+      toast.success('Background removed successfully!');
+    } catch (error) {
+      console.error(`Error removing background for item ${itemId}:`, error);
+      toast.error('Failed to remove background');
+    } finally {
+      setProcessingItemId(null);
+    }
+  };
+  
+  // Handle enhancing a single item
+  const handleEnhanceImage = async (itemId: string) => {
+    const item = bulkItems.find(item => item.id === itemId);
+    if (!item || !item.designUrl) {
+      toast.error('No design to enhance');
+      return;
+    }
+    
+    setEnhancingItemId(itemId);
+    
+    try {
+      // Call the enhancement service
+      const enhancedImageUrl = await enhanceImage(item.designUrl);
+      
+      // Update item with enhanced design
+      setBulkItems(prev => prev.map(i => 
+        i.id === itemId ? { 
+          ...i, 
+          designUrl: enhancedImageUrl,
+          isEnhanced: true
+        } : i
+      ));
+      
+      toast.success('Image enhanced successfully!');
+    } catch (error) {
+      console.error(`Error enhancing image for item ${itemId}:`, error);
+      toast.error('Failed to enhance image');
+    } finally {
+      setEnhancingItemId(null);
+    }
+  };
+  
   // Download all generated designs
   const handleDownloadAll = async () => {
     // Get all items with generated designs
@@ -465,6 +538,16 @@ export const BulkImageTab = () => {
                   </Button>
                 )}
               </div>
+              
+              {/* Best practices info */}
+              <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground mt-2">
+                <p className="flex items-start gap-1">
+                  <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <span>
+                    <strong>Image processing tip:</strong> For best results, we recommend <strong>removing the background first, then enhancing</strong>. This workflow maintains the highest quality in the final images.
+                  </span>
+                </p>
+              </div>
             </div>
             
             {/* Image items */}
@@ -565,6 +648,10 @@ export const BulkImageTab = () => {
                             src={item.designUrl} 
                             alt="Generated design" 
                             className="w-full h-full object-contain p-2"
+                            style={{ 
+                              backgroundColor: item.isBackgroundRemoved ? 'white' : 'transparent',
+                              borderRadius: item.isBackgroundRemoved ? '0.25rem' : '0'
+                            }}
                           />
                         ) : item.status === 'generating' ? (
                           <div className="text-center">
@@ -582,6 +669,73 @@ export const BulkImageTab = () => {
                                 : "Process image first"}
                             </p>
                           </div>
+                        )}
+                        
+                        {/* Processing indicators */}
+                        {processingItemId === item.id && (
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-1" />
+                              <p className="text-xs">Removing background...</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {enhancingItemId === item.id && (
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <div className="bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg">
+                              <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-1" />
+                              <p className="text-xs">Enhancing image...</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Status indicators */}
+                        {item.status === 'completed' && (
+                          <div className="absolute top-2 left-2 flex gap-1">
+                            {item.isBackgroundRemoved && (
+                              <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200 px-1 py-0 h-4">
+                                <Image className="h-2.5 w-2.5 mr-0.5" />
+                                BG Removed
+                              </Badge>
+                            )}
+                            {item.isEnhanced && (
+                              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 border-blue-200 px-1 py-0 h-4">
+                                <Zap className="h-2.5 w-2.5 mr-0.5" />
+                                Enhanced
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-1">
+                        {item.status === 'completed' && (
+                          <>
+                            {/* Background removal button */}
+                            <Button
+                              size="sm"
+                              variant={item.isBackgroundRemoved ? "outline" : "default"}
+                              disabled={processingItemId !== null || enhancingItemId !== null}
+                              className={`text-xs p-0 h-7 ${item.isBackgroundRemoved ? 'bg-green-50 text-green-700 border-green-200' : ''}`}
+                              onClick={() => handleRemoveBackground(item.id)}
+                            >
+                              <Image className="h-3 w-3 mr-1" />
+                              {item.isBackgroundRemoved ? 'BG Removed' : 'Remove BG'}
+                            </Button>
+                            
+                            {/* Enhance button */}
+                            <Button
+                              size="sm"
+                              variant={item.isEnhanced ? "outline" : "default"}
+                              disabled={processingItemId !== null || enhancingItemId !== null}
+                              className={`text-xs p-0 h-7 ${item.isEnhanced ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-600 hover:bg-blue-700'}`}
+                              onClick={() => handleEnhanceImage(item.id)}
+                            >
+                              <Zap className="h-3 w-3 mr-1" />
+                              {item.isEnhanced ? 'Enhanced' : 'Enhance'}
+                            </Button>
+                          </>
                         )}
                       </div>
                       
