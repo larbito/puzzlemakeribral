@@ -1774,7 +1774,7 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
       formData.append('image', imageBlob, 'image.png');
       
       // Add optional parameters
-      formData.append('scale', '8'); // Default to 8x upscaling
+      formData.append('scale', '8'); // Default to 8x upscaling for best quality results
       
       console.log("Submitting image to enhancement service");
       
@@ -1794,7 +1794,7 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
         mode: 'cors'
       });
       
-      console.log("Enhancement response received. Status code:", response.status);
+      console.log("Enhancement request initiated. Status code:", response.status);
       console.log("Response headers:", Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
@@ -1826,32 +1826,115 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
         throw new Error(`${errorMessage} (Status: ${response.status})`);
       }
       
-      console.log("Parsing response...");
-      const data = await response.json();
-      console.log("Response data:", data);
+      console.log("Parsing initial response...");
+      const initialData = await response.json();
+      console.log("Initial response data:", initialData);
       
-      if (!data.imageUrl) {
-        console.error("No enhanced image URL found in response data:", data);
-        throw new Error("No enhanced image URL found in response");
+      if (!initialData.predictionId) {
+        console.error("No prediction ID found in response:", initialData);
+        throw new Error("No prediction ID found in response");
       }
       
-      console.log("Image enhancement successful");
+      // Now we need to poll for completion
+      const predictionId = initialData.predictionId;
+      const statusEndpoint = initialData.statusEndpoint || `/api/check-enhancement-status/${predictionId}`;
+      
+      console.log(`Enhancement job initiated with prediction ID: ${predictionId}`);
+      console.log(`Will check status at: ${statusEndpoint}`);
+      
+      // Update toast to indicate we're now processing
+      toast.dismiss(toastId);
+      let processingToastId = toast.loading("Processing image enhancement...", {
+        duration: Infinity,
+        description: "This may take up to 60 seconds for high-quality results."
+      });
+      
+      // Poll for completion
+      let isComplete = false;
+      let enhancedImageUrl = "";
+      let attempts = 0;
+      const maxAttempts = 30;
+      let pollInterval = 2000; // Start with 2 seconds, will increase with backoff
+      
+      while (!isComplete && attempts < maxAttempts) {
+        attempts++;
+        
+        try {
+          console.log(`Checking enhancement status (attempt ${attempts}/${maxAttempts})...`);
+          const statusResponse = await fetch(`${API_URL}${statusEndpoint}`);
+          
+          if (!statusResponse.ok) {
+            console.error(`Status check failed:`, statusResponse.status);
+            if (attempts >= maxAttempts) {
+              throw new Error(`Failed to check enhancement status: ${statusResponse.status}`);
+            }
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            // Increase poll interval with backoff
+            pollInterval = Math.min(pollInterval * 1.5, 10000);
+            continue;
+          }
+          
+          const statusData = await statusResponse.json();
+          console.log(`Status check result:`, statusData);
+          
+          if (statusData.status === 'completed') {
+            isComplete = true;
+            enhancedImageUrl = statusData.imageUrl;
+            console.log(`Enhancement completed with URL: ${enhancedImageUrl}`);
+            break;
+          } else if (statusData.status === 'failed') {
+            throw new Error(`Enhancement failed: ${statusData.error || 'Unknown error'}`);
+          }
+          
+          // If still processing, wait before checking again
+          console.log(`Still processing (${statusData.status}), waiting ${pollInterval}ms before next check...`);
+          // Update toast with progress if available
+          if (statusData.progress) {
+            toast.dismiss(processingToastId);
+            const progress = Math.round(statusData.progress * 100);
+            processingToastId = toast.loading(`Enhancing image: ${progress}% complete`, {
+              duration: Infinity,
+              description: "Please wait while we enhance your image."
+            });
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          // Increase poll interval with backoff
+          pollInterval = Math.min(pollInterval * 1.5, 10000);
+        } catch (pollError) {
+          console.error(`Error polling for status:`, pollError);
+          if (attempts >= maxAttempts) {
+            throw pollError;
+          }
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          // Increase poll interval with backoff
+          pollInterval = Math.min(pollInterval * 1.5, 10000);
+        }
+      }
+      
+      if (!isComplete || !enhancedImageUrl) {
+        toast.dismiss(processingToastId);
+        toast.error("Enhancement timed out. Please try again with a smaller image.");
+        throw new Error("Enhancement timed out after maximum attempts");
+      }
       
       // Dismiss the toast and show success
-      toast.dismiss(toastId);
+      toast.dismiss(processingToastId);
       toast.success("Image enhanced successfully!", {
         duration: 4000,
         description: "Image quality has been significantly improved."
       });
       
       console.log("========== IMAGE ENHANCEMENT COMPLETE ==========");
-      return data.imageUrl;
+      return enhancedImageUrl;
     } catch (fetchError: any) {
-      // Clean up the timeout if there was an error
-      console.error("Error in image enhancement process:", fetchError);
-      toast.dismiss(toastId);
+      // Clean up any toast if there was an error
+      toast.dismiss();
       
-      // If we haven't already shown an error toast
+      // Show an error toast if one hasn't been shown already
       if (fetchError instanceof Error && 
           !fetchError.message.includes("too large") && 
           !fetchError.message.includes("timed out")) {

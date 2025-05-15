@@ -35,6 +35,10 @@ router.post('/vectorize/remove-background', upload.single('image'), replicateBac
 router.post('/enhance-image', upload.single('image'), imageEnhancementController.enhanceImage);
 router.post('/vectorize/enhance-image', upload.single('image'), imageEnhancementController.enhanceImage);
 
+// Image enhancement status check endpoint
+router.get('/check-enhancement-status/:predictionId', imageEnhancementController.checkEnhancementStatus);
+router.get('/vectorize/check-enhancement-status/:predictionId', imageEnhancementController.checkEnhancementStatus);
+
 // SVG vectorization endpoint (placeholder for future implementation)
 router.post('/vectorize', (req, res) => {
   return res.status(501).json({
