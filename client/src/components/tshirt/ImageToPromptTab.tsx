@@ -16,11 +16,18 @@ import {
   Code,
   Image,
   Zap,
-  InfoIcon
+  InfoIcon,
+  ChevronDown
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage } from '@/services/ideogramService';
+import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels } from '@/services/ideogramService';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const ImageToPromptTab = () => {
   // State management
@@ -35,6 +42,7 @@ export const ImageToPromptTab = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [processedDesign, setProcessedDesign] = useState<string | null>(null);
   const [enhancedDesign, setEnhancedDesign] = useState<string | null>(null);
+  const [activeModel, setActiveModel] = useState<string | null>(null);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +176,7 @@ export const ImageToPromptTab = () => {
   };
 
   // Handle removing background
-  const handleRemoveBackground = async () => {
+  const handleRemoveBackground = async (modelId: string | null = null) => {
     // Always use the best available image
     const imageToProcess = enhancedDesign || generatedDesign;
     
@@ -178,10 +186,21 @@ export const ImageToPromptTab = () => {
     }
     
     setIsProcessing(true);
+    setActiveModel(modelId);
     
     try {
+      // If reverting to original, reset to the original image
+      if (modelId === 'original') {
+        setProcessedDesign(null);
+        // Keep enhanced status if it was enhanced
+        toast.success('Restored background');
+        setIsProcessing(false);
+        setActiveModel(null);
+        return;
+      }
+      
       // Call the background removal service
-      const processedImageUrl = await removeBackground(imageToProcess);
+      const processedImageUrl = await removeBackground(imageToProcess, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -221,15 +240,38 @@ export const ImageToPromptTab = () => {
         setEnhancedDesign(null);
       }
       
+      // Show success message with model info
+      let modelName = "Standard";
+      if (modelId) {
+        // Safely access the model by checking if the key exists
+        const modelKeys = Object.keys(backgroundRemovalModels);
+        for (const key of modelKeys) {
+          if (backgroundRemovalModels[key as keyof typeof backgroundRemovalModels].id === modelId) {
+            modelName = backgroundRemovalModels[key as keyof typeof backgroundRemovalModels].name;
+            break;
+          }
+        }
+      }
+      
       toast.success('Background removed successfully!', {
         duration: 4000,
-        description: 'Your design now has a transparent background'
+        description: `Using ${modelName} model`
       });
     } catch (error) {
       console.error('Error removing background:', error);
       toast.error('Failed to remove background');
     } finally {
       setIsProcessing(false);
+    }
+  };
+  
+  // Select a background removal model
+  const selectModel = (modelKey: string) => {
+    console.log('Selected model:', modelKey);
+    // Use type assertion to safely access the model
+    const model = backgroundRemovalModels[modelKey as keyof typeof backgroundRemovalModels];
+    if (model && model.id) {
+      handleRemoveBackground(model.id);
     }
   };
   
@@ -482,25 +524,78 @@ export const ImageToPromptTab = () => {
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                {/* Background Removal Button */}
-                <Button 
-                  variant={isDesignProcessed ? "outline" : "default"}
-                  className={`${isDesignProcessed ? 'bg-green-50 text-green-700 border-green-200' : ''}`}
-                  onClick={handleRemoveBackground}
-                  disabled={isProcessing || isEnhancing || !generatedDesign}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Removing Background...
-                    </>
-                  ) : (
-                    <>
-                      <Image className="mr-2 h-4 w-4" />
-                      {isDesignProcessed ? "Re-Remove Background" : "Remove Background"}
-                    </>
-                  )}
-                </Button>
+                {/* Background Removal Button/Dropdown */}
+                {isProcessing ? (
+                  <Button 
+                    variant="outline"
+                    className="border-primary/20"
+                    disabled={true}
+                  >
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Removing Background...
+                  </Button>
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={`border-primary/20 hover:bg-primary/5 w-full flex justify-between ${isDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
+                      >
+                        <div className="flex items-center">
+                          <Image className="mr-2 h-4 w-4" />
+                          <span>{isDesignProcessed ? 'Try Another Model' : 'Remove Background'}</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-60 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 shadow-xl rounded-md overflow-hidden"
+                      style={{ backdropFilter: 'blur(16px)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}
+                    >
+                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1 bg-gray-50 dark:bg-gray-900">Background Removal Models</div>
+                      
+                      {isDesignProcessed && (
+                        <DropdownMenuItem 
+                          onClick={() => handleRemoveBackground('original')}
+                          className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-3 py-2 bg-white dark:bg-gray-950"
+                        >
+                          <Image className="mr-2 h-4 w-4" />
+                          <span>Restore Background</span>
+                        </DropdownMenuItem>
+                      )}
+                      
+                      <div className="py-1.5 px-3 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2 border-b border-blue-100 dark:border-blue-900">
+                        <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models.</span>
+                      </div>
+                      
+                      <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">
+                        {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
+                          // Check if this is a recommended model
+                          const isRecommended = key === '851-labs/background-remover' || 
+                                             key === 'men1scus/birefnet' ||
+                                             key === 'codeplugtech/background_remover';
+                          
+                          return (
+                            <DropdownMenuItem 
+                              key={key}
+                              onClick={() => selectModel(key)}
+                              className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-2 ${
+                                activeModel === model.id ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''
+                              } ${isRecommended ? 'font-medium' : ''}`}
+                            >
+                              <Wand2 className={`mr-2 h-4 w-4 ${isRecommended ? 'text-yellow-500' : ''}`} />
+                              <span>{model.name}</span>
+                              {activeModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
+                              {isRecommended && <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded font-medium">★ Recommended</span>}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
                 
                 {/* Enhance Button */}
                 <Button

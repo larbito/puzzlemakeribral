@@ -720,7 +720,7 @@ export const PromptToDesignTab = () => {
                 <p className="flex items-start gap-1">
                   <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                   <span>
-                    <strong>All operations</strong> use the current state of your image. For best results, enhance first, then remove background.
+                    <strong>All operations</strong> use the current state of your image. For best results, we recommend <strong>removing the background first, then enhancing</strong>. This workflow maintains the highest quality in the final image.
                     {(isCurrentImageEnhanced || isCurrentImageProcessed) && 
                       " Your design has been " + 
                       (isCurrentImageProcessed && isCurrentImageEnhanced ? "enhanced with background removed" : 
