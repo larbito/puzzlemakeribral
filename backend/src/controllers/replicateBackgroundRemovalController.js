@@ -6,8 +6,8 @@ const axios = require('axios');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Model info
-const BACKGROUND_REMOVAL_MODEL = "replicate/rembg:99375fd7b66f8a9fd65dad75a79d8889f4157370b798a5d5a98e6ed41e302664";
+// Model info - updated to a current version
+const BACKGROUND_REMOVAL_MODEL = "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003";
 
 /**
  * Remove background from image using Replicate API
