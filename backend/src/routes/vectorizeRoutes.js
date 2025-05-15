@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const replicateBackgroundRemovalController = require('../controllers/replicateBackgroundRemovalController');
+const imageEnhancementController = require('../controllers/imageEnhancementController');
 
 // Configure multer for memory storage (avoid writing to disk)
 const storage = multer.memoryStorage();
@@ -29,6 +30,9 @@ router.get('/background-removal-models', replicateBackgroundRemovalController.ge
 // Background removal endpoints (support both paths for backward compatibility)
 router.post('/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 router.post('/vectorize/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
+
+// Image enhancement endpoint
+router.post('/enhance-image', upload.single('image'), imageEnhancementController.enhanceImage);
 
 // SVG vectorization endpoint (placeholder for future implementation)
 router.post('/vectorize', (req, res) => {

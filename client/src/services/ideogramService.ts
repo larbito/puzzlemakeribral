@@ -1714,4 +1714,155 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
   console.log("SVG Vectorization feature not implemented yet");
   toast.error("SVG Vectorization feature not implemented yet");
   throw new Error("SVG Vectorization feature not implemented yet");
+}
+
+/**
+ * Enhance image quality using Real-ESRGAN upscaler
+ * @param imageUrl URL of the image to enhance
+ * @returns URL to the enhanced image
+ */
+export async function enhanceImage(imageUrl: string): Promise<string> {
+  try {
+    console.log("========== IMAGE ENHANCEMENT DEBUG ==========");
+    console.log("Starting image enhancement for:", imageUrl.substring(0, 100) + "...");
+    console.log("Current API_URL:", API_URL);
+    
+    // Create a toast to indicate processing is in progress
+    const toastId = toast.loading("Enhancing image quality...");
+    
+    try {
+      let imageBlob: Blob;
+      
+      // Resize the image for faster processing if needed
+      try {
+        console.log("Preparing image for enhancement...");
+        // For enhancement, we want to keep a larger size for better results
+        imageBlob = await resizeImageForVectorization(imageUrl, 1200); 
+        console.log(`Image prepared for enhancement, size: ${Math.round(imageBlob.size / 1024)} KB`);
+      } catch (resizeError) {
+        console.error("Error preparing image:", resizeError);
+        
+        // Fallback to direct fetch if resizing fails
+        console.log("Falling back to direct image fetch...");
+        if (imageUrl.startsWith('data:')) {
+          // Convert data URL to blob
+          const response = await fetch(imageUrl);
+          imageBlob = await response.blob();
+        } else {
+          // For regular URLs, proxy through our backend to avoid CORS issues
+          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
+          
+          imageBlob = await response.blob();
+        }
+      }
+      
+      // Check if image is too large (> 10MB) for enhancement
+      const MAX_SIZE = 10 * 1024 * 1024;
+      if (imageBlob.size > MAX_SIZE) {
+        toast.dismiss(toastId);
+        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
+        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
+      }
+      
+      // Now send the image to our backend enhancement endpoint
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'image.png');
+      
+      // Add optional parameters
+      formData.append('scale', '8'); // Default to 8x upscaling
+      
+      console.log("Submitting image to enhancement service");
+      
+      // Use the enhancement endpoint
+      const enhancementEndpoint = `${API_URL}/api/enhance-image`;
+      
+      console.log("Enhancement endpoint URL:", enhancementEndpoint);
+      console.log("Form data contents:");
+      for (const pair of formData.entries()) {
+        console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `File (${pair[1].size} bytes)` : pair[1]}`);
+      }
+      
+      console.log("Making fetch request to enhancement endpoint...");
+      const response = await fetch(enhancementEndpoint, {
+        method: 'POST',
+        body: formData,
+        mode: 'cors'
+      });
+      
+      console.log("Enhancement response received. Status code:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Enhancement API error: ${response.status}`, errorText);
+        
+        let errorMessage = "Failed to enhance image";
+        try {
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error("Parsed error data:", errorData);
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) {
+            errorMessage = errorText;
+            console.error("Raw error text:", errorText);
+          }
+        }
+        
+        if (response.status === 413) {
+          errorMessage = "Image is too large. Please try a smaller image.";
+        } else if (response.status === 504 || response.status === 502) {
+          errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
+        }
+        
+        toast.dismiss(toastId);
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
+      }
+      
+      console.log("Parsing response...");
+      const data = await response.json();
+      console.log("Response data:", data);
+      
+      if (!data.imageUrl) {
+        console.error("No enhanced image URL found in response data:", data);
+        throw new Error("No enhanced image URL found in response");
+      }
+      
+      console.log("Image enhancement successful");
+      
+      // Dismiss the toast and show success
+      toast.dismiss(toastId);
+      toast.success("Image enhanced successfully!", {
+        duration: 4000,
+        description: "Image quality has been significantly improved."
+      });
+      
+      console.log("========== IMAGE ENHANCEMENT COMPLETE ==========");
+      return data.imageUrl;
+    } catch (fetchError: any) {
+      // Clean up the timeout if there was an error
+      console.error("Error in image enhancement process:", fetchError);
+      toast.dismiss(toastId);
+      
+      // If we haven't already shown an error toast
+      if (fetchError instanceof Error && 
+          !fetchError.message.includes("too large") && 
+          !fetchError.message.includes("timed out")) {
+        toast.error(`Failed to enhance image: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+      }
+      
+      console.log("========== IMAGE ENHANCEMENT FAILED ==========");
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error("Error in enhanceImage:", error);
+    throw error;
+  }
 } 
