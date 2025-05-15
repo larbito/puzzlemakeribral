@@ -6,8 +6,8 @@ const path = require('path');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Background removal model
-const BACKGROUND_REMOVAL_MODEL = "ilkerc/rembg:0165a68e45a525a527d7edc2de4d161a0fd11a6729904ebd1fe0d317b6d428d2";
+// Background removal model - updated to use a current working model
+const BACKGROUND_REMOVAL_MODEL = "cjwbw/rembg:d0e8c49bf36d15180eba09b2d0834b19ad260fc7dd241e5dd15133db6b3114de";
 
 /**
  * Remove background from image using Replicate API's REMBG model
