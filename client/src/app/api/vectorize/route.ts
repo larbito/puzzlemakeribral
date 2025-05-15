@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Placeholder for Vectorizer.AI API key - should be stored in env vars
-const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY || 'demo'; // Use 'demo' for testing
+// Get Vectorizer.AI API key from environment variables
+const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY;
 
 /**
  * API endpoint to proxy requests to Vectorizer.AI
@@ -10,6 +10,15 @@ const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY || 'demo'; // Use 'dem
 export async function POST(req: NextRequest) {
   try {
     console.log('Vectorize API endpoint called');
+    
+    // Check if Vectorizer.AI API key is set
+    if (!VECTORIZER_API_KEY) {
+      console.error('VECTORIZER_API_KEY environment variable is not set');
+      return NextResponse.json({ 
+        error: 'Vectorizer.AI API key is not configured on the server', 
+        details: 'Please contact the administrator to set up the VECTORIZER_API_KEY environment variable'
+      }, { status: 500 });
+    }
     
     // Get the image file from the form data
     const formData = await req.formData();
