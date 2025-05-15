@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { 
   Upload, 
   ImageIcon, 
@@ -14,10 +13,11 @@ import {
   FileText,
   X,
   PanelRight,
-  Code
+  Code,
+  Image
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, imageToPrompt, saveToHistory, vectorizeImage } from '@/services/ideogramService';
+import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground } from '@/services/ideogramService';
 import { cn } from '@/lib/utils';
 
 export const ImageToPromptTab = () => {
@@ -29,8 +29,8 @@ export const ImageToPromptTab = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isVectorizing, setIsVectorizing] = useState(false);
-  const [vectorizedDesign, setVectorizedDesign] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedDesign, setProcessedDesign] = useState<string | null>(null);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,15 +87,14 @@ export const ImageToPromptTab = () => {
     }
     
     setIsGenerating(true);
-    // Reset vectorized design when generating a new design
-    setVectorizedDesign(null);
+    // Reset processed design when generating a new design
+    setProcessedDesign(null);
     
     try {
       console.log('Calling generateImage with prompt:', prompt);
       // Generate design with Ideogram API
       const imageUrl = await generateImage({
         prompt,
-        transparentBackground: true,
         format: 'merch'
       });
       
@@ -126,7 +125,7 @@ export const ImageToPromptTab = () => {
   // Handle downloading the design
   const handleDownload = async (format = 'png') => {
     console.log('Download button clicked for format:', format);
-    if (!generatedDesign) {
+    if (!generatedDesign && !processedDesign) {
       toast.error('No design to download');
       return;
     }
@@ -139,8 +138,11 @@ export const ImageToPromptTab = () => {
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
+      // Use the processed design if available, otherwise the original generated design
+      const imageToDownload = processedDesign || generatedDesign;
+      
       console.log('Downloading image with filename:', filename);
-      await downloadImage(generatedDesign, format, filename);
+      await downloadImage(imageToDownload!, format, filename);
       
       // Dismiss toast after a short delay
       setTimeout(() => {
@@ -156,23 +158,23 @@ export const ImageToPromptTab = () => {
     }
   };
 
-  // Handle vectorizing the design
-  const handleVectorize = async () => {
+  // Handle removing background
+  const handleRemoveBackground = async () => {
     if (!generatedDesign) {
-      toast.error('No design to vectorize');
+      toast.error('No design to process');
       return;
     }
     
-    setIsVectorizing(true);
+    setIsProcessing(true);
     
     try {
-      // Call the vectorization service with Replicate
-      const svgUrl = await vectorizeImage(generatedDesign);
+      // Call the background removal service
+      const processedImageUrl = await removeBackground(generatedDesign);
       
-      // Preview the SVG immediately before saving it
-      // This ensures the user can see the vectorized result with transparency
+      // Preview the image immediately before saving it
+      // This ensures the user can see the result with transparency
       const imgPreview = document.createElement('img');
-      imgPreview.src = svgUrl;
+      imgPreview.src = processedImageUrl;
       imgPreview.style.display = 'none';
       document.body.appendChild(imgPreview);
       
@@ -196,50 +198,18 @@ export const ImageToPromptTab = () => {
         }, 3000);
       });
       
-      // Save the vectorized URL
-      setVectorizedDesign(svgUrl);
+      // Save the processed image URL
+      setProcessedDesign(processedImageUrl);
       
-      toast.success('Design vectorized successfully! You can now download it as SVG.', {
+      toast.success('Background removed successfully!', {
         duration: 4000,
-        description: 'Your design is now showing with transparent background.'
+        description: 'Your design now has a transparent background'
       });
     } catch (error) {
-      console.error('Error vectorizing design:', error);
-      toast.error('Failed to vectorize design');
+      console.error('Error removing background:', error);
+      toast.error('Failed to remove background');
     } finally {
-      setIsVectorizing(false);
-    }
-  };
-  
-  // Handle downloading the SVG
-  const handleDownloadSvg = async () => {
-    if (!vectorizedDesign) {
-      toast.error('No vectorized design available');
-      return;
-    }
-    
-    setIsDownloading(true);
-    
-    try {
-      // Create a link to download the SVG
-      const link = document.createElement('a');
-      link.href = vectorizedDesign;
-      
-      // Format filename
-      const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
-      const filename = `tshirt-vector-${promptWords}-${Date.now()}.svg`;
-      
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('Vectorized design downloaded as SVG');
-    } catch (error) {
-      console.error('Error downloading SVG:', error);
-      toast.error('Failed to download vectorized design');
-    } finally {
-      setIsDownloading(false);
+      setIsProcessing(false);
     }
   };
   
@@ -252,16 +222,6 @@ export const ImageToPromptTab = () => {
       fileInputRef.current.value = '';
     }
   };
-
-  console.log('Current state:', { 
-    hasUploadedImage: !!uploadedImage, 
-    hasPrompt: !!prompt, 
-    hasGeneratedDesign: !!generatedDesign,
-    hasVectorizedDesign: !!vectorizedDesign,
-    isAnalyzing,
-    isGenerating,
-    isVectorizing
-  });
 
   return (
     <div className="space-y-6">
@@ -385,11 +345,11 @@ export const ImageToPromptTab = () => {
           </h3>
           
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {vectorizedDesign ? (
-              // Show the vectorized design if available
+            {processedDesign ? (
+              // Show the processed design if available
               <img 
-                src={vectorizedDesign} 
-                alt="Vectorized T-shirt design" 
+                src={processedDesign} 
+                alt="Processed T-shirt design" 
                 className="w-full h-full object-contain p-4"
               />
             ) : generatedDesign ? (
@@ -418,12 +378,12 @@ export const ImageToPromptTab = () => {
               </div>
             )}
             
-            {/* Show loading overlay when vectorizing */}
-            {isVectorizing && (
+            {/* Show loading overlay when processing */}
+            {isProcessing && (
               <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                 <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
                   <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm">Vectorizing your design...</p>
+                  <p className="text-sm">Removing background...</p>
                 </div>
               </div>
             )}
@@ -442,43 +402,43 @@ export const ImageToPromptTab = () => {
                   Download PNG
                 </Button>
                 
-                {vectorizedDesign ? (
+                {processedDesign ? (
                   <Button
                     variant="outline"
                     className="border-primary/20 bg-green-50 hover:bg-green-100 text-green-700"
-                    onClick={handleDownloadSvg}
+                    onClick={() => handleDownload('png')}
                     disabled={isDownloading}
                   >
-                    <Code className="mr-2 h-4 w-4" />
-                    Download SVG
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Transparent PNG
                   </Button>
                 ) : (
                   <Button
                     variant="outline"
                     className="border-primary/20 hover:bg-primary/5 hover:text-primary"
-                    onClick={handleVectorize}
-                    disabled={isVectorizing}
+                    onClick={handleRemoveBackground}
+                    disabled={isProcessing}
                   >
-                    {isVectorizing ? (
+                    {isProcessing ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Vectorizing...
+                        Removing Background...
                       </>
                     ) : (
                       <>
-                        <Code className="mr-2 h-4 w-4" />
-                        Convert to SVG
+                        <Image className="mr-2 h-4 w-4" />
+                        Remove Background
                       </>
                     )}
                   </Button>
                 )}
               </div>
               
-              {!vectorizedDesign && !isVectorizing && (
+              {!processedDesign && !isProcessing && (
                 <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
                   <p className="flex items-center gap-1">
-                    <Code className="h-3 w-3" />
-                    Click "Convert to SVG" to create a vectorized version with transparent background.
+                    <Image className="h-3 w-3" />
+                    Click "Remove Background" to create a version with transparent background
                   </p>
                 </div>
               )}
@@ -487,8 +447,8 @@ export const ImageToPromptTab = () => {
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
                   Your design will be saved to the history panel below.
-                  {vectorizedDesign && (
-                    <span className="ml-1 text-green-600">SVG ready!</span>
+                  {processedDesign && (
+                    <span className="ml-1 text-green-600">Transparent background ready!</span>
                   )}
                 </p>
               </div>

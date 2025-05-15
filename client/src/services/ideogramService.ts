@@ -412,145 +412,178 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
   }
 }
 
-// Update the removeBackground function to handle CORS issues
+// Replace the existing removeBackground function with the server-side version
 export async function removeBackground(imageUrl: string): Promise<string> {
   try {
+    console.log("========== BACKGROUND REMOVAL DEBUG ==========");
     console.log("Starting background removal for image:", imageUrl.substring(0, 100) + "...");
+    console.log("Current API_URL:", API_URL);
+    console.log("Using Replicate AI for background removal");
     
-    // CORS workaround: If the URL is from an external source, try to use a CORS proxy
-    // or fall back to client-side only processing
-    const processedUrl = imageUrl.startsWith('http') && !imageUrl.includes(window.location.hostname) 
-      ? `https://corsproxy.io/?${encodeURIComponent(imageUrl)}` // Use CORS proxy
-      : imageUrl;
-      
-    console.log("Using URL for processing:", processedUrl.substring(0, 100) + "...");
+    // Create a toast to indicate processing is in progress
+    const toastId = toast.loading("Removing background...");
     
-    // For a real implementation, make an API call to a background removal service
-    // For now, we'll implement a simple canvas-based approach
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous"; // This is important for CORS
+    try {
+      let imageBlob: Blob;
       
-      img.onload = () => {
+      // Always resize the image to make processing more efficient
+      try {
+        console.log("Resizing image for processing...");
+        imageBlob = await resizeImageForVectorization(imageUrl, 800); // Smaller max width for better performance
+        console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
+      } catch (resizeError) {
+        console.error("Error resizing image:", resizeError);
+        
+        // Fallback to direct fetch if resizing fails
+        console.log("Falling back to direct image fetch...");
+        if (imageUrl.startsWith('data:')) {
+          // Convert data URL to blob
+          const response = await fetch(imageUrl);
+          imageBlob = await response.blob();
+        } else {
+          // For regular URLs, proxy through our backend to avoid CORS issues
+          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
+          
+          imageBlob = await response.blob();
+        }
+      }
+      
+      // Check if image is too large (> 5MB) after resizing
+      const MAX_SIZE = 5 * 1024 * 1024;
+      if (imageBlob.size > MAX_SIZE) {
+        toast.dismiss(toastId);
+        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
+        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
+      }
+      
+      // Now send the image to our backend background removal endpoint
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'image.png');
+      
+      console.log("Submitting image to background removal service");
+      
+      // Use the background removal endpoint
+      const bgRemovalEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/remove-background';
+      
+      console.log("Background removal endpoint URL:", bgRemovalEndpoint);
+      console.log("Form data contents:");
+      for (const pair of formData.entries()) {
+        console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `File (${pair[1].size} bytes)` : pair[1]}`);
+      }
+      
+      console.log("Making fetch request to background removal endpoint...");
+      const response = await fetch(bgRemovalEndpoint, {
+        method: 'POST',
+        body: formData,
+        mode: 'cors'
+      });
+      
+      console.log("Background removal response received. Status code:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Background removal API error: ${response.status}`, errorText);
+        
+        let errorMessage = "Failed to remove background";
         try {
-          console.log("Image loaded, dimensions:", img.width, "x", img.height);
-          // Create canvas to process the image
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          
-          const ctx = canvas.getContext('2d', { willReadFrequently: true });
-          if (!ctx) {
-            console.error("Could not create canvas context");
-            reject(new Error("Could not create canvas context"));
-            return;
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error("Parsed error data:", errorData);
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) {
+            errorMessage = errorText;
+            console.error("Raw error text:", errorText);
           }
-          
-          // Draw the original image
-          ctx.drawImage(img, 0, 0);
-          
-          try {
-            // Get image data - this might fail due to CORS
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imageData.data;
-            
-            console.log("Processing", data.length/4, "pixels");
-            
-            // Check if the image already has transparency
-            let hasTransparency = false;
-            for (let i = 3; i < data.length; i += 4) {
-              if (data[i] < 250) {
-                hasTransparency = true;
-                break;
-              }
-            }
-            
-            if (hasTransparency) {
-              console.log("Image already has transparency");
-              resolve(imageUrl); // Return the original URL if already transparent
-              return;
-            }
-            
-            // Simple background removal - remove white-ish pixels
-            let hasRemovedPixels = false;
-            for (let i = 0; i < data.length; i += 4) {
-              const r = data[i];
-              const g = data[i + 1];
-              const b = data[i + 2];
-              
-              // If pixel is white or very light, make it transparent
-              if (r > 240 && g > 240 && b > 240) {
-                data[i + 3] = 0; // Set alpha to 0
-                hasRemovedPixels = true;
-              }
-            }
-            
-            console.log("Background removal completed, hasRemovedPixels:", hasRemovedPixels);
-            
-            if (!hasRemovedPixels) {
-              console.log("No white pixels found to remove");
-              reject(new Error("No white background detected in the image"));
-              return;
-            }
-            
-            // Put the modified image data back
-            ctx.putImageData(imageData, 0, 0);
-            
-            // Convert to data URL (PNG with transparency)
-            const transparentImageUrl = canvas.toDataURL('image/png');
-            console.log("Generated transparent image");
-            
-            // Resolve with the data URL
-            resolve(transparentImageUrl);
-          } catch (corsError) {
-            console.error("CORS error when processing image data:", corsError);
-            
-            // CORS issue fallback: draw the image to canvas and return that as a data URL
-            // This won't remove the background but will at least return an image
-            console.log("Falling back to client-side image conversion without background removal");
-            
-            // Try to just convert the image to a data URL
-            try {
-              const dataUrl = canvas.toDataURL('image/png');
-              toast.warning("Could not remove background due to CORS restrictions. Try downloading the image first and then uploading it.");
-              resolve(dataUrl);
-            } catch (fallbackError) {
-              console.error("Fallback also failed:", fallbackError);
-              reject(new Error("Unable to process image due to CORS restrictions"));
-            }
+        }
+        
+        if (response.status === 413) {
+          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+        } else if (response.status === 504 || response.status === 502) {
+          errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
+        }
+        
+        toast.dismiss(toastId);
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
+      }
+      
+      console.log("Parsing response...");
+      const data = await response.json();
+      console.log("Response data:", data);
+      
+      if (!data.imageUrl) {
+        console.error("No image URL found in response data:", data);
+        throw new Error("No image URL found in response");
+      }
+      
+      console.log("Background removal successful");
+      
+      // Preview the image immediately before saving it
+      // This ensures the user can see the result with transparency
+      const imgPreview = document.createElement('img');
+      imgPreview.src = data.imageUrl;
+      imgPreview.style.display = 'none';
+      document.body.appendChild(imgPreview);
+      console.log("Image preview element created");
+      
+      // Make sure image loads before we show it to ensure transparency is visible
+      await new Promise((resolve) => {
+        imgPreview.onload = () => {
+          console.log("Image loaded successfully");
+          document.body.removeChild(imgPreview);
+          resolve(true);
+        };
+        imgPreview.onerror = (e) => {
+          console.error("Error loading image preview:", e);
+          document.body.removeChild(imgPreview);
+          resolve(false);
+        };
+        
+        // Timeout just in case
+        setTimeout(() => {
+          if (document.body.contains(imgPreview)) {
+            console.warn("Preview load timed out");
+            document.body.removeChild(imgPreview);
           }
-        } catch (error) {
-          console.error("Error processing image in canvas:", error);
-          reject(error);
-        }
-      };
+          resolve(false);
+        }, 3000);
+      });
       
-      img.onerror = (error) => {
-        console.error("Error loading image:", error);
-        reject(new Error("Failed to load image for background removal. This may be due to CORS restrictions."));
-      };
+      // Dismiss the toast and show success
+      toast.dismiss(toastId);
+      toast.success("Background removed successfully!", {
+        duration: 4000,
+        description: 'Your design now has a transparent background'
+      });
       
-      // Add a timeout to catch hanging loads
-      const timeout = setTimeout(() => {
-        console.error("Image load timed out");
-        reject(new Error("Timed out while loading image"));
-      }, 10000); // 10 second timeout
+      console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
+      return data.imageUrl;
+    } catch (fetchError: any) {
+      // Clean up the timeout if there was an error
+      console.error("Error in background removal process:", fetchError);
+      toast.dismiss(toastId);
       
-      // Fix the timeout issue with a different approach
-      const originalOnload = img.onload;
-      img.onload = (event) => {
-        clearTimeout(timeout);
-        if (originalOnload) {
-          originalOnload.call(img, event);
-        }
-      };
+      // If we haven't already shown an error toast
+      if (fetchError instanceof Error && 
+          !fetchError.message.includes("too large") && 
+          !fetchError.message.includes("timed out")) {
+        toast.error(`Failed to remove background: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
+      }
       
-      console.log("Starting image load");
-      img.src = processedUrl;
-    });
+      console.log("========== BACKGROUND REMOVAL FAILED ==========");
+      throw fetchError;
+    }
   } catch (error) {
     console.error("Error in removeBackground:", error);
-    throw new Error(`Background removal failed: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
   }
 }
 
@@ -1599,180 +1632,13 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
 }
 
 /**
- * Vectorize an image using Replicate API via our backend
+ * Vectorize an image using an API via our backend (for future implementation)
  * @param imageUrl URL of the image to vectorize
  * @returns URL to the vectorized SVG
  */
 export async function vectorizeImage(imageUrl: string): Promise<string> {
-  try {
-    console.log("========== VECTORIZATION DEBUG ==========");
-    console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
-    console.log("Current API_URL:", API_URL);
-    console.log("Using Replicate AI for vectorization");
-    
-    // Create a toast to indicate vectorization is in progress
-    const toastId = toast.loading("Vectorizing image...");
-    
-    try {
-      let imageBlob: Blob;
-      
-      // Always resize the image to make vectorization more efficient
-      try {
-        console.log("Resizing image for vectorization...");
-        imageBlob = await resizeImageForVectorization(imageUrl, 800); // Smaller max width for better performance
-        console.log(`Image prepared for vectorization, size: ${Math.round(imageBlob.size / 1024)} KB`);
-      } catch (resizeError) {
-        console.error("Error resizing image:", resizeError);
-        
-        // Fallback to direct fetch if resizing fails
-        console.log("Falling back to direct image fetch...");
-        if (imageUrl.startsWith('data:')) {
-          // Convert data URL to blob
-          const response = await fetch(imageUrl);
-          imageBlob = await response.blob();
-        } else {
-          // For regular URLs, proxy through our backend to avoid CORS issues
-          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-          const response = await fetch(proxyUrl);
-          
-          if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status}`);
-          }
-          
-          imageBlob = await response.blob();
-        }
-      }
-      
-      // Check if image is too large (> 5MB) after resizing
-      const MAX_SIZE = 5 * 1024 * 1024;
-      if (imageBlob.size > MAX_SIZE) {
-        toast.dismiss(toastId);
-        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
-        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
-      }
-      
-      // Now send the image to our backend vectorization endpoint
-      const formData = new FormData();
-      formData.append('image', imageBlob, 'image.png');
-      
-      console.log("Submitting image to Replicate vectorization service");
-      
-      // Use the Replicate vectorization endpoint
-      const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
-      
-      console.log("Vectorize endpoint URL:", vectorizeEndpoint);
-      console.log("Form data contents:");
-      for (const pair of formData.entries()) {
-        console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `File (${pair[1].size} bytes)` : pair[1]}`);
-      }
-      
-      console.log("Making fetch request to vectorize endpoint...");
-      const response = await fetch(vectorizeEndpoint, {
-        method: 'POST',
-        body: formData,
-        mode: 'cors'
-      });
-      
-      console.log("Vectorization response received. Status code:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Vectorization API error: ${response.status}`, errorText);
-        
-        let errorMessage = "Failed to vectorize image";
-        try {
-          // Try to parse error as JSON
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-          console.error("Parsed error data:", errorData);
-        } catch {
-          // If can't parse JSON, use raw text
-          if (errorText) {
-            errorMessage = errorText;
-            console.error("Raw error text:", errorText);
-          }
-        }
-        
-        if (response.status === 413) {
-          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
-        } else if (response.status === 504 || response.status === 502) {
-          errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
-        }
-        
-        toast.dismiss(toastId);
-        toast.error(errorMessage);
-        throw new Error(`${errorMessage} (Status: ${response.status})`);
-      }
-      
-      console.log("Parsing vectorization response...");
-      const data = await response.json();
-      console.log("Response data:", data);
-      
-      if (!data.svgUrl) {
-        console.error("No SVG URL found in response data:", data);
-        throw new Error("No SVG URL found in response");
-      }
-      
-      console.log("Vectorization successful");
-      
-      // Preview the SVG immediately before saving it
-      // This ensures the user can see the vectorized result with transparency
-      const imgPreview = document.createElement('img');
-      imgPreview.src = data.svgUrl;
-      imgPreview.style.display = 'none';
-      document.body.appendChild(imgPreview);
-      console.log("SVG preview element created");
-      
-      // Make sure image loads before we show it to ensure transparency is visible
-      await new Promise((resolve) => {
-        imgPreview.onload = () => {
-          console.log("SVG image loaded successfully");
-          document.body.removeChild(imgPreview);
-          resolve(true);
-        };
-        imgPreview.onerror = (e) => {
-          console.error("Error loading SVG preview:", e);
-          document.body.removeChild(imgPreview);
-          resolve(false);
-        };
-        
-        // Timeout just in case
-        setTimeout(() => {
-          if (document.body.contains(imgPreview)) {
-            console.warn("SVG preview load timed out");
-            document.body.removeChild(imgPreview);
-          }
-          resolve(false);
-        }, 3000);
-      });
-      
-      // Dismiss the toast and show success
-      toast.dismiss(toastId);
-      toast.success("Image successfully vectorized! You can now download it as SVG.", {
-        duration: 4000,
-        description: 'Your design is now showing with transparent background.'
-      });
-      
-      console.log("========== VECTORIZATION COMPLETE ==========");
-      return data.svgUrl;
-    } catch (fetchError: any) {
-      // Clean up the timeout if there was an error
-      console.error("Error in vectorization process:", fetchError);
-      toast.dismiss(toastId);
-      
-      // If we haven't already shown an error toast
-      if (fetchError instanceof Error && 
-          !fetchError.message.includes("too large") && 
-          !fetchError.message.includes("timed out")) {
-        toast.error(`Failed to vectorize image: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
-      }
-      
-      console.log("========== VECTORIZATION FAILED ==========");
-      throw fetchError;
-    }
-  } catch (error) {
-    console.error("Error in vectorizeImage:", error);
-    throw error;
-  }
+  // This is a placeholder for future implementation
+  console.log("SVG Vectorization feature not implemented yet");
+  toast.error("SVG Vectorization feature not implemented yet");
+  throw new Error("SVG Vectorization feature not implemented yet");
 } 
