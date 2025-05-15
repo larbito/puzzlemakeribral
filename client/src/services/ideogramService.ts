@@ -1599,17 +1599,16 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
 }
 
 /**
- * Vectorize an image using Vectorizer.AI API via our backend
+ * Vectorize an image using Replicate API via our backend
  * @param imageUrl URL of the image to vectorize
- * @param vectorizationMethod Method to use for vectorization: "local" (free), "vectorizer" (paid API), or "replicate" (paid API, high quality)
  * @returns URL to the vectorized SVG
  */
-export async function vectorizeImage(imageUrl: string, vectorizationMethod: "local" | "vectorizer" | "replicate" = "local"): Promise<string> {
+export async function vectorizeImage(imageUrl: string): Promise<string> {
   try {
     console.log("========== VECTORIZATION DEBUG ==========");
     console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
-    console.log("Using vectorization method:", vectorizationMethod);
+    console.log("Using Replicate AI for vectorization");
     
     // Create a toast to indicate vectorization is in progress
     const toastId = toast.loading("Vectorizing image...");
@@ -1656,23 +1655,10 @@ export async function vectorizeImage(imageUrl: string, vectorizationMethod: "loc
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
       
-      console.log("Submitting image to backend vectorization service");
+      console.log("Submitting image to Replicate vectorization service");
       
-      // Choose the endpoint based on the selected vectorization method
-      let vectorizeEndpoint;
-      switch (vectorizationMethod) {
-        case "local":
-          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local';
-          break;
-        case "vectorizer":
-          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
-          break;
-        case "replicate":
-          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-replicate';
-          break;
-        default:
-          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local';
-      }
+      // Use the Replicate vectorization endpoint
+      const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
       
       console.log("Vectorize endpoint URL:", vectorizeEndpoint);
       console.log("Form data contents:");
@@ -1765,7 +1751,7 @@ export async function vectorizeImage(imageUrl: string, vectorizationMethod: "loc
       toast.dismiss(toastId);
       toast.success("Image successfully vectorized! You can now download it as SVG.", {
         duration: 4000,
-        description: 'Your design is now showing with transparency.'
+        description: 'Your design is now showing with transparent background.'
       });
       
       console.log("========== VECTORIZATION COMPLETE ==========");

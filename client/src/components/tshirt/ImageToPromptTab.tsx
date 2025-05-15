@@ -31,7 +31,6 @@ export const ImageToPromptTab = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isVectorizing, setIsVectorizing] = useState(false);
   const [vectorizedDesign, setVectorizedDesign] = useState<string | null>(null);
-  const [vectorizationMethod, setVectorizationMethod] = useState<"local" | "vectorizer" | "replicate">("local");
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -167,8 +166,8 @@ export const ImageToPromptTab = () => {
     setIsVectorizing(true);
     
     try {
-      // Call the vectorization service with the selected method
-      const svgUrl = await vectorizeImage(generatedDesign, vectorizationMethod);
+      // Call the vectorization service with Replicate
+      const svgUrl = await vectorizeImage(generatedDesign);
       
       // Preview the SVG immediately before saving it
       // This ensures the user can see the vectorized result with transparency
@@ -202,7 +201,7 @@ export const ImageToPromptTab = () => {
       
       toast.success('Design vectorized successfully! You can now download it as SVG.', {
         duration: 4000,
-        description: 'Your design is now showing with transparency.'
+        description: 'Your design is now showing with transparent background.'
       });
     } catch (error) {
       console.error('Error vectorizing design:', error);
@@ -475,53 +474,12 @@ export const ImageToPromptTab = () => {
                 )}
               </div>
               
-              {/* Vectorization method selection */}
-              {!vectorizedDesign && (
-                <div className="p-3 bg-muted/30 rounded-md space-y-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-medium">Vectorization Method:</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={vectorizationMethod === "local" ? "default" : "outline"}
-                      className={vectorizationMethod === "local" ? "" : "border-primary/20"}
-                      onClick={() => setVectorizationMethod("local")}
-                    >
-                      <span className="text-xs">Local (Free)</span>
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={vectorizationMethod === "vectorizer" ? "default" : "outline"}
-                      className={vectorizationMethod === "vectorizer" ? "" : "border-primary/20"}
-                      onClick={() => setVectorizationMethod("vectorizer")}
-                    >
-                      <span className="text-xs">Vectorizer.AI ($)</span>
-                    </Button>
-                    
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={vectorizationMethod === "replicate" ? "default" : "outline"}
-                      className={vectorizationMethod === "replicate" ? "" : "border-primary/20"}
-                      onClick={() => setVectorizationMethod("replicate")}
-                    >
-                      <span className="text-xs">Replicate AI ($)</span>
-                    </Button>
-                  </div>
-                  
-                  <div className="text-xs text-muted-foreground">
-                    <p className="flex items-center gap-1">
-                      <Code className="h-3 w-3" />
-                      {vectorizationMethod === "local" && "Using free, local vectorization (Good for simple designs)"}
-                      {vectorizationMethod === "vectorizer" && "Using Vectorizer.AI API (Better quality, costs $)"}
-                      {vectorizationMethod === "replicate" && "Using Replicate AI (Best quality with background removal, costs $)"}
-                    </p>
-                  </div>
+              {!vectorizedDesign && !isVectorizing && (
+                <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1">
+                    <Code className="h-3 w-3" />
+                    Click "Convert to SVG" to create a vectorized version with transparent background.
+                  </p>
                 </div>
               )}
               
