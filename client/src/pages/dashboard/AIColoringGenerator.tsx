@@ -593,7 +593,7 @@ export const AIColoringGenerator = () => {
             id: toastId,
             duration: Infinity
           });
-          
+      
           // Log the prompt being used
           console.log(`Generating coloring page ${i+1} with prompt: "${expandedPrompts[i]}"`);
           
@@ -1069,7 +1069,7 @@ export const AIColoringGenerator = () => {
                       placeholder="Describe what you want in your coloring book..."
                       className="min-h-[200px] bg-background/50 border-primary/20 focus:border-primary/50 backdrop-blur-sm text-lg"
                       maxLength={250}
-                    />
+                  />
                     <div className="absolute bottom-2 left-4 text-xs text-muted-foreground">
                       {basePrompt.length}/250 characters
                     </div>
@@ -1473,7 +1473,7 @@ export const AIColoringGenerator = () => {
                         <div className="text-lg text-muted-foreground italic">
                           {coloringOptions.subtitle}
                         </div>
-                      )}
+                    )}
                       
                       <div className="flex-grow"></div>
                       
@@ -1626,7 +1626,7 @@ export const AIColoringGenerator = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
               <div className="relative p-8 space-y-6">
                 <h2 className="text-2xl font-bold mb-4">Your Coloring Book Preview</h2>
-                
+                  
                 {/* Prompts Editing Panel */}
                 <div className="bg-muted/30 p-4 rounded-lg">
                   <div className="flex items-center justify-between mb-4">
