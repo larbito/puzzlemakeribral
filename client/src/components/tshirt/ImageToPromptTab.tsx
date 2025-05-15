@@ -12,10 +12,11 @@ import {
   Download, 
   FileText,
   X,
-  PanelRight
+  PanelRight,
+  Code
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, imageToPrompt, saveToHistory } from '@/services/ideogramService';
+import { generateImage, downloadImage, imageToPrompt, saveToHistory, vectorizeImage } from '@/services/ideogramService';
 
 export const ImageToPromptTab = () => {
   // State management
@@ -26,6 +27,8 @@ export const ImageToPromptTab = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isVectorizing, setIsVectorizing] = useState(false);
+  const [vectorizedDesign, setVectorizedDesign] = useState<string | null>(null);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +85,8 @@ export const ImageToPromptTab = () => {
     }
     
     setIsGenerating(true);
+    // Reset vectorized design when generating a new design
+    setVectorizedDesign(null);
     
     try {
       console.log('Calling generateImage with prompt:', prompt);
@@ -125,6 +130,7 @@ export const ImageToPromptTab = () => {
     }
     
     setIsDownloading(true);
+    const toastId = toast.loading('Processing download...');
     
     try {
       // Format filename using the first few words of the prompt
@@ -133,10 +139,73 @@ export const ImageToPromptTab = () => {
       
       console.log('Downloading image with filename:', filename);
       await downloadImage(generatedDesign, format, filename);
-      toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      
+      // Dismiss toast after a short delay
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);
+      toast.dismiss(toastId);
       toast.error('Failed to download design');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle vectorizing the design
+  const handleVectorize = async () => {
+    if (!generatedDesign) {
+      toast.error('No design to vectorize');
+      return;
+    }
+    
+    setIsVectorizing(true);
+    
+    try {
+      // Call the vectorization service
+      const svgUrl = await vectorizeImage(generatedDesign);
+      
+      // Save the vectorized URL
+      setVectorizedDesign(svgUrl);
+      
+      toast.success('Design vectorized successfully! You can now download it as SVG.');
+    } catch (error) {
+      console.error('Error vectorizing design:', error);
+      toast.error('Failed to vectorize design');
+    } finally {
+      setIsVectorizing(false);
+    }
+  };
+  
+  // Handle downloading the SVG
+  const handleDownloadSvg = async () => {
+    if (!vectorizedDesign) {
+      toast.error('No vectorized design available');
+      return;
+    }
+    
+    setIsDownloading(true);
+    
+    try {
+      // Create a link to download the SVG
+      const link = document.createElement('a');
+      link.href = vectorizedDesign;
+      
+      // Format filename
+      const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
+      const filename = `tshirt-vector-${promptWords}-${Date.now()}.svg`;
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Vectorized design downloaded as SVG');
+    } catch (error) {
+      console.error('Error downloading SVG:', error);
+      toast.error('Failed to download vectorized design');
     } finally {
       setIsDownloading(false);
     }
@@ -156,8 +225,10 @@ export const ImageToPromptTab = () => {
     hasUploadedImage: !!uploadedImage, 
     hasPrompt: !!prompt, 
     hasGeneratedDesign: !!generatedDesign,
+    hasVectorizedDesign: !!vectorizedDesign,
     isAnalyzing,
-    isGenerating
+    isGenerating,
+    isVectorizing
   });
 
   return (
@@ -282,7 +353,14 @@ export const ImageToPromptTab = () => {
           </h3>
           
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {generatedDesign ? (
+            {vectorizedDesign ? (
+              // Show the vectorized design if available
+              <img 
+                src={vectorizedDesign} 
+                alt="Vectorized T-shirt design" 
+                className="w-full h-full object-contain p-4"
+              />
+            ) : generatedDesign ? (
               <img 
                 src={generatedDesign} 
                 alt="Generated T-shirt design" 
@@ -307,34 +385,69 @@ export const ImageToPromptTab = () => {
                 </p>
               </div>
             )}
+            
+            {/* Show loading overlay when vectorizing */}
+            {isVectorizing && (
+              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                  <p className="text-sm">Vectorizing your design...</p>
+                </div>
+              </div>
+            )}
           </div>
           
           {generatedDesign && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button 
                   variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  className="border-primary/20 hover:bg-primary/5 hover:text-primary"
                   onClick={() => handleDownload('png')}
                   disabled={isDownloading}
                 >
                   <Download className="mr-2 h-4 w-4" />
-                  Download as PNG
+                  Download PNG
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
-                  onClick={() => handleDownload('pdf')}
-                  disabled={isDownloading}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Download as PDF
-                </Button>
+                
+                {vectorizedDesign ? (
+                  <Button
+                    variant="outline"
+                    className="border-primary/20 bg-green-50 hover:bg-green-100 text-green-700"
+                    onClick={handleDownloadSvg}
+                    disabled={isDownloading}
+                  >
+                    <Code className="mr-2 h-4 w-4" />
+                    Download SVG
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="border-primary/20 hover:bg-primary/5 hover:text-primary"
+                    onClick={handleVectorize}
+                    disabled={isVectorizing}
+                  >
+                    {isVectorizing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Vectorizing...
+                      </>
+                    ) : (
+                      <>
+                        <Code className="mr-2 h-4 w-4" />
+                        Convert to SVG
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
                   Your design will be saved to the history panel below.
+                  {vectorizedDesign && (
+                    <span className="ml-1 text-green-600">SVG ready!</span>
+                  )}
                 </p>
               </div>
             </div>

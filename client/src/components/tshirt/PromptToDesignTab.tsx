@@ -17,10 +17,11 @@ import {
   Loader2, 
   ImageIcon,
   LightbulbIcon,
-  PanelRight
+  PanelRight,
+  Code
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, saveToHistory } from '@/services/ideogramService';
+import { generateImage, downloadImage, saveToHistory, vectorizeImage } from '@/services/ideogramService';
 
 export const PromptToDesignTab = () => {
   // State management
@@ -29,6 +30,8 @@ export const PromptToDesignTab = () => {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isVectorizing, setIsVectorizing] = useState(false);
+  const [vectorizedUrls, setVectorizedUrls] = useState<Record<number, string>>({});
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
   const [transparentBg, setTransparentBg] = useState(true);
@@ -60,6 +63,7 @@ export const PromptToDesignTab = () => {
 
     setIsGenerating(true);
     setImageUrls([]);
+    setVectorizedUrls({});
     
     try {
       // Convert variationCount to number
@@ -142,6 +146,68 @@ export const PromptToDesignTab = () => {
     }
   };
 
+  // Handle downloading the SVG
+  const handleDownloadSvg = async () => {
+    const svg = vectorizedUrls[currentIndex];
+    if (!svg) {
+      toast.error('No vectorized design available');
+      return;
+    }
+    
+    setIsDownloading(true);
+    
+    try {
+      // Create a link to download the SVG
+      const link = document.createElement('a');
+      link.href = svg;
+      
+      // Format filename
+      const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
+      const filename = `tshirt-vector-${promptWords}-${Date.now()}.svg`;
+      
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Vectorized design downloaded as SVG');
+    } catch (error) {
+      console.error('Error downloading SVG:', error);
+      toast.error('Failed to download vectorized design');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Handle vectorizing the current design
+  const handleVectorize = async () => {
+    const currentUrl = imageUrls[currentIndex];
+    if (!currentUrl) {
+      toast.error('No design to vectorize');
+      return;
+    }
+    
+    setIsVectorizing(true);
+    
+    try {
+      // Call the vectorization service
+      const svgUrl = await vectorizeImage(currentUrl);
+      
+      // Save the vectorized URL for this index
+      setVectorizedUrls(prev => ({
+        ...prev,
+        [currentIndex]: svgUrl
+      }));
+      
+      toast.success('Design vectorized successfully! You can now download it as SVG.');
+    } catch (error) {
+      console.error('Error vectorizing design:', error);
+      toast.error('Failed to vectorize design');
+    } finally {
+      setIsVectorizing(false);
+    }
+  };
+
   // Change the currently displayed design
   const navigateDesign = (direction: 'prev' | 'next') => {
     if (imageUrls.length <= 1) return;
@@ -159,8 +225,12 @@ export const PromptToDesignTab = () => {
     setPrompt(sample);
   };
 
+  // Check if the current design is vectorized
+  const isCurrentDesignVectorized = vectorizedUrls[currentIndex] !== undefined;
+
   console.log('Current prompt value:', prompt);
   console.log('Current image URLs:', imageUrls);
+  console.log('Vectorized URLs:', vectorizedUrls);
 
   return (
     <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
@@ -302,7 +372,7 @@ export const PromptToDesignTab = () => {
             {imageUrls.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
-                  src={imageUrls[currentIndex]} 
+                  src={isCurrentDesignVectorized ? vectorizedUrls[currentIndex] : imageUrls[currentIndex]} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                 />
@@ -351,19 +421,56 @@ export const PromptToDesignTab = () => {
           
           {imageUrls.length > 0 && (
             <div className="space-y-4 relative z-[105]">
-              <Button 
-                variant="outline" 
-                className="w-full border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                onClick={handleDownload}
-                disabled={isDownloading}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download as PNG
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Button 
+                  variant="outline" 
+                  className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PNG
+                </Button>
+                
+                {isCurrentDesignVectorized ? (
+                  <Button
+                    variant="outline"
+                    className="border-primary/20 bg-green-50 hover:bg-green-100 text-green-700 relative z-[106]"
+                    onClick={handleDownloadSvg}
+                    disabled={isDownloading}
+                  >
+                    <Code className="mr-2 h-4 w-4" />
+                    Download SVG
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                    onClick={handleVectorize}
+                    disabled={isVectorizing}
+                  >
+                    {isVectorizing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Vectorizing...
+                      </>
+                    ) : (
+                      <>
+                        <Code className="mr-2 h-4 w-4" />
+                        Convert to SVG
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+              
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
                   Your design will be saved to the history panel below.
+                  {isCurrentDesignVectorized && (
+                    <span className="ml-1 text-green-600">SVG ready!</span>
+                  )}
                 </p>
               </div>
             </div>

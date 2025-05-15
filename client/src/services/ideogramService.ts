@@ -1532,4 +1532,78 @@ export function forceProxyForIdeogramUrl(url: string): string {
     console.error("Error in proxy function:", error);
     return url;
   }
+}
+
+/**
+ * Vectorize an image using Vectorizer.AI API
+ * @param imageUrl URL of the image to vectorize
+ * @returns URL to the vectorized SVG
+ */
+export async function vectorizeImage(imageUrl: string): Promise<string> {
+  try {
+    console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
+    
+    // Create a toast to indicate vectorization is in progress
+    const toastId = toast.loading("Vectorizing image...");
+    
+    try {
+      // For data URLs, first convert to blob
+      let imageBlob: Blob;
+      
+      if (imageUrl.startsWith('data:')) {
+        // Convert data URL to blob
+        const response = await fetch(imageUrl);
+        imageBlob = await response.blob();
+      } else {
+        // For regular URLs, proxy through our backend to avoid CORS issues
+        const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+        const response = await fetch(proxyUrl);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch image: ${response.status}`);
+        }
+        
+        imageBlob = await response.blob();
+      }
+      
+      // Now send the image to Vectorizer.AI API through our backend proxy
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'image.png');
+      
+      console.log("Submitting image to vectorizer API via backend");
+      
+      // Make request to our backend proxy for Vectorizer.AI
+      const response = await fetch(`${API_URL}/api/vectorize`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Vectorization API error: ${response.status} - ${errorText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.svgUrl) {
+        throw new Error("No SVG URL found in response");
+      }
+      
+      console.log("Vectorization successful, SVG URL:", data.svgUrl);
+      
+      // Dismiss the toast and show success
+      toast.dismiss(toastId);
+      toast.success("Image successfully vectorized!");
+      
+      return data.svgUrl;
+    } catch (error) {
+      console.error("Error in vectorization process:", error);
+      toast.dismiss(toastId);
+      toast.error(`Failed to vectorize image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error in vectorizeImage:", error);
+    throw error;
+  }
 } 
