@@ -23,17 +23,26 @@ exports.vectorizeImage = async (req, res) => {
     console.log(`Processing image: ${req.file.originalname}, Size: ${imageBuffer.length / 1024} KB`);
     
     try {
+      console.log('Reading image with Jimp...');
       // Use Jimp to process the image (handle transparency, etc.)
       const image = await Jimp.read(imageBuffer);
+      console.log('Image loaded successfully');
+      
+      // Get image dimensions
+      const width = image.getWidth();
+      const height = image.getHeight();
+      console.log(`Image dimensions: ${width}x${height}`);
       
       // Image preprocessing to improve vectorization
+      console.log('Preprocessing image...');
       image.rgba(true)  // Ensure alpha channel is preserved (transparency)
            .background(0x00000000) // Transparent background
            .quality(100); // Preserve quality
       
       // For t-shirt design, we may want to ensure the background is transparent
       // Scan for black background and make it transparent
-      image.scan(0, 0, image.bitmap.width, image.bitmap.height, (x, y, idx) => {
+      console.log('Scanning for black background pixels...');
+      image.scan(0, 0, width, height, (x, y, idx) => {
         // Check if pixel is black or very dark
         const r = image.bitmap.data[idx];
         const g = image.bitmap.data[idx + 1];
@@ -46,6 +55,7 @@ exports.vectorizeImage = async (req, res) => {
       });
       
       // Convert to buffer for Potrace
+      console.log('Converting processed image to buffer...');
       const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
       
       // Options for Potrace vectorization
@@ -58,11 +68,16 @@ exports.vectorizeImage = async (req, res) => {
         background: null // For transparent SVG background
       };
       
+      console.log('Tracing image with Potrace...');
       // Use Potrace to convert to SVG
       const svgData = await new Promise((resolve, reject) => {
         potrace.trace(processedBuffer, potraceOptions, (err, svg) => {
-          if (err) reject(err);
-          else resolve(svg);
+          if (err) {
+            console.error('Potrace error:', err);
+            reject(err);
+          } else {
+            resolve(svg);
+          }
         });
       });
       
