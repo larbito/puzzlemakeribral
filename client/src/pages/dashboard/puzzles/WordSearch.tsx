@@ -1,0 +1,357 @@
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { 
+  BookText, 
+  FileDown, 
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  ArrowLeft,
+  Sparkles,
+  PenLine
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+
+const MotionCard = motion(Card);
+
+export type WordSearchSettings = {
+  // Book settings
+  title: string;
+  pageSize: string;
+  puzzlesPerPage: number;
+  includePageNumbers: boolean;
+  addBookCover: boolean;
+  bookFormat: string;
+  
+  // WordSearch specific settings
+  theme: string;
+  customWords: string;
+  difficulty: string;
+  quantity: number;
+  includeAnswers: boolean;
+  aiPrompt: string;
+};
+
+export const defaultWordSearchSettings: WordSearchSettings = {
+  // Default book settings
+  title: '',
+  pageSize: 'letter',
+  puzzlesPerPage: 1,
+  includePageNumbers: true,
+  addBookCover: true,
+  bookFormat: 'pdf',
+  
+  // Default WordSearch specific settings
+  theme: '',
+  customWords: '',
+  difficulty: 'medium',
+  quantity: 20,
+  includeAnswers: true,
+  aiPrompt: ''
+};
+
+export type WordSearchFormProps = {
+  settings: WordSearchSettings;
+  onSettingChange: (key: keyof WordSearchSettings, value: any) => void;
+  onBack: () => void;
+  onGenerate: () => void;
+  generationStatus: 'idle' | 'generating' | 'complete' | 'error';
+};
+
+export const WordSearchForm = ({ 
+  settings, 
+  onSettingChange, 
+  onBack, 
+  onGenerate, 
+  generationStatus 
+}: WordSearchFormProps) => {
+  return (
+    <MotionCard
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative backdrop-blur-3xl border-primary/20 overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
+      <CardHeader className="flex flex-row items-center space-y-0 pb-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="mr-2 h-8 w-8"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-primary text-white">
+            <BookText className="h-5 w-5" />
+          </div>
+          <CardTitle className="text-xl">Word Search Book</CardTitle>
+        </div>
+      </CardHeader>
+      
+      <CardContent className="space-y-6">
+        {/* Book Settings Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Book Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Book Title</label>
+              <input
+                type="text"
+                value={settings.title}
+                onChange={(e) => onSettingChange('title', e.target.value)}
+                placeholder="Enter a title for your puzzle book"
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Page Size</label>
+              <select 
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                value={settings.pageSize}
+                onChange={(e) => onSettingChange('pageSize', e.target.value)}
+              >
+                <option value="letter">Letter (8.5 x 11 in)</option>
+                <option value="a4">A4 (210 x 297 mm)</option>
+                <option value="a5">A5 (148 x 210 mm)</option>
+                <option value="6x9">KDP 6 x 9 in</option>
+                <option value="8x10">KDP 8 x 10 in</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Book Format</label>
+              <select 
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                value={settings.bookFormat}
+                onChange={(e) => onSettingChange('bookFormat', e.target.value)}
+              >
+                <option value="pdf">PDF Book</option>
+                <option value="printable">Printable Sheets</option>
+                <option value="kdp">KDP Ready</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Puzzles Per Page</label>
+              <select 
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                value={settings.puzzlesPerPage}
+                onChange={(e) => onSettingChange('puzzlesPerPage', parseInt(e.target.value))}
+              >
+                <option value="1">1 per page</option>
+                <option value="2">2 per page</option>
+                <option value="4">4 per page</option>
+              </select>
+            </div>
+            <div className="col-span-2 flex flex-wrap gap-6">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="include-page-numbers"
+                  checked={settings.includePageNumbers}
+                  onChange={(e) => onSettingChange('includePageNumbers', e.target.checked)}
+                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
+                />
+                <label htmlFor="include-page-numbers" className="text-sm">
+                  Add page numbers
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="add-book-cover"
+                  checked={settings.addBookCover}
+                  onChange={(e) => onSettingChange('addBookCover', e.target.checked)}
+                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
+                />
+                <label htmlFor="add-book-cover" className="text-sm">
+                  Generate book cover
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="include-answers"
+                  checked={settings.includeAnswers}
+                  onChange={(e) => onSettingChange('includeAnswers', e.target.checked)}
+                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
+                />
+                <label htmlFor="include-answers" className="text-sm">
+                  Include answer key
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Word Search Specific Settings */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">Word Search Settings</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Theme</label>
+              <input
+                type="text"
+                value={settings.theme}
+                onChange={(e) => onSettingChange('theme', e.target.value)}
+                placeholder="e.g., Animals, Space, Sports"
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Difficulty Level</label>
+              <select 
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+                value={settings.difficulty}
+                onChange={(e) => onSettingChange('difficulty', e.target.value)}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+                <option value="mixed">Mixed Levels</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Number of Puzzles</label>
+              <input
+                type="number"
+                min="5"
+                max="100"
+                value={settings.quantity}
+                onChange={(e) => onSettingChange('quantity', parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Custom Words (Optional)</label>
+              <textarea
+                value={settings.customWords}
+                onChange={(e) => onSettingChange('customWords', e.target.value)}
+                placeholder="Enter words separated by commas"
+                className="w-full px-3 py-2 h-[80px] rounded-md bg-white/5 border border-primary/20 text-foreground"
+              />
+            </div>
+          </div>
+        </div>
+        
+        {/* AI Prompt Section */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            AI-Powered Generation
+          </h3>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Custom AI Prompt (Optional)</label>
+            <textarea
+              value={settings.aiPrompt}
+              onChange={(e) => onSettingChange('aiPrompt', e.target.value)}
+              placeholder="Add specific instructions for word search generation..."
+              className="w-full px-3 py-2 h-[100px] rounded-md bg-white/5 border border-primary/20 text-foreground"
+            />
+            <p className="text-xs text-muted-foreground">
+              Provide additional guidance for the AI to generate your word search book. 
+              Example: "Create a word search book with nature themes, including words related to forests, oceans, and mountains."
+            </p>
+          </div>
+        </div>
+        
+        {/* Generate Button */}
+        <div className="flex justify-end">
+          <Button 
+            className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+            onClick={onGenerate}
+            disabled={generationStatus === 'generating'}
+          >
+            {generationStatus === 'generating' ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <PenLine className="mr-2 h-4 w-4" />
+                Generate Word Search Book
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </MotionCard>
+  );
+};
+
+export const WordSearchCompletionStatus = ({ 
+  status, 
+  bookFormat, 
+  onDownload, 
+  onTryAgain,
+  onViewPreview 
+}: {
+  status: 'complete' | 'error',
+  bookFormat: string,
+  onDownload: () => void,
+  onTryAgain: () => void,
+  onViewPreview?: () => void
+}) => {
+  return (
+    <MotionCard
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative backdrop-blur-3xl border-primary/20 overflow-hidden"
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
+      <CardContent className="pt-6">
+        <div className="flex items-center gap-4">
+          {status === 'complete' && (
+            <>
+              <div className="rounded-full bg-green-100 p-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-green-600">Book Generation Complete!</h3>
+                <p className="text-sm text-muted-foreground">Your word search book is ready to download</p>
+              </div>
+              <div className="flex gap-2">
+                {onViewPreview && (
+                  <Button 
+                    onClick={onViewPreview}
+                    variant="outline"
+                  >
+                    <PenLine className="mr-2 h-4 w-4" />
+                    View Preview
+                  </Button>
+                )}
+                <Button 
+                  onClick={onDownload}
+                  className="bg-gradient-to-r from-primary to-secondary"
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download {bookFormat.toUpperCase()}
+                </Button>
+              </div>
+            </>
+          )}
+          
+          {status === 'error' && (
+            <>
+              <div className="rounded-full bg-red-100 p-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-medium text-red-600">Generation Error</h3>
+                <p className="text-sm text-muted-foreground">There was a problem generating your word search book. Please try again.</p>
+              </div>
+              <Button 
+                onClick={onTryAgain}
+                variant="outline"
+              >
+                Try Again
+              </Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </MotionCard>
+  );
+}; 
