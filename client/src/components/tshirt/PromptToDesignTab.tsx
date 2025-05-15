@@ -29,6 +29,7 @@ import {
   downloadImage, 
   saveToHistory, 
   removeBackground,
+  enhanceImage,
   backgroundRemovalModels
 } from '@/services/ideogramService';
 import {
@@ -53,6 +54,7 @@ export const PromptToDesignTab = () => {
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [lastUsedModel, setLastUsedModel] = useState<string | null>(null);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhancedUrls, setEnhancedUrls] = useState<Record<number, string>>({});
   
   // Size presets mapping
   const sizePresets = {
@@ -305,37 +307,71 @@ export const PromptToDesignTab = () => {
   // Check if the current design has background removed
   const isCurrentDesignProcessed = processedUrls[currentIndex] !== undefined;
 
-  // New function to handle enhance and download
-  const handleEnhanceAndDownload = async () => {
-    const currentUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
+  // Handle enhancing the image
+  const handleEnhanceImage = async () => {
+    // Determine current image URL - prioritize what's visible to the user
+    let currentUrl;
+    if (processedUrls[currentIndex]) {
+      // If background has been removed, use that version
+      currentUrl = processedUrls[currentIndex];
+    } else if (enhancedUrls[currentIndex]) {
+      // If already enhanced (but no bg removal), use that version
+      currentUrl = enhancedUrls[currentIndex];
+    } else {
+      // Otherwise use the original
+      currentUrl = imageUrls[currentIndex];
+    }
+    
     if (!currentUrl) {
       toast.error('No design to enhance');
       return;
     }
     
     setIsEnhancing(true);
-    const toastId = toast.loading('Enhancing your design...');
     
     try {
-      // We'll implement the actual enhancement API call later, for now just download
-      setTimeout(async () => {
-        // Format filename using the first few words of the prompt
-        const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
-        const filename = `enhanced-tshirt-${promptWords}-${Date.now()}`;
-        
-        await downloadImage(currentUrl, 'png', filename);
-        
-        toast.dismiss(toastId);
-        toast.success('Design enhanced and downloaded!');
-        setIsEnhancing(false);
-      }, 1500);
+      // Call the enhancement service
+      const enhancedImageUrl = await enhanceImage(currentUrl);
+      
+      // Save the enhanced URL for this index
+      if (processedUrls[currentIndex]) {
+        // If there was already a background removed version, update that
+        setProcessedUrls(prev => ({
+          ...prev,
+          [currentIndex]: enhancedImageUrl
+        }));
+      } else {
+        // Otherwise just store as enhanced
+        setEnhancedUrls(prev => ({
+          ...prev,
+          [currentIndex]: enhancedImageUrl
+        }));
+      }
+      
+      // Show success message
+      toast.success('Image enhanced successfully!');
     } catch (error) {
-      console.error('Error enhancing design:', error);
-      toast.dismiss(toastId);
-      toast.error('Failed to enhance design');
+      console.error('Error enhancing image:', error);
+      toast.error('Failed to enhance image');
+    } finally {
       setIsEnhancing(false);
     }
   };
+
+  // Get the current displayed image URL
+  const getCurrentDisplayedUrl = () => {
+    // Priority: 1. Processed (bg removed), 2. Enhanced, 3. Original
+    if (processedUrls[currentIndex]) {
+      return processedUrls[currentIndex];
+    } else if (enhancedUrls[currentIndex]) {
+      return enhancedUrls[currentIndex];
+    } else {
+      return imageUrls[currentIndex];
+    }
+  };
+
+  // Check if the current design has been enhanced or had background removed
+  const isCurrentDesignEnhanced = enhancedUrls[currentIndex] !== undefined || processedUrls[currentIndex] !== undefined;
 
   console.log('Current prompt value:', prompt);
   console.log('Current image URLs:', imageUrls);
@@ -470,7 +506,7 @@ export const PromptToDesignTab = () => {
             {imageUrls.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
-                  src={isCurrentDesignProcessed ? processedUrls[currentIndex] : imageUrls[currentIndex]} 
+                  src={getCurrentDisplayedUrl()} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                 />
@@ -501,11 +537,11 @@ export const PromptToDesignTab = () => {
                 )}
                 
                 {/* Show loading overlay when processing */}
-                {isProcessing && (
+                {(isProcessing || isEnhancing) && (
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                     <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
                       <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <p className="text-sm">Removing background...</p>
+                      <p className="text-sm">{isProcessing ? "Removing background..." : "Enhancing image..."}</p>
                     </div>
                   </div>
                 )}
@@ -529,33 +565,13 @@ export const PromptToDesignTab = () => {
           
           {imageUrls.length > 0 && (
             <div className="space-y-4 relative z-[105]">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {isCurrentDesignProcessed ? (
-                  <Button
-                    variant="outline"
-                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Transparent PNG
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PNG
-                  </Button>
-                )}
-                
+              {/* First Row: Action Buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Background Removal Button/Dropdown */}
                 {isProcessing ? (
                   <Button
                     variant="outline"
-                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                    className="border-primary/20 relative z-[106]"
                     disabled={true}
                   >
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -601,8 +617,8 @@ export const PromptToDesignTab = () => {
                         {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
                           // Check if this is a recommended model
                           const isRecommended = key === '851-labs/background-remover' || 
-                                              key === 'men1scus/birefnet' ||
-                                              key === 'codeplugtech/background_remover';
+                                             key === 'men1scus/birefnet' ||
+                                             key === 'codeplugtech/background_remover';
                           
                           return (
                             <DropdownMenuItem 
@@ -623,14 +639,13 @@ export const PromptToDesignTab = () => {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-              </div>
-              
-              {isCurrentDesignProcessed && (
+                
+                {/* Enhance Image Button */}
                 <Button
-                  variant="default"
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium"
-                  onClick={handleEnhanceAndDownload}
-                  disabled={isEnhancing}
+                  variant={isCurrentDesignEnhanced ? "outline" : "default"}
+                  className={`${isCurrentDesignEnhanced ? 'bg-green-50 text-green-700 border-primary/20' : 'bg-blue-600 hover:bg-blue-700'} relative z-[106]`}
+                  onClick={handleEnhanceImage}
+                  disabled={isEnhancing || isProcessing}
                 >
                   {isEnhancing ? (
                     <>
@@ -640,35 +655,50 @@ export const PromptToDesignTab = () => {
                   ) : (
                     <>
                       <Zap className="mr-2 h-4 w-4" />
-                      Enhance & Download
+                      {isCurrentDesignEnhanced ? 'Re-Enhance' : 'Enhance Image'}
                     </>
                   )}
                 </Button>
-              )}
+              </div>
+              
+              {/* Download Button */}
+              <Button
+                variant="default"
+                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-medium"
+                onClick={handleDownload}
+                disabled={isDownloading || isProcessing || isEnhancing}
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Image
+                  </>
+                )}
+              </Button>
               
               <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
-                {isCurrentDesignProcessed ? (
-                  <p className="flex items-start gap-1">
-                    <Image className="h-3 w-3 mt-0.5" />
-                    <span>
-                      Background removed! You can try other models for different results or use <strong>Enhance & Download</strong> for the final image.
-                    </span>
-                  </p>
-                ) : (
-                  <p className="flex items-center gap-1">
-                    <Image className="h-3 w-3" />
-                    Click "Remove Background" to choose from multiple AI models
-                  </p>
-                )}
+                <p className="flex items-start gap-1">
+                  <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <span>
+                    You can <strong>Enhance Image</strong> before or after <strong>Remove Background</strong> - choose the order that works best for your design.
+                    {(isCurrentDesignEnhanced || isCurrentDesignProcessed) && 
+                      " Your design has been " + 
+                      (isCurrentDesignProcessed && isCurrentDesignEnhanced ? "enhanced with background removed" : 
+                       isCurrentDesignProcessed ? "processed with background removal" : 
+                       "enhanced")}
+                  </span>
+                </p>
               </div>
               
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
                   Your design will be saved to the history panel below.
-                  {isCurrentDesignProcessed && (
-                    <span className="ml-1 text-green-600">Transparent background ready!</span>
-                  )}
                 </p>
               </div>
             </div>
