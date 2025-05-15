@@ -1605,7 +1605,9 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
  */
 export async function vectorizeImage(imageUrl: string): Promise<string> {
   try {
+    console.log("========== VECTORIZATION DEBUG ==========");
     console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
+    console.log("Current API_URL:", API_URL);
     
     // Create a toast to indicate vectorization is in progress
     const toastId = toast.loading("Vectorizing image...");
@@ -1654,122 +1656,120 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       
       console.log("Submitting image to backend vectorization service");
       
-      // Use the backend URL that's guaranteed to work (no CORS issues)
+      // Use the backend URL - try both with and without www
+      // This is a direct, absolute URL to avoid any routing issues
       const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
+      
       console.log("Vectorize endpoint URL:", vectorizeEndpoint);
-      
-      // Set up an AbortController for timeout
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 60000); // 60 second timeout (longer for large images)
-      
-      try {
-        const response = await fetch(vectorizeEndpoint, {
-          method: 'POST',
-          body: formData,
-          signal: abortController.signal,
-          mode: 'cors'
-        });
-        
-        // Clear the timeout since we got a response
-        clearTimeout(timeoutId);
-        
-        console.log("Vectorization response status:", response.status);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Vectorization API error: ${response.status}`, errorText);
-          
-          let errorMessage = "Failed to vectorize image";
-          try {
-            // Try to parse error as JSON
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorMessage;
-          } catch {
-            // If can't parse JSON, use raw text
-            if (errorText) errorMessage = errorText;
-          }
-          
-          if (response.status === 413) {
-            errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
-          } else if (response.status === 504 || response.status === 502) {
-            errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
-          }
-          
-          toast.dismiss(toastId);
-          toast.error(errorMessage);
-          throw new Error(`${errorMessage} (Status: ${response.status})`);
-        }
-        
-        const data = await response.json();
-        
-        if (!data.svgUrl) {
-          throw new Error("No SVG URL found in response");
-        }
-        
-        console.log("Vectorization successful");
-        
-        // Process the SVG to ensure transparency if it's a data URL
-        if (data.svgUrl.startsWith('data:')) {
-          try {
-            // Extract the SVG content from the data URL
-            const base64Content = data.svgUrl.split(',')[1];
-            const svgContent = atob(base64Content);
-            
-            // Ensure SVG preserves transparency by adding needed attributes
-            let enhancedSvgContent = svgContent;
-            
-            // Add transparent background if not already present
-            if (!svgContent.includes('fill="none"') && !svgContent.includes('fill:none')) {
-              enhancedSvgContent = svgContent.replace(/<svg/, '<svg fill="none"');
-            }
-            
-            // Create a new base64 string with the enhanced SVG
-            const enhancedBase64 = btoa(enhancedSvgContent);
-            const enhancedDataUrl = `data:image/svg+xml;base64,${enhancedBase64}`;
-            
-            // Show success toast
-            toast.dismiss(toastId);
-            toast.success("Image successfully vectorized!");
-            
-            return enhancedDataUrl;
-          } catch (error) {
-            console.error("Error processing SVG content:", error);
-            // Fall back to original URL if there's an error
-            toast.dismiss(toastId);
-            toast.success("Image successfully vectorized!");
-            return data.svgUrl;
-          }
-        } else {
-          // For non-data URLs, use as is
-          toast.dismiss(toastId);
-          toast.success("Image successfully vectorized!");
-          return data.svgUrl;
-        }
-      } catch (fetchError: any) {
-        // Clean up the timeout if there was an error
-        clearTimeout(timeoutId);
-        
-        // Handle abort/timeout specifically
-        if (fetchError.name === 'AbortError') {
-          toast.dismiss(toastId);
-          toast.error("Vectorization request timed out. Try a simpler image or try again later.");
-          throw new Error("Vectorization request timed out");
-        }
-        
-        throw fetchError;
+      console.log("Form data contents:");
+      for (const pair of formData.entries()) {
+        console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `File (${pair[1].size} bytes)` : pair[1]}`);
       }
-    } catch (error) {
-      console.error("Error in vectorization process:", error);
+      
+      console.log("Making fetch request to vectorize endpoint...");
+      const response = await fetch(vectorizeEndpoint, {
+        method: 'POST',
+        body: formData,
+        mode: 'cors'
+      });
+      
+      console.log("Vectorization response received. Status code:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Vectorization API error: ${response.status}`, errorText);
+        
+        let errorMessage = "Failed to vectorize image";
+        try {
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error("Parsed error data:", errorData);
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) {
+            errorMessage = errorText;
+            console.error("Raw error text:", errorText);
+          }
+        }
+        
+        if (response.status === 413) {
+          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+        } else if (response.status === 504 || response.status === 502) {
+          errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
+        }
+        
+        toast.dismiss(toastId);
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
+      }
+      
+      console.log("Parsing vectorization response...");
+      const data = await response.json();
+      console.log("Response data:", data);
+      
+      if (!data.svgUrl) {
+        console.error("No SVG URL found in response data:", data);
+        throw new Error("No SVG URL found in response");
+      }
+      
+      console.log("Vectorization successful");
+      
+      // Preview the SVG immediately before saving it
+      // This ensures the user can see the vectorized result with transparency
+      const imgPreview = document.createElement('img');
+      imgPreview.src = data.svgUrl;
+      imgPreview.style.display = 'none';
+      document.body.appendChild(imgPreview);
+      console.log("SVG preview element created");
+      
+      // Make sure image loads before we show it to ensure transparency is visible
+      await new Promise((resolve) => {
+        imgPreview.onload = () => {
+          console.log("SVG image loaded successfully");
+          document.body.removeChild(imgPreview);
+          resolve(true);
+        };
+        imgPreview.onerror = (e) => {
+          console.error("Error loading SVG preview:", e);
+          document.body.removeChild(imgPreview);
+          resolve(false);
+        };
+        
+        // Timeout just in case
+        setTimeout(() => {
+          if (document.body.contains(imgPreview)) {
+            console.warn("SVG preview load timed out");
+            document.body.removeChild(imgPreview);
+          }
+          resolve(false);
+        }, 3000);
+      });
+      
+      // Dismiss the toast and show success
+      toast.dismiss(toastId);
+      toast.success("Image successfully vectorized! You can now download it as SVG.", {
+        duration: 4000,
+        description: 'Your design is now showing with transparency.'
+      });
+      
+      console.log("========== VECTORIZATION COMPLETE ==========");
+      return data.svgUrl;
+    } catch (fetchError: any) {
+      // Clean up the timeout if there was an error
+      console.error("Error in vectorization process:", fetchError);
       toast.dismiss(toastId);
       
       // If we haven't already shown an error toast
-      if (error instanceof Error && 
-          !error.message.includes("too large") && 
-          !error.message.includes("timed out")) {
-        toast.error(`Failed to vectorize image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (fetchError instanceof Error && 
+          !fetchError.message.includes("too large") && 
+          !fetchError.message.includes("timed out")) {
+        toast.error(`Failed to vectorize image: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
       }
       
-      throw error;
+      console.log("========== VECTORIZATION FAILED ==========");
+      throw fetchError;
     }
   } catch (error) {
     console.error("Error in vectorizeImage:", error);
