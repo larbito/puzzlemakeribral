@@ -1659,8 +1659,8 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       console.log("Submitting image to vectorizer API via backend");
       console.log("API URL being used:", API_URL);
       
-      // Make request to our backend proxy for Vectorizer.AI
-      const vectorizeEndpoint = `${API_URL}/api/vectorize`;
+      // Use the absolute Railway URL for the vectorize endpoint in production
+      const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
       console.log("Full vectorize endpoint URL:", vectorizeEndpoint);
       
       const response = await fetch(vectorizeEndpoint, {
