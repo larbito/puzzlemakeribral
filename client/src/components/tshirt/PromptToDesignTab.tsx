@@ -696,7 +696,7 @@ export const PromptToDesignTab = () => {
                 <p className="flex items-start gap-1">
                   <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                   <span>
-                    You can <strong>Enhance Image</strong> before or after <strong>Remove Background</strong> - choose the order that works best for your design.
+                    You can <strong>Enhance Image</strong> before or after <strong>Remove Background</strong> - for best results, we recommend enhancing first, then removing background.
                     {(isCurrentDesignEnhanced || isCurrentDesignProcessed) && 
                       " Your design has been " + 
                       (isCurrentDesignProcessed && isCurrentDesignEnhanced ? "enhanced with background removed" : 
