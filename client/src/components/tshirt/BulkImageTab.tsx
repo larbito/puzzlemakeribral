@@ -63,10 +63,6 @@ export const BulkImageTab = () => {
     
     // Validate files (size and type)
     const validFiles = selectedFiles.filter(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`File "${file.name}" exceeds the 5MB limit and will be skipped.`);
-        return false;
-      }
       if (!file.type.startsWith('image/')) {
         toast.error(`File "${file.name}" is not an image and will be skipped.`);
         return false;

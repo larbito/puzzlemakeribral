@@ -36,13 +36,7 @@ export const ImageToPromptTab = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File too large. Maximum size is 5MB.');
-      return;
-    }
-    
-    // Validate file type
+    // Only validate file type, not size
     if (!file.type.startsWith('image/')) {
       toast.error('Only image files are allowed.');
       return;
@@ -187,7 +181,7 @@ export const ImageToPromptTab = () => {
                 </div>
                 <h3 className="text-lg font-medium mb-2">Upload an image</h3>
                 <p className="text-muted-foreground mb-4">
-                  Click to browse or drag and drop<br/>JPG, PNG, or WEBP (max 5MB)
+                  Click to browse or drag and drop<br/>JPG, PNG, or other image files
                 </p>
                 <Button variant="outline" size="sm" className="border-primary/20">
                   Select Image
