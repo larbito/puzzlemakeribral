@@ -560,43 +560,49 @@ export const PromptToDesignTab = () => {
                         <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60">
-                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1">Background Removal Models</div>
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-60 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 shadow-xl rounded-md overflow-hidden"
+                      style={{ backdropFilter: 'blur(16px)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}
+                    >
+                      <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground border-b mb-1 bg-gray-50 dark:bg-gray-900">Background Removal Models</div>
                       
                       {isCurrentDesignProcessed && (
                         <DropdownMenuItem 
                           onClick={() => handleRemoveBackground('original')}
-                          className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"
+                          className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-3 py-2 bg-white dark:bg-gray-950"
                         >
                           <Image className="mr-2 h-4 w-4" />
                           <span>Restore Original Image</span>
                         </DropdownMenuItem>
                       )}
                       
-                      <div className="py-1 px-2 text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2">
-                        <InfoIcon className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                      <div className="py-1.5 px-3 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2 border-b border-blue-100 dark:border-blue-900">
+                        <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
                         <span>For best results, try "Precision Focus" or "Pro Edge Detection" models.</span>
                       </div>
                       
-                      {Object.entries(backgroundRemovalModels).map(([key, model]) => {
-                        // Check if this is a recommended model
-                        const isRecommended = key === '851-labs/background-remover' || key === 'men1scus/birefnet';
-                        
-                        return (
-                          <DropdownMenuItem 
-                            key={key}
-                            onClick={() => selectModel(key)}
-                            className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                              lastUsedModel === model.id ? 'bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-300' : ''
-                            } ${isRecommended ? 'font-medium' : ''}`}
-                          >
-                            <Wand2 className={`mr-2 h-4 w-4 ${isRecommended ? 'text-yellow-500' : ''}`} />
-                            <span>{model.name}</span>
-                            {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
-                            {isRecommended && <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-400">★ Recommended</span>}
-                          </DropdownMenuItem>
-                        );
-                      })}
+                      <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">
+                        {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
+                          // Check if this is a recommended model
+                          const isRecommended = key === '851-labs/background-remover' || key === 'men1scus/birefnet';
+                          
+                          return (
+                            <DropdownMenuItem 
+                              key={key}
+                              onClick={() => selectModel(key)}
+                              className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-2 ${
+                                lastUsedModel === model.id ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''
+                              } ${isRecommended ? 'font-medium' : ''}`}
+                            >
+                              <Wand2 className={`mr-2 h-4 w-4 ${isRecommended ? 'text-yellow-500' : ''}`} />
+                              <span>{model.name}</span>
+                              {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
+                              {isRecommended && <span className="ml-auto text-xs text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded font-medium">★ Recommended</span>}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </div>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
