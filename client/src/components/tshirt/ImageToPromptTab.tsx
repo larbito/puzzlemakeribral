@@ -32,6 +32,7 @@ export const ImageToPromptTab = () => {
   
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input changed');
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -47,6 +48,7 @@ export const ImageToPromptTab = () => {
       return;
     }
     
+    console.log('File selected:', file.name, 'Size:', (file.size / 1024).toFixed(2), 'KB');
     setUploadedImage(file);
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
@@ -54,6 +56,7 @@ export const ImageToPromptTab = () => {
   
   // Handle image analysis with OpenAI to generate prompt
   const handleAnalyzeImage = async () => {
+    console.log('Analyze image button clicked');
     if (!uploadedImage) {
       toast.error('Please upload an image first');
       return;
@@ -62,8 +65,10 @@ export const ImageToPromptTab = () => {
     setIsAnalyzing(true);
     
     try {
+      console.log('Calling imageToPrompt with file:', uploadedImage.name);
       // Call OpenAI to analyze image
       const generatedPrompt = await imageToPrompt(uploadedImage, 'tshirt');
+      console.log('Generated prompt:', generatedPrompt);
       setPrompt(generatedPrompt);
       toast.success('Prompt generated from image!');
     } catch (error) {
@@ -76,6 +81,7 @@ export const ImageToPromptTab = () => {
   
   // Generate design from prompt
   const handleGenerateDesign = async () => {
+    console.log('Generate design button clicked');
     if (!prompt.trim()) {
       toast.error('Please generate or enter a prompt first');
       return;
@@ -84,6 +90,7 @@ export const ImageToPromptTab = () => {
     setIsGenerating(true);
     
     try {
+      console.log('Calling generateImage with prompt:', prompt);
       // Generate design with Ideogram API
       const imageUrl = await generateImage({
         prompt,
@@ -92,6 +99,7 @@ export const ImageToPromptTab = () => {
       });
       
       if (imageUrl) {
+        console.log('Generated design URL:', imageUrl);
         setGeneratedDesign(imageUrl);
         
         // Save to history
@@ -116,6 +124,7 @@ export const ImageToPromptTab = () => {
   
   // Handle downloading the design
   const handleDownload = async (format = 'png') => {
+    console.log('Download button clicked for format:', format);
     if (!generatedDesign) {
       toast.error('No design to download');
       return;
@@ -128,6 +137,7 @@ export const ImageToPromptTab = () => {
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
+      console.log('Downloading image with filename:', filename);
       await downloadImage(generatedDesign, format, filename);
       toast.success(`Design downloaded as ${format.toUpperCase()}`);
     } catch (error) {
@@ -140,12 +150,21 @@ export const ImageToPromptTab = () => {
   
   // Clear uploaded image
   const handleClearImage = () => {
+    console.log('Clear image button clicked');
     setUploadedImage(null);
     setImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  console.log('Current state:', { 
+    hasUploadedImage: !!uploadedImage, 
+    hasPrompt: !!prompt, 
+    hasGeneratedDesign: !!generatedDesign,
+    isAnalyzing,
+    isGenerating
+  });
 
   return (
     <div className="space-y-6">

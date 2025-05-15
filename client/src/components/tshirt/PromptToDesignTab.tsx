@@ -51,6 +51,8 @@ export const PromptToDesignTab = () => {
 
   // Handle generating the design
   const handleGenerateDesign = async () => {
+    console.log('Generate button clicked with prompt:', prompt);
+    
     if (!prompt.trim()) {
       toast.error('Please enter a prompt first');
       return;
@@ -60,6 +62,7 @@ export const PromptToDesignTab = () => {
     
     try {
       // Generate image with Ideogram API
+      console.log('Calling generateImage with:', { prompt, transparentBg, size });
       const imageUrl = await generateImage({
         prompt,
         transparentBackground: transparentBg,
@@ -67,6 +70,7 @@ export const PromptToDesignTab = () => {
       });
       
       if (imageUrl) {
+        console.log('Generated image URL:', imageUrl);
         setImageUrl(imageUrl);
         
         // Save to history
@@ -91,6 +95,7 @@ export const PromptToDesignTab = () => {
   
   // Handle downloading the image
   const handleDownload = async (format = 'png') => {
+    console.log('Download button clicked for format:', format);
     if (!imageUrl) {
       toast.error('No design to download');
       return;
@@ -103,6 +108,7 @@ export const PromptToDesignTab = () => {
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
+      console.log('Downloading image with filename:', filename);
       await downloadImage(imageUrl, format, filename);
       toast.success(`Design downloaded as ${format.toUpperCase()}`);
     } catch (error) {
@@ -115,8 +121,12 @@ export const PromptToDesignTab = () => {
 
   // Use a sample prompt
   const useSamplePrompt = (sample: string) => {
+    console.log('Sample prompt selected:', sample);
     setPrompt(sample);
   };
+
+  console.log('Current prompt value:', prompt);
+  console.log('Current image URL:', imageUrl);
 
   return (
     <div className="space-y-6">
