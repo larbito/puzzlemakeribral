@@ -501,7 +501,7 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       console.log("Submitting image to background removal service");
       
       // Use the background removal endpoint
-      const bgRemovalEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/remove-background';
+      const bgRemovalEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize/remove-background';
       
       console.log("Background removal endpoint URL:", bgRemovalEndpoint);
       console.log("Form data contents:");

@@ -23,8 +23,9 @@ router.get('/vectorize-test', (req, res) => {
   });
 });
 
-// Background removal endpoint
+// Background removal endpoints (support both paths for backward compatibility)
 router.post('/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
+router.post('/vectorize/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 
 // SVG vectorization endpoint (placeholder for future implementation)
 router.post('/vectorize', (req, res) => {
