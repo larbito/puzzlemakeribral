@@ -17,7 +17,7 @@ import {
   Folder
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadAllImages, imageToPrompt, saveToHistory } from '@/services/ideogramService';
+import { generateImage, downloadAllImages, imageToPrompt, saveToHistory, downloadImage } from '@/services/ideogramService';
 import { Progress } from '@/components/ui/progress';
 
 // Define interface for bulk item
@@ -225,6 +225,66 @@ export const BulkImageTab = () => {
     // Count successful generations
     const successCount = bulkItems.filter(item => item.status === 'completed').length;
     toast.success(`Generated ${successCount} designs successfully.`);
+  };
+  
+  // Generate a single design
+  const handleGenerateSingle = async (itemId: string) => {
+    // Find the item to generate
+    const itemToGenerate = bulkItems.find(item => item.id === itemId);
+    
+    if (!itemToGenerate || !itemToGenerate.prompt.trim()) {
+      toast.error('No valid prompt to generate design from.');
+      return;
+    }
+    
+    console.log(`Generating single design for item ${itemId}`);
+    
+    try {
+      // Update status to generating
+      setBulkItems(prev => prev.map(i => 
+        i.id === itemId ? { ...i, status: 'generating' } : i
+      ));
+      
+      // Show toast notification
+      toast.info('Generating design...');
+      
+      console.log(`Generating design with prompt: ${itemToGenerate.prompt.substring(0, 30)}...`);
+      // Call Ideogram API to generate design
+      const imageUrl = await generateImage({
+        prompt: itemToGenerate.prompt,
+        transparentBackground: true,
+        format: 'merch'
+      });
+      
+      if (imageUrl) {
+        console.log(`Generated design URL: ${imageUrl.substring(0, 50)}...`);
+        // Update with generated design
+        setBulkItems(prev => prev.map(i => 
+          i.id === itemId ? { ...i, designUrl: imageUrl, status: 'completed' } : i
+        ));
+        
+        // Save to history
+        saveToHistory({
+          prompt: itemToGenerate.prompt,
+          imageUrl,
+          thumbnail: imageUrl,
+          isFavorite: false
+        });
+        
+        toast.success('Design generated successfully!');
+      } else {
+        throw new Error('Failed to generate design');
+      }
+    } catch (error) {
+      console.error(`Error generating design:`, error);
+      
+      // Update status to failed
+      setBulkItems(prev => prev.map(i => 
+        i.id === itemId ? { ...i, status: 'failed' } : i
+      ));
+      
+      toast.error(`Failed to generate design.`);
+    }
   };
   
   // Download all generated designs
@@ -541,8 +601,8 @@ export const BulkImageTab = () => {
                         }
                         className="w-full"
                         onClick={() => {
-                          // Individual generate handler
-                          handleGenerateAll();
+                          // Individual generate handler - use the new function
+                          handleGenerateSingle(item.id);
                         }}
                       >
                         {item.status === 'generating' ? (

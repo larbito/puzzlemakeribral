@@ -16,7 +16,7 @@ import {
   ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDesignHistory, deleteFromHistory, saveToFavorites, downloadImage } from '@/services/ideogramService';
+import { getDesignHistory, deleteFromHistory, saveToFavorites, downloadImage, generateImage } from '@/services/ideogramService';
 import type { DesignHistoryItem } from '@/services/designHistory';
 
 export const DesignHistoryPanel = () => {
@@ -111,6 +111,57 @@ export const DesignHistoryPanel = () => {
       toast.error('Failed to download design');
     } finally {
       setIsDownloading(false);
+    }
+  };
+  
+  // Add a function to regenerate design
+  const handleRegenerate = async (item: DesignHistoryItem) => {
+    console.log('Regenerating design for item:', item.id);
+    
+    try {
+      // Show loading toast
+      const toastId = toast.loading('Regenerating design...');
+      
+      // Generate new design with same prompt
+      const newImageUrl = await generateImage({
+        prompt: item.prompt,
+        transparentBackground: true,
+        format: 'merch'
+      });
+      
+      if (!newImageUrl) {
+        throw new Error('Failed to regenerate design');
+      }
+      
+      // Update the item in history
+      const updatedItem = {
+        ...item,
+        imageUrl: newImageUrl,
+        thumbnail: newImageUrl,
+        createdAt: new Date().toISOString()
+      };
+      
+      // Update locally 
+      setHistory(prev => 
+        prev.map(historyItem => 
+          historyItem.id === item.id ? updatedItem : historyItem
+        )
+      );
+      
+      // Update in storage
+      const savedHistory = getDesignHistory();
+      const updatedHistory = savedHistory.map(historyItem => 
+        historyItem.id === item.id ? updatedItem : historyItem
+      );
+      
+      // Update history in localStorage
+      localStorage.setItem('designHistory', JSON.stringify(updatedHistory));
+      
+      toast.dismiss(toastId);
+      toast.success('Design regenerated successfully');
+    } catch (error) {
+      console.error('Error regenerating design:', error);
+      toast.error('Failed to regenerate design');
     }
   };
   
@@ -235,8 +286,12 @@ export const DesignHistoryPanel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
-                        onClick={() => handleToggleFavorite(item.id)}
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201] pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Favorite button clicked for item:', item.id);
+                          handleToggleFavorite(item.id);
+                        }}
                       >
                         <Heart 
                           className={`h-3 w-3 ${item.isFavorite ? 'fill-red-500 text-red-500' : 'text-white'}`} 
@@ -245,8 +300,12 @@ export const DesignHistoryPanel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
-                        onClick={() => handleDownload(item)}
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201] pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Download button clicked for item:', item.id);
+                          handleDownload(item);
+                        }}
                         disabled={isDownloading}
                       >
                         <Download className="h-3 w-3 text-white" />
@@ -254,8 +313,24 @@ export const DesignHistoryPanel = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201]"
-                        onClick={() => handleDelete(item.id)}
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201] pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Regenerate button clicked for item:', item.id);
+                          handleRegenerate(item);
+                        }}
+                      >
+                        <RefreshCw className="h-3 w-3 text-white" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 bg-white/10 hover:bg-white/20 relative z-[201] pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          console.log('Delete button clicked for item:', item.id);
+                          handleDelete(item.id);
+                        }}
                       >
                         <Trash2 className="h-3 w-3 text-white" />
                       </Button>
@@ -302,7 +377,11 @@ export const DesignHistoryPanel = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 relative z-[201]"
-                    onClick={() => handleToggleFavorite(item.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Favorite button clicked for item:', item.id);
+                      handleToggleFavorite(item.id);
+                    }}
                   >
                     <Heart 
                       className={`h-4 w-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : ''}`} 
@@ -312,7 +391,11 @@ export const DesignHistoryPanel = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 relative z-[201]"
-                    onClick={() => handleDownload(item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Download button clicked for item:', item.id);
+                      handleDownload(item);
+                    }}
                     disabled={isDownloading}
                   >
                     <Download className="h-4 w-4" />
@@ -321,7 +404,23 @@ export const DesignHistoryPanel = () => {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 relative z-[201]"
-                    onClick={() => handleDelete(item.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Regenerate button clicked for item:', item.id);
+                      handleRegenerate(item);
+                    }}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 relative z-[201]"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      console.log('Delete button clicked for item:', item.id);
+                      handleDelete(item.id);
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
