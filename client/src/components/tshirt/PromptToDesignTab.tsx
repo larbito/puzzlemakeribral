@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Select, 
   SelectContent, 
@@ -18,10 +18,29 @@ import {
   LightbulbIcon,
   PanelRight,
   Code,
-  Image
+  Image,
+  ChevronDown,
+  MagicWand
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, saveToHistory, removeBackground } from '@/services/ideogramService';
+import { 
+  generateImage, 
+  downloadImage, 
+  saveToHistory, 
+  removeBackground,
+  backgroundRemovalModels
+} from '@/services/ideogramService';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const PromptToDesignTab = () => {
   // State management
@@ -34,6 +53,7 @@ export const PromptToDesignTab = () => {
   const [processedUrls, setProcessedUrls] = useState<Record<number, string>>({});
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   
   // Size presets mapping
   const sizePresets = {
@@ -145,7 +165,7 @@ export const PromptToDesignTab = () => {
   };
 
   // Handle removing background
-  const handleRemoveBackground = async () => {
+  const handleRemoveBackground = async (modelId: string | null = null) => {
     const currentUrl = imageUrls[currentIndex];
     if (!currentUrl) {
       toast.error('No design to process');
@@ -155,8 +175,8 @@ export const PromptToDesignTab = () => {
     setIsProcessing(true);
     
     try {
-      // Call the background removal service
-      const processedImageUrl = await removeBackground(currentUrl);
+      // Call the background removal service with the selected model
+      const processedImageUrl = await removeBackground(currentUrl, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -191,9 +211,14 @@ export const PromptToDesignTab = () => {
         [currentIndex]: processedImageUrl
       }));
       
-      toast.success('Background removed successfully!', {
+      // Show success message with model info
+      const modelName = modelId 
+        ? Object.values(backgroundRemovalModels).find(m => m.id === modelId)?.name || "Custom Model"
+        : "Standard";
+        
+      toast.success(`Background removed successfully!`, {
         duration: 4000,
-        description: 'Your design now has a transparent background'
+        description: `Using ${modelName} model`
       });
     } catch (error) {
       console.error('Error removing background:', error);
@@ -218,6 +243,14 @@ export const PromptToDesignTab = () => {
   const useSamplePrompt = (sample: string) => {
     console.log('Sample prompt selected:', sample);
     setPrompt(sample);
+  };
+
+  // Select a background removal model
+  const selectModel = (modelKey: string) => {
+    console.log('Selected model:', modelKey);
+    const model = backgroundRemovalModels[modelKey];
+    setSelectedModel(model.id);
+    handleRemoveBackground(model.id);
   };
 
   // Check if the current design has background removed
@@ -437,24 +470,33 @@ export const PromptToDesignTab = () => {
                     Download Transparent PNG
                   </Button>
                 ) : (
-                  <Button
-                    variant="outline"
-                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                    onClick={handleRemoveBackground}
-                    disabled={isProcessing}
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Removing Background...
-                      </>
-                    ) : (
-                      <>
-                        <Image className="mr-2 h-4 w-4" />
-                        Remove Background
-                      </>
-                    )}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106] w-full flex justify-between"
+                        disabled={isProcessing}
+                      >
+                        <div className="flex items-center">
+                          <Image className="mr-2 h-4 w-4" />
+                          <span>Remove Background</span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      {Object.entries(backgroundRemovalModels).map(([key, model]) => (
+                        <DropdownMenuItem 
+                          key={key}
+                          onClick={() => selectModel(key)}
+                          className="cursor-pointer"
+                        >
+                          <MagicWand className="mr-2 h-4 w-4" />
+                          <span>{model.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </div>
               
@@ -462,7 +504,7 @@ export const PromptToDesignTab = () => {
                 <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
                   <p className="flex items-center gap-1">
                     <Image className="h-3 w-3" />
-                    Click "Remove Background" to create a version with transparent background
+                    Click "Remove Background" to choose from multiple AI models
                   </p>
                 </div>
               )}

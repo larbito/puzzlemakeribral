@@ -412,13 +412,41 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
   }
 }
 
-// Replace the existing removeBackground function with the server-side version
-export async function removeBackground(imageUrl: string): Promise<string> {
+// Define available background removal models with friendly names
+export const backgroundRemovalModels = {
+  "default": {
+    id: null,
+    name: "Standard (Default)"
+  },
+  "men1scus/birefnet": {
+    id: "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
+    name: "Pro Edge Detection"
+  },
+  "cjwbw/rembg": {
+    id: "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+    name: "High Definition"
+  },
+  "lucataco/remove-bg": {
+    id: "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
+    name: "Perfect Cutout"
+  },
+  "851-labs/background-remover": {
+    id: "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
+    name: "Precision Focus"
+  },
+  "smoretalk/rembg-enhance": {
+    id: "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919",
+    name: "Enhanced Detail"
+  }
+};
+
+// Replace the existing removeBackground function with this updated version
+export async function removeBackground(imageUrl: string, modelId: string | null = null): Promise<string> {
   try {
     console.log("========== BACKGROUND REMOVAL DEBUG ==========");
     console.log("Starting background removal for image:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
-    console.log("Using Replicate AI for background removal");
+    console.log("Using model:", modelId || "default (backend choice)");
     
     // Create a toast to indicate processing is in progress
     const toastId = toast.loading("Removing background...");
@@ -464,6 +492,11 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       // Now send the image to our backend background removal endpoint
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
+      
+      // Add model ID if provided
+      if (modelId) {
+        formData.append('modelId', modelId);
+      }
       
       console.log("Submitting image to background removal service");
       
