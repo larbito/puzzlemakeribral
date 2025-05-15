@@ -1708,11 +1708,43 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
         
         console.log("Vectorization successful");
         
-        // Dismiss the toast and show success
-        toast.dismiss(toastId);
-        toast.success("Image successfully vectorized!");
-        
-        return data.svgUrl;
+        // Process the SVG to ensure transparency if it's a data URL
+        if (data.svgUrl.startsWith('data:')) {
+          try {
+            // Extract the SVG content from the data URL
+            const base64Content = data.svgUrl.split(',')[1];
+            const svgContent = atob(base64Content);
+            
+            // Ensure SVG preserves transparency by adding needed attributes
+            let enhancedSvgContent = svgContent;
+            
+            // Add transparent background if not already present
+            if (!svgContent.includes('fill="none"') && !svgContent.includes('fill:none')) {
+              enhancedSvgContent = svgContent.replace(/<svg/, '<svg fill="none"');
+            }
+            
+            // Create a new base64 string with the enhanced SVG
+            const enhancedBase64 = btoa(enhancedSvgContent);
+            const enhancedDataUrl = `data:image/svg+xml;base64,${enhancedBase64}`;
+            
+            // Show success toast
+            toast.dismiss(toastId);
+            toast.success("Image successfully vectorized!");
+            
+            return enhancedDataUrl;
+          } catch (error) {
+            console.error("Error processing SVG content:", error);
+            // Fall back to original URL if there's an error
+            toast.dismiss(toastId);
+            toast.success("Image successfully vectorized!");
+            return data.svgUrl;
+          }
+        } else {
+          // For non-data URLs, use as is
+          toast.dismiss(toastId);
+          toast.success("Image successfully vectorized!");
+          return data.svgUrl;
+        }
       } catch (fetchError: any) {
         // Clean up the timeout if there was an error
         clearTimeout(timeoutId);

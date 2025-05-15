@@ -94,8 +94,16 @@ exports.vectorizeImage = async (req, res) => {
         });
       }
       
+      // Enhance the SVG to ensure transparency is properly preserved
+      let enhancedSvgData = svgData;
+      
+      // Add transparent background if not already present
+      if (!svgData.includes('fill="none"') && !svgData.includes('fill:none')) {
+        enhancedSvgData = svgData.replace(/<svg/, '<svg fill="none"');
+      }
+      
       // Create a base64 data URL for the SVG
-      const svgBase64 = Buffer.from(svgData).toString('base64');
+      const svgBase64 = Buffer.from(enhancedSvgData).toString('base64');
       const svgUrl = `data:image/svg+xml;base64,${svgBase64}`;
       
       console.log('Vectorization successful');
