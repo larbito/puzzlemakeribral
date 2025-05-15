@@ -87,7 +87,7 @@ export const PuzzleGenerator = () => {
   const handleDownload = () => {
     if (generationStatus !== 'complete') return;
     
-    alert(`Downloading "${wordSearchSettings.title}" word search book with ${wordSearchSettings.quantity} puzzles in ${wordSearchSettings.bookFormat.toUpperCase()} format`);
+    alert(`Downloading "${wordSearchSettings.title}" word search book with ${wordSearchSettings.quantity} puzzles as PDF`);
     
     // Reset after download
     setGenerationStatus('idle');
@@ -109,7 +109,6 @@ export const PuzzleGenerator = () => {
       {(generationStatus === 'complete' || generationStatus === 'error') && !showPreview && (
         <WordSearchCompletionStatus 
           status={generationStatus as 'complete' | 'error'}
-          bookFormat={wordSearchSettings.bookFormat}
           onDownload={handleDownload}
           onTryAgain={() => setGenerationStatus('idle')}
           onViewPreview={handleTogglePreview}

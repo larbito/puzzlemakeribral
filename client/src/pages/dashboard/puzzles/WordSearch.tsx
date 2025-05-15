@@ -22,15 +22,13 @@ export type WordSearchSettings = {
   pageSize: string;
   puzzlesPerPage: number;
   includePageNumbers: boolean;
-  addBookCover: boolean;
-  bookFormat: string;
+  includeAnswers: boolean;
   
   // WordSearch specific settings
   theme: string;
   customWords: string;
   difficulty: string;
   quantity: number;
-  includeAnswers: boolean;
   aiPrompt: string;
 };
 
@@ -40,15 +38,13 @@ export const defaultWordSearchSettings: WordSearchSettings = {
   pageSize: 'letter',
   puzzlesPerPage: 1,
   includePageNumbers: true,
-  addBookCover: true,
-  bookFormat: 'pdf',
+  includeAnswers: true,
   
   // Default WordSearch specific settings
   theme: '',
   customWords: '',
   difficulty: 'medium',
   quantity: 20,
-  includeAnswers: true,
   aiPrompt: ''
 };
 
@@ -96,9 +92,10 @@ export const WordSearchForm = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Book Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Book Title</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="book-title" className="text-sm font-medium">Book Title</label>
               <input
+                id="book-title"
                 type="text"
                 value={settings.title}
                 onChange={(e) => onSettingChange('title', e.target.value)}
@@ -106,35 +103,28 @@ export const WordSearchForm = ({
                 className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Page Size</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="page-size" className="text-sm font-medium">Page Size</label>
               <select 
+                id="page-size"
                 className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
                 value={settings.pageSize}
                 onChange={(e) => onSettingChange('pageSize', e.target.value)}
               >
                 <option value="letter">Letter (8.5 x 11 in)</option>
                 <option value="a4">A4 (210 x 297 mm)</option>
-                <option value="a5">A5 (148 x 210 mm)</option>
-                <option value="6x9">KDP 6 x 9 in</option>
-                <option value="8x10">KDP 8 x 10 in</option>
+                <option value="5x8">5 x 8 in</option>
+                <option value="6x9">6 x 9 in</option>
+                <option value="7x10">7 x 10 in</option>
+                <option value="8x10">8 x 10 in</option>
+                <option value="825x825">8.25 x 8.25 in</option>
+                <option value="85x11">8.5 x 11 in</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Book Format</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="puzzles-per-page" className="text-sm font-medium">Puzzles Per Page</label>
               <select 
-                className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
-                value={settings.bookFormat}
-                onChange={(e) => onSettingChange('bookFormat', e.target.value)}
-              >
-                <option value="pdf">PDF Book</option>
-                <option value="printable">Printable Sheets</option>
-                <option value="kdp">KDP Ready</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Puzzles Per Page</label>
-              <select 
+                id="puzzles-per-page"
                 className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
                 value={settings.puzzlesPerPage}
                 onChange={(e) => onSettingChange('puzzlesPerPage', parseInt(e.target.value))}
@@ -144,7 +134,7 @@ export const WordSearchForm = ({
                 <option value="4">4 per page</option>
               </select>
             </div>
-            <div className="col-span-2 flex flex-wrap gap-6">
+            <div className="col-span-1 md:col-span-2 flex flex-wrap gap-6">
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -155,18 +145,6 @@ export const WordSearchForm = ({
                 />
                 <label htmlFor="include-page-numbers" className="text-sm">
                   Add page numbers
-                </label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="add-book-cover"
-                  checked={settings.addBookCover}
-                  onChange={(e) => onSettingChange('addBookCover', e.target.checked)}
-                  className="h-4 w-4 rounded border-primary/20 bg-white/5"
-                />
-                <label htmlFor="add-book-cover" className="text-sm">
-                  Generate book cover
                 </label>
               </div>
               <div className="flex items-center space-x-2">
@@ -189,9 +167,10 @@ export const WordSearchForm = ({
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Word Search Settings</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Theme</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="theme" className="text-sm font-medium">Theme</label>
               <input
+                id="theme"
                 type="text"
                 value={settings.theme}
                 onChange={(e) => onSettingChange('theme', e.target.value)}
@@ -199,9 +178,10 @@ export const WordSearchForm = ({
                 className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Difficulty Level</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="difficulty" className="text-sm font-medium">Difficulty Level</label>
               <select 
+                id="difficulty"
                 className="w-full px-3 py-2 rounded-md bg-white/5 border border-primary/20 text-foreground"
                 value={settings.difficulty}
                 onChange={(e) => onSettingChange('difficulty', e.target.value)}
@@ -212,9 +192,10 @@ export const WordSearchForm = ({
                 <option value="mixed">Mixed Levels</option>
               </select>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Number of Puzzles</label>
+            <div className="space-y-2 w-full">
+              <label htmlFor="quantity" className="text-sm font-medium">Number of Puzzles</label>
               <input
+                id="quantity"
                 type="number"
                 min="5"
                 max="100"
@@ -224,8 +205,9 @@ export const WordSearchForm = ({
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <label className="text-sm font-medium">Custom Words (Optional)</label>
+              <label htmlFor="custom-words" className="text-sm font-medium">Custom Words (Optional)</label>
               <textarea
+                id="custom-words"
                 value={settings.customWords}
                 onChange={(e) => onSettingChange('customWords', e.target.value)}
                 placeholder="Enter words separated by commas"
@@ -242,8 +224,9 @@ export const WordSearchForm = ({
             AI-Powered Generation
           </h3>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Custom AI Prompt (Optional)</label>
+            <label htmlFor="ai-prompt" className="text-sm font-medium">Custom AI Prompt (Optional)</label>
             <textarea
+              id="ai-prompt"
               value={settings.aiPrompt}
               onChange={(e) => onSettingChange('aiPrompt', e.target.value)}
               placeholder="Add specific instructions for word search generation..."
@@ -271,7 +254,7 @@ export const WordSearchForm = ({
             ) : (
               <>
                 <PenLine className="mr-2 h-4 w-4" />
-                Generate Word Search Book
+                Generate Word Search PDF
               </>
             )}
           </Button>
@@ -283,13 +266,13 @@ export const WordSearchForm = ({
 
 export const WordSearchCompletionStatus = ({ 
   status, 
-  bookFormat, 
+  bookFormat = 'PDF', 
   onDownload, 
   onTryAgain,
   onViewPreview 
 }: {
   status: 'complete' | 'error',
-  bookFormat: string,
+  bookFormat?: string,
   onDownload: () => void,
   onTryAgain: () => void,
   onViewPreview?: () => void
@@ -327,7 +310,7 @@ export const WordSearchCompletionStatus = ({
                   className="bg-gradient-to-r from-primary to-secondary"
                 >
                   <FileDown className="mr-2 h-4 w-4" />
-                  Download {bookFormat.toUpperCase()}
+                  Download {bookFormat}
                 </Button>
               </div>
             </>

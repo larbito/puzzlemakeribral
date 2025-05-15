@@ -50,7 +50,6 @@ type WordSearchSettings = {
   quantity: number;
   pageSize: string;
   puzzlesPerPage: number;
-  bookFormat: string;
   theme: string;
   difficulty: string;
   includeAnswers: boolean;
@@ -175,7 +174,7 @@ export const WordSearchPreview = ({
             className="bg-gradient-to-r from-primary to-secondary"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download {settings.bookFormat.toUpperCase()}
+            Download PDF
           </Button>
         </div>
       </div>
