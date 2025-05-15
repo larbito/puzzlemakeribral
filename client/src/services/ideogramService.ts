@@ -1542,7 +1542,7 @@ export function forceProxyForIdeogramUrl(url: string): string {
  * Resize an image to a maximum width while maintaining aspect ratio
  * This helps avoid 413 Payload Too Large errors when vectorizing
  */
-async function resizeImageForVectorization(imageUrl: string, maxWidth = 1200): Promise<Blob> {
+async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Promise<Blob> {
   return new Promise((resolve, reject) => {
     try {
       const img = new Image();
@@ -1555,15 +1555,11 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 1200): P
         
         console.log(`Original image dimensions: ${width}x${height}`);
         
-        // Only resize if the image is larger than maxWidth
-        if (width > maxWidth) {
-          const aspectRatio = width / height;
-          width = maxWidth;
-          height = Math.round(width / aspectRatio);
-          console.log(`Resizing to: ${width}x${height}`);
-        } else {
-          console.log("Image is already small enough, no resizing needed");
-        }
+        // Always resize to reduce vectorization complexity
+        const aspectRatio = width / height;
+        width = Math.min(width, maxWidth);
+        height = Math.round(width / aspectRatio);
+        console.log(`Resizing to: ${width}x${height}`);
         
         // Create a canvas to resize the image
         const canvas = document.createElement('canvas');
@@ -1588,7 +1584,7 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 1200): P
           
           console.log(`Resized image size: ${Math.round(blob.size / 1024)} KB`);
           resolve(blob);
-        }, 'image/png', 0.85); // Use PNG with 85% quality
+        }, 'image/png', 0.8); // Use PNG with 80% quality
       };
       
       img.onerror = () => {
@@ -1617,10 +1613,10 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
     try {
       let imageBlob: Blob;
       
-      // Resize the image first to avoid 413 Payload Too Large errors
+      // Always resize the image to make vectorization more efficient
       try {
         console.log("Resizing image for vectorization...");
-        imageBlob = await resizeImageForVectorization(imageUrl);
+        imageBlob = await resizeImageForVectorization(imageUrl, 800); // Smaller max width for better performance
         console.log(`Image prepared for vectorization, size: ${Math.round(imageBlob.size / 1024)} KB`);
       } catch (resizeError) {
         console.error("Error resizing image:", resizeError);
@@ -1644,12 +1640,12 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
         }
       }
       
-      // Check if image is too large (> 10MB) after resizing
-      const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+      // Check if image is too large (> 5MB) after resizing
+      const MAX_SIZE = 5 * 1024 * 1024; // 5MB for better performance
       if (imageBlob.size > MAX_SIZE) {
         toast.dismiss(toastId);
-        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
-        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 10MB.`);
+        toast.error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
+        throw new Error(`Image is too large (${Math.round(imageBlob.size / 1024 / 1024)}MB). Maximum size is 5MB.`);
       }
       
       // Now send the image to Vectorizer.AI API through our backend proxy
@@ -1657,68 +1653,90 @@ export async function vectorizeImage(imageUrl: string): Promise<string> {
       formData.append('image', imageBlob, 'image.png');
       
       console.log("Submitting image to vectorizer API via backend");
-      console.log("API URL being used:", API_URL);
       
-      // Use the absolute Railway URL for the vectorize endpoint in production
+      // Use the absolute Railway URL for the vectorize endpoint
       const vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
-      console.log("Full vectorize endpoint URL:", vectorizeEndpoint);
+      console.log("Vectorize endpoint URL:", vectorizeEndpoint);
       
-      const response = await fetch(vectorizeEndpoint, {
-        method: 'POST',
-        body: formData,
-        mode: 'cors',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      // Set up an AbortController for timeout
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
       
-      console.log("Vectorization response status:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Vectorization API error: ${response.status}`, errorText);
+      try {
+        const response = await fetch(vectorizeEndpoint, {
+          method: 'POST',
+          body: formData,
+          signal: abortController.signal,
+          mode: 'cors',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         
-        let errorMessage = "Failed to vectorize image";
-        try {
-          // Try to parse error as JSON
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-        } catch {
-          // If can't parse JSON, use raw text
-          if (errorText) errorMessage = errorText;
+        // Clear the timeout since we got a response
+        clearTimeout(timeoutId);
+        
+        console.log("Vectorization response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Vectorization API error: ${response.status}`, errorText);
+          
+          let errorMessage = "Failed to vectorize image";
+          try {
+            // Try to parse error as JSON
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorMessage;
+          } catch {
+            // If can't parse JSON, use raw text
+            if (errorText) errorMessage = errorText;
+          }
+          
+          if (response.status === 413) {
+            errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+          } else if (response.status === 504 || response.status === 502) {
+            errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
+          }
+          
+          toast.dismiss(toastId);
+          toast.error(errorMessage);
+          throw new Error(`${errorMessage} (Status: ${response.status})`);
         }
         
-        if (response.status === 413) {
-          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
-        } else if (response.status === 504 || response.status === 502) {
-          errorMessage = "Vectorization timed out. The image may be too complex or the server is overloaded.";
+        const data = await response.json();
+        
+        if (!data.svgUrl) {
+          throw new Error("No SVG URL found in response");
         }
         
+        console.log("Vectorization successful");
+        
+        // Dismiss the toast and show success
         toast.dismiss(toastId);
-        toast.error(errorMessage);
-        throw new Error(`${errorMessage} (Status: ${response.status})`);
+        toast.success("Image successfully vectorized!");
+        
+        return data.svgUrl;
+      } catch (fetchError: any) {
+        // Clean up the timeout if there was an error
+        clearTimeout(timeoutId);
+        
+        // Handle abort/timeout specifically
+        if (fetchError.name === 'AbortError') {
+          toast.dismiss(toastId);
+          toast.error("Vectorization request timed out. Try a simpler image or try again later.");
+          throw new Error("Vectorization request timed out");
+        }
+        
+        throw fetchError;
       }
-      
-      const data = await response.json();
-      
-      if (!data.svgUrl) {
-        throw new Error("No SVG URL found in response");
-      }
-      
-      console.log("Vectorization successful, SVG URL:", data.svgUrl.substring(0, 100) + "...");
-      
-      // Dismiss the toast and show success
-      toast.dismiss(toastId);
-      toast.success("Image successfully vectorized!");
-      
-      return data.svgUrl;
     } catch (error) {
       console.error("Error in vectorization process:", error);
       toast.dismiss(toastId);
       
       // If we haven't already shown an error toast
-      if (error instanceof Error && !error.message.includes("too large") && !error.message.includes("timed out")) {
+      if (error instanceof Error && 
+          !error.message.includes("too large") && 
+          !error.message.includes("timed out")) {
         toast.error(`Failed to vectorize image: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
       

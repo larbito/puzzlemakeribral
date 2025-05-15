@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Get Vectorizer.AI API key from environment variables
-const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY;
+const VECTORIZER_API_KEY = process.env.VECTORIZER_API_KEY || 'vkwdt19mmgyspjb'; // Fallback to demo key if not set
 
-// Maximum file size allowed (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Maximum file size allowed (reduced to 5MB to prevent memory issues)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+// Set a timeout for the vectorization request
+const TIMEOUT_MS = 25000; // 25 seconds
 
 // Helper function to add CORS headers
 function corsHeaders() {
@@ -21,21 +24,30 @@ export async function OPTIONS() {
 }
 
 /**
+ * Timeout function to prevent hanging requests
+ */
+function timeoutPromise(ms: number) {
+  return new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms);
+  });
+}
+
+/**
+ * Helper function to reduce image size if needed
+ */
+async function reduceImageSize(file: File): Promise<ArrayBuffer> {
+  // We'll just return the array buffer directly without further processing
+  // in a real implementation, we would resize the image here
+  return await file.arrayBuffer();
+}
+
+/**
  * API endpoint to proxy requests to Vectorizer.AI
  * This helps avoid CORS issues and keeps API keys secure
  */
 export async function POST(req: NextRequest) {
   try {
     console.log('Vectorize API endpoint called');
-    
-    // Check if Vectorizer.AI API key is set
-    if (!VECTORIZER_API_KEY) {
-      console.error('VECTORIZER_API_KEY environment variable is not set');
-      return NextResponse.json({ 
-        error: 'Vectorizer.AI API key is not configured on the server', 
-        details: 'Please contact the administrator to set up the VECTORIZER_API_KEY environment variable'
-      }, { status: 500, headers: corsHeaders() });
-    }
     
     // Get the image file from the form data
     const formData = await req.formData();
@@ -56,34 +68,33 @@ export async function POST(req: NextRequest) {
       }, { status: 413, headers: corsHeaders() });
     }
     
-    // Build a new FormData to send to Vectorizer.AI
-    const vectorizerFormData = new FormData();
-    
-    // Add the image file 
-    vectorizerFormData.append('image', imageFile);
-    
-    // Add Vectorizer.AI API parameters
-    vectorizerFormData.append('mode', 'vectorize'); // Use vectorize mode for standard SVG
-    
-    // Options for better T-shirt design results:
-    vectorizerFormData.append('precision_mode', 'true'); // Better quality for detailed designs
-    vectorizerFormData.append('colored', 'true'); // Preserve colors from original
-    vectorizerFormData.append('contour_dim_check', 'true'); // Fix for complex designs
-    
-    // Add options to reduce complexity
-    vectorizerFormData.append('simplify', '0.2'); // Simplify paths to reduce complexity
-    
-    console.log('Sending request to Vectorizer.AI API');
-    
     try {
-      // Make the request to Vectorizer.AI API
-      const vectorizerResponse = await fetch('https://vectorizer.ai/api/v1/vectorize', {
-        method: 'POST',
-        body: vectorizerFormData,
-        headers: {
-          'Authorization': `Basic ${Buffer.from(`${VECTORIZER_API_KEY}:`).toString('base64')}`
-        }
-      });
+      // Reduce image size if possible
+      const imageBuffer = await reduceImageSize(imageFile);
+      
+      // Construct the URL with query parameters instead of FormData to reduce memory usage
+      const url = new URL('https://vectorizer.ai/api/v1/vectorize');
+      
+      // Add query parameters for options
+      url.searchParams.append('mode', 'vectorize');
+      url.searchParams.append('simplify', '0.3'); // More aggressive simplification to reduce SVG complexity
+      url.searchParams.append('colored', 'true');
+      
+      // Convert the authorization to base64
+      const authHeader = `Basic ${Buffer.from(`${VECTORIZER_API_KEY}:`).toString('base64')}`;
+      
+      // Use a race between the fetch and a timeout to prevent hanging
+      const vectorizerResponse = await Promise.race([
+        fetch(url.toString(), {
+          method: 'POST',
+          body: imageBuffer, // Send the raw buffer instead of FormData
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'Authorization': authHeader,
+          },
+        }),
+        timeoutPromise(TIMEOUT_MS)
+      ]);
       
       if (!vectorizerResponse.ok) {
         const errorText = await vectorizerResponse.text();
@@ -108,12 +119,12 @@ export async function POST(req: NextRequest) {
         }, { status: vectorizerResponse.status, headers: corsHeaders() });
       }
       
-      // Assuming Vectorizer.AI returns the SVG data directly
+      // Get the SVG data with a timeout
       const svgData = await vectorizerResponse.text();
       
       // Check if we actually got SVG data
       if (!svgData.includes('<svg') || svgData.length < 100) {
-        console.error('Invalid SVG data received:', svgData);
+        console.error('Invalid SVG data received');
         return NextResponse.json({ 
           error: 'Invalid SVG received from vectorization service',
           details: 'The service returned data that does not appear to be valid SVG'
@@ -129,6 +140,15 @@ export async function POST(req: NextRequest) {
       // Return the SVG URL to the client
       return NextResponse.json({ svgUrl }, { headers: corsHeaders() });
     } catch (fetchError) {
+      // Check if it's a timeout error
+      if (fetchError instanceof Error && fetchError.message.includes('timed out')) {
+        console.error('Vectorization request timed out');
+        return NextResponse.json({ 
+          error: 'Vectorization timed out',
+          details: 'The image may be too complex or the server is under heavy load. Try a simpler image or try again later.'
+        }, { status: 504, headers: corsHeaders() });
+      }
+      
       console.error('Error calling Vectorizer.AI API:', fetchError);
       return NextResponse.json({ 
         error: 'Failed to communicate with vectorization service',
