@@ -3,11 +3,12 @@ const router = express.Router();
 const multer = require('multer');
 const replicateBackgroundRemovalController = require('../controllers/replicateBackgroundRemovalController');
 
-// Configure multer for memory storage
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5 MB
+// Configure multer for memory storage (avoid writing to disk)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { 
+    fileSize: 10 * 1024 * 1024 // 10MB limit 
   }
 });
 
@@ -22,7 +23,7 @@ router.get('/vectorize-test', (req, res) => {
   });
 });
 
-// Background removal endpoint using Replicate API
+// Background removal endpoint
 router.post('/remove-background', upload.single('image'), replicateBackgroundRemovalController.removeBackground);
 
 // SVG vectorization endpoint (placeholder for future implementation)
@@ -33,4 +34,5 @@ router.post('/vectorize', (req, res) => {
   });
 });
 
+// Export the router
 module.exports = router; 
