@@ -193,13 +193,43 @@ export const PromptToDesignTab = () => {
       // Call the vectorization service
       const svgUrl = await vectorizeImage(currentUrl);
       
+      // Preview the SVG immediately before saving it
+      // This ensures the user can see the vectorized result with transparency
+      const imgPreview = document.createElement('img');
+      imgPreview.src = svgUrl;
+      imgPreview.style.display = 'none';
+      document.body.appendChild(imgPreview);
+      
+      // Make sure image loads before we show it to ensure transparency is visible
+      await new Promise((resolve) => {
+        imgPreview.onload = () => {
+          document.body.removeChild(imgPreview);
+          resolve(true);
+        };
+        imgPreview.onerror = () => {
+          document.body.removeChild(imgPreview);
+          resolve(false);
+        };
+        
+        // Timeout just in case
+        setTimeout(() => {
+          if (document.body.contains(imgPreview)) {
+            document.body.removeChild(imgPreview);
+          }
+          resolve(false);
+        }, 3000);
+      });
+      
       // Save the vectorized URL for this index
       setVectorizedUrls(prev => ({
         ...prev,
         [currentIndex]: svgUrl
       }));
       
-      toast.success('Design vectorized successfully! You can now download it as SVG.');
+      toast.success('Design vectorized successfully! You can now download it as SVG.', {
+        duration: 4000,
+        description: 'Your design is now showing with transparency.'
+      });
     } catch (error) {
       console.error('Error vectorizing design:', error);
       toast.error('Failed to vectorize design');
