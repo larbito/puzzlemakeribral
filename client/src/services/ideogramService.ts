@@ -1601,14 +1601,15 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Pr
 /**
  * Vectorize an image using Vectorizer.AI API via our backend
  * @param imageUrl URL of the image to vectorize
+ * @param vectorizationMethod Method to use for vectorization: "local" (free), "vectorizer" (paid API), or "replicate" (paid API, high quality)
  * @returns URL to the vectorized SVG
  */
-export async function vectorizeImage(imageUrl: string, useLocalVectorization: boolean = true): Promise<string> {
+export async function vectorizeImage(imageUrl: string, vectorizationMethod: "local" | "vectorizer" | "replicate" = "local"): Promise<string> {
   try {
     console.log("========== VECTORIZATION DEBUG ==========");
     console.log("Starting vectorization of image:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
-    console.log("Using local vectorization:", useLocalVectorization);
+    console.log("Using vectorization method:", vectorizationMethod);
     
     // Create a toast to indicate vectorization is in progress
     const toastId = toast.loading("Vectorizing image...");
@@ -1657,11 +1658,21 @@ export async function vectorizeImage(imageUrl: string, useLocalVectorization: bo
       
       console.log("Submitting image to backend vectorization service");
       
-      // Use the backend URL - try both with and without www
-      // Choose the endpoint based on whether to use local (free) vectorization or the API
-      const vectorizeEndpoint = useLocalVectorization 
-        ? 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local' // Use local Potrace-based vectorization (free)
-        : 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';      // Use external API-based vectorization (costs $)
+      // Choose the endpoint based on the selected vectorization method
+      let vectorizeEndpoint;
+      switch (vectorizationMethod) {
+        case "local":
+          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local';
+          break;
+        case "vectorizer":
+          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize';
+          break;
+        case "replicate":
+          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-replicate';
+          break;
+        default:
+          vectorizeEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize-local';
+      }
       
       console.log("Vectorize endpoint URL:", vectorizeEndpoint);
       console.log("Form data contents:");

@@ -31,7 +31,7 @@ export const ImageToPromptTab = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isVectorizing, setIsVectorizing] = useState(false);
   const [vectorizedDesign, setVectorizedDesign] = useState<string | null>(null);
-  const [useLocalVectorization, setUseLocalVectorization] = useState(true);
+  const [vectorizationMethod, setVectorizationMethod] = useState<"local" | "vectorizer" | "replicate">("local");
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -167,8 +167,8 @@ export const ImageToPromptTab = () => {
     setIsVectorizing(true);
     
     try {
-      // Call the vectorization service with the local vectorization preference
-      const svgUrl = await vectorizeImage(generatedDesign, useLocalVectorization);
+      // Call the vectorization service with the selected method
+      const svgUrl = await vectorizeImage(generatedDesign, vectorizationMethod);
       
       // Preview the SVG immediately before saving it
       // This ensures the user can see the vectorized result with transparency
@@ -475,21 +475,53 @@ export const ImageToPromptTab = () => {
                 )}
               </div>
               
-              {/* Add vectorization method toggle */}
+              {/* Vectorization method selection */}
               {!vectorizedDesign && (
-                <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 p-2 rounded">
-                  <span className="flex items-center gap-1">
-                    <Code className="h-3 w-3" />
-                    Use free, local vectorization:
-                  </span>
-                  <Switch 
-                    checked={useLocalVectorization}
-                    onCheckedChange={setUseLocalVectorization}
-                    aria-label="Use local vectorization"
-                  />
-                  <span className="text-xs text-green-600 font-medium">
-                    {useLocalVectorization ? 'Free (Local)' : 'API-Based ($)'}
-                  </span>
+                <div className="p-3 bg-muted/30 rounded-md space-y-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-medium">Vectorization Method:</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={vectorizationMethod === "local" ? "default" : "outline"}
+                      className={vectorizationMethod === "local" ? "" : "border-primary/20"}
+                      onClick={() => setVectorizationMethod("local")}
+                    >
+                      <span className="text-xs">Local (Free)</span>
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={vectorizationMethod === "vectorizer" ? "default" : "outline"}
+                      className={vectorizationMethod === "vectorizer" ? "" : "border-primary/20"}
+                      onClick={() => setVectorizationMethod("vectorizer")}
+                    >
+                      <span className="text-xs">Vectorizer.AI ($)</span>
+                    </Button>
+                    
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={vectorizationMethod === "replicate" ? "default" : "outline"}
+                      className={vectorizationMethod === "replicate" ? "" : "border-primary/20"}
+                      onClick={() => setVectorizationMethod("replicate")}
+                    >
+                      <span className="text-xs">Replicate AI ($)</span>
+                    </Button>
+                  </div>
+                  
+                  <div className="text-xs text-muted-foreground">
+                    <p className="flex items-center gap-1">
+                      <Code className="h-3 w-3" />
+                      {vectorizationMethod === "local" && "Using free, local vectorization (Good for simple designs)"}
+                      {vectorizationMethod === "vectorizer" && "Using Vectorizer.AI API (Better quality, costs $)"}
+                      {vectorizationMethod === "replicate" && "Using Replicate AI (Best quality with background removal, costs $)"}
+                    </p>
+                  </div>
                 </div>
               )}
               
