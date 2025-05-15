@@ -45,9 +45,11 @@ export const PromptToDesignTab = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedUrls, setProcessedUrls] = useState<Record<number, string>>({});
+  const [originalUrls, setOriginalUrls] = useState<Record<number, string>>({});
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [lastUsedModel, setLastUsedModel] = useState<string | null>(null);
   
   // Size presets mapping
   const sizePresets = {
@@ -160,17 +162,42 @@ export const PromptToDesignTab = () => {
 
   // Handle removing background
   const handleRemoveBackground = async (modelId: string | null = null) => {
-    const currentUrl = imageUrls[currentIndex];
-    if (!currentUrl) {
+    const currentImageUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
+    if (!currentImageUrl) {
       toast.error('No design to process');
       return;
     }
     
+    // Store the original image URL if this is the first time processing this image
+    if (!originalUrls[currentIndex]) {
+      setOriginalUrls(prev => ({
+        ...prev,
+        [currentIndex]: imageUrls[currentIndex]
+      }));
+    }
+    
     setIsProcessing(true);
+    setSelectedModel(modelId);
     
     try {
-      // Call the background removal service with the selected model
-      const processedImageUrl = await removeBackground(currentUrl, modelId);
+      // If reverting to original, just clear the processed URL for this index
+      if (modelId === 'original') {
+        setProcessedUrls(prev => {
+          const newProcessed = {...prev};
+          delete newProcessed[currentIndex];
+          return newProcessed;
+        });
+        
+        toast.success('Reverted to original image');
+        setIsProcessing(false);
+        setLastUsedModel(null);
+        return;
+      }
+      
+      // Otherwise, call the background removal service with the selected model
+      // Important: Always use the original image as the source for best results
+      const sourceUrl = originalUrls[currentIndex] || imageUrls[currentIndex];
+      const processedImageUrl = await removeBackground(sourceUrl, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -205,7 +232,7 @@ export const PromptToDesignTab = () => {
         [currentIndex]: processedImageUrl
       }));
       
-      // Show success message with model info
+      // Show success message with model info and store the last used model
       let modelName = "Standard";
       if (modelId) {
         // Safely access the model by checking if the key exists
@@ -217,7 +244,8 @@ export const PromptToDesignTab = () => {
           }
         }
       }
-        
+      
+      setLastUsedModel(modelId);
       toast.success(`Background removed successfully!`, {
         duration: 4000,
         description: `Using ${modelName} model`
@@ -452,27 +480,29 @@ export const PromptToDesignTab = () => {
           {imageUrls.length > 0 && (
             <div className="space-y-4 relative z-[105]">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download PNG
-                </Button>
-                
                 {isCurrentDesignProcessed ? (
                   <Button
                     variant="outline"
-                    className="border-primary/20 bg-green-50 hover:bg-green-100 text-green-700 relative z-[106]"
+                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
                     onClick={handleDownload}
                     disabled={isDownloading}
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download Transparent PNG
                   </Button>
-                ) : isProcessing ? (
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PNG
+                  </Button>
+                )}
+                
+                {isProcessing ? (
                   <Button
                     variant="outline"
                     className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
@@ -486,24 +516,35 @@ export const PromptToDesignTab = () => {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106] w-full flex justify-between"
+                        className={`border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106] w-full flex justify-between ${isCurrentDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
                       >
                         <div className="flex items-center">
                           <Image className="mr-2 h-4 w-4" />
-                          <span>Remove Background</span>
+                          <span>{isCurrentDesignProcessed ? 'Try Another Model' : 'Remove Background'}</span>
                         </div>
                         <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
+                      {isCurrentDesignProcessed && (
+                        <DropdownMenuItem 
+                          onClick={() => handleRemoveBackground('original')}
+                          className="cursor-pointer bg-gray-100 font-medium"
+                        >
+                          <Image className="mr-2 h-4 w-4" />
+                          <span>Restore Original Image</span>
+                        </DropdownMenuItem>
+                      )}
+                      
                       {Object.entries(backgroundRemovalModels).map(([key, model]) => (
                         <DropdownMenuItem 
                           key={key}
                           onClick={() => selectModel(key)}
-                          className="cursor-pointer"
+                          className={`cursor-pointer ${lastUsedModel === model.id ? 'bg-green-50 text-green-700' : ''}`}
                         >
                           <Wand2 className="mr-2 h-4 w-4" />
                           <span>{model.name}</span>
+                          {lastUsedModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
                         </DropdownMenuItem>
                       ))}
                     </DropdownMenuContent>
@@ -511,14 +552,19 @@ export const PromptToDesignTab = () => {
                 )}
               </div>
               
-              {!isCurrentDesignProcessed && !isProcessing && (
-                <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
+              <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
+                {isCurrentDesignProcessed ? (
+                  <p className="flex items-center gap-1">
+                    <Image className="h-3 w-3" />
+                    Background removed! You can try another model or download the transparent PNG.
+                  </p>
+                ) : (
                   <p className="flex items-center gap-1">
                     <Image className="h-3 w-3" />
                     Click "Remove Background" to choose from multiple AI models
                   </p>
-                </div>
-              )}
+                )}
+              </div>
               
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
