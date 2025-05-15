@@ -1,11 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,10 +13,12 @@ import {
   X,
   Check,
   DownloadCloud,
-  AlertTriangle
+  AlertTriangle,
+  Folder
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateImage, downloadAllImages, imageToPrompt, saveToHistory } from '@/services/ideogramService';
+import { Progress } from '@/components/ui/progress';
 
 // Define interface for bulk item
 interface BulkItem {
@@ -265,64 +260,68 @@ export const BulkImageTab = () => {
   };
   
   const counts = getStatusCounts();
+  
+  // Calculate completion percentage
+  const completionPercentage = counts.total === 0 
+    ? 0 
+    : Math.round(((counts.completed + counts.ready) / counts.total) * 100);
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Bulk Image Processing</CardTitle>
-          <CardDescription>
-            Upload up to 10 images at once. Our AI will analyze each image, generate prompts, and create t-shirt designs.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {/* Upload section */}
-          {bulkItems.length === 0 ? (
-            <div 
-              className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+      <div className="space-y-4">
+        {bulkItems.length === 0 ? (
+          <div className="text-center py-16 space-y-6">
+            <div className="w-24 h-24 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+              <Layers className="h-12 w-12 text-primary/70" />
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-xl font-medium">Bulk Process Images</h3>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                Upload up to {MAX_UPLOADS} images at once. Our AI will analyze each image, 
+                generate prompts, and create professional t-shirt designs.
+              </p>
+            </div>
+            
+            <Button 
+              size="lg"
+              className="mx-auto"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Layers className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-1">Upload Images in Bulk</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload up to {MAX_UPLOADS} images at once for batch processing.
-              </p>
-              <Button variant="outline" size="sm">
-                Select Images
-              </Button>
-              <input 
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                multiple
-                onChange={handleFileChange}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Status bar */}
-              <div className="bg-muted p-4 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-medium">
-                    {counts.total} images: {counts.completed} completed • {counts.ready} ready • {counts.analyzing} analyzing • {counts.failed} failed
-                  </span>
-                  <div className="w-full h-2 bg-muted-foreground/20 rounded-full overflow-hidden">
-                    {/* Progress bar segments */}
-                    <div className="flex h-full">
-                      <div className="bg-green-500 h-full" style={{ width: `${(counts.completed / Math.max(counts.total, 1)) * 100}%` }}></div>
-                      <div className="bg-blue-500 h-full" style={{ width: `${(counts.ready / Math.max(counts.total, 1)) * 100}%` }}></div>
-                      <div className="bg-yellow-500 h-full" style={{ width: `${(counts.analyzing / Math.max(counts.total, 1)) * 100}%` }}></div>
-                      <div className="bg-red-500 h-full" style={{ width: `${(counts.failed / Math.max(counts.total, 1)) * 100}%` }}></div>
-                    </div>
+              <Upload className="mr-2 h-5 w-5" />
+              Upload Images
+            </Button>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*"
+              multiple
+              onChange={handleFileChange}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Status dashboard */}
+            <div className="bg-card border border-primary/10 rounded-lg p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-1">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Folder className="h-4 w-4 text-primary" />
+                    Bulk Processing Status
+                  </h3>
+                  <div className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{counts.total} images:</span> {counts.completed} completed • {counts.ready} ready • {counts.analyzing} analyzing • {counts.failed} failed
                   </div>
                 </div>
-                <div className="flex gap-2">
+                
+                <div className="flex gap-2 ml-auto">
                   <Button 
                     variant="outline" 
                     size="sm"
                     onClick={handleClearAll}
                     disabled={isProcessing || isGeneratingAll}
+                    className="h-8 border-primary/20"
                   >
                     Clear All
                   </Button>
@@ -331,8 +330,9 @@ export const BulkImageTab = () => {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isProcessing || isGeneratingAll || bulkItems.length >= MAX_UPLOADS}
                     variant="outline"
+                    className="h-8 border-primary/20"
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <Upload className="mr-2 h-3 w-3" />
                     Add More
                   </Button>
                   <input 
@@ -346,17 +346,27 @@ export const BulkImageTab = () => {
                 </div>
               </div>
               
+              {/* Progress bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Processing progress</span>
+                  <span>{completionPercentage}%</span>
+                </div>
+                <Progress value={completionPercentage} className="h-2" />
+              </div>
+              
               {/* Action buttons */}
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button 
                   onClick={handleGenerateAll}
                   disabled={isProcessing || isGeneratingAll || counts.ready === 0}
                   variant="default"
+                  className="bg-primary hover:bg-primary/90 flex-1"
                 >
                   {isGeneratingAll ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
+                      Generating {bulkItems.length} Designs...
                     </>
                   ) : (
                     <>
@@ -371,11 +381,12 @@ export const BulkImageTab = () => {
                     onClick={handleDownloadAll}
                     disabled={isDownloadingAll}
                     variant="outline"
+                    className="flex-1 border-primary/20"
                   >
                     {isDownloadingAll ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Preparing...
+                        Preparing ZIP...
                       </>
                     ) : (
                       <>
@@ -386,186 +397,198 @@ export const BulkImageTab = () => {
                   </Button>
                 )}
               </div>
+            </div>
+            
+            {/* Image items */}
+            <div className="space-y-4 mt-6">
+              <h3 className="text-lg font-medium ml-1">Uploaded Images</h3>
               
-              {/* List of images */}
-              <div className="space-y-4 mt-4">
-                {bulkItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
-                      {/* Source image */}
-                      <div className="relative aspect-square bg-muted rounded-md overflow-hidden">
-                        <img 
-                          src={item.imageUrl} 
-                          alt="Source image" 
-                          className="w-full h-full object-contain"
-                        />
-                        <Button 
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-2 right-2 h-7 w-7"
-                          onClick={() => handleRemoveItem(item.id)}
-                          disabled={isProcessing || isGeneratingAll}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                        
-                        {/* Status badge */}
-                        <div className="absolute bottom-2 left-2">
-                          <Badge variant={
-                            item.status === 'completed' ? 'default' :
-                            item.status === 'ready' ? 'secondary' :
-                            item.status === 'failed' ? 'destructive' :
-                            'outline'
-                          }>
-                            {item.status === 'pending' && 'Pending'}
-                            {item.status === 'analyzing' && (
-                              <span className="flex items-center gap-1">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Analyzing
-                              </span>
-                            )}
-                            {item.status === 'ready' && (
-                              <span className="flex items-center gap-1">
-                                <Check className="h-3 w-3" />
-                                Ready
-                              </span>
-                            )}
-                            {item.status === 'generating' && (
-                              <span className="flex items-center gap-1">
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                                Generating
-                              </span>
-                            )}
-                            {item.status === 'completed' && (
-                              <span className="flex items-center gap-1">
-                                <Check className="h-3 w-3" />
-                                Completed
-                              </span>
-                            )}
-                            {item.status === 'failed' && (
-                              <span className="flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                Failed
-                              </span>
-                            )}
-                          </Badge>
-                        </div>
-                      </div>
+              {bulkItems.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="bg-card border border-primary/10 rounded-lg overflow-hidden"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+                    {/* Source image */}
+                    <div className="relative aspect-square bg-white/50 dark:bg-gray-900/50 rounded-md overflow-hidden">
+                      <img 
+                        src={item.imageUrl} 
+                        alt="Source image" 
+                        className="w-full h-full object-contain"
+                      />
+                      <Button 
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-7 w-7 opacity-90"
+                        onClick={() => handleRemoveItem(item.id)}
+                        disabled={isProcessing || isGeneratingAll}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                       
-                      {/* Prompt */}
-                      <div className="md:col-span-2 space-y-2">
-                        <Label htmlFor={`prompt-${item.id}`}>Generated Prompt</Label>
-                        <Textarea
-                          id={`prompt-${item.id}`}
-                          value={item.prompt}
-                          onChange={(e) => handleUpdatePrompt(item.id, e.target.value)}
-                          placeholder={item.status === 'analyzing' ? "Analyzing image..." : "Edit prompt here..."}
-                          className="min-h-[100px]"
-                          disabled={item.status === 'analyzing' || item.status === 'generating'}
-                        />
-                        <div className="text-xs text-muted-foreground">
-                          Edit the prompt to refine your design if needed.
-                        </div>
-                      </div>
-                      
-                      {/* Generated design */}
-                      <div className="relative aspect-square bg-muted rounded-md overflow-hidden flex items-center justify-center">
-                        {item.status === 'completed' && item.designUrl ? (
-                          <img 
-                            src={item.designUrl} 
-                            alt="Generated design" 
-                            className="w-full h-full object-contain"
-                          />
-                        ) : item.status === 'generating' ? (
-                          <div className="text-center">
-                            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-primary" />
-                            <p className="text-xs text-muted-foreground">Generating...</p>
-                          </div>
-                        ) : item.status === 'failed' ? (
-                          <div className="text-center">
-                            <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-destructive" />
-                            <p className="text-xs text-muted-foreground">Failed</p>
-                          </div>
-                        ) : (
-                          <div className="text-center">
-                            <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-xs text-muted-foreground">Preview</p>
-                          </div>
-                        )}
-                        
-                        {/* Download button for completed designs */}
-                        {item.status === 'completed' && item.designUrl && (
-                          <div className="absolute bottom-2 right-2">
-                            <Button 
-                              size="sm" 
-                              className="h-8 rounded-full"
-                              onClick={() => {
-                                // Use the service to download individual design
-                                downloadAllImages([{url: item.designUrl!, prompt: item.prompt}]);
-                              }}
-                            >
-                              <Download className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Download</span>
-                            </Button>
-                          </div>
-                        )}
-                        
-                        {/* Generate button for ready items */}
-                        {(item.status === 'ready' || item.status === 'failed') && item.prompt.trim() && !isGeneratingAll && (
-                          <div className="absolute bottom-2 right-2">
-                            <Button 
-                              size="sm" 
-                              className="h-8 rounded-full"
-                              onClick={async () => {
-                                try {
-                                  setBulkItems(prev => prev.map(i => 
-                                    i.id === item.id ? { ...i, status: 'generating' } : i
-                                  ));
-                                  
-                                  const imageUrl = await generateImage({
-                                    prompt: item.prompt,
-                                    transparentBackground: true,
-                                    format: 'merch'
-                                  });
-                                  
-                                  if (imageUrl) {
-                                    setBulkItems(prev => prev.map(i => 
-                                      i.id === item.id ? { ...i, designUrl: imageUrl, status: 'completed' } : i
-                                    ));
-                                    
-                                    // Save to history
-                                    saveToHistory({
-                                      prompt: item.prompt,
-                                      imageUrl,
-                                      thumbnail: imageUrl,
-                                      isFavorite: false
-                                    });
-                                    
-                                    toast.success('Design generated successfully!');
-                                  }
-                                } catch (error) {
-                                  console.error('Error generating design:', error);
-                                  setBulkItems(prev => prev.map(i => 
-                                    i.id === item.id ? { ...i, status: 'failed' } : i
-                                  ));
-                                  toast.error('Failed to generate design');
-                                }
-                              }}
-                            >
-                              <Sparkles className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Generate</span>
-                            </Button>
-                          </div>
-                        )}
+                      {/* Status badge */}
+                      <div className="absolute bottom-2 left-2">
+                        <Badge variant={
+                          item.status === 'completed' ? 'default' :
+                          item.status === 'ready' ? 'secondary' :
+                          item.status === 'failed' ? 'destructive' :
+                          'outline'
+                        } className="text-xs font-medium">
+                          {item.status === 'pending' && 'Pending'}
+                          {item.status === 'analyzing' && (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Analyzing
+                            </span>
+                          )}
+                          {item.status === 'ready' && (
+                            <span className="flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              Ready
+                            </span>
+                          )}
+                          {item.status === 'generating' && (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Generating
+                            </span>
+                          )}
+                          {item.status === 'completed' && (
+                            <span className="flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              Completed
+                            </span>
+                          )}
+                          {item.status === 'failed' && (
+                            <span className="flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              Failed
+                            </span>
+                          )}
+                        </Badge>
                       </div>
                     </div>
-                  </Card>
-                ))}
-              </div>
+                    
+                    {/* Prompt */}
+                    <div className="md:col-span-2 space-y-2">
+                      <Label htmlFor={`prompt-${item.id}`} className="text-sm font-medium flex items-center gap-1">
+                        <span>Generated Prompt</span>
+                        {item.status === 'analyzing' && (
+                          <Loader2 className="ml-1 h-3 w-3 animate-spin" />
+                        )}
+                      </Label>
+                      <Textarea
+                        id={`prompt-${item.id}`}
+                        value={item.prompt}
+                        onChange={(e) => handleUpdatePrompt(item.id, e.target.value)}
+                        placeholder={item.status === 'analyzing' ? "Analyzing image..." : "Edit prompt here..."}
+                        className="min-h-[100px] resize-none border-primary/20"
+                        disabled={item.status === 'analyzing' || item.status === 'generating'}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        Edit the prompt to refine your design if needed.
+                      </div>
+                    </div>
+                    
+                    {/* Generated design */}
+                    <div className="relative aspect-square bg-white/50 dark:bg-gray-900/50 rounded-md overflow-hidden border border-primary/10">
+                      {item.status === 'completed' && item.designUrl ? (
+                        <img 
+                          src={item.designUrl} 
+                          alt="Generated design" 
+                          className="w-full h-full object-contain p-2"
+                        />
+                      ) : item.status === 'generating' ? (
+                        <div className="h-full flex flex-col items-center justify-center">
+                          <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
+                          <p className="text-xs text-muted-foreground">Generating...</p>
+                        </div>
+                      ) : item.status === 'failed' ? (
+                        <div className="h-full flex flex-col items-center justify-center">
+                          <AlertTriangle className="h-10 w-10 text-destructive mb-2" />
+                          <p className="text-xs text-muted-foreground">Failed</p>
+                        </div>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center p-3 text-center">
+                          <ImageIcon className="h-8 w-8 text-primary/40 mb-2" />
+                          <p className="text-xs text-muted-foreground">
+                            {item.status === 'ready' ? 'Ready to generate' : 'Preview will appear here'}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Download button for completed designs */}
+                      {item.status === 'completed' && item.designUrl && (
+                        <div className="absolute bottom-2 right-2">
+                          <Button 
+                            size="sm" 
+                            className="h-8 rounded-full bg-primary/90 hover:bg-primary/100"
+                            onClick={() => {
+                              // Use the service to download individual design
+                              downloadAllImages([{url: item.designUrl!, prompt: item.prompt}]);
+                            }}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Download</span>
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {/* Generate button for ready items */}
+                      {(item.status === 'ready' || item.status === 'failed') && item.prompt.trim() && !isGeneratingAll && (
+                        <div className="absolute bottom-2 right-2">
+                          <Button 
+                            size="sm" 
+                            className="h-8 rounded-full bg-primary/90 hover:bg-primary"
+                            onClick={async () => {
+                              try {
+                                setBulkItems(prev => prev.map(i => 
+                                  i.id === item.id ? { ...i, status: 'generating' } : i
+                                ));
+                                
+                                const imageUrl = await generateImage({
+                                  prompt: item.prompt,
+                                  transparentBackground: true,
+                                  format: 'merch'
+                                });
+                                
+                                if (imageUrl) {
+                                  setBulkItems(prev => prev.map(i => 
+                                    i.id === item.id ? { ...i, designUrl: imageUrl, status: 'completed' } : i
+                                  ));
+                                  
+                                  // Save to history
+                                  saveToHistory({
+                                    prompt: item.prompt,
+                                    imageUrl,
+                                    thumbnail: imageUrl,
+                                    isFavorite: false
+                                  });
+                                  
+                                  toast.success('Design generated successfully!');
+                                }
+                              } catch (error) {
+                                console.error('Error generating design:', error);
+                                setBulkItems(prev => prev.map(i => 
+                                  i.id === item.id ? { ...i, status: 'failed' } : i
+                                ));
+                                toast.error('Failed to generate design');
+                              }
+                            }}
+                          >
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Generate</span>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </>
+        )}
+      </div>
     </div>
   );
 }; 

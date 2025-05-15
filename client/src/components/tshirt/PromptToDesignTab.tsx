@@ -1,12 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
   Select, 
   SelectContent, 
   SelectItem, 
@@ -23,7 +16,9 @@ import {
   Download, 
   FileText, 
   Loader2, 
-  ImageIcon 
+  ImageIcon,
+  LightbulbIcon,
+  PanelRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateImage, downloadImage, saveToHistory } from '@/services/ideogramService';
@@ -125,168 +120,195 @@ export const PromptToDesignTab = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Design with Text Prompt</CardTitle>
-          <CardDescription>
-            Enter a detailed description of your t-shirt design, and our AI will create it for you.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Left column - Prompt and settings */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="prompt">Design Description</Label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Describe your t-shirt design in detail... (e.g., 'A cute cartoon cat with sunglasses, minimalist style with blue accent colors')"
-                  className="min-h-[150px]"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
-                <div className="text-xs text-muted-foreground flex justify-between">
-                  <span>Be specific about style, colors, and layout for best results.</span>
-                  <Badge variant="outline">{prompt.length}/500</Badge>
-                </div>
+      <div className="grid lg:grid-cols-2 gap-8">
+        {/* Left column - Prompt and settings */}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h3 className="text-lg font-medium flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                1
+              </span>
+              Describe Your Design
+            </h3>
+            <div className="space-y-2">
+              <Textarea
+                id="prompt"
+                placeholder="Describe your t-shirt design in detail... (e.g., 'A cute cartoon cat with sunglasses, minimalist style with blue accent colors')"
+                className="min-h-[180px] resize-none border-primary/20 focus:border-primary"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground flex justify-between">
+                <span>Be specific about style, colors, and layout for best results.</span>
+                <Badge variant="outline" className="ml-auto">
+                  {prompt.length}/500
+                </Badge>
               </div>
-              
-              {/* Sample prompts */}
-              <div className="space-y-2">
-                <Label>Try these samples:</Label>
-                <div className="flex flex-wrap gap-2">
-                  {samplePrompts.map((sample, index) => (
-                    <Button 
-                      key={index} 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => useSamplePrompt(sample)}
-                    >
-                      {sample.slice(0, 20)}...
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="size">Output Size</Label>
-                  <Select 
-                    value={size} 
-                    onValueChange={setSize}
-                  >
-                    <SelectTrigger id="size">
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(sizePresets).map(([key, preset]) => (
-                        <SelectItem key={key} value={key}>
-                          {preset.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="variationCount">Variations</Label>
-                  <Select 
-                    value={variationCount} 
-                    onValueChange={setVariationCount}
-                  >
-                    <SelectTrigger id="variationCount">
-                      <SelectValue placeholder="How many?" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 Design</SelectItem>
-                      <SelectItem value="2">2 Designs</SelectItem>
-                      <SelectItem value="3">3 Designs</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="transparent" 
-                    checked={transparentBg} 
-                    onCheckedChange={setTransparentBg} 
-                  />
-                  <Label htmlFor="transparent" className="cursor-pointer">
-                    Transparent Background
-                  </Label>
-                </div>
-                
+            </div>
+          </div>
+          
+          {/* Inspiration section */}
+          <div className="border border-primary/10 rounded-lg p-4 bg-primary/5">
+            <div className="flex items-center gap-2 mb-3 text-primary">
+              <LightbulbIcon className="h-4 w-4" />
+              <h4 className="font-medium">Need inspiration?</h4>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {samplePrompts.map((sample, index) => (
                 <Button 
-                  onClick={handleGenerateDesign} 
-                  disabled={isGenerating || !prompt.trim()}
+                  key={index} 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => useSamplePrompt(sample)}
+                  className="bg-white dark:bg-gray-800 border-primary/20 hover:border-primary"
                 >
-                  {isGenerating ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Generate Design
-                    </>
-                  )}
+                  {sample.slice(0, 20)}...
                 </Button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Settings section */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-medium flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                2
+              </span>
+              Customize Settings
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="size" className="text-sm font-medium">Output Size</Label>
+                <Select 
+                  value={size} 
+                  onValueChange={setSize}
+                >
+                  <SelectTrigger id="size" className="border-primary/20 focus:border-primary">
+                    <SelectValue placeholder="Select size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(sizePresets).map(([key, preset]) => (
+                      <SelectItem key={key} value={key}>
+                        {preset.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="variationCount" className="text-sm font-medium">Variations</Label>
+                <Select 
+                  value={variationCount} 
+                  onValueChange={setVariationCount}
+                >
+                  <SelectTrigger id="variationCount" className="border-primary/20 focus:border-primary">
+                    <SelectValue placeholder="How many?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 Design</SelectItem>
+                    <SelectItem value="2">2 Designs</SelectItem>
+                    <SelectItem value="3">3 Designs</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
-            {/* Right column - Preview */}
-            <div className="space-y-4">
-              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex items-center justify-center relative">
-                {imageUrl ? (
-                  <img 
-                    src={imageUrl} 
-                    alt="Generated T-shirt design" 
-                    className="max-w-full max-h-full object-contain"
-                  />
-                ) : isGenerating ? (
-                  <div className="text-center">
-                    <Loader2 className="h-10 w-10 animate-spin mx-auto mb-2 text-primary" />
-                    <p className="text-muted-foreground">Creating your design...</p>
-                    <p className="text-xs text-muted-foreground mt-1">This may take 15-30 seconds</p>
-                  </div>
-                ) : (
-                  <div className="text-center p-4">
-                    <ImageIcon className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground">Your design preview will appear here</p>
-                    <p className="text-xs text-muted-foreground mt-1">Optimized for Merch by Amazon</p>
-                  </div>
-                )}
-              </div>
-              
-              {imageUrl && (
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => handleDownload('png')}
-                    disabled={isDownloading}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    PNG
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1"
-                    onClick={() => handleDownload('pdf')}
-                    disabled={isDownloading}
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    PDF
-                  </Button>
-                </div>
-              )}
+            <div className="flex items-center space-x-2 pt-2">
+              <Switch 
+                id="transparent" 
+                checked={transparentBg} 
+                onCheckedChange={setTransparentBg} 
+              />
+              <Label htmlFor="transparent" className="cursor-pointer">
+                Transparent Background
+              </Label>
             </div>
+            
+            <Button 
+              onClick={handleGenerateDesign} 
+              disabled={isGenerating || !prompt.trim()}
+              className="w-full mt-4 bg-primary hover:bg-primary/90"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Design
+                </>
+              )}
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        
+        {/* Right column - Preview */}
+        <div className="space-y-6">
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              3
+            </span>
+            Preview & Download
+          </h3>
+          <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
+            {imageUrl ? (
+              <img 
+                src={imageUrl} 
+                alt="Generated T-shirt design" 
+                className="w-full h-full object-contain p-4"
+              />
+            ) : isGenerating ? (
+              <div className="h-full flex flex-col items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Creating your design...</p>
+                <p className="text-xs text-muted-foreground mt-2">This may take 15-30 seconds</p>
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-4 text-center">
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <ImageIcon className="h-10 w-10 text-primary/50" />
+                </div>
+                <p className="text-muted-foreground font-medium">Your design preview will appear here</p>
+                <p className="text-xs text-muted-foreground mt-2">Optimized for Merch by Amazon with transparent backgrounds</p>
+              </div>
+            )}
+          </div>
+          
+          {imageUrl && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  onClick={() => handleDownload('png')}
+                  disabled={isDownloading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download as PNG
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 border-primary/20 hover:bg-primary/5 hover:text-primary"
+                  onClick={() => handleDownload('pdf')}
+                  disabled={isDownloading}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download as PDF
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <p className="flex items-center gap-1">
+                  <PanelRight className="h-3 w-3" />
+                  Your design will be saved to the history panel below.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }; 

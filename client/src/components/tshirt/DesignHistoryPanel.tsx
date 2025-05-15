@@ -1,11 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +10,10 @@ import {
   Heart, 
   Trash2,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  History,
+  StarIcon,
+  ImageIcon
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { getDesignHistory, deleteFromHistory, saveToFavorites } from '@/services/ideogramService';
@@ -121,72 +117,102 @@ export const DesignHistoryPanel = () => {
   const isHistoryEmpty = filteredHistory.length === 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-center">
+    <div className="border border-primary/10 rounded-lg bg-card overflow-hidden">
+      <div className="px-6 py-5 border-b border-primary/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div className="flex items-center gap-2">
+          <History className="h-5 w-5 text-primary" />
           <div>
-            <CardTitle>Design History</CardTitle>
-            <CardDescription>
-              Your previously generated t-shirt designs
-            </CardDescription>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Tabs 
-              value={filter} 
-              onValueChange={(value) => setFilter(value as 'all' | 'favorites')}
-              className="mr-2"
-            >
-              <TabsList className="h-8">
-                <TabsTrigger value="all" className="text-xs px-3 h-7">All</TabsTrigger>
-                <TabsTrigger value="favorites" className="text-xs px-3 h-7">Favorites</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-8 w-8"
-              onClick={() => setView('grid')}
-              disabled={view === 'grid'}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="h-8 w-8"
-              onClick={() => setView('list')}
-              disabled={view === 'list'}
-            >
-              <List className="h-4 w-4" />
-            </Button>
+            <h2 className="text-xl font-semibold">Design History</h2>
+            <p className="text-sm text-muted-foreground">Your previously generated designs</p>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
+        
+        <div className="flex items-center gap-2 ml-auto">
+          <Tabs 
+            value={filter} 
+            onValueChange={(value) => setFilter(value as 'all' | 'favorites')}
+            className="mr-2"
+          >
+            <TabsList className="h-8 bg-muted/50">
+              <TabsTrigger value="all" className="text-xs px-3 h-7 data-[state=active]:bg-primary/10">
+                All Designs
+              </TabsTrigger>
+              <TabsTrigger value="favorites" className="text-xs px-3 h-7 data-[state=active]:bg-primary/10">
+                <StarIcon className="h-3 w-3 mr-1" />
+                Favorites
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-8 w-8 border-primary/20"
+            onClick={() => setView('grid')}
+            disabled={view === 'grid'}
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            className="h-8 w-8 border-primary/20"
+            onClick={() => setView('list')}
+            disabled={view === 'list'}
+          >
+            <List className="h-4 w-4" />
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 border-primary/20"
+            onClick={() => {
+              const savedHistory = getDesignHistory();
+              setHistory(savedHistory);
+              toast.success('History refreshed');
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      
+      <div className="p-6">
         {isHistoryEmpty ? (
-          <div className="text-center py-10">
-            <Sparkles className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-1">No designs yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Generate your first t-shirt design to see it here.
+          <div className="text-center py-16 space-y-4">
+            <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+              <ImageIcon className="h-10 w-10 text-primary/50" />
+            </div>
+            <h3 className="text-lg font-medium">No designs yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Generate your first t-shirt design to see it here. Your designs will be automatically saved to this history panel.
             </p>
           </div>
         ) : view === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredHistory.map((item) => (
-              <div key={item.id} className="group relative aspect-square bg-muted rounded-md overflow-hidden">
+              <div key={item.id} className="group relative aspect-square bg-white/50 dark:bg-gray-900/50 rounded-md overflow-hidden border border-primary/10">
                 {/* Design thumbnail */}
                 <img 
                   src={item.thumbnail} 
                   alt={item.prompt} 
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain p-2"
                 />
                 
+                {/* Favorite badge */}
+                {item.isFavorite && (
+                  <div className="absolute top-2 left-2">
+                    <Badge variant="secondary" className="bg-primary/10 text-primary text-xs px-1.5 py-0">
+                      <StarIcon className="h-3 w-3 mr-1 fill-primary" />
+                      Favorite
+                    </Badge>
+                  </div>
+                )}
+                
                 {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-3">
-                  <div className="text-xs text-white/90 line-clamp-3 mb-2">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-3 flex flex-col justify-between">
+                  <div className="text-xs text-white/90 line-clamp-3 font-medium">
                     {item.prompt}
                   </div>
                   
@@ -230,14 +256,14 @@ export const DesignHistoryPanel = () => {
             ))}
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {filteredHistory.map((item) => (
               <div 
                 key={item.id} 
-                className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md transition-colors"
+                className="flex items-center justify-between p-3 hover:bg-primary/5 rounded-md transition-colors border border-transparent hover:border-primary/10"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-md overflow-hidden bg-muted">
+                  <div className="h-12 w-12 rounded-md overflow-hidden bg-white/50 dark:bg-gray-900/50 border border-primary/10 flex-shrink-0">
                     <img 
                       src={item.thumbnail} 
                       alt={item.prompt} 
@@ -245,7 +271,7 @@ export const DesignHistoryPanel = () => {
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm truncate max-w-[300px]">
+                    <div className="text-sm truncate max-w-md">
                       {item.prompt}
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center">
@@ -255,44 +281,45 @@ export const DesignHistoryPanel = () => {
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   {item.isFavorite && (
                     <Badge variant="outline" className="mr-2 bg-primary/10 text-primary">
+                      <StarIcon className="h-3 w-3 mr-1 fill-primary" />
                       Favorite
                     </Badge>
                   )}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     onClick={() => handleToggleFavorite(item.id)}
                   >
                     <Heart 
-                      className={`h-3 w-3 ${item.isFavorite ? 'fill-red-500 text-red-500' : ''}`} 
+                      className={`h-4 w-4 ${item.isFavorite ? 'fill-red-500 text-red-500' : ''}`} 
                     />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     onClick={() => handleDownload(item)}
                   >
-                    <Download className="h-3 w-3" />
+                    <Download className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7"
+                    className="h-8 w-8"
                     onClick={() => handleDelete(item.id)}
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }; 
