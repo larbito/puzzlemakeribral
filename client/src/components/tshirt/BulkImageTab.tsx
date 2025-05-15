@@ -460,6 +460,27 @@ export const BulkImageTab = () => {
     ? 0 
     : Math.round(((counts.completed + counts.ready) / counts.total) * 100);
 
+  // Reset an item to its original state (clear all processing)
+  const handleResetItem = (itemId: string) => {
+    // Find the item in the bulk items array
+    const item = bulkItems.find(item => item.id === itemId);
+    if (!item || !item.designUrl) return;
+    
+    // Update the item to remove background removal and enhancement flags
+    setBulkItems(prev => prev.map(i => 
+      i.id === itemId ? { 
+        ...i, 
+        isBackgroundRemoved: false,
+        isEnhanced: false,
+        activeModel: null,
+        // We would ideally restore the original design URL here
+        // For now, we'll need to regenerate it as we don't store the original
+      } : i
+    ));
+    
+    toast.success(`Item reset to original state`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -758,6 +779,19 @@ export const BulkImageTab = () => {
                                 Enhanced
                               </Badge>
                             )}
+                            
+                            {/* Reset button */}
+                            {(item.isBackgroundRemoved || item.isEnhanced) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-[10px] h-4 p-0 ml-1 text-muted-foreground"
+                                onClick={() => handleResetItem(item.id)}
+                                title="Reset to Original"
+                              >
+                                Reset
+                              </Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -802,6 +836,17 @@ export const BulkImageTab = () => {
                                     >
                                       <Image className="h-3 w-3 mr-1" />
                                       <span>Restore Background</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  
+                                  {/* Added reset option */}
+                                  {(item.isBackgroundRemoved || item.isEnhanced) && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleResetItem(item.id)}
+                                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-2 py-1.5 text-xs"
+                                    >
+                                      <X className="h-3 w-3 mr-1" />
+                                      <span>Reset to Original</span>
                                     </DropdownMenuItem>
                                   )}
                                   

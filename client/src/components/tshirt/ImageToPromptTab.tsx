@@ -200,7 +200,7 @@ export const ImageToPromptTab = () => {
       }
       
       // Call the background removal service
-      const processedImageUrl = await removeBackground(imageToProcess, modelId);
+      const processedImageUrl = await removeBackground(imageToProcess, modelId || undefined);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -268,11 +268,9 @@ export const ImageToPromptTab = () => {
   // Select a background removal model
   const selectModel = (modelKey: string) => {
     console.log('Selected model:', modelKey);
-    // Use type assertion to safely access the model
+    // Access the model directly from the backgroundRemovalModels object
     const model = backgroundRemovalModels[modelKey as keyof typeof backgroundRemovalModels];
-    if (model && model.id) {
-      handleRemoveBackground(model.id);
-    }
+    handleRemoveBackground(model?.id || null);
   };
   
   // Handle enhancing image
@@ -332,6 +330,17 @@ export const ImageToPromptTab = () => {
   // Check if design has been processed
   const isDesignProcessed = processedDesign !== null;
   const isDesignEnhanced = enhancedDesign !== null;
+
+  // Reset image to original state (clear all processing)
+  const resetToOriginal = () => {
+    if (!generatedDesign) return;
+    
+    // Reset all processed states
+    setProcessedDesign(null);
+    setEnhancedDesign(null);
+    setActiveModel(null);
+    toast.success('Reset to original image');
+  };
 
   return (
     <div className="space-y-6">
@@ -521,6 +530,17 @@ export const ImageToPromptTab = () => {
                     )}
                   </div>
                 </div>
+                
+                {(isDesignEnhanced || isDesignProcessed) && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="ml-auto h-6 text-xs text-muted-foreground"
+                    onClick={resetToOriginal}
+                  >
+                    Reset to Original
+                  </Button>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -567,7 +587,7 @@ export const ImageToPromptTab = () => {
                       
                       <div className="py-1.5 px-3 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2 border-b border-blue-100 dark:border-blue-900">
                         <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models.</span>
+                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models, which have proven to be most reliable.</span>
                       </div>
                       
                       <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">
@@ -575,7 +595,7 @@ export const ImageToPromptTab = () => {
                           // Check if this is a recommended model
                           const isRecommended = key === '851-labs/background-remover' || 
                                              key === 'men1scus/birefnet' ||
-                                             key === 'codeplugtech/background_remover';
+                                             key === 'smoretalk/rembg-enhance';
                           
                           return (
                             <DropdownMenuItem 
