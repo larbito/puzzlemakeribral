@@ -60,6 +60,12 @@ exports.vectorizeImage = async (req, res) => {
       formData.append('contour_dim_check', 'true'); // Helps with complex designs
       formData.append('precision_mode', 'true'); // Better quality for important details
       
+      // Specific parameters for handling black backgrounds
+      formData.append('remove_background', 'true'); // Tell the API to remove the background
+      formData.append('transparency', '1'); // Maximum transparency setting (0-1)
+      formData.append('bg_color_tolerance', '50'); // Higher tolerance to include black in "background" colors
+      formData.append('ignore_dark_bg', 'true'); // Specifically handle dark backgrounds like black
+      
       // These parameters help ensure the background is transparent
       formData.append('transparent', 'true'); // Request transparent output
       
