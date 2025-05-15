@@ -210,12 +210,11 @@ export const PromptToDesignTab = () => {
         return;
       }
       
-      // Get the original image URL - this is critical!
-      // Always use the original image as source, never a processed one
-      const sourceUrl = originalUrls[currentIndex];
-      console.log('Using original image as source for background removal:', sourceUrl);
+      // Use the current image as source - this will be the enhanced version if enhancement was applied
+      const sourceUrl = imageUrls[currentIndex];
+      console.log('Using current image as source for background removal:', sourceUrl);
       
-      // Make the API call with the original image
+      // Make the API call with the current image
       const processedImageUrl = await removeBackground(sourceUrl, modelId);
       
       // Preview the image immediately before saving it
