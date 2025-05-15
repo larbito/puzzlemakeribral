@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { 
   Sparkles, 
@@ -18,10 +17,11 @@ import {
   ImageIcon,
   LightbulbIcon,
   PanelRight,
-  Code
+  Code,
+  Image
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, saveToHistory, vectorizeImage } from '@/services/ideogramService';
+import { generateImage, downloadImage, saveToHistory, removeBackground } from '@/services/ideogramService';
 
 export const PromptToDesignTab = () => {
   // State management
@@ -30,11 +30,10 @@ export const PromptToDesignTab = () => {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDownloading, setIsDownloading] = useState(false);
-  const [isVectorizing, setIsVectorizing] = useState(false);
-  const [vectorizedUrls, setVectorizedUrls] = useState<Record<number, string>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedUrls, setProcessedUrls] = useState<Record<number, string>>({});
   const [variationCount, setVariationCount] = useState('1');
   const [size, setSize] = useState('merch');
-  const [transparentBg, setTransparentBg] = useState(true);
   
   // Size presets mapping
   const sizePresets = {
@@ -63,7 +62,7 @@ export const PromptToDesignTab = () => {
 
     setIsGenerating(true);
     setImageUrls([]);
-    setVectorizedUrls({});
+    setProcessedUrls({});
     
     try {
       // Convert variationCount to number
@@ -75,10 +74,9 @@ export const PromptToDesignTab = () => {
       
       for (let i = 0; i < count; i++) {
         // Generate image with Ideogram API
-        console.log(`Generating design ${i+1} of ${count} with:`, { prompt, transparentBg, size });
+        console.log(`Generating design ${i+1} of ${count} with:`, { prompt, size });
         const imageUrl = await generateImage({
           prompt,
-          transparentBackground: transparentBg,
           format: size
         });
         
@@ -114,7 +112,7 @@ export const PromptToDesignTab = () => {
   
   // Handle downloading the image
   const handleDownload = async () => {
-    const currentUrl = imageUrls[currentIndex];
+    const currentUrl = processedUrls[currentIndex] || imageUrls[currentIndex];
     console.log('Download button clicked for image:', currentUrl);
     if (!currentUrl) {
       toast.error('No design to download');
@@ -146,57 +144,24 @@ export const PromptToDesignTab = () => {
     }
   };
 
-  // Handle downloading the SVG
-  const handleDownloadSvg = async () => {
-    const svg = vectorizedUrls[currentIndex];
-    if (!svg) {
-      toast.error('No vectorized design available');
-      return;
-    }
-    
-    setIsDownloading(true);
-    
-    try {
-      // Create a link to download the SVG
-      const link = document.createElement('a');
-      link.href = svg;
-      
-      // Format filename
-      const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
-      const filename = `tshirt-vector-${promptWords}-${Date.now()}.svg`;
-      
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('Vectorized design downloaded as SVG');
-    } catch (error) {
-      console.error('Error downloading SVG:', error);
-      toast.error('Failed to download vectorized design');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Handle vectorizing the current design
-  const handleVectorize = async () => {
+  // Handle removing background
+  const handleRemoveBackground = async () => {
     const currentUrl = imageUrls[currentIndex];
     if (!currentUrl) {
-      toast.error('No design to vectorize');
+      toast.error('No design to process');
       return;
     }
     
-    setIsVectorizing(true);
+    setIsProcessing(true);
     
     try {
-      // Call the vectorization service
-      const svgUrl = await vectorizeImage(currentUrl);
+      // Call the background removal service
+      const processedImageUrl = await removeBackground(currentUrl);
       
-      // Preview the SVG immediately before saving it
-      // This ensures the user can see the vectorized result with transparency
+      // Preview the image immediately before saving it
+      // This ensures the user can see the result with transparency
       const imgPreview = document.createElement('img');
-      imgPreview.src = svgUrl;
+      imgPreview.src = processedImageUrl;
       imgPreview.style.display = 'none';
       document.body.appendChild(imgPreview);
       
@@ -220,21 +185,21 @@ export const PromptToDesignTab = () => {
         }, 3000);
       });
       
-      // Save the vectorized URL for this index
-      setVectorizedUrls(prev => ({
+      // Save the processed URL for this index
+      setProcessedUrls(prev => ({
         ...prev,
-        [currentIndex]: svgUrl
+        [currentIndex]: processedImageUrl
       }));
       
-      toast.success('Design vectorized successfully! You can now download it as SVG.', {
+      toast.success('Background removed successfully!', {
         duration: 4000,
-        description: 'Your design is now showing with transparency.'
+        description: 'Your design now has a transparent background'
       });
     } catch (error) {
-      console.error('Error vectorizing design:', error);
-      toast.error('Failed to vectorize design');
+      console.error('Error removing background:', error);
+      toast.error('Failed to remove background');
     } finally {
-      setIsVectorizing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -255,12 +220,12 @@ export const PromptToDesignTab = () => {
     setPrompt(sample);
   };
 
-  // Check if the current design is vectorized
-  const isCurrentDesignVectorized = vectorizedUrls[currentIndex] !== undefined;
+  // Check if the current design has background removed
+  const isCurrentDesignProcessed = processedUrls[currentIndex] !== undefined;
 
   console.log('Current prompt value:', prompt);
   console.log('Current image URLs:', imageUrls);
-  console.log('Vectorized URLs:', vectorizedUrls);
+  console.log('Processed URLs:', processedUrls);
 
   return (
     <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
@@ -359,17 +324,6 @@ export const PromptToDesignTab = () => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 pt-2 relative z-[105]">
-              <Switch 
-                id="transparent" 
-                checked={transparentBg} 
-                onCheckedChange={setTransparentBg} 
-              />
-              <Label htmlFor="transparent" className="cursor-pointer">
-                Transparent Background
-              </Label>
-            </div>
-            
             <Button 
               onClick={handleGenerateDesign} 
               disabled={isGenerating || !prompt.trim()}
@@ -402,7 +356,7 @@ export const PromptToDesignTab = () => {
             {imageUrls.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
-                  src={isCurrentDesignVectorized ? vectorizedUrls[currentIndex] : imageUrls[currentIndex]} 
+                  src={isCurrentDesignProcessed ? processedUrls[currentIndex] : imageUrls[currentIndex]} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                 />
@@ -431,6 +385,16 @@ export const PromptToDesignTab = () => {
                     </Button>
                   </div>
                 )}
+                
+                {/* Show loading overlay when processing */}
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm">Removing background...</p>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : isGenerating ? (
               <div className="h-full flex flex-col items-center justify-center">
@@ -444,7 +408,7 @@ export const PromptToDesignTab = () => {
                   <ImageIcon className="h-10 w-10 text-primary/50" />
                 </div>
                 <p className="text-muted-foreground font-medium">Your design preview will appear here</p>
-                <p className="text-xs text-muted-foreground mt-2">Optimized for Merch by Amazon with transparent backgrounds</p>
+                <p className="text-xs text-muted-foreground mt-2">Generate a design to get started</p>
               </div>
             )}
           </div>
@@ -462,44 +426,53 @@ export const PromptToDesignTab = () => {
                   Download PNG
                 </Button>
                 
-                {isCurrentDesignVectorized ? (
+                {isCurrentDesignProcessed ? (
                   <Button
                     variant="outline"
                     className="border-primary/20 bg-green-50 hover:bg-green-100 text-green-700 relative z-[106]"
-                    onClick={handleDownloadSvg}
+                    onClick={handleDownload}
                     disabled={isDownloading}
                   >
-                    <Code className="mr-2 h-4 w-4" />
-                    Download SVG
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Transparent PNG
                   </Button>
                 ) : (
                   <Button
                     variant="outline"
                     className="border-primary/20 hover:bg-primary/5 hover:text-primary relative z-[106]"
-                    onClick={handleVectorize}
-                    disabled={isVectorizing}
+                    onClick={handleRemoveBackground}
+                    disabled={isProcessing}
                   >
-                    {isVectorizing ? (
+                    {isProcessing ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Vectorizing...
+                        Removing Background...
                       </>
                     ) : (
                       <>
-                        <Code className="mr-2 h-4 w-4" />
-                        Convert to SVG
+                        <Image className="mr-2 h-4 w-4" />
+                        Remove Background
                       </>
                     )}
                   </Button>
                 )}
               </div>
               
+              {!isCurrentDesignProcessed && !isProcessing && (
+                <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
+                  <p className="flex items-center gap-1">
+                    <Image className="h-3 w-3" />
+                    Click "Remove Background" to create a version with transparent background
+                  </p>
+                </div>
+              )}
+              
               <div className="text-xs text-muted-foreground">
                 <p className="flex items-center gap-1">
                   <PanelRight className="h-3 w-3" />
                   Your design will be saved to the history panel below.
-                  {isCurrentDesignVectorized && (
-                    <span className="ml-1 text-green-600">SVG ready!</span>
+                  {isCurrentDesignProcessed && (
+                    <span className="ml-1 text-green-600">Transparent background ready!</span>
                   )}
                 </p>
               </div>
