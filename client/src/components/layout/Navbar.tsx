@@ -20,6 +20,12 @@ export const Navbar = () => {
       description: 'PNG to SVG converter'
     },
     {
+      name: 'Simple Vectorizer',
+      path: '/vectorizer-simple',
+      icon: <Image className="w-4 h-4" />,
+      description: 'Direct PNG to SVG converter'
+    },
+    {
       name: 'Pricing',
       path: '/pricing',
       icon: <DollarSign className="w-4 h-4" />,

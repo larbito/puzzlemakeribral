@@ -136,7 +136,10 @@ const Vectorizer = () => {
         // Create a form element and submit directly
         const formElement = document.createElement('form');
         formElement.method = 'POST';
-        formElement.action = 'https://puzzle-craft-forge-production.up.railway.app/api/vectorize/direct';
+        const backendUrl = process.env.NODE_ENV === 'production'
+          ? 'https://puzzle-craft-forge-production.up.railway.app'
+          : 'http://localhost:3000';
+        formElement.action = `${backendUrl}/api/vectorize/direct`;
         formElement.enctype = 'multipart/form-data';
         formElement.target = '_blank'; // Open result in new tab
         
@@ -239,13 +242,20 @@ const Vectorizer = () => {
       <p className="text-muted-foreground mb-3">
         Convert raster images to scalable vector graphics
       </p>
-      <div className="flex justify-end my-3">
+      <div className="flex justify-end my-3 space-x-2">
         <Button 
           variant="outline" 
-          onClick={() => window.open('/direct-upload.html', '_blank')}
+          onClick={() => navigate('/vectorizer-simple')}
           className="text-sm"
         >
-          Alternative Upload Form ↗
+          Try Simple Version
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={() => window.open('/simple-upload.html', '_blank')}
+          className="text-sm"
+        >
+          HTML Form ↗
         </Button>
       </div>
       

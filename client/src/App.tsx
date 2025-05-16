@@ -23,6 +23,7 @@ import { Settings } from '@/pages/dashboard/Settings';
 import KDPFullWrapGenerator from '@/pages/dashboard/KDPFullWrapGenerator';
 import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
 import Vectorizer from '@/pages/generators/Vectorizer';
+import VectorizerSimple from '@/pages/generators/VectorizerSimple';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
 
@@ -46,6 +47,7 @@ function App() {
               <Route path="/privacy" element={<><Navbar /><Privacy /><Footer /></>} />
               <Route path="/terms" element={<><Navbar /><Terms /><Footer /></>} />
               <Route path="/vectorizer" element={<><Navbar /><Vectorizer /><Footer /></>} />
+              <Route path="/vectorizer-simple" element={<><Navbar /><VectorizerSimple /><Footer /></>} />
 
               {/* Dashboard routes */}
               <Route

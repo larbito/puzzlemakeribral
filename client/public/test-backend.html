@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Backend Connectivity Test</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 0 auto; padding: 20px; }
+        button { padding: 10px 20px; background: #0070f3; color: white; border: none; cursor: pointer; margin: 10px 0; }
+        #result { padding: 10px; border: 1px solid #ccc; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Backend API Connection Test</h1>
+    
+    <p>Click the buttons below to test connectivity to the backend services:</p>
+    
+    <button onclick="testRailway()">Test Railway Backend</button>
+    <button onclick="testVectorizeEndpoint()">Test Vectorize Endpoint</button>
+    
+    <div id="result">Results will appear here...</div>
+    
+    <script>
+        async function testRailway() {
+            document.getElementById('result').innerHTML = 'Testing Railway backend...';
+            try {
+                // Test the root endpoint
+                const response = await fetch('https://puzzlemakeribral-production.up.railway.app/', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                document.getElementById('result').innerHTML = 
+                    '<h3>Railway Backend Test</h3>' +
+                    '<p>Status: ' + (response.ok ? '✅ Connected' : '❌ Failed') + '</p>' +
+                    '<p>Status code: ' + response.status + '</p>' +
+                    '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    '<h3>Railway Backend Test</h3>' +
+                    '<p>Status: ❌ Error</p>' +
+                    '<p>Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function testVectorizeEndpoint() {
+            document.getElementById('result').innerHTML = 'Testing vectorize endpoint...';
+            try {
+                // Test the vectorize test endpoint
+                const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/vectorize-test', {
+                    method: 'GET'
+                });
+                
+                const data = await response.json();
+                document.getElementById('result').innerHTML = 
+                    '<h3>Vectorize Endpoint Test</h3>' +
+                    '<p>Status: ' + (response.ok ? '✅ Connected' : '❌ Failed') + '</p>' +
+                    '<p>Status code: ' + response.status + '</p>' +
+                    '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    '<h3>Vectorize Endpoint Test</h3>' +
+                    '<p>Status: ❌ Error</p>' +
+                    '<p>Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html> 
