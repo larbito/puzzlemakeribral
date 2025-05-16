@@ -45,9 +45,10 @@ const upload = multer({
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || '';
 
 // Max image dimensions for processing
-const MAX_IMAGE_SIZE = 1000; // Further reduced max dimensions
-const INKSCAPE_TIMEOUT = 90000; // Reduced to 90 seconds
-const INKSCAPE_SIMPLIFY_OPTIONS = '--export-plain-svg --export-dpi=36 --without-gui';
+const MAX_IMAGE_SIZE = 500; // Reduced to 500px max dimension
+const INKSCAPE_TIMEOUT = 120000; // 2 minute timeout
+// Simplified options for color images - removed unnecessary flags
+const INKSCAPE_SIMPLIFY_OPTIONS = '--export-plain-svg --export-dpi=72';
 
 /**
  * Resize image if it exceeds maximum dimensions
@@ -174,6 +175,9 @@ const vectorizeImage = async (req, res) => {
       }
     }
     
+    // Simplify image before vectorization to reduce complexity
+    await simplifyImage(processedPath, inputPath);
+    
     // Execute Inkscape CLI to convert the image to SVG
     try {
       console.log('Running Inkscape for vectorization...');
@@ -191,19 +195,8 @@ const vectorizeImage = async (req, res) => {
       const formatCheck = await checkCommandFormat();
       console.log('Command format check:', formatCheck);
       
-      let inkscapeCommand;
-      
-      // Use the appropriate command format based on the installed version
-      if (formatCheck.modern) {
-        // Modern Inkscape 1.0+ command format with absolute minimal options
-        inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
-      } else if (formatCheck.legacy) {
-        // Legacy Inkscape < 1.0 command format
-        inkscapeCommand = `inkscape-headless "${processedPath}" -o "${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS}`;
-      } else {
-        // Default to modern format
-        inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
-      }
+      // Command with explicit tracing actions
+      const inkscapeCommand = `inkscape-headless "${processedPath}" --export-filename="${outputPath}" --actions="EditSelectAll;SelectionTrace;FileExport;FileClose"`;
       
       console.log(`Executing command with ${INKSCAPE_TIMEOUT}ms timeout: ${inkscapeCommand}`);
       try {
@@ -234,27 +227,27 @@ const vectorizeImage = async (req, res) => {
     } catch (error) {
       console.error('Inkscape vectorization failed:', error);
       
-      // Try simplified trace command format if the modern format failed
+      // Try alternative command format if the first one failed
       try {
-        console.log('Trying simplified trace command format...');
-        const legacyCommand = `inkscape-headless "${processedPath}" -o "${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS} --export-text-to-path`;
+        console.log('Trying alternative Inkscape command format...');
+        const alternativeCommand = `inkscape-headless "${processedPath}" --export-plain-svg -o "${outputPath}" --actions="EditSelectAll;TraceBitmap;FileExport;FileClose"`;
         
-        console.log(`Executing legacy command with ${INKSCAPE_TIMEOUT}ms timeout: ${legacyCommand}`);
+        console.log(`Executing alternative command with ${INKSCAPE_TIMEOUT}ms timeout: ${alternativeCommand}`);
         try {
-          const { stdout, stderr } = await executeWithTimeout(legacyCommand, INKSCAPE_TIMEOUT);
-          console.log('Legacy Inkscape stdout:', stdout);
-          if (stderr) console.error('Legacy Inkscape stderr:', stderr);
+          const { stdout, stderr } = await executeWithTimeout(alternativeCommand, INKSCAPE_TIMEOUT);
+          console.log('Alternative Inkscape stdout:', stdout);
+          if (stderr) console.error('Alternative Inkscape stderr:', stderr);
         } catch (timeoutError) {
-          console.error('Legacy Inkscape command timed out or failed:', timeoutError);
-          throw new Error(`Legacy Inkscape command timed out after ${INKSCAPE_TIMEOUT/1000} seconds`);
+          console.error('Alternative Inkscape command timed out or failed:', timeoutError);
+          throw new Error(`Alternative Inkscape command timed out after ${INKSCAPE_TIMEOUT/1000} seconds`);
         }
         
         // Check if the output file was created
         const fileExists = fs.existsSync(outputPath);
-        console.log(`Legacy output file exists: ${fileExists}`);
+        console.log(`Alternative output file exists: ${fileExists}`);
         
         if (!fileExists) {
-          throw new Error('Legacy Inkscape command did not generate an output file');
+          throw new Error('Alternative Inkscape command did not generate an output file');
         }
         
         // Read the generated SVG
@@ -265,21 +258,11 @@ const vectorizeImage = async (req, res) => {
           success: true,
           svgUrl: `data:image/svg+xml;base64,${Buffer.from(svgContent).toString('base64')}`
         });
-      } catch (legacyError) {
-        console.error('Legacy Inkscape command also failed:', legacyError);
+      } catch (alternativeError) {
+        console.error('Alternative Inkscape command also failed:', alternativeError);
         return res.status(500).json({ 
           error: `Vectorization failed: ${error.message || 'Unknown error'}` 
         });
-      }
-    } finally {
-      // Clean up the temporary directory and uploaded file
-      try {
-        console.log(`Cleaning up temporary files...`);
-        await fs.promises.rm(workDir, { recursive: true, force: true });
-        await fs.promises.unlink(req.file.path);
-        console.log(`Cleaned up working directory and uploaded file`);
-      } catch (cleanupError) {
-        console.error('Error cleaning up:', cleanupError);
       }
     }
   } catch (error) {
@@ -503,6 +486,25 @@ async function enhanceImage(imagePath, outputPath) {
     return true;
   } catch (error) {
     console.error('Error in enhanceImage:', error);
+    return false;
+  }
+}
+
+// Simplify image before vectorization to reduce complexity
+async function simplifyImage(inputPath, outputPath) {
+  try {
+    console.log('Simplifying image before vectorization...');
+    await sharp(inputPath)
+      .resize(MAX_IMAGE_SIZE, MAX_IMAGE_SIZE, { fit: 'inside' })
+      .modulate({ saturation: 1.2 }) // Enhance colors slightly
+      .sharpen() // Sharpen edges
+      .toFile(outputPath);
+    console.log('Image simplified successfully');
+    return true;
+  } catch (error) {
+    console.error('Error simplifying image:', error);
+    // If simplification fails, copy the original file
+    await fs.promises.copyFile(inputPath, outputPath);
     return false;
   }
 }
