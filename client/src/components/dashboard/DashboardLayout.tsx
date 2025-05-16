@@ -15,7 +15,8 @@ import {
   Sparkles,
   BookOpenCheck,
   Shirt,
-  Puzzle
+  Puzzle,
+  Image
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Book Covers', href: '/dashboard/kdp-covers', icon: BookOpenCheck },
+  { name: 'Vectorizer', href: '/dashboard/vectorizer', icon: Image },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
   { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
   

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const Navbar = () => {
@@ -12,6 +12,12 @@ export const Navbar = () => {
       path: '/dashboard',
       icon: <LayoutDashboard className="w-4 h-4" />,
       description: 'Go to dashboard'
+    },
+    {
+      name: 'Vectorizer',
+      path: '/vectorizer',
+      icon: <Image className="w-4 h-4" />,
+      description: 'PNG to SVG converter'
     },
     {
       name: 'Pricing',
