@@ -1,8 +1,6 @@
 import { useState, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
 import { Loader2, Upload, Download, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -10,8 +8,6 @@ export default function Vectorizer() {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   const [vectorizedImage, setVectorizedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [removeBackground, setRemoveBackground] = useState(false);
-  const [enhanceImage, setEnhanceImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // File upload handling with react-dropzone
@@ -56,10 +52,6 @@ export default function Vectorizer() {
       // Convert the data URL to a blob and append to form data
       const blob = await fetch(sourceImage).then(r => r.blob());
       formData.append('image', blob, 'image.png');
-      
-      // Add options
-      formData.append('removeBackground', removeBackground.toString());
-      formData.append('enhanceImage', enhanceImage.toString());
 
       // Send to the backend - use absolute Railway URL instead of relative path
       const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/vectorize', {
@@ -118,7 +110,7 @@ export default function Vectorizer() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Left side - Upload and Options */}
+        {/* Left side - Upload */}
         <div className="space-y-6">
           {/* Upload area */}
           <div 
@@ -151,49 +143,21 @@ export default function Vectorizer() {
             </div>
           )}
 
-          {/* Options */}
-          <div className="border rounded-lg p-4 space-y-4">
-            <h3 className="font-medium">Options</h3>
-            
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label htmlFor="removeBackground">Remove Background</Label>
-                <p className="text-xs text-muted-foreground">Isolate the subject from the background</p>
-              </div>
-              <Switch 
-                id="removeBackground" 
-                checked={removeBackground} 
-                onCheckedChange={setRemoveBackground}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label htmlFor="enhanceImage">Enhance Image</Label>
-                <p className="text-xs text-muted-foreground">Improve image quality before vectorizing</p>
-              </div>
-              <Switch 
-                id="enhanceImage" 
-                checked={enhanceImage} 
-                onCheckedChange={setEnhanceImage}
-              />
-            </div>
-
-            <Button
-              className="w-full"
-              onClick={handleVectorize}
-              disabled={!sourceImage || isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                'Vectorize Image'
-              )}
-            </Button>
-          </div>
+          {/* Vectorize Button */}
+          <Button
+            className="w-full"
+            onClick={handleVectorize}
+            disabled={!sourceImage || isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Vectorize Image'
+            )}
+          </Button>
         </div>
 
         {/* Right side - Vectorized Image Result */}

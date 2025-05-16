@@ -1,41 +1,34 @@
 const express = require('express');
 const router = express.Router();
 const { processFormData, vectorizeImage } = require('../controllers/vectorizerController');
-const { checkInkscape, checkCommandFormat } = require('../utils/inkscapeCheck');
+const { checkRapidAPI } = require('../utils/rapidApiCheck');
 
 /**
  * @route POST /api/vectorize
- * @desc Vectorize an image using Inkscape
+ * @desc Vectorize an image using external API
  * @access Public
  */
 router.post('/', processFormData, vectorizeImage);
 
 /**
- * @route GET /api/vectorize/check-inkscape
- * @desc Check if Inkscape is installed and which command format is supported
+ * @route GET /api/vectorize/check-api
+ * @desc Check if the API key is configured and valid
  * @access Public
  */
-router.get('/check-inkscape', async (req, res) => {
+router.get('/check-api', async (req, res) => {
   try {
-    // Check Inkscape installation
-    const inkscapeInfo = await checkInkscape();
+    // Check API key configuration
+    const apiInfo = await checkRapidAPI();
     
-    // If installed, check command format
-    let formatInfo = { modern: false, legacy: false };
-    if (inkscapeInfo.installed) {
-      formatInfo = await checkCommandFormat();
-    }
-    
-    // Return combined information
+    // Return status information
     return res.json({
-      inkscape: inkscapeInfo,
-      commandFormat: formatInfo,
-      status: inkscapeInfo.installed ? 'ready' : 'not_installed'
+      status: apiInfo.configured ? 'ready' : 'not_configured',
+      message: apiInfo.error ? apiInfo.error.message : 'API key is valid'
     });
   } catch (error) {
-    console.error('Error checking Inkscape:', error);
+    console.error('Error checking API:', error);
     return res.status(500).json({
-      error: 'Failed to check Inkscape installation',
+      error: 'Failed to check API configuration',
       message: error.message
     });
   }
