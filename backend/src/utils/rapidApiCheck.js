@@ -20,8 +20,8 @@ async function checkRapidAPI() {
       };
     }
     
-    // Make a simple check request to validate the API key
-    const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/ping', {
+    // Make a simple check request to validate the API key - use root endpoint instead of '/ping'
+    const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/', {
       method: 'GET',
       headers: {
         'X-RapidAPI-Key': RAPIDAPI_KEY,

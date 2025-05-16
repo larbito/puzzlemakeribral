@@ -48,6 +48,8 @@ const RAPIDAPI_HOST = 'raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapi
  * Controller function for vectorizing images using external API
  */
 const vectorizeImage = async (req, res) => {
+  let workDir; // Define workDir at the function level so it's available in the finally block
+  
   try {
     console.log('Starting vectorization process with external API');
     
@@ -57,7 +59,7 @@ const vectorizeImage = async (req, res) => {
     }
     
     // Create a unique working directory in the system temp folder
-    const workDir = path.join(os.tmpdir(), `vectorize-${uuidv4()}`);
+    workDir = path.join(os.tmpdir(), `vectorize-${uuidv4()}`);
     await fs.promises.mkdir(workDir, { recursive: true });
     
     // Input and output file paths
@@ -91,8 +93,8 @@ const vectorizeImage = async (req, res) => {
       const imageBuffer = await fs.promises.readFile(processedPath);
       const base64Image = imageBuffer.toString('base64');
       
-      // Make API request to RapidAPI
-      const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/convert-raster-to-svg', {
+      // Make API request to RapidAPI - use the correct endpoint
+      const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/api', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
