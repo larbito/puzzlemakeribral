@@ -61,8 +61,8 @@ export default function Vectorizer() {
       formData.append('removeBackground', removeBackground.toString());
       formData.append('enhanceImage', enhanceImage.toString());
 
-      // Send to the backend
-      const response = await fetch('/api/vectorize', {
+      // Send to the backend - use absolute Railway URL instead of relative path
+      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/vectorize', {
         method: 'POST',
         body: formData,
       });
