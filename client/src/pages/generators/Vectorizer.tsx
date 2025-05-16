@@ -5,7 +5,6 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Loader2, Upload, Download, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import Image from 'next/image';
 
 export default function Vectorizer() {
   const [sourceImage, setSourceImage] = useState<string | null>(null);
@@ -143,11 +142,10 @@ export default function Vectorizer() {
             <div className="border rounded-lg p-2 bg-gray-50">
               <p className="text-sm font-medium mb-2">Source Image:</p>
               <div className="relative h-48 w-full">
-                <Image 
+                <img 
                   src={sourceImage} 
                   alt="Source" 
-                  fill 
-                  className="object-contain" 
+                  className="object-contain w-full h-full" 
                 />
               </div>
             </div>
