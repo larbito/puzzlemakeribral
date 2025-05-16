@@ -41,7 +41,7 @@ const upload = multer({
 });
 
 // Environment variables for API keys should be set in your Railway environment
-const REPLICATE_API_KEY = process.env.REPLICATE_API_KEY || '';
+const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || '';
 
 /**
  * Controller function for vectorizing images
@@ -138,13 +138,13 @@ const vectorizeImage = async (req, res) => {
       // Use the appropriate command format based on the installed version
       if (formatCheck.modern) {
         // Modern Inkscape 1.0+ command format
-        inkscapeCommand = `inkscape --export-filename="${outputPath}" --export-type=svg --export-plain-svg "${processedPath}"`;
+        inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg --export-plain-svg "${processedPath}"`;
       } else if (formatCheck.legacy) {
         // Legacy Inkscape < 1.0 command format
-        inkscapeCommand = `inkscape -f "${processedPath}" -l "${outputPath}" --export-plain-svg`;
+        inkscapeCommand = `inkscape-headless -f "${processedPath}" -l "${outputPath}" --export-plain-svg`;
       } else {
         // If neither format is detected, try modern format as default
-        inkscapeCommand = `inkscape --export-filename="${outputPath}" --export-type=svg --export-plain-svg "${processedPath}"`;
+        inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg --export-plain-svg "${processedPath}"`;
       }
       
       console.log(`Executing command: ${inkscapeCommand}`);
@@ -175,7 +175,7 @@ const vectorizeImage = async (req, res) => {
       // Try legacy Inkscape command format if the modern format failed
       try {
         console.log('Trying legacy Inkscape command format...');
-        const legacyCommand = `inkscape -f "${processedPath}" -l "${outputPath}" --export-plain-svg`;
+        const legacyCommand = `inkscape-headless -f "${processedPath}" -l "${outputPath}" --export-plain-svg`;
         
         console.log(`Executing legacy command: ${legacyCommand}`);
         const { stdout, stderr } = await execPromise(legacyCommand);

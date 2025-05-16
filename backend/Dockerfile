@@ -1,10 +1,16 @@
 FROM node:18-bullseye
 
-# Install Inkscape
+# Install Inkscape, Xvfb and related dependencies for headless operation
 RUN apt-get update && apt-get install -y \
     inkscape \
+    xvfb \
+    dbus-x11 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Create wrapper script for running Inkscape with virtual display
+RUN echo '#!/bin/bash\nxvfb-run -a inkscape "$@"' > /usr/local/bin/inkscape-headless \
+    && chmod +x /usr/local/bin/inkscape-headless
 
 # Verify Inkscape installation
 RUN inkscape --version
