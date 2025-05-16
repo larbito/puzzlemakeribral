@@ -45,9 +45,9 @@ const upload = multer({
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || '';
 
 // Max image dimensions for processing
-const MAX_IMAGE_SIZE = 1500; // Max width or height in pixels
-const INKSCAPE_TIMEOUT = 180000; // 3 minute timeout
-const INKSCAPE_SIMPLIFY_OPTIONS = '--export-plain-svg --export-dpi=72';
+const MAX_IMAGE_SIZE = 1000; // Further reduced max dimensions
+const INKSCAPE_TIMEOUT = 90000; // Reduced to 90 seconds
+const INKSCAPE_SIMPLIFY_OPTIONS = '--export-plain-svg --export-dpi=36 --without-gui';
 
 /**
  * Resize image if it exceeds maximum dimensions
@@ -195,11 +195,11 @@ const vectorizeImage = async (req, res) => {
       
       // Use the appropriate command format based on the installed version
       if (formatCheck.modern) {
-        // Modern Inkscape 1.0+ command format with minimal options
+        // Modern Inkscape 1.0+ command format with absolute minimal options
         inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
       } else if (formatCheck.legacy) {
-        // Legacy Inkscape < 1.0 command format - use different syntax
-        inkscapeCommand = `inkscape-headless "${processedPath}" --export-plain-svg -o "${outputPath}"`;
+        // Legacy Inkscape < 1.0 command format
+        inkscapeCommand = `inkscape-headless "${processedPath}" -o "${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS}`;
       } else {
         // Default to modern format
         inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
@@ -234,10 +234,10 @@ const vectorizeImage = async (req, res) => {
     } catch (error) {
       console.error('Inkscape vectorization failed:', error);
       
-      // Try legacy Inkscape command format if the modern format failed
+      // Try simplified trace command format if the modern format failed
       try {
-        console.log('Trying alternative Inkscape command format...');
-        const legacyCommand = `inkscape-headless "${processedPath}" --export-plain-svg -o "${outputPath}"`;
+        console.log('Trying simplified trace command format...');
+        const legacyCommand = `inkscape-headless "${processedPath}" -o "${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS} --export-text-to-path`;
         
         console.log(`Executing legacy command with ${INKSCAPE_TIMEOUT}ms timeout: ${legacyCommand}`);
         try {
