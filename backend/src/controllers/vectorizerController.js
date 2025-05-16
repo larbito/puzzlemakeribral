@@ -92,9 +92,12 @@ const vectorizeImage = async (req, res) => {
       // Read the image as a buffer
       const imageBuffer = await fs.promises.readFile(processedPath);
       
-      // Create form data
+      // Create form data - Node.js compatible way
       const formData = new FormData();
-      formData.append('file', new Blob([imageBuffer]), 'image.png');
+      formData.append('file', imageBuffer, {
+        filename: 'image.png',
+        contentType: 'image/png'
+      });
       
       console.log('Sending request to RapidAPI with form data');
       
