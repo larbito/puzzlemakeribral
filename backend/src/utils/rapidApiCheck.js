@@ -20,12 +20,13 @@ async function checkRapidAPI() {
       };
     }
     
-    // Make a simple check request to validate the API key - use root endpoint instead of '/ping'
+    // Make a simple check request to validate the API key
+    console.log('Testing RapidAPI connection...');
     const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/', {
       method: 'GET',
       headers: {
-        'X-RapidAPI-Key': RAPIDAPI_KEY,
-        'X-RapidAPI-Host': RAPIDAPI_HOST
+        'x-rapidapi-key': RAPIDAPI_KEY,
+        'x-rapidapi-host': RAPIDAPI_HOST
       }
     });
     

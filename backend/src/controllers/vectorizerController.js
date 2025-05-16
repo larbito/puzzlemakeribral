@@ -94,12 +94,12 @@ const vectorizeImage = async (req, res) => {
       const base64Image = imageBuffer.toString('base64');
       
       // Make API request to RapidAPI - use the correct endpoint
-      const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/api', {
+      const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': RAPIDAPI_HOST,
+          'x-rapidapi-key': RAPIDAPI_KEY,
+          'x-rapidapi-host': RAPIDAPI_HOST,
         },
         body: JSON.stringify({
           image_base64: base64Image
