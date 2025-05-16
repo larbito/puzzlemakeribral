@@ -398,26 +398,7 @@ export const PromptToDesignTab = () => {
             </div>
           </div>
           
-          {/* Inspiration section */}
-          <div className="border border-primary/10 rounded-lg p-4 bg-primary/5 relative z-[104]">
-            <div className="flex items-center gap-2 mb-3 text-primary">
-              <LightbulbIcon className="h-4 w-4" />
-              <h4 className="font-medium">Need inspiration?</h4>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {samplePrompts.map((sample, index) => (
-                <Button 
-                  key={index} 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => useSamplePrompt(sample)}
-                  className="bg-white dark:bg-gray-800 border-primary/20 hover:border-primary relative z-[106]"
-                >
-                  {sample.slice(0, 20)}...
-                </Button>
-              ))}
-            </div>
-          </div>
+
           
           {/* Settings section */}
           <div className="space-y-3 relative z-[104]">

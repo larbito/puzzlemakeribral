@@ -5,10 +5,11 @@ import { PromptToDesignTab } from '@/components/tshirt/PromptToDesignTab';
 import { ImageToPromptTab } from '@/components/tshirt/ImageToPromptTab';
 import { BulkImageTab } from '@/components/tshirt/BulkImageTab';
 import { DesignHistoryPanel } from '@/components/tshirt/DesignHistoryPanel';
-import { Shirt, Sparkles } from 'lucide-react';
+import { Shirt, Sparkles, Image, Download, AlertCircle } from 'lucide-react';
 
 export const TShirtDesigner = () => {
   const [activeTab, setActiveTab] = useState('prompt');
+  const currentStep = activeTab === 'prompt' ? 1 : activeTab === 'image' ? 2 : 3;
 
   // Debug logs to verify component rendering
   console.log('TShirtDesigner component rendered');
@@ -16,8 +17,8 @@ export const TShirtDesigner = () => {
 
   return (
     <PageLayout
-      title="T-Shirt Design Creator"
-      description="Create professional t-shirt designs using AI for print-on-demand platforms like Merch by Amazon."
+      title="Design Killer T-Shirts with AI"
+      description="Generate, enhance, and export stunning t-shirt art with smart background removal and optimized flow. Perfect for POD platforms like Merch by Amazon."
     >
       {/* Wrapper with high z-index to ensure all elements receive interactions */}
       <div className="relative z-[100]" style={{ pointerEvents: 'auto' }}>
@@ -28,8 +29,47 @@ export const TShirtDesigner = () => {
               <Shirt className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">T-Shirt Design Creator</h1>
-              <p className="text-muted-foreground">Create professional designs for print-on-demand platforms</p>
+              <h1 className="text-2xl font-bold">Design Killer T-Shirts with AI</h1>
+              <p className="text-muted-foreground">Generate, enhance, and export stunning t-shirt art with smart background removal and optimized flow. Perfect for POD platforms like Merch by Amazon.</p>
+            </div>
+          </div>
+
+          {/* Step Bar Component */}
+          <div className="flex items-center justify-between bg-muted/30 p-4 rounded-lg border">
+            <div className={`flex flex-col items-center ${currentStep === 1 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <span className="text-sm text-center">Step 1: Generate Prompt-Based Image</span>
+            </div>
+            <div className="h-[2px] flex-1 mx-2 bg-muted"></div>
+            <div className={`flex flex-col items-center ${currentStep === 2 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+                <Image className="h-5 w-5" />
+              </div>
+              <span className="text-sm text-center">Step 2: Enhance or Remove Background</span>
+            </div>
+            <div className="h-[2px] flex-1 mx-2 bg-muted"></div>
+            <div className={`flex flex-col items-center ${currentStep === 3 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 3 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+                <Download className="h-5 w-5" />
+              </div>
+              <span className="text-sm text-center">Step 3: Export Ready-to-Upload File</span>
+            </div>
+          </div>
+          
+          {/* Tips for Best Results */}
+          <div className="bg-muted/20 border rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
+              <div>
+                <h3 className="font-medium text-lg mb-2">Tips for Best Results</h3>
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  <li>Start by removing the background before applying enhancement. This gives better edge clarity and color correction.</li>
+                  <li>For background removal, image complexity matters. You'll need to try different models manually to see which one gives the cleanest result. Some designs may work better with one model than another.</li>
+                  <li>When using Bulk Mode, let the system generate prompts first. Then start generating images one by one with short delays to avoid performance issues.</li>
+                </ul>
+              </div>
             </div>
           </div>
           
