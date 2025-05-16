@@ -47,7 +47,7 @@ const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || '';
 // Max image dimensions for processing
 const MAX_IMAGE_SIZE = 1500; // Max width or height in pixels
 const INKSCAPE_TIMEOUT = 180000; // 3 minute timeout
-const INKSCAPE_SIMPLIFY_OPTIONS = '--export-area-drawing --export-plain-svg --export-dpi=72';
+const INKSCAPE_SIMPLIFY_OPTIONS = '--export-plain-svg --export-dpi=72';
 
 /**
  * Resize image if it exceeds maximum dimensions
@@ -195,13 +195,13 @@ const vectorizeImage = async (req, res) => {
       
       // Use the appropriate command format based on the installed version
       if (formatCheck.modern) {
-        // Modern Inkscape 1.0+ command format with simplification
+        // Modern Inkscape 1.0+ command format with minimal options
         inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
       } else if (formatCheck.legacy) {
-        // Legacy Inkscape < 1.0 command format
-        inkscapeCommand = `inkscape-headless --export-svg="${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
+        // Legacy Inkscape < 1.0 command format - use different syntax
+        inkscapeCommand = `inkscape-headless "${processedPath}" --export-plain-svg -o "${outputPath}"`;
       } else {
-        // If neither format is detected, try modern format as default
+        // Default to modern format
         inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
       }
       
@@ -236,8 +236,8 @@ const vectorizeImage = async (req, res) => {
       
       // Try legacy Inkscape command format if the modern format failed
       try {
-        console.log('Trying legacy Inkscape command format...');
-        const legacyCommand = `inkscape-headless --export-svg="${outputPath}" ${INKSCAPE_SIMPLIFY_OPTIONS} "${processedPath}"`;
+        console.log('Trying alternative Inkscape command format...');
+        const legacyCommand = `inkscape-headless "${processedPath}" --export-plain-svg -o "${outputPath}"`;
         
         console.log(`Executing legacy command with ${INKSCAPE_TIMEOUT}ms timeout: ${legacyCommand}`);
         try {
