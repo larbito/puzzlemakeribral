@@ -18,6 +18,39 @@ try {
  */
 const vectorizerController = {
   /**
+   * Simple test endpoint to verify file upload works
+   * @param {Object} req - Express request object with image file in req.file
+   * @param {Object} res - Express response object
+   */
+  testUpload: async (req, res) => {
+    console.log('Test upload endpoint called');
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'No file received'
+        });
+      }
+      
+      return res.status(200).json({
+        status: 'success',
+        message: 'File received successfully',
+        file: {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        }
+      });
+    } catch (error) {
+      console.error('Error in test upload:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  },
+
+  /**
    * Inspect image to get vectorization options
    * @param {Object} req - Express request object with image file in req.file
    * @param {Object} res - Express response object
@@ -89,8 +122,15 @@ const vectorizerController = {
    */
   vectorizeImage: async (req, res) => {
     try {
+      console.log('vectorizeImage called with body:', Object.keys(req.body));
+      console.log('Files received:', req.file ? 'Yes' : 'No');
+      if (req.file) {
+        console.log('File details:', req.file.originalname, req.file.mimetype, req.file.size);
+      }
+      
       // Check if file exists
       if (!req.file) {
+        console.log('No file was received in the request');
         return res.status(400).json({
           status: 'error',
           message: 'No image file uploaded'

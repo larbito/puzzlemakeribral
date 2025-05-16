@@ -25,6 +25,9 @@ router.get('/vectorize-test', (req, res) => {
   });
 });
 
+// Test endpoint for file uploads
+router.post('/upload-test', upload.single('image'), vectorizerController.testUpload);
+
 // Get available background removal models
 router.get('/background-removal-models', replicateBackgroundRemovalController.getModels);
 
