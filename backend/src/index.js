@@ -64,22 +64,6 @@ try {
   });
 }
 
-// Load the vectorize routes module
-let vectorizeRoutes;
-try {
-  console.log('Attempting to require vectorizeRoutes.js');
-  vectorizeRoutes = require('./routes/vectorizeRoutes');
-  console.log('Successfully loaded vectorizeRoutes.js');
-} catch (e) {
-  console.error('Failed to load vectorizeRoutes.js:', e.message);
-  console.error(e.stack);
-  // Use a simple router as fallback
-  vectorizeRoutes = express.Router();
-  vectorizeRoutes.get('/test', (req, res) => {
-    res.json({ status: 'error', message: 'Failed to load vectorize routes', error: e.message });
-  });
-}
-
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -131,10 +115,6 @@ console.log('Registered route: /api/coloring-book/*');
 app.use('/api/ideogram', ideogramRoutes);
 console.log('Registered route: /api/ideogram/*');
 
-// Register vectorize routes
-app.use('/api', vectorizeRoutes);
-console.log('Registered route: /api/vectorize');
-
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -147,8 +127,7 @@ app.get('/', (req, res) => {
       '/api/coloring-book/download-zip',
       '/api/ideogram/test',
       '/api/ideogram/generate',
-      '/api/ideogram/proxy-image',
-      '/api/vectorize'
+      '/api/ideogram/proxy-image'
     ]
   });
 });
