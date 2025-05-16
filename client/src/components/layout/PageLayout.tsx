@@ -18,8 +18,8 @@ export const PageLayout = ({ title, description, children, actionButton }: PageL
       >
         <Card className="w-full">
           <CardHeader className="pb-2">
-            <div className="flex justify-between items-center">
-              <div>
+            <div className={`flex ${actionButton ? 'justify-between' : 'justify-center'} items-center`}>
+              <div className="text-center">
                 <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
                   {title}
                 </CardTitle>

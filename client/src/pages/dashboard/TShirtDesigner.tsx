@@ -23,17 +23,6 @@ export const TShirtDesigner = () => {
       {/* Wrapper with high z-index to ensure all elements receive interactions */}
       <div className="relative z-[100]" style={{ pointerEvents: 'auto' }}>
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
-          {/* Hero section with icon */}
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Shirt className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Design Killer T-Shirts with AI</h1>
-              <p className="text-muted-foreground">Generate, enhance, and export stunning t-shirt art with smart background removal and optimized flow. Perfect for POD platforms like Merch by Amazon.</p>
-            </div>
-          </div>
-
           {/* Step Bar Component */}
           <div className="flex items-center justify-between bg-muted/30 p-4 rounded-lg border">
             <div className={`flex flex-col items-center ${currentStep === 1 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
