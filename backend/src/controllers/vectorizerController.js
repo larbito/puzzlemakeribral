@@ -102,7 +102,7 @@ const vectorizeImage = async (req, res) => {
           'x-rapidapi-host': RAPIDAPI_HOST,
         },
         body: JSON.stringify({
-          image_base64: base64Image
+          base64_image: base64Image
         })
       });
       
