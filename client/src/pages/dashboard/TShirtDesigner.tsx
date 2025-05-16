@@ -23,26 +23,32 @@ export const TShirtDesigner = () => {
       <div className="relative z-[100]" style={{ pointerEvents: 'auto' }}>
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
           {/* Step Bar Component - Static UI for explanation only */}
-          <div className="flex items-center justify-between bg-muted/30 p-4 rounded-lg border">
-            <div className="flex flex-col items-center text-primary font-bold">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
-                <Sparkles className="h-5 w-5" />
+          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-zinc-700/50 p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 border-emerald-500 bg-black">
+                  <Sparkles className="h-6 w-6 text-emerald-500" />
+                </div>
+                <span className="text-emerald-500 font-medium text-center">Step 1: Generate Prompt-Based Image</span>
               </div>
-              <span className="text-sm text-center">Step 1: Generate Prompt-Based Image</span>
-            </div>
-            <div className="h-[2px] flex-1 mx-2 bg-primary/60"></div>
-            <div className="flex flex-col items-center text-primary font-bold">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
-                <Image className="h-5 w-5" />
+              
+              <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
+              
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 border-teal-500 bg-black">
+                  <Image className="h-6 w-6 text-teal-500" />
+                </div>
+                <span className="text-teal-500 font-medium text-center">Step 2: Enhance or Remove Background</span>
               </div>
-              <span className="text-sm text-center">Step 2: Enhance or Remove Background</span>
-            </div>
-            <div className="h-[2px] flex-1 mx-2 bg-primary/60"></div>
-            <div className="flex flex-col items-center text-primary font-bold">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
-                <Download className="h-5 w-5" />
+              
+              <div className="h-0.5 flex-1 mx-4 bg-gradient-to-r from-teal-500 to-cyan-500"></div>
+              
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 border-cyan-500 bg-black">
+                  <Download className="h-6 w-6 text-cyan-500" />
+                </div>
+                <span className="text-cyan-500 font-medium text-center">Step 3: Export Ready-to-Upload File</span>
               </div>
-              <span className="text-sm text-center">Step 3: Export Ready-to-Upload File</span>
             </div>
           </div>
           
