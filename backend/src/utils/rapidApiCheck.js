@@ -10,6 +10,7 @@ const fetch = require('node-fetch');
 async function checkRapidAPI() {
   try {
     const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
+    const RAPIDAPI_HOST = 'raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com';
     
     if (!RAPIDAPI_KEY) {
       console.error('RAPIDAPI_KEY is not set in environment');
@@ -19,12 +20,12 @@ async function checkRapidAPI() {
       };
     }
     
-    // Make a simple ping to the API to verify key works
-    const response = await fetch('https://vector-conversion.p.rapidapi.com/status', {
+    // Make a simple check request to validate the API key
+    const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/ping', {
       method: 'GET',
       headers: {
         'X-RapidAPI-Key': RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'vector-conversion.p.rapidapi.com'
+        'X-RapidAPI-Host': RAPIDAPI_HOST
       }
     });
     

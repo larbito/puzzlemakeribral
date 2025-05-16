@@ -42,7 +42,7 @@ const upload = multer({
 
 // Environment variables for API keys
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
-const RAPIDAPI_HOST = 'vector-conversion.p.rapidapi.com';
+const RAPIDAPI_HOST = 'raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com';
 
 /**
  * Controller function for vectorizing images using external API
@@ -85,21 +85,23 @@ const vectorizeImage = async (req, res) => {
     
     // Convert image to SVG using external API
     try {
-      console.log('Calling external vectorization API...');
+      console.log('Calling RapidAPI vectorization service...');
       
-      // Create form data with the processed image
-      const imageFile = await fs.promises.readFile(processedPath);
-      const formData = new FormData();
-      formData.append('file', imageFile, 'image.png');
+      // Read the image and encode as base64
+      const imageBuffer = await fs.promises.readFile(processedPath);
+      const base64Image = imageBuffer.toString('base64');
       
       // Make API request to RapidAPI
-      const response = await fetch('https://vector-conversion.p.rapidapi.com/vectorize', {
+      const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/convert-raster-to-svg', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'X-RapidAPI-Key': RAPIDAPI_KEY,
           'X-RapidAPI-Host': RAPIDAPI_HOST,
         },
-        body: formData
+        body: JSON.stringify({
+          image_base64: base64Image
+        })
       });
       
       if (!response.ok) {
@@ -108,12 +110,19 @@ const vectorizeImage = async (req, res) => {
       }
       
       // Get the SVG from the response
-      const svgContent = await response.text();
+      const responseData = await response.json();
+      
+      if (!responseData.svg_base64) {
+        throw new Error('API did not return SVG data');
+      }
+      
+      // Decode the base64 SVG
+      const svgContent = Buffer.from(responseData.svg_base64, 'base64').toString('utf-8');
       
       // Save the SVG to a file
       await fs.promises.writeFile(outputPath, svgContent);
       
-      // Return the SVG as base64
+      // Return the SVG as base64 for display
       return res.json({
         success: true,
         svgUrl: `data:image/svg+xml;base64,${Buffer.from(svgContent).toString('base64')}`
