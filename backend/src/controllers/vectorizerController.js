@@ -1,7 +1,17 @@
-const vectorizer = require('vectorizer');
+// Importing required libraries
+const potrace = require('potrace');
 const Jimp = require('jimp');
 const path = require('path');
 const fs = require('fs');
+
+// Try to load vectorizer, but don't fail if it's not available
+let vectorizer = null;
+try {
+  vectorizer = require('vectorizer');
+  console.log('Vectorizer library loaded successfully');
+} catch (err) {
+  console.log('Vectorizer library not available, falling back to potrace only');
+}
 
 /**
  * Controller for handling image vectorization using the vectorizer library
@@ -24,30 +34,44 @@ const vectorizerController = {
 
       console.log('Inspecting image for vectorization options');
       
-      // Get options from vectorizer
+      // Check if the image is valid first
       try {
-        const options = await vectorizer.inspectImage(req.file.buffer);
-
-        return res.status(200).json({
-          status: 'success',
-          message: 'Image inspection successful',
-          options
-        });
-      } catch (error) {
-        console.error('Vectorizer inspection error:', error);
-
-        // Fallback to potrace if vectorizer fails
-        return res.status(200).json({
-          status: 'success',
-          message: 'Using default options (vectorizer inspection failed)',
-          options: [{
-            threshold: 128,
-            steps: 1,
-            background: '#ffffff',
-            fillStrategy: 'dominant'
-          }]
+        const image = await Jimp.read(req.file.buffer);
+        console.log(`Image dimensions: ${image.getWidth()}x${image.getHeight()}`);
+      } catch (jimpError) {
+        console.error('Error reading image with Jimp:', jimpError);
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid image format or corrupted image file'
         });
       }
+      
+      // If vectorizer is available, try to use it
+      if (vectorizer) {
+        try {
+          const options = await vectorizer.inspectImage(req.file.buffer);
+          return res.status(200).json({
+            status: 'success',
+            message: 'Image inspection successful',
+            options
+          });
+        } catch (error) {
+          console.error('Vectorizer inspection error:', error);
+        }
+      }
+      
+      // Fallback to basic options if vectorizer fails or isn't available
+      console.log('Using default vectorization options');
+      return res.status(200).json({
+        status: 'success',
+        message: 'Using default options for vectorization',
+        options: [{
+          threshold: 128,
+          steps: 1,
+          background: '#ffffff',
+          fillStrategy: 'dominant'
+        }]
+      });
     } catch (error) {
       console.error('Error in inspectImage:', error);
       return res.status(500).json({
@@ -80,45 +104,78 @@ const vectorizerController = {
         fillStrategy: 'dominant'
       };
 
+      // Parse options if they came as a string (from form data)
+      if (typeof options === 'string') {
+        try {
+          options = JSON.parse(options);
+        } catch (e) {
+          console.log('Could not parse options string, using default options');
+          options = {
+            threshold: 128,
+            steps: 1,
+            background: '#ffffff',
+            fillStrategy: 'dominant'
+          };
+        }
+      }
+      
       console.log('Vectorizing image with options:', options);
-
+      
+      // Check if the image is valid
       try {
-        // Parse the image using vectorizer
-        const svgContent = await vectorizer.parseImage(req.file.buffer, options);
+        const image = await Jimp.read(req.file.buffer);
+        console.log(`Processing image: ${image.getWidth()}x${image.getHeight()}`);
+      } catch (jimpError) {
+        console.error('Error reading image with Jimp:', jimpError);
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid image format or corrupted image file'
+        });
+      }
+
+      // Try vectorizer if available
+      if (vectorizer) {
+        try {
+          console.log('Attempting to vectorize with vectorizer library');
+          const svgContent = await vectorizer.parseImage(req.file.buffer, options);
+          return res.status(200).json({
+            status: 'success',
+            message: 'Image vectorized successfully with vectorizer',
+            svg: svgContent
+          });
+        } catch (vectorizerError) {
+          console.error('Vectorizer error:', vectorizerError);
+        }
+      }
+      
+      // Fallback to potrace
+      try {
+        console.log('Vectorizing with potrace');
+        const svgData = await new Promise((resolve, reject) => {
+          potrace.trace(req.file.buffer, {
+            threshold: options.threshold || 128,
+            turdSize: 5,
+            optTolerance: 0.2,
+            optCurve: true,
+            color: options.background || '#ffffff'
+          }, (err, svg) => {
+            if (err) reject(err);
+            else resolve(svg);
+          });
+        });
 
         return res.status(200).json({
           status: 'success',
-          message: 'Image vectorized successfully',
-          svg: svgContent
+          message: 'Image vectorized with potrace',
+          svg: svgData
         });
-      } catch (vectorizerError) {
-        console.error('Vectorizer error:', vectorizerError);
-        
-        // If vectorizer fails, use potrace as fallback
-        try {
-          console.log('Falling back to potrace for basic vectorization');
-          const potrace = require('potrace');
-          const svgData = await new Promise((resolve, reject) => {
-            potrace.trace(req.file.buffer, {
-              threshold: options.threshold || 128,
-              turdSize: 5,
-              optTolerance: 0.2,
-              optCurve: true
-            }, (err, svg) => {
-              if (err) reject(err);
-              else resolve(svg);
-            });
-          });
-
-          return res.status(200).json({
-            status: 'success',
-            message: 'Image vectorized with potrace (fallback)',
-            svg: svgData
-          });
-        } catch (potraceError) {
-          console.error('Potrace fallback failed:', potraceError);
-          throw potraceError;
-        }
+      } catch (potraceError) {
+        console.error('Potrace vectorization failed:', potraceError);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Vectorization failed with all available methods',
+          error: potraceError.message
+        });
       }
     } catch (error) {
       console.error('Error in vectorizeImage:', error);
