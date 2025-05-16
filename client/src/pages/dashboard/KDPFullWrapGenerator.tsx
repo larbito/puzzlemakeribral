@@ -489,57 +489,55 @@ const KDPFullWrapGenerator = () => {
     try {
       setLoadingState("extractPrompt", true);
       setError("");
+      toast.loading("Analyzing image...");
 
-      // First try to use the OpenAI API for a better description
-      try {
-        const response = await fetch(`${API_URL}/openai/extract-prompt`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            imageUrl: uploadedImage,
-            context:
-              "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          
-          if (data.extractedPrompt) {
-            updateCoverState({
-              prompt: data.extractedPrompt,
-              enhancedPrompt: data.extractedPrompt,
-            });
-
-            toast.success("Prompt extracted successfully");
-            saveToHistory(data.extractedPrompt);
-            setActiveStep("details");
-            return;
-          }
-        }
-      } catch (err) {
-        console.error("Error with OpenAI extract, falling back to generic extraction:", err);
-      }
-      
-      // Fallback to a generic prompt
-      const genericPrompt = "Book cover with similar style to the uploaded image. Include professional design elements, balanced composition, and appropriate typography.";
-      updateCoverState({
-        prompt: genericPrompt,
-        enhancedPrompt: genericPrompt,
+      // Call the OpenAI API for image description
+      const response = await fetch(`${API_URL}/openai/extract-prompt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: uploadedImage,
+          context: "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
+        }),
       });
 
-      toast.success("Using generic prompt from image");
-      saveToHistory(genericPrompt);
-      setActiveStep("details");
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.extractedPrompt) {
+        updateCoverState({
+          prompt: data.extractedPrompt,
+          enhancedPrompt: data.extractedPrompt,
+        });
+
+        toast.success("Prompt extracted successfully");
+        saveToHistory(data.extractedPrompt);
+        setActiveStep("details");
+      } else {
+        // Fallback to generic prompt if no actual prompt was extracted
+        const genericPrompt = "Book cover with similar style to the uploaded image. Include professional design elements, balanced composition, and appropriate typography.";
+        updateCoverState({
+          prompt: genericPrompt,
+          enhancedPrompt: genericPrompt,
+        });
+
+        toast.success("Using generic prompt from image");
+        saveToHistory(genericPrompt);
+        setActiveStep("details");
+      }
       
     } catch (err: any) {
       console.error("Error extracting prompt:", err);
-      setError(err.message || "Failed to extract prompt");
+      setError(err.message || "Failed to extract prompt from image. Please try again or use text prompt instead.");
       toast.error("Failed to extract prompt from image");
     } finally {
       setLoadingState("extractPrompt", false);
+      toast.dismiss();
     }
   };
 
@@ -991,14 +989,14 @@ const KDPFullWrapGenerator = () => {
                     <TabsList className="grid w-full grid-cols-2 mb-6">
                       <TabsTrigger
                         value="text"
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 data-[state=active]:bg-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
                       >
                         <FileText className="h-4 w-4" />
                         Cover Idea to Prompt
                       </TabsTrigger>
                       <TabsTrigger
                         value="image"
-                        className="flex items-center gap-2"
+                        className="flex items-center gap-2 data-[state=active]:bg-cyan-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
                       >
                         <Upload className="h-4 w-4" />
                         Image to Prompt
@@ -1046,13 +1044,12 @@ const KDPFullWrapGenerator = () => {
 
                       <div className="flex gap-3">
                         <Button
-                          variant="outline"
                           onClick={handleEnhancePrompt}
                           disabled={
                             isLoading.enhancePrompt ||
                             coverState.prompt.trim().length < 5
                           }
-                          className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
+                          className="flex-1 bg-zinc-800/70 text-cyan-300 hover:bg-cyan-800/50 active:bg-cyan-700/60 hover:text-white border-cyan-700/50 hover:border-cyan-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                           {isLoading.enhancePrompt ? (
                             <>
@@ -1070,7 +1067,7 @@ const KDPFullWrapGenerator = () => {
                         <Button
                           onClick={() => setActiveStep("details")}
                           disabled={coverState.prompt.trim().length < 5}
-                          className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
+                          className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                           Continue
                           <ChevronRight className="ml-2 h-4 w-4" />
@@ -1108,9 +1105,7 @@ const KDPFullWrapGenerator = () => {
                       <div 
                         className="flex flex-col items-center justify-center border-2 border-dashed border-cyan-700/50 rounded-lg p-8 bg-black/30 dropzone hover:border-cyan-500/70 transition-colors cursor-pointer"
                         onClick={() => {
-                          const fileInput = document.querySelector<HTMLInputElement>(
-                            'input[type="file"]',
-                          );
+                          const fileInput = document.getElementById('image-upload-input');
                           if (fileInput) {
                             fileInput.click();
                           }
@@ -1134,7 +1129,7 @@ const KDPFullWrapGenerator = () => {
                             </button>
                           </div>
                         ) : (
-                          <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
+                          <label htmlFor="image-upload-input" className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
                             <UploadCloud className="h-16 w-16 text-cyan-600/60 mb-4" />
                             <span className="text-cyan-400 mb-2 font-medium">
                               Upload book cover image
@@ -1143,26 +1138,25 @@ const KDPFullWrapGenerator = () => {
                               Click here or drop an image
                             </span>
                             <input
+                              id="image-upload-input"
                               type="file"
                               className="hidden"
                               accept="image/jpeg,image/png,image/webp"
                               onChange={handleExtractorImageUpload}
                             />
                             <Button
-                              variant="outline"
-                              className="bg-zinc-800/70 text-cyan-300 hover:bg-cyan-900/40 border-cyan-700/50 hover:border-cyan-600"
+                              variant="secondary"
+                              className="bg-cyan-800/70 text-white hover:bg-cyan-700 active:bg-cyan-600 border-cyan-600/50 hover:border-cyan-500 transition-all transform hover:scale-[1.05] active:scale-[0.98] shadow-md"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                const fileInput =
-                                  document.querySelector<HTMLInputElement>(
-                                    'input[type="file"]',
-                                  );
+                                const fileInput = document.getElementById('image-upload-input');
                                 if (fileInput) {
                                   fileInput.click();
                                 }
                               }}
                             >
+                              <Upload className="mr-1 h-3.5 w-3.5" />
                               Select Image
                             </Button>
                           </label>
@@ -1172,7 +1166,7 @@ const KDPFullWrapGenerator = () => {
                       <Button
                         onClick={handleExtractPrompt}
                         disabled={isLoading.extractPrompt || !uploadedImage}
-                        className="w-full bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
+                        className="w-full bg-gradient-to-r from-cyan-600 to-cyan-500 text-white hover:from-cyan-700 hover:to-cyan-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                       >
                         {isLoading.extractPrompt ? (
                           <>
