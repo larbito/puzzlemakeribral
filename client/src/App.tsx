@@ -22,6 +22,7 @@ import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
 import KDPFullWrapGenerator from '@/pages/dashboard/KDPFullWrapGenerator';
 import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
+import Vectorizer from '@/pages/generators/Vectorizer';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Toaster } from 'sonner';
 
@@ -44,6 +45,7 @@ function App() {
               <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
               <Route path="/privacy" element={<><Navbar /><Privacy /><Footer /></>} />
               <Route path="/terms" element={<><Navbar /><Terms /><Footer /></>} />
+              <Route path="/vectorizer" element={<><Navbar /><Vectorizer /><Footer /></>} />
 
               {/* Dashboard routes */}
               <Route
@@ -69,6 +71,7 @@ function App() {
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="t-shirts" element={<TShirtDesigner />} />
                       <Route path="kdp-covers" element={<KDPFullWrapGenerator />} />
+                      <Route path="vectorizer" element={<Vectorizer />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>

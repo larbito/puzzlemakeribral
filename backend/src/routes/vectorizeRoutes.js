@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const replicateBackgroundRemovalController = require('../controllers/replicateBackgroundRemovalController');
 const imageEnhancementController = require('../controllers/imageEnhancementController');
+const vectorizerController = require('../controllers/vectorizerController');
 
 // Configure multer for memory storage (avoid writing to disk)
 const storage = multer.memoryStorage();
@@ -43,13 +44,10 @@ router.get('/vectorize/check-enhancement-status/:predictionId', imageEnhancement
 router.get('/proxy-ideogram-image', imageEnhancementController.proxyIdeogramImage);
 router.get('/vectorize/proxy-ideogram-image', imageEnhancementController.proxyIdeogramImage);
 
-// SVG vectorization endpoint (placeholder for future implementation)
-router.post('/vectorize', (req, res) => {
-  return res.status(501).json({
-    error: 'SVG vectorization not implemented yet',
-    message: 'This feature will be available in a future update'
-  });
-});
+// SVG vectorization endpoints
+router.post('/vectorize', upload.single('image'), vectorizerController.vectorizeImage);
+router.post('/vectorize/inspect', upload.single('image'), vectorizerController.inspectImage);
+router.post('/vectorize/convert', upload.single('image'), vectorizerController.vectorizeImage);
 
 // Export the router
 module.exports = router; 
