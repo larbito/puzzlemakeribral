@@ -51,6 +51,7 @@ router.get('/vectorize/proxy-ideogram-image', imageEnhancementController.proxyId
 router.post('/vectorize', upload.single('image'), vectorizerController.vectorizeImage);
 router.post('/vectorize/inspect', upload.single('image'), vectorizerController.inspectImage);
 router.post('/vectorize/convert', upload.single('image'), vectorizerController.vectorizeImage);
+router.post('/vectorize/direct', upload.single('image'), vectorizerController.vectorizeDirectHTML);
 
 // Export the router
 module.exports = router; 
