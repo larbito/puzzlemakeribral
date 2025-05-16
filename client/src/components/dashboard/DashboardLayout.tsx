@@ -16,6 +16,7 @@ import {
   BookOpenCheck,
   Shirt,
   Puzzle,
+  Scissors
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'KDP Book Covers', href: '/dashboard/kdp-covers', icon: BookOpenCheck },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
   { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
+  { name: 'Vectorizer', href: '/dashboard/vectorizer', icon: Scissors },
   
   // Planning & Analytics
   { name: 'Content Planner', href: '/dashboard/content', icon: Calendar },
