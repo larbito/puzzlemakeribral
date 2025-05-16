@@ -26,6 +26,7 @@ import {
   RotateCw,
   Lightbulb,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { TabsList, TabsTrigger, Tabs, TabsContent } from "@/components/ui/tabs";
 import {
@@ -108,7 +109,7 @@ const KDPFullWrapGenerator = () => {
       pageCount: 300,
       hasBleed: true,
       spineText: "",
-      spineColor: "",
+      spineColor: "#4DB6AC", // Default teal color for spine
     },
     promptHistory: [],
   });
@@ -126,7 +127,7 @@ const KDPFullWrapGenerator = () => {
   });
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [dominantColors, setDominantColors] = useState<string[]>([]);
+  const [dominantColors, setDominantColors] = useState<string[]>(["#4DB6AC", "#26A69A", "#00897B", "#00796B", "#00695C"]);
 
   // Trim Size options
   const trimSizeOptions = [
@@ -146,11 +147,60 @@ const KDPFullWrapGenerator = () => {
   ];
 
   // API URL
-  const API_URL = "https://puzzlemakeribral-production.up.railway.app";
+  const API_URL = "https://puzzlemakeribral-production.up.railway.app/api";
 
   // Call API to calculate dimensions on initial load
   useEffect(() => {
     handleCalculateDimensions();
+  }, []);
+
+  // When sourceTab changes, reset errors and loading states
+  useEffect(() => {
+    setError("");
+    if (sourceTab === "image") {
+      const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+      if (fileInput) {
+        fileInput.value = "";
+      }
+    }
+  }, [sourceTab]);
+
+  // Capture uploaded file via drag and drop
+  useEffect(() => {
+    const handleDrop = (e: DragEvent) => {
+      if (e.target && (e.target as HTMLElement).closest('.dropzone')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (typeof reader.result === 'string') {
+                setUploadedImage(reader.result);
+              }
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+      }
+    };
+    
+    const handleDragOver = (e: DragEvent) => {
+      if (e.target && (e.target as HTMLElement).closest('.dropzone')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    
+    document.addEventListener('drop', handleDrop);
+    document.addEventListener('dragover', handleDragOver);
+    
+    return () => {
+      document.removeEventListener('drop', handleDrop);
+      document.removeEventListener('dragover', handleDragOver);
+    };
   }, []);
 
   // Calculate spine width based on page count and paper type
@@ -440,36 +490,50 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("extractPrompt", true);
       setError("");
 
-      const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          imageUrl: uploadedImage,
-          context:
-            "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.extractedPrompt) {
-        updateCoverState({
-          prompt: data.extractedPrompt,
-          enhancedPrompt: data.extractedPrompt,
+      // First try to use the OpenAI API for a better description
+      try {
+        const response = await fetch(`${API_URL}/openai/extract-prompt`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageUrl: uploadedImage,
+            context:
+              "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
+          }),
         });
 
-        toast.success("Prompt extracted successfully");
-        saveToHistory(data.extractedPrompt);
-        setActiveStep("details");
-      } else {
-        setError("No extracted prompt returned");
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.extractedPrompt) {
+            updateCoverState({
+              prompt: data.extractedPrompt,
+              enhancedPrompt: data.extractedPrompt,
+            });
+
+            toast.success("Prompt extracted successfully");
+            saveToHistory(data.extractedPrompt);
+            setActiveStep("details");
+            return;
+          }
+        }
+      } catch (err) {
+        console.error("Error with OpenAI extract, falling back to generic extraction:", err);
       }
+      
+      // Fallback to a generic prompt
+      const genericPrompt = "Book cover with similar style to the uploaded image. Include professional design elements, balanced composition, and appropriate typography.";
+      updateCoverState({
+        prompt: genericPrompt,
+        enhancedPrompt: genericPrompt,
+      });
+
+      toast.success("Using generic prompt from image");
+      saveToHistory(genericPrompt);
+      setActiveStep("details");
+      
     } catch (err: any) {
       console.error("Error extracting prompt:", err);
       setError(err.message || "Failed to extract prompt");
@@ -776,10 +840,10 @@ const KDPFullWrapGenerator = () => {
       {/* Header Section */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center mb-4">
-          <div className="h-12 w-12 rounded-full bg-black text-emerald-400 flex items-center justify-center mr-3 border border-emerald-500/30">
+          <div className="h-12 w-12 rounded-full bg-black text-cyan-400 flex items-center justify-center mr-3 border border-cyan-500/30">
             <BookOpen className="h-6 w-6" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(16,185,129,0.35)]">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-cyan-400 via-cyan-400 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(6,182,212,0.35)]">
             Amazon KDP Full Wrap Cover Generator
           </h1>
         </div>
@@ -793,11 +857,11 @@ const KDPFullWrapGenerator = () => {
       <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-zinc-700/50 p-4 mb-8 shadow-lg">
         <div className="flex items-center justify-between">
           <div
-            className={`flex flex-col items-center ${activeStep === "prompt" ? "text-emerald-500 font-medium" : "text-zinc-500"}`}
+            className={`flex flex-col items-center ${activeStep === "prompt" ? "text-cyan-500 font-medium" : "text-zinc-500"}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "prompt" ? "bg-emerald-500/20 border-2 border-emerald-500" : "bg-zinc-800 border border-zinc-700"}`}
+              ${activeStep === "prompt" ? "bg-cyan-500/20 border-2 border-cyan-500" : "bg-zinc-800 border border-zinc-700"}`}
             >
               <Sparkles className="h-5 w-5" />
             </div>
@@ -805,15 +869,15 @@ const KDPFullWrapGenerator = () => {
           </div>
 
           <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" ? "bg-zinc-800" : "bg-gradient-to-r from-emerald-500 to-teal-500"}`}
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" ? "bg-zinc-800" : "bg-gradient-to-r from-cyan-500 to-cyan-500"}`}
           ></div>
 
           <div
-            className={`flex flex-col items-center ${activeStep === "details" ? "text-teal-500 font-medium" : "text-zinc-500"}`}
+            className={`flex flex-col items-center ${activeStep === "details" ? "text-cyan-500 font-medium" : "text-zinc-500"}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "details" ? "bg-teal-500/20 border-2 border-teal-500" : "bg-zinc-800 border border-zinc-700"}`}
+              ${activeStep === "details" ? "bg-cyan-500/20 border-2 border-cyan-500" : "bg-zinc-800 border border-zinc-700"}`}
             >
               <Ruler className="h-5 w-5" />
             </div>
@@ -821,15 +885,15 @@ const KDPFullWrapGenerator = () => {
           </div>
 
           <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" ? "bg-zinc-800" : "bg-gradient-to-r from-teal-500 to-teal-500"}`}
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" ? "bg-zinc-800" : "bg-gradient-to-r from-cyan-500 to-cyan-500"}`}
           ></div>
 
           <div
-            className={`flex flex-col items-center ${activeStep === "generate" ? "text-teal-500 font-medium" : "text-zinc-500"}`}
+            className={`flex flex-col items-center ${activeStep === "generate" ? "text-cyan-500 font-medium" : "text-zinc-500"}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "generate" ? "bg-teal-500/20 border-2 border-teal-500" : "bg-zinc-800 border border-zinc-700"}`}
+              ${activeStep === "generate" ? "bg-cyan-500/20 border-2 border-cyan-500" : "bg-zinc-800 border border-zinc-700"}`}
             >
               <ImageIcon className="h-5 w-5" />
             </div>
@@ -837,7 +901,7 @@ const KDPFullWrapGenerator = () => {
           </div>
 
           <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" ? "bg-zinc-800" : "bg-gradient-to-r from-teal-500 to-cyan-500"}`}
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" ? "bg-zinc-800" : "bg-gradient-to-r from-cyan-500 to-cyan-500"}`}
           ></div>
 
           <div
@@ -878,21 +942,21 @@ const KDPFullWrapGenerator = () => {
               <CardTitle className="flex items-center text-zinc-100">
                 {activeStep === "prompt" && (
                   <>
-                    <Sparkles className="mr-2 h-5 w-5 text-emerald-400" />
+                    <Sparkles className="mr-2 h-5 w-5 text-cyan-400" />
                     <span>Step 1: Create Your Cover Prompt</span>
                   </>
                 )}
 
                 {activeStep === "details" && (
                   <>
-                    <Ruler className="mr-2 h-5 w-5 text-teal-400" />
+                    <Ruler className="mr-2 h-5 w-5 text-cyan-400" />
                     <span>Step 2: Specify Book Details</span>
                   </>
                 )}
 
                 {activeStep === "generate" && (
                   <>
-                    <ImageIcon className="mr-2 h-5 w-5 text-teal-400" />
+                    <ImageIcon className="mr-2 h-5 w-5 text-cyan-400" />
                     <span>Step 3: Generate Covers</span>
                   </>
                 )}
@@ -954,7 +1018,7 @@ const KDPFullWrapGenerator = () => {
                             id="prompt"
                             value={coverState.prompt}
                             onChange={handlePromptChange}
-                            className="w-full min-h-[150px] rounded-lg border border-zinc-700 bg-black/50 p-4 text-zinc-300 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-colors resize-y placeholder:text-zinc-600"
+                            className="w-full min-h-[150px] rounded-lg border border-zinc-700 bg-black/50 p-4 text-zinc-300 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors resize-y placeholder:text-zinc-600"
                             placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
                           />
                           <div className="absolute bottom-3 right-3 rounded-full bg-zinc-800 px-2 py-1 text-xs text-zinc-400">
@@ -970,7 +1034,7 @@ const KDPFullWrapGenerator = () => {
                             className={
                               coverState.prompt.length < 5
                                 ? "text-red-400"
-                                : "text-emerald-400"
+                                : "text-cyan-400"
                             }
                           >
                             {coverState.prompt.length < 5
@@ -988,7 +1052,7 @@ const KDPFullWrapGenerator = () => {
                             isLoading.enhancePrompt ||
                             coverState.prompt.trim().length < 5
                           }
-                          className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-emerald-500/20 hover:text-emerald-300 border-zinc-700 hover:border-emerald-600"
+                          className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
                         >
                           {isLoading.enhancePrompt ? (
                             <>
@@ -1006,7 +1070,7 @@ const KDPFullWrapGenerator = () => {
                         <Button
                           onClick={() => setActiveStep("details")}
                           disabled={coverState.prompt.trim().length < 5}
-                          className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700"
+                          className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
                         >
                           Continue
                           <ChevronRight className="ml-2 h-4 w-4" />
@@ -1041,7 +1105,17 @@ const KDPFullWrapGenerator = () => {
                     </TabsContent>
 
                     <TabsContent value="image" className="space-y-6">
-                      <div className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-700/50 rounded-lg p-8 bg-black/30">
+                      <div 
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-cyan-700/50 rounded-lg p-8 bg-black/30 dropzone hover:border-cyan-500/70 transition-colors cursor-pointer"
+                        onClick={() => {
+                          const fileInput = document.querySelector<HTMLInputElement>(
+                            'input[type="file"]',
+                          );
+                          if (fileInput) {
+                            fileInput.click();
+                          }
+                        }}
+                      >
                         {uploadedImage ? (
                           <div className="relative w-full max-w-xs">
                             <img
@@ -1050,20 +1124,23 @@ const KDPFullWrapGenerator = () => {
                               className="w-full h-auto rounded-lg shadow-md"
                             />
                             <button
-                              onClick={() => setUploadedImage(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUploadedImage(null);
+                              }}
                               className="absolute top-2 right-2 bg-red-500/80 text-white rounded-full p-1 hover:bg-red-600"
                             >
                               <X className="h-4 w-4" />
                             </button>
                           </div>
                         ) : (
-                          <label className="flex flex-col items-center justify-center cursor-pointer">
-                            <UploadCloud className="h-12 w-12 text-zinc-600 mb-4" />
-                            <span className="text-zinc-400 mb-2">
+                          <label className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
+                            <UploadCloud className="h-16 w-16 text-cyan-600/60 mb-4" />
+                            <span className="text-cyan-400 mb-2 font-medium">
                               Upload book cover image
                             </span>
-                            <span className="text-zinc-600 text-sm mb-4">
-                              Click to browse or drop image
+                            <span className="text-zinc-400 text-sm mb-6">
+                              Click here or drop an image
                             </span>
                             <input
                               type="file"
@@ -1073,9 +1150,10 @@ const KDPFullWrapGenerator = () => {
                             />
                             <Button
                               variant="outline"
-                              className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                              className="bg-zinc-800/70 text-cyan-300 hover:bg-cyan-900/40 border-cyan-700/50 hover:border-cyan-600"
                               size="sm"
                               onClick={(e) => {
+                                e.stopPropagation();
                                 const fileInput =
                                   document.querySelector<HTMLInputElement>(
                                     'input[type="file"]',
@@ -1094,7 +1172,7 @@ const KDPFullWrapGenerator = () => {
                       <Button
                         onClick={handleExtractPrompt}
                         disabled={isLoading.extractPrompt || !uploadedImage}
-                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700"
+                        className="w-full bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
                       >
                         {isLoading.extractPrompt ? (
                           <>
@@ -1118,7 +1196,7 @@ const KDPFullWrapGenerator = () => {
                 <div className="space-y-6">
                   <div className="space-y-6 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <Ruler className="h-4 w-4 mr-2 text-teal-400" />
+                      <Ruler className="h-4 w-4 mr-2 text-cyan-400" />
                       Book Specifications
                     </h3>
 
@@ -1132,7 +1210,7 @@ const KDPFullWrapGenerator = () => {
                         onChange={(e) =>
                           updateBookDetails({ trimSize: e.target.value })
                         }
-                        className="w-full rounded-md border border-zinc-700 bg-black p-2 text-sm text-zinc-300 focus:border-teal-500 focus:outline-none"
+                        className="w-full rounded-md border border-zinc-700 bg-black p-2 text-sm text-zinc-300 focus:border-cyan-500 focus:outline-none"
                       >
                         {trimSizeOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -1157,7 +1235,7 @@ const KDPFullWrapGenerator = () => {
                             }
                             className={`flex-1 px-3 py-2 rounded-md text-sm ${
                               coverState.bookDetails.paperType === option.value
-                                ? "bg-teal-500 text-black font-medium"
+                                ? "bg-cyan-500 text-black font-medium"
                                 : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                             }`}
                           >
@@ -1170,9 +1248,9 @@ const KDPFullWrapGenerator = () => {
                     {/* Page Count */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <FileText className="h-4 w-4 mr-1 text-teal-400" />
+                        <FileText className="h-4 w-4 mr-1 text-cyan-400" />
                         Page Count:{" "}
-                        <span className="ml-2 text-teal-400 font-medium">
+                        <span className="ml-2 text-cyan-400 font-medium">
                           {coverState.bookDetails.pageCount} pages
                         </span>
                       </label>
@@ -1210,7 +1288,7 @@ const KDPFullWrapGenerator = () => {
                           onClick={() => updateBookDetails({ hasBleed: true })}
                           className={`flex-1 px-3 py-2 rounded-md text-sm ${
                             coverState.bookDetails.hasBleed
-                              ? "bg-teal-500 text-black font-medium"
+                              ? "bg-cyan-500 text-black font-medium"
                               : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                           }`}
                         >
@@ -1221,7 +1299,7 @@ const KDPFullWrapGenerator = () => {
                           onClick={() => updateBookDetails({ hasBleed: false })}
                           className={`flex-1 px-3 py-2 rounded-md text-sm ${
                             !coverState.bookDetails.hasBleed
-                              ? "bg-teal-500 text-black font-medium"
+                              ? "bg-cyan-500 text-black font-medium"
                               : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
                           }`}
                         >
@@ -1236,7 +1314,7 @@ const KDPFullWrapGenerator = () => {
 
                     {/* Auto-Calculated Output Box */}
                     <div className="rounded-md bg-zinc-800/80 p-3 space-y-1">
-                      <h4 className="text-sm font-medium text-teal-400">
+                      <h4 className="text-sm font-medium text-cyan-400">
                         Auto Size Preview
                       </h4>
                       <ul className="text-xs space-y-1 text-zinc-500">
@@ -1275,12 +1353,13 @@ const KDPFullWrapGenerator = () => {
                       onClick={() => setActiveStep("prompt")}
                       className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
                       Back
                     </Button>
 
                     <Button
                       onClick={handleGenerateFrontCover}
-                      className="flex-1 bg-gradient-to-r from-teal-600 to-teal-600 text-white hover:from-teal-700 hover:to-teal-700"
+                      className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
                     >
                       Generate Cover
                       <ChevronRight className="ml-2 h-4 w-4" />
@@ -1296,7 +1375,7 @@ const KDPFullWrapGenerator = () => {
                     {/* Front Cover Preview */}
                     <div className="space-y-3">
                       <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Sparkles className="h-4 w-4 mr-2 text-teal-400" />
+                        <Sparkles className="h-4 w-4 mr-2 text-cyan-400" />
                         Front Cover
                       </h3>
                       <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
@@ -1316,7 +1395,7 @@ const KDPFullWrapGenerator = () => {
                         variant="outline"
                         onClick={() => handleGenerateFrontCover()}
                         disabled={isLoading.generateFront}
-                        className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-teal-500/20 hover:text-teal-300 border-zinc-700 hover:border-teal-600"
+                        className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
                       >
                         <RotateCw className="mr-2 h-4 w-4" />
                         Regenerate Front
@@ -1326,7 +1405,7 @@ const KDPFullWrapGenerator = () => {
                     {/* Back Cover Preview */}
                     <div className="space-y-3">
                       <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Layout className="h-4 w-4 mr-2 text-teal-400" />
+                        <Layout className="h-4 w-4 mr-2 text-cyan-400" />
                         Back Cover
                       </h3>
                       <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
@@ -1357,7 +1436,7 @@ const KDPFullWrapGenerator = () => {
                         disabled={
                           !coverState.frontCoverImage || isLoading.generateBack
                         }
-                        className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-teal-500/20 hover:text-teal-300 border-zinc-700 hover:border-teal-600"
+                        className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
                       >
                         <RotateCw className="mr-2 h-4 w-4" />
                         Regenerate Back
@@ -1368,7 +1447,7 @@ const KDPFullWrapGenerator = () => {
                   {/* Spine Settings */}
                   <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <LucideBook className="h-4 w-4 mr-2 text-teal-400" />
+                      <LucideBook className="h-4 w-4 mr-2 text-cyan-400" />
                       Spine Settings
                     </h3>
 
@@ -1427,6 +1506,7 @@ const KDPFullWrapGenerator = () => {
                       onClick={() => setActiveStep("details")}
                       className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
                       Back
                     </Button>
 
@@ -1436,7 +1516,7 @@ const KDPFullWrapGenerator = () => {
                         !coverState.frontCoverImage ||
                         !coverState.backCoverImage
                       }
-                      className="flex-1 bg-gradient-to-r from-teal-600 to-cyan-600 text-white hover:from-teal-700 hover:to-cyan-700"
+                      className="flex-1 bg-gradient-to-r from-cyan-600 to-cyan-600 text-white hover:from-cyan-700 hover:to-cyan-700"
                     >
                       Continue to Enhance
                       <ChevronRight className="ml-2 h-4 w-4" />
@@ -1602,6 +1682,7 @@ const KDPFullWrapGenerator = () => {
                       onClick={() => setActiveStep("generate")}
                       className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
                       Back
                     </Button>
 
@@ -1751,18 +1832,22 @@ const KDPFullWrapGenerator = () => {
                 </div>
               )}
 
-              {/* Error display */}
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg p-4 text-sm mt-4">
-                  {error}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
-
+          
         {/* Right Column: Preview */}
         <div className="space-y-4">
+          {/* Error display */}
+          {error && (
+            <Card className="bg-red-950/40 border border-red-700/50 overflow-hidden shadow-lg mb-4">
+              <CardContent className="p-4 flex items-center space-x-3">
+                <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
+                <p className="text-red-300 text-sm">{error}</p>
+              </CardContent>
+            </Card>
+          )}
+          
           {/* Preview Card */}
           <Card className="bg-black/80 backdrop-blur-sm border border-zinc-700/50 overflow-hidden shadow-lg">
             <CardHeader className="border-b border-zinc-700/50 bg-black/80">
@@ -1777,23 +1862,23 @@ const KDPFullWrapGenerator = () => {
             <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
               {coverState.fullWrapImage ? (
                 <div className="relative group">
-                  <img
-                    src={coverState.fullWrapImage}
+                  <img 
+                    src={coverState.fullWrapImage} 
                     alt="Generated Full Wrap Cover"
                     className="max-w-full max-h-[450px] rounded-md border border-zinc-700/60 shadow-lg"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-                    <a
-                      href={coverState.fullWrapImage}
-                      download="kdp-full-wrap-cover.jpg"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <a 
+                      href={coverState.fullWrapImage} 
+                        download="kdp-full-wrap-cover.jpg"
+                        target="_blank"
+                        rel="noopener noreferrer"
                       className="bg-cyan-500 hover:bg-cyan-600 text-black font-medium rounded-md px-4 py-2 flex items-center text-sm"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Cover
-                    </a>
-                  </div>
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download Cover
+                      </a>
+                    </div>
                 </div>
               ) : coverState.frontCoverImage ? (
                 <div className="relative">
@@ -1897,10 +1982,10 @@ const KDPFullWrapGenerator = () => {
                   <span
                     className={`
                     ${Object.values(isLoading).some((v) => v) ? "text-amber-400" : ""} 
-                    ${activeStep === "assemble" && coverState.fullWrapImage ? "text-emerald-400" : ""}
+                    ${activeStep === "assemble" && coverState.fullWrapImage ? "text-cyan-400" : ""}
                     ${error ? "text-red-400" : ""}
                     ${!Object.values(isLoading).some((v) => v) && !coverState.frontCoverImage && !error ? "text-zinc-500" : ""}
-                    ${coverState.frontCoverImage && !coverState.fullWrapImage && !Object.values(isLoading).some((v) => v) ? "text-teal-400" : ""}
+                    ${coverState.frontCoverImage && !coverState.fullWrapImage && !Object.values(isLoading).some((v) => v) ? "text-cyan-400" : ""}
                   `}
                   >
                     {Object.values(isLoading).some((v) => v)
