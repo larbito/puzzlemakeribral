@@ -9,7 +9,6 @@ import { Shirt, Sparkles, Image, Download, AlertCircle } from 'lucide-react';
 
 export const TShirtDesigner = () => {
   const [activeTab, setActiveTab] = useState('prompt');
-  const currentStep = activeTab === 'prompt' ? 1 : activeTab === 'image' ? 2 : 3;
 
   // Debug logs to verify component rendering
   console.log('TShirtDesigner component rendered');
@@ -23,24 +22,24 @@ export const TShirtDesigner = () => {
       {/* Wrapper with high z-index to ensure all elements receive interactions */}
       <div className="relative z-[100]" style={{ pointerEvents: 'auto' }}>
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
-          {/* Step Bar Component */}
+          {/* Step Bar Component - Static UI for explanation only */}
           <div className="flex items-center justify-between bg-muted/30 p-4 rounded-lg border">
-            <div className={`flex flex-col items-center ${currentStep === 1 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+            <div className="flex flex-col items-center text-primary font-bold">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
                 <Sparkles className="h-5 w-5" />
               </div>
               <span className="text-sm text-center">Step 1: Generate Prompt-Based Image</span>
             </div>
-            <div className="h-[2px] flex-1 mx-2 bg-muted"></div>
-            <div className={`flex flex-col items-center ${currentStep === 2 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+            <div className="h-[2px] flex-1 mx-2 bg-primary/60"></div>
+            <div className="flex flex-col items-center text-primary font-bold">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
                 <Image className="h-5 w-5" />
               </div>
               <span className="text-sm text-center">Step 2: Enhance or Remove Background</span>
             </div>
-            <div className="h-[2px] flex-1 mx-2 bg-muted"></div>
-            <div className={`flex flex-col items-center ${currentStep === 3 ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${currentStep === 3 ? 'bg-primary text-primary-foreground' : 'bg-muted border'}`}>
+            <div className="h-[2px] flex-1 mx-2 bg-primary/60"></div>
+            <div className="flex flex-col items-center text-primary font-bold">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 bg-primary text-primary-foreground">
                 <Download className="h-5 w-5" />
               </div>
               <span className="text-sm text-center">Step 3: Export Ready-to-Upload File</span>
