@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+        }
+        form {
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #result {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Upload Test</h1>
+    <p>Use this form to test direct file uploads to the API</p>
+
+    <h2>Test Upload Endpoint</h2>
+    <form id="uploadTestForm">
+        <div>
+            <label for="testFile">Select image file:</label>
+            <input type="file" id="testFile" name="image" accept="image/*" required>
+        </div>
+        <button type="submit">Upload to Test Endpoint</button>
+    </form>
+    <div id="testResult"></div>
+
+    <h2>Vectorize Endpoint</h2>
+    <form id="vectorizeForm">
+        <div>
+            <label for="imageFile">Select image file:</label>
+            <input type="file" id="imageFile" name="image" accept="image/*" required>
+        </div>
+        <div>
+            <label for="threshold">Threshold:</label>
+            <input type="range" id="threshold" name="threshold" min="0" max="255" value="128">
+            <span id="thresholdValue">128</span>
+        </div>
+        <button type="submit">Vectorize Image</button>
+    </form>
+    <div id="vectorizeResult"></div>
+    <div id="svgResult" style="margin-top: 20px;"></div>
+
+    <script>
+        // Update threshold value display
+        document.getElementById('threshold').addEventListener('input', function(e) {
+            document.getElementById('thresholdValue').textContent = e.target.value;
+        });
+
+        // Test upload endpoint
+        document.getElementById('uploadTestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = 'Uploading...';
+
+            const fileInput = document.getElementById('testFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                resultDiv.innerHTML = 'Please select a file';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/api/upload-test', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                resultDiv.innerHTML = 'Error: ' + error.message;
+            }
+        });
+
+        // Vectorize endpoint
+        document.getElementById('vectorizeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('vectorizeResult');
+            const svgDiv = document.getElementById('svgResult');
+            resultDiv.innerHTML = 'Processing...';
+            svgDiv.innerHTML = '';
+
+            const fileInput = document.getElementById('imageFile');
+            const file = fileInput.files[0];
+            const threshold = document.getElementById('threshold').value;
+            
+            if (!file) {
+                resultDiv.innerHTML = 'Please select a file';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            const options = {
+                threshold: parseInt(threshold),
+                steps: 1,
+                background: '#ffffff',
+                fillStrategy: 'dominant'
+            };
+            
+            formData.append('options', JSON.stringify(options));
+
+            try {
+                const response = await fetch('/api/vectorize', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                
+                if (data.status === 'success' && data.svg) {
+                    svgDiv.innerHTML = data.svg;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = 'Error: ' + error.message;
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Loader2, Upload, Download, Image as ImageIcon, FileImage, RefreshCw } from 'lucide-react';
@@ -43,6 +43,7 @@ const Vectorizer = () => {
     fillStrategy: 'dominant'
   });
   const [activeTab, setActiveTab] = useState<string>('upload');
+  const [uploadMethod, setUploadMethod] = useState<'drag' | 'form'>('drag');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,6 +55,7 @@ const Vectorizer = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewUrl(reader.result as string);
+        console.log("Preview created for file:", file.name, file.type, file.size);
       };
       reader.readAsDataURL(file);
 
@@ -79,8 +81,13 @@ const Vectorizer = () => {
       const formData = new FormData();
       formData.append('image', file);
       
+      // Use absolute URL for production deployment
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://puzzle-craft-forge-production.up.railway.app/api/vectorize/inspect'
+        : '/api/vectorize/inspect';
+        
       const response = await axios.post(
-        `/api/vectorize/inspect`,
+        apiUrl,
         formData,
         {
           headers: {
@@ -113,22 +120,81 @@ const Vectorizer = () => {
   };
 
   const vectorizeImage = async () => {
-    if (!imageFile) return;
+    if (!imageFile) {
+      toast.error('Please select an image first');
+      return;
+    }
     
     setLoading(true);
+    console.log('Starting vectorization process');
+    console.log('Image file:', imageFile.name, imageFile.type, imageFile.size, 'bytes');
+    console.log('Options:', selectedOption);
     
     try {
+      // Create a new Form for direct submission in production
+      if (process.env.NODE_ENV === 'production') {
+        // Create a form element and submit directly
+        const formElement = document.createElement('form');
+        formElement.method = 'POST';
+        formElement.action = 'https://puzzle-craft-forge-production.up.railway.app/api/vectorize/direct';
+        formElement.enctype = 'multipart/form-data';
+        formElement.target = '_blank'; // Open result in new tab
+        
+        // Create the file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.name = 'image';
+        fileInput.style.display = 'none';
+        
+        // Use the File object directly
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(imageFile);
+        fileInput.files = dataTransfer.files;
+        
+        // Create options input
+        const optionsInput = document.createElement('input');
+        optionsInput.type = 'hidden';
+        optionsInput.name = 'options';
+        optionsInput.value = JSON.stringify(selectedOption);
+        
+        // Add inputs to form
+        formElement.appendChild(fileInput);
+        formElement.appendChild(optionsInput);
+        
+        // Add form to body, submit, and remove
+        document.body.appendChild(formElement);
+        
+        // Create a fancy toast with a button
+        toast("Direct vectorization activated", {
+          description: "Your file is being processed directly. Check the new tab for results.",
+          action: {
+            label: "Submit",
+            onClick: () => formElement.submit()
+          },
+          duration: 10000
+        });
+        
+        setTimeout(() => {
+          document.body.removeChild(formElement);
+          setLoading(false);
+        }, 3000);
+        
+        return;
+      }
+      
+      // For local development, use axios
       const formData = new FormData();
       formData.append('image', imageFile);
       formData.append('options', JSON.stringify(selectedOption));
       
       const response = await axios.post(
-        `/api/vectorize/convert`,
+        '/api/vectorize',
         formData,
         {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
+          timeout: 60000 // 60 seconds timeout
         }
       );
       
@@ -170,9 +236,18 @@ const Vectorizer = () => {
   return (
     <div className="container mx-auto p-4 max-w-6xl">
       <h1 className="text-3xl font-bold mb-2">PNG to SVG Vectorizer</h1>
-      <p className="text-muted-foreground mb-6">
+      <p className="text-muted-foreground mb-3">
         Convert raster images to scalable vector graphics
       </p>
+      <div className="flex justify-end my-3">
+        <Button 
+          variant="outline" 
+          onClick={() => window.open('/direct-upload.html', '_blank')}
+          className="text-sm"
+        >
+          Alternative Upload Form ↗
+        </Button>
+      </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-2 mb-6">
@@ -191,35 +266,161 @@ const Vectorizer = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div
-                  className={`border-2 border-dashed rounded-lg p-4 text-center ${
-                    previewUrl ? 'border-primary' : 'border-muted-foreground'
-                  }`}
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{ minHeight: '250px', cursor: 'pointer' }}
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageChange}
-                    className="hidden"
-                    accept="image/png,image/jpeg"
-                  />
+                <div className="mb-4">
+                  <div className="flex items-center justify-center space-x-2 mb-3">
+                    <button
+                      type="button"
+                      className={`px-3 py-1 rounded ${uploadMethod === 'drag' ? 'bg-primary text-white' : 'bg-gray-200'}`}
+                      onClick={() => setUploadMethod('drag')}
+                    >
+                      Drag & Drop
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-3 py-1 rounded ${uploadMethod === 'form' ? 'bg-primary text-white' : 'bg-gray-200'}`}
+                      onClick={() => setUploadMethod('form')}
+                    >
+                      Upload Form
+                    </button>
+                  </div>
                   
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="max-h-64 mx-auto"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full">
-                      <FileImage className="w-12 h-12 mb-2 text-muted-foreground" />
-                      <p className="text-muted-foreground">
-                        Click to upload or drag and drop<br />
-                        PNG or JPG (max 10MB)
-                      </p>
+                  {uploadMethod === 'drag' ? (
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-4 text-center ${
+                        previewUrl ? 'border-primary' : 'border-muted-foreground'
+                      }`}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.currentTarget.classList.add('border-primary');
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!previewUrl) {
+                          e.currentTarget.classList.remove('border-primary');
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        // Handle dropped files
+                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                          const file = e.dataTransfer.files[0];
+                          if (file.type.match(/image\/(png|jpeg|jpg)/)) {
+                            setImageFile(file);
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setPreviewUrl(reader.result as string);
+                              console.log("Preview created for dropped file:", file.name, file.type, file.size);
+                            };
+                            reader.readAsDataURL(file);
+                            
+                            // Reset states and inspect new image
+                            setSvg(null);
+                            setOptions([]);
+                            setSelectedOption({
+                              threshold: 128,
+                              steps: 1,
+                              background: '#ffffff',
+                              fillStrategy: 'dominant'
+                            });
+                            
+                            inspectImage(file);
+                          } else {
+                            toast.error("Please upload a PNG or JPG image");
+                          }
+                        }
+                      }}
+                      style={{ minHeight: '250px', cursor: 'pointer' }}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleImageChange}
+                        className="hidden"
+                        accept="image/png,image/jpeg"
+                        aria-label="Upload image"
+                      />
+                      
+                      {previewUrl ? (
+                        <img
+                          src={previewUrl}
+                          alt="Preview"
+                          className="max-h-64 mx-auto"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full">
+                          <FileImage className="w-12 h-12 mb-2 text-muted-foreground" />
+                          <p className="text-muted-foreground">
+                            Click to upload or drag and drop<br />
+                            PNG or JPG (max 10MB)
+                          </p>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <form 
+                      className="space-y-4 p-4 border border-muted rounded-lg"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formElement = e.currentTarget as HTMLFormElement;
+                        const fileInput = formElement.querySelector('input[type="file"]') as HTMLInputElement;
+                        
+                        if (fileInput?.files?.[0]) {
+                          const file = fileInput.files[0];
+                          setImageFile(file);
+                          
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setPreviewUrl(reader.result as string);
+                          };
+                          reader.readAsDataURL(file);
+                          
+                          setSvg(null);
+                          setOptions([]);
+                          setSelectedOption({
+                            threshold: 128,
+                            steps: 1,
+                            background: '#ffffff',
+                            fillStrategy: 'dominant'
+                          });
+                          
+                          inspectImage(file);
+                        } else {
+                          toast.error("Please select a file");
+                        }
+                      }}
+                    >
+                      <div>
+                        <Label htmlFor="directFileUpload">Select image file:</Label>
+                        <Input
+                          id="directFileUpload"
+                          type="file"
+                          name="image"
+                          accept="image/png,image/jpeg"
+                          className="mt-1"
+                          required
+                        />
+                      </div>
+                      
+                      {previewUrl && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium mb-2">Preview:</p>
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="max-h-48 mx-auto"
+                          />
+                        </div>
+                      )}
+                      
+                      <Button type="submit" variant="secondary" className="w-full">
+                        Upload Image
+                      </Button>
+                    </form>
                   )}
                 </div>
               </CardContent>
