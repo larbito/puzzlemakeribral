@@ -471,66 +471,6 @@ export async function getBackgroundRemovalModels(): Promise<{id: string, name: s
   }
 }
 
-/**
- * Resize an image to a maximum width while maintaining aspect ratio
- * This helps avoid 413 Payload Too Large errors when vectorizing
- */
-async function resizeImageForVectorization(imageUrl: string, maxWidth = 800): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    try {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      
-      img.onload = () => {
-        // Calculate new dimensions
-        let width = img.width;
-        let height = img.height;
-        
-        console.log(`Original image dimensions: ${width}x${height}`);
-        
-        // Always resize to reduce vectorization complexity
-        const aspectRatio = width / height;
-        width = Math.min(width, maxWidth);
-        height = Math.round(width / aspectRatio);
-        console.log(`Resizing to: ${width}x${height}`);
-        
-        // Create a canvas to resize the image
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        
-        // Draw the image on the canvas
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error("Could not create canvas context"));
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Convert canvas to blob
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error("Failed to convert canvas to blob"));
-            return;
-          }
-          
-          console.log(`Resized image size: ${Math.round(blob.size / 1024)} KB`);
-          resolve(blob);
-        }, 'image/png', 0.8); // Use PNG with 80% quality
-      };
-      
-      img.onerror = () => {
-        reject(new Error("Failed to load image for resizing"));
-      };
-      
-      img.src = imageUrl;
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
 // Replace the existing removeBackground function with this updated version
 export async function removeBackground(imageUrl: string, modelId: string | null = null): Promise<string> {
   try {
@@ -1698,18 +1638,6 @@ export function forceProxyForIdeogramUrl(url: string): string {
     console.error("Error in proxy function:", error);
     return url;
   }
-}
-
-/**
- * Vectorize an image using an API via our backend (for future implementation)
- * @param imageUrl URL of the image to vectorize
- * @returns URL to the vectorized SVG
- */
-export async function vectorizeImage(imageUrl: string): Promise<string> {
-  // This is a placeholder for future implementation
-  console.log("SVG Vectorization feature not implemented yet");
-  toast.error("SVG Vectorization feature not implemented yet");
-  throw new Error("SVG Vectorization feature not implemented yet");
 }
 
 /**
