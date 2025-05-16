@@ -89,23 +89,24 @@ const vectorizeImage = async (req, res) => {
     try {
       console.log('Calling RapidAPI vectorization service...');
       
-      // Read the image and encode as base64
+      // Read the image as a buffer
       const imageBuffer = await fs.promises.readFile(processedPath);
-      const base64Image = imageBuffer.toString('base64');
       
-      // Make API request to RapidAPI - use the correct endpoint
+      // Create form data
+      const formData = new FormData();
+      formData.append('file', new Blob([imageBuffer]), 'image.png');
+      
+      console.log('Sending request to RapidAPI with form data');
+      
+      // Make API request to RapidAPI
       const response = await fetch('https://raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com/', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'x-rapidapi-key': RAPIDAPI_KEY,
           'x-rapidapi-host': RAPIDAPI_HOST,
+          // Content-Type header is set automatically by FormData
         },
-        body: JSON.stringify({
-          key1: 'value',
-          key2: 'value',
-          image_base64: base64Image
-        })
+        body: formData
       });
       
       if (!response.ok) {
