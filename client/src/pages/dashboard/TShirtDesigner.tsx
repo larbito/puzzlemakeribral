@@ -5,7 +5,7 @@ import { PromptToDesignTab } from '@/components/tshirt/PromptToDesignTab';
 import { ImageToPromptTab } from '@/components/tshirt/ImageToPromptTab';
 import { BulkImageTab } from '@/components/tshirt/BulkImageTab';
 import { DesignHistoryPanel } from '@/components/tshirt/DesignHistoryPanel';
-import { Shirt, Sparkles, Image, Download, AlertCircle } from 'lucide-react';
+import { Shirt, Sparkles, Image, Download, AlertCircle, Lightbulb, Check } from 'lucide-react';
 
 export const TShirtDesigner = () => {
   const [activeTab, setActiveTab] = useState('prompt');
@@ -53,16 +53,28 @@ export const TShirtDesigner = () => {
           </div>
           
           {/* Tips for Best Results */}
-          <div className="bg-muted/20 border rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-primary mt-0.5" />
-              <div>
-                <h3 className="font-medium text-lg mb-2">Tips for Best Results</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>Start by removing the background before applying enhancement. This gives better edge clarity and color correction.</li>
-                  <li>For background removal, image complexity matters. You'll need to try different models manually to see which one gives the cleanest result. Some designs may work better with one model than another.</li>
-                  <li>When using Bulk Mode, let the system generate prompts first. Then start generating images one by one with short delays to avoid performance issues.</li>
-                </ul>
+          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-amber-500/30 p-6 shadow-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-amber-500/20 border border-amber-500/50">
+                <Lightbulb className="h-5 w-5 text-amber-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-amber-400">Tips for Best Results</h3>
+            </div>
+            
+            <div className="space-y-4 pl-2">
+              <div className="flex items-start gap-3 bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
+                <Check className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-amber-100/80">Start by removing the background before applying enhancement. This gives better edge clarity and color correction.</p>
+              </div>
+              
+              <div className="flex items-start gap-3 bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
+                <Check className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-amber-100/80">For background removal, image complexity matters. You'll need to try different models manually to see which one gives the cleanest result. Some designs may work better with one model than another.</p>
+              </div>
+              
+              <div className="flex items-start gap-3 bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
+                <Check className="h-5 w-5 text-amber-400 mt-0.5 flex-shrink-0" />
+                <p className="text-amber-100/80">When using Bulk Mode, let the system generate prompts first. Then start generating images one by one with short delays to avoid performance issues.</p>
               </div>
             </div>
           </div>
