@@ -7,6 +7,7 @@ const util = require('util');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const multer = require('multer');
+const sharp = require('sharp');
 const { checkInkscape, checkCommandFormat } = require('../utils/inkscapeCheck');
 
 // Promisify exec for cleaner async/await syntax
@@ -43,6 +44,56 @@ const upload = multer({
 // Environment variables for API keys should be set in your Railway environment
 const REPLICATE_API_KEY = process.env.REPLICATE_API_TOKEN || '';
 
+// Max image dimensions for processing
+const MAX_IMAGE_SIZE = 1500; // Max width or height in pixels
+const INKSCAPE_TIMEOUT = 120000; // 120 second timeout for Inkscape
+
+/**
+ * Resize image if it exceeds maximum dimensions
+ * @param {string} inputPath Path to input image file
+ * @param {string} outputPath Path to save resized image
+ * @returns {Promise<boolean>} True if image was resized
+ */
+async function resizeImageIfNeeded(inputPath, outputPath) {
+  try {
+    // Get image metadata
+    const metadata = await sharp(inputPath).metadata();
+    console.log(`Original image dimensions: ${metadata.width}x${metadata.height}`);
+
+    // Check if resizing is needed
+    if (metadata.width > MAX_IMAGE_SIZE || metadata.height > MAX_IMAGE_SIZE) {
+      console.log(`Image exceeds maximum dimensions, resizing...`);
+      
+      // Calculate new dimensions (preserve aspect ratio)
+      let newWidth, newHeight;
+      if (metadata.width > metadata.height) {
+        newWidth = MAX_IMAGE_SIZE;
+        newHeight = Math.round((metadata.height / metadata.width) * MAX_IMAGE_SIZE);
+      } else {
+        newHeight = MAX_IMAGE_SIZE;
+        newWidth = Math.round((metadata.width / metadata.height) * MAX_IMAGE_SIZE);
+      }
+      
+      // Resize the image
+      await sharp(inputPath)
+        .resize(newWidth, newHeight)
+        .toFile(outputPath);
+      
+      console.log(`Image resized to ${newWidth}x${newHeight}`);
+      return true;
+    } else {
+      // No resizing needed, copy the file
+      await fs.promises.copyFile(inputPath, outputPath);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error resizing image:', error);
+    // If resize fails, copy the original file
+    await fs.promises.copyFile(inputPath, outputPath);
+    return false;
+  }
+}
+
 /**
  * Controller function for vectorizing images
  */
@@ -63,16 +114,22 @@ const vectorizeImage = async (req, res) => {
     await fs.promises.mkdir(workDir, { recursive: true });
     
     // Input and output file paths
+    const originalPath = path.join(workDir, 'original.png');
     const inputPath = path.join(workDir, 'input.png');
     let processedPath = inputPath; // Track the current processed file path
     const outputPath = path.join(workDir, 'output.svg');
     
     console.log(`Working directory: ${workDir}`);
+    console.log(`Original path: ${originalPath}`);
     console.log(`Input path: ${inputPath}`);
     console.log(`Output path: ${outputPath}`);
     
     // Copy the uploaded file to the working directory
-    await fs.promises.copyFile(req.file.path, inputPath);
+    await fs.promises.copyFile(req.file.path, originalPath);
+    
+    // Resize image if needed
+    console.log('Checking if image needs resizing...');
+    await resizeImageIfNeeded(originalPath, inputPath);
     
     // Background removal if requested
     if (removeBackgroundOption) {
@@ -147,11 +204,15 @@ const vectorizeImage = async (req, res) => {
         inkscapeCommand = `inkscape-headless --export-filename="${outputPath}" --export-type=svg --export-plain-svg "${processedPath}"`;
       }
       
-      console.log(`Executing command: ${inkscapeCommand}`);
-      const { stdout, stderr } = await execPromise(inkscapeCommand);
-      
-      console.log('Inkscape stdout:', stdout);
-      if (stderr) console.error('Inkscape stderr:', stderr);
+      console.log(`Executing command with ${INKSCAPE_TIMEOUT}ms timeout: ${inkscapeCommand}`);
+      try {
+        const { stdout, stderr } = await executeWithTimeout(inkscapeCommand, INKSCAPE_TIMEOUT);
+        console.log('Inkscape stdout:', stdout);
+        if (stderr) console.error('Inkscape stderr:', stderr);
+      } catch (timeoutError) {
+        console.error('Inkscape command timed out or failed:', timeoutError);
+        throw new Error(`Inkscape command timed out after ${INKSCAPE_TIMEOUT/1000} seconds`);
+      }
       
       // Check if the output file was created
       const fileExists = fs.existsSync(outputPath);
@@ -177,11 +238,15 @@ const vectorizeImage = async (req, res) => {
         console.log('Trying legacy Inkscape command format...');
         const legacyCommand = `inkscape-headless -f "${processedPath}" -l "${outputPath}" --export-plain-svg`;
         
-        console.log(`Executing legacy command: ${legacyCommand}`);
-        const { stdout, stderr } = await execPromise(legacyCommand);
-        
-        console.log('Legacy Inkscape stdout:', stdout);
-        if (stderr) console.error('Legacy Inkscape stderr:', stderr);
+        console.log(`Executing legacy command with ${INKSCAPE_TIMEOUT}ms timeout: ${legacyCommand}`);
+        try {
+          const { stdout, stderr } = await executeWithTimeout(legacyCommand, INKSCAPE_TIMEOUT);
+          console.log('Legacy Inkscape stdout:', stdout);
+          if (stderr) console.error('Legacy Inkscape stderr:', stderr);
+        } catch (timeoutError) {
+          console.error('Legacy Inkscape command timed out or failed:', timeoutError);
+          throw new Error(`Legacy Inkscape command timed out after ${INKSCAPE_TIMEOUT/1000} seconds`);
+        }
         
         // Check if the output file was created
         const fileExists = fs.existsSync(outputPath);
@@ -208,6 +273,7 @@ const vectorizeImage = async (req, res) => {
     } finally {
       // Clean up the temporary directory and uploaded file
       try {
+        console.log(`Cleaning up temporary files...`);
         await fs.promises.rm(workDir, { recursive: true, force: true });
         await fs.promises.unlink(req.file.path);
         console.log(`Cleaned up working directory and uploaded file`);
@@ -438,6 +504,19 @@ async function enhanceImage(imagePath, outputPath) {
     console.error('Error in enhanceImage:', error);
     return false;
   }
+}
+
+// Execute Inkscape CLI with timeout
+async function executeWithTimeout(command, timeout) {
+  return new Promise((resolve, reject) => {
+    const process = exec(command, { timeout }, (error, stdout, stderr) => {
+      if (error) {
+        reject({ error, stdout, stderr });
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+  });
 }
 
 module.exports = {
