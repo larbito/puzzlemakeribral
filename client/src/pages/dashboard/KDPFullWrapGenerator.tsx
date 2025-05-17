@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -964,7 +964,119 @@ const KDPFullWrapGenerator = () => {
         interiorPages: coverState.interiorPages.length
       });
 
-      // Try to use the backend API first
+      // Try client-side canvas assembly
+      try {
+        console.log("Using client-side canvas assembly");
+        
+        // Create a canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          throw new Error("Could not create canvas context");
+        }
+        
+        // Set canvas dimensions to match the full wrap cover
+        canvas.width = coverState.dimensions.width;
+        canvas.height = coverState.dimensions.height;
+        
+        // Calculate positions
+        const frontCoverWidth = Math.round(coverState.dimensions.trimWidthInches * coverState.dimensions.dpi);
+        const spineWidth = coverState.dimensions.spine;
+        
+        // Create images for front and back covers
+        const frontImage = new Image();
+        const backImage = new Image();
+        
+        // Promise for loading both images
+        const imagesLoaded = new Promise((resolve, reject) => {
+          let imagesLoadedCount = 0;
+          
+          const onLoad = () => {
+            imagesLoadedCount++;
+            if (imagesLoadedCount === 2) resolve(true);
+          };
+          
+          const onError = (err: ErrorEvent) => {
+            console.error("Error loading image for assembly:", err);
+            reject(new Error("Failed to load images for assembly"));
+          };
+          
+          // Load front cover
+          frontImage.onload = onLoad;
+          frontImage.onerror = onError;
+          frontImage.src = normalizeUrl(coverState.frontCoverImage) || '';
+          
+          // Load back cover
+          backImage.onload = onLoad;
+          backImage.onerror = onError;
+          backImage.src = normalizeUrl(coverState.backCoverImage) || '';
+        });
+        
+        // Wait for images to load
+        console.log("Waiting for images to load...");
+        await imagesLoaded;
+        console.log("Images loaded successfully");
+        
+        // Fill background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw back cover (left side)
+        ctx.drawImage(backImage, 0, 0, frontCoverWidth, canvas.height);
+        
+        // Draw spine (middle)
+        ctx.fillStyle = coverState.bookDetails.spineColor || '#000000';
+        ctx.fillRect(frontCoverWidth, 0, spineWidth, canvas.height);
+        
+        // Add spine text if specified
+        if (coverState.bookDetails.spineText) {
+          ctx.save();
+          ctx.translate(frontCoverWidth + spineWidth / 2, canvas.height / 2);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = `bold ${Math.min(24, spineWidth * 0.8)}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(coverState.bookDetails.spineText, 0, 0);
+          ctx.restore();
+        }
+        
+        // Draw front cover (right side)
+        ctx.drawImage(
+          frontImage, 
+          frontCoverWidth + spineWidth, 
+          0, 
+          frontCoverWidth, 
+          canvas.height
+        );
+        
+        // Add labels for front and back
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(frontCoverWidth + spineWidth + frontCoverWidth - 60, canvas.height - 25, 50, 20);
+        ctx.fillRect(10, canvas.height - 25, 50, 20);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '12px Arial';
+        ctx.fillText('Front', frontCoverWidth + spineWidth + frontCoverWidth - 50, canvas.height - 12);
+        ctx.fillText('Back', 20, canvas.height - 12);
+        
+        // Convert canvas to data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        
+        setCoverState((prevState) => ({
+          ...prevState,
+          fullWrapImage: dataUrl,
+        }));
+        
+        toast.success("Full wrap cover assembled successfully");
+        setActiveStep("assemble");
+        return;
+      } catch (canvasError) {
+        console.error("Canvas assembly error:", canvasError);
+        // Continue to API fallback
+      }
+
+      // Try the backend API as fallback
       try {
         const result = await assembleFullCover({
           frontCoverUrl: coverState.frontCoverImage,
@@ -1193,6 +1305,125 @@ const KDPFullWrapGenerator = () => {
     if (url.startsWith('http')) return url;
     return `https://puzzlemakeribral-production.up.railway.app${url.startsWith('/') ? '' : '/'}${url}`;
   }
+
+  // Image to Prompt Button Component
+  const ImageToPromptButton = () => {
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!e.target.files || e.target.files.length === 0) return;
+      
+      const file = e.target.files[0];
+      setIsUploading(true);
+      
+      try {
+        // Read file as data URL
+        const reader = new FileReader();
+        
+        reader.onload = async (event) => {
+          if (!event.target?.result) {
+            toast.error("Failed to read image file");
+            setIsUploading(false);
+            return;
+          }
+          
+          const imageData = event.target.result as string;
+          
+          toast.info("Analyzing image to generate prompt...");
+          
+          // Call the OpenAI API to extract a prompt from the image
+          console.log("Sending image for prompt extraction");
+          try {
+            const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                imageUrl: imageData,
+                context: "Create a detailed book cover design description based on this image. Focus on capturing the style, mood, colors, and composition that would make a great book cover. Consider elements like typography, imagery, layout, and overall aesthetic."
+              }),
+            });
+            
+            if (!response.ok) {
+              throw new Error(`API error: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.extractedPrompt) {
+              // Update the prompt field with the extracted prompt
+              updateCoverState({
+                prompt: data.extractedPrompt,
+                enhancedPrompt: data.extractedPrompt,
+              });
+              
+              // Switch to the prompt tab
+              setActiveStep("prompt");
+              
+              // Also set uploaded image
+              setUploadedImage(imageData);
+              setSourceTab("image");
+              
+              toast.success("Prompt generated from image!");
+            } else {
+              toast.error("No prompt was extracted from the image");
+            }
+          } catch (error) {
+            console.error("Error extracting prompt from image:", error);
+            toast.error("Failed to analyze image");
+          }
+          
+          setIsUploading(false);
+        };
+        
+        reader.onerror = () => {
+          toast.error("Failed to read image file");
+          setIsUploading(false);
+        };
+        
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Error handling image upload:", error);
+        toast.error("Error uploading image");
+        setIsUploading(false);
+      }
+    };
+
+    const handleButtonClick = () => {
+      fileInputRef.current?.click();
+    };
+
+    return (
+      <>
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleImageUpload}
+        />
+        <Button
+          onClick={handleButtonClick}
+          className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 w-full py-4"
+          disabled={isUploading}
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Processing Image...
+            </>
+          ) : (
+            <>
+              <Upload className="h-5 w-5" />
+              Image to Prompt
+            </>
+          )}
+        </Button>
+      </>
+    );
+  };
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4">
@@ -2458,6 +2689,11 @@ const KDPFullWrapGenerator = () => {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Image to Prompt button at the bottom */}
+      <div className="mt-8">
+        <ImageToPromptButton />
       </div>
     </div>
   );
