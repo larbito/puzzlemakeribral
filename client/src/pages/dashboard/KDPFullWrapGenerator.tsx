@@ -764,11 +764,20 @@ const KDPFullWrapGenerator = () => {
         console.log("Back cover response data:", data);
         
         if (data.status === 'success' && data.url) {
-          console.log("Back cover URL found");
-          setCoverState((prevState) => ({
-            ...prevState,
-            backCoverImage: data.url,
-          }));
+          console.log("Back cover URL found:", data.url.substring(0, 100) + "...");
+          
+          const backCoverUrl = data.url;
+          
+          // Update state with the back cover image URL
+          setCoverState((prevState) => {
+            console.log("Setting back cover image state");
+            return {
+              ...prevState,
+              backCoverImage: backCoverUrl,
+            };
+          });
+          
+          console.log("Back cover state updated, current state:", coverState.backCoverImage ? "Has image" : "No image");
           toast.success("Back cover generated successfully");
           return;
         } else {
@@ -785,6 +794,8 @@ const KDPFullWrapGenerator = () => {
       const backCoverHeight = Math.round(coverState.dimensions.trimHeightInches * coverState.dimensions.dpi);
       
       const placeholderBackCover = `https://placehold.co/${backCoverWidth}x${backCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover`;
+      
+      console.log("Using placeholder back cover:", placeholderBackCover);
       
       setCoverState((prevState) => ({
         ...prevState,
@@ -1704,11 +1715,25 @@ const KDPFullWrapGenerator = () => {
                       </h3>
                       <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
                         {coverState.backCoverImage ? (
-                          <img
-                            src={normalizeUrl(coverState.backCoverImage) || ''}
-                            alt="Back Cover"
-                            className="w-full h-full object-cover"
-                          />
+                          <>
+                            <img
+                              src={normalizeUrl(coverState.backCoverImage) || ''}
+                              alt="Back Cover"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                console.error("Error loading back cover image", e);
+                                // If the image fails to load, show error state
+                                e.currentTarget.style.display = 'none';
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'flex items-center justify-center h-full';
+                                errorDiv.innerHTML = '<span class="text-red-500 text-sm">Error loading image</span>';
+                                e.currentTarget.parentNode?.appendChild(errorDiv);
+                              }}
+                            />
+                            <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                              Back Cover
+                            </div>
+                          </>
                         ) : isLoading.generateBack ? (
                           <div className="flex items-center justify-center h-full flex-col gap-2">
                             <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
@@ -1732,8 +1757,17 @@ const KDPFullWrapGenerator = () => {
                         }
                         className="w-full bg-zinc-800/70 text-indigo-300 hover:bg-indigo-800/30 hover:text-indigo-300 border-zinc-700 hover:border-indigo-600 transition-all"
                       >
-                        <RotateCw className="mr-2 h-4 w-4" />
-                        Regenerate Back
+                        {isLoading.generateBack ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <RotateCw className="mr-2 h-4 w-4" />
+                            Regenerate Back
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -2201,6 +2235,34 @@ const KDPFullWrapGenerator = () => {
                         Download Cover
                       </a>
                     </div>
+                </div>
+              ) : coverState.frontCoverImage && coverState.backCoverImage ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-2 bg-zinc-900/50 p-2 rounded-md">
+                    <div className="relative w-[150px]">
+                      <img
+                        src={normalizeUrl(coverState.frontCoverImage) || ''}
+                        alt="Generated Front Cover"
+                        className="w-full h-auto rounded-md border border-zinc-700/60 shadow-lg"
+                      />
+                      <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                        Front
+                      </div>
+                    </div>
+                    <div className="relative w-[150px]">
+                      <img
+                        src={normalizeUrl(coverState.backCoverImage) || ''}
+                        alt="Generated Back Cover"
+                        className="w-full h-auto rounded-md border border-zinc-700/60 shadow-lg"
+                      />
+                      <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                        Back
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center text-sm text-zinc-400">
+                    Front and back covers generated successfully. Continue to assemble the full wrap cover.
+                  </div>
                 </div>
               ) : coverState.frontCoverImage ? (
                 <div className="relative">
