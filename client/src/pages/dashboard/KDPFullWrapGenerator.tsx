@@ -552,6 +552,8 @@ const KDPFullWrapGenerator = () => {
 
   // Generate front cover - Make sure this works
   const handleGenerateFrontCover = async () => {
+    console.log("[Button] Generate Front Cover clicked");
+    toast.info("Generating front cover...");
     if (!coverState.prompt.trim()) {
       setError("Please enter a prompt for your book cover");
       return;
@@ -673,6 +675,8 @@ const KDPFullWrapGenerator = () => {
 
   // Generate back cover
   const handleGenerateBackCover = async (frontCoverUrl = coverState.frontCoverImage) => {
+    console.log("[Button] Generate Back Cover clicked");
+    toast.info("Generating back cover...");
     if (!frontCoverUrl) {
       setError("Please generate a front cover first");
       return;
@@ -747,6 +751,8 @@ const KDPFullWrapGenerator = () => {
 
   // Enhance image with AI - fixed to work directly
   const handleEnhanceImage = async (target: "front" | "back") => {
+    console.log(`[Button] Enhance ${target} Cover clicked`);
+    toast.info(`Enhancing ${target} cover...`);
     const imageUrl =
       target === "front"
         ? coverState.frontCoverImage
@@ -813,6 +819,8 @@ const KDPFullWrapGenerator = () => {
 
   // Assemble full wrap cover
   const handleAssembleFullCover = async () => {
+    console.log("[Button] Assemble Full Wrap Cover clicked");
+    toast.info("Assembling full wrap cover...");
     if (!coverState.frontCoverImage || !coverState.backCoverImage) {
       setError("Front and back cover images are required");
       return;
@@ -879,6 +887,8 @@ const KDPFullWrapGenerator = () => {
 
   // Handle downloading the full wrap cover
   const handleDownloadFullCover = async () => {
+    console.log("[Button] Download Full Cover clicked");
+    toast.info("Downloading full wrap cover...");
     if (!coverState.fullWrapImage) {
       setError("No full wrap cover to download");
       return;
