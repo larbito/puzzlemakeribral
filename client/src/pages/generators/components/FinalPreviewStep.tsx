@@ -9,7 +9,7 @@ import {
   Eye,
   EyeOff,
   FileImage,
-  FilePdf,
+  FileType,
   Loader2,
   CheckCircle2,
   XCircle,
@@ -39,12 +39,14 @@ interface FinalPreviewStepProps {
     };
   };
   showSafeZones: boolean;
+  setShowSafeZones: (show: boolean) => void;
 }
 
 const FinalPreviewStep: React.FC<FinalPreviewStepProps> = ({
   coverState,
   bookSettings,
   showSafeZones,
+  setShowSafeZones,
 }) => {
   const [isLoading, setIsLoading] = useState<{
     assemble: boolean;
@@ -276,7 +278,7 @@ const FinalPreviewStep: React.FC<FinalPreviewStepProps> = ({
           {isLoading.downloadFull ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />
           ) : (
-            <FilePdf className="w-4 h-4 mr-2" />
+            <FileType className="w-4 h-4 mr-2" />
           )}
           Full Wrap (PDF)
         </Button>
