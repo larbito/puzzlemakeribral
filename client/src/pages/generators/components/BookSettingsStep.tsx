@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Info } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import KDPGuidelines from "./KDPGuidelines";
 
 interface BookSettingsStepProps {
   bookSettings: {
@@ -303,6 +304,9 @@ const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
           </div>
         </CardContent>
       </Card>
+      
+      {/* KDP Guidelines */}
+      <KDPGuidelines className="bg-gray-800/30 border-gray-700" />
     </div>
   );
 };

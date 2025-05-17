@@ -351,4 +351,69 @@ export async function checkEnhancementStatus(statusEndpoint: string) {
     console.error('Error checking enhancement status:', error);
     throw error;
   }
+}
+
+/**
+ * Extract a color palette from a cover image
+ */
+export async function extractColorsFromCover(imageUrl: string) {
+  try {
+    console.log('Extracting colors from cover:', imageUrl);
+    
+    const response = await fetch(`${API_URL}/api/book-cover/extract-colors`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ imageUrl })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error extracting colors:', errorText);
+      throw new Error('Failed to extract colors');
+    }
+
+    const data = await response.json();
+    console.log('Extracted colors:', data.colors);
+    return data.colors || [];
+  } catch (error) {
+    console.error('Error extracting colors:', error);
+    // Return some fallback colors
+    return ['#6366F1', '#4F46E5', '#4338CA', '#3730A3', '#312E81'];
+  }
+}
+
+/**
+ * Generate a back cover prompt based on the front cover prompt
+ */
+export async function generateBackCoverPrompt(frontPrompt: string) {
+  try {
+    console.log('Generating back cover prompt from:', frontPrompt);
+    
+    const response = await fetch(`${API_URL}/api/openai/generate-back-prompt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        frontPrompt,
+        context: "Create a complementary back cover design that maintains visual harmony with the front cover while providing a suitable background for text overlay."
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error generating back cover prompt:', errorText);
+      throw new Error('Failed to generate back cover prompt');
+    }
+
+    const data = await response.json();
+    console.log('Generated back cover prompt:', data.backPrompt);
+    return data.backPrompt || '';
+  } catch (error) {
+    console.error('Error generating back cover prompt:', error);
+    // Return a fallback prompt
+    return `Create a complementary back cover design that matches the style and theme of the front cover. The design should be subtle and suitable for text overlay. Use similar colors and visual elements but in a more subdued way.`;
+  }
 } 
