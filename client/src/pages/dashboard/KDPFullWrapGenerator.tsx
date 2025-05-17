@@ -997,8 +997,8 @@ const KDPFullWrapGenerator = () => {
             if (imagesLoadedCount === 2) resolve(true);
           };
           
-          const onError = (err: ErrorEvent) => {
-            console.error("Error loading image for assembly:", err);
+          const onError = () => {
+            console.error("Error loading image for assembly");
             reject(new Error("Failed to load images for assembly"));
           };
           
@@ -2689,11 +2689,6 @@ const KDPFullWrapGenerator = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Image to Prompt button at the bottom */}
-      <div className="mt-8">
-        <ImageToPromptButton />
       </div>
     </div>
   );
