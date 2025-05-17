@@ -608,12 +608,12 @@ const KDPFullWrapGenerator = () => {
         if (data.url) {
           setCoverState((prevState: CoverState) => ({
             ...prevState,
-            frontCoverImage: data.url,
+            frontCoverImage: normalizeUrl(data.url),
             promptHistory: [...prevState.promptHistory, prevState.prompt],
           }));
           
           toast.success("Front cover generated successfully");
-          handleGenerateBackCover(data.url);
+          handleGenerateBackCover(normalizeUrl(data.url));
           setActiveStep("generate");
           return;
         }
@@ -711,7 +711,7 @@ const KDPFullWrapGenerator = () => {
           if (data.url) {
             setCoverState((prevState) => ({
               ...prevState,
-              backCoverImage: data.url,
+              backCoverImage: normalizeUrl(data.url),
             }));
             toast.success("Back cover generated successfully");
             return;
@@ -790,7 +790,7 @@ const KDPFullWrapGenerator = () => {
             // Update the appropriate cover image
             setCoverState((prevState) => ({
               ...prevState,
-              [target === "front" ? "frontCoverImage" : "backCoverImage"]: data.enhancedUrl,
+              [target === "front" ? "frontCoverImage" : "backCoverImage"]: normalizeUrl(data.enhancedUrl),
             }));
             
             toast.success(`${target === "front" ? "Front" : "Back"} cover enhanced successfully`);
@@ -851,7 +851,7 @@ const KDPFullWrapGenerator = () => {
         if (result.fullCover) {
           setCoverState((prevState) => ({
             ...prevState,
-            fullWrapImage: result.fullCover,
+            fullWrapImage: normalizeUrl(result.fullCover),
           }));
           
           toast.success("Full wrap cover assembled successfully");
@@ -1059,6 +1059,13 @@ const KDPFullWrapGenerator = () => {
       handleCalculateDimensions();
     }, 100);
   };
+
+  // Helper to normalize image URLs
+  function normalizeUrl(url: string | null): string | null {
+    if (!url) return url;
+    if (url.startsWith('http')) return url;
+    return `https://puzzlemakeribral-production.up.railway.app${url.startsWith('/') ? '' : '/'}${url}`;
+  }
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4">
@@ -1624,7 +1631,7 @@ const KDPFullWrapGenerator = () => {
                       <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
                         {coverState.frontCoverImage ? (
                           <img
-                            src={coverState.frontCoverImage}
+                            src={normalizeUrl(coverState.frontCoverImage) || ''}
                             alt="Front Cover"
                             className="w-full h-full object-cover"
                           />
@@ -1654,7 +1661,7 @@ const KDPFullWrapGenerator = () => {
                       <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
                         {coverState.backCoverImage ? (
                           <img
-                            src={coverState.backCoverImage}
+                            src={normalizeUrl(coverState.backCoverImage) || ''}
                             alt="Back Cover"
                             className="w-full h-full object-cover"
                           />
@@ -1784,12 +1791,16 @@ const KDPFullWrapGenerator = () => {
                           Front Cover
                         </h4>
                         <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
-                          {coverState.frontCoverImage && (
+                          {coverState.frontCoverImage ? (
                             <img
-                              src={coverState.frontCoverImage}
+                              src={normalizeUrl(coverState.frontCoverImage) || ''}
                               alt="Front Cover"
                               className="w-full h-full object-cover"
                             />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
+                            </div>
                           )}
                         </div>
                         <Button
@@ -1819,12 +1830,16 @@ const KDPFullWrapGenerator = () => {
                           Back Cover
                         </h4>
                         <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
-                          {coverState.backCoverImage && (
+                          {coverState.backCoverImage ? (
                             <img
-                              src={coverState.backCoverImage}
+                              src={normalizeUrl(coverState.backCoverImage) || ''}
                               alt="Back Cover"
                               className="w-full h-full object-cover"
                             />
+                          ) : (
+                            <div className="flex items-center justify-center h-full">
+                              <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
+                            </div>
                           )}
                         </div>
                         <Button
@@ -1964,7 +1979,7 @@ const KDPFullWrapGenerator = () => {
                       {coverState.fullWrapImage ? (
                         <div className="relative">
                           <img
-                            src={coverState.fullWrapImage}
+                            src={normalizeUrl(coverState.fullWrapImage) || ''}
                             alt="Full Wrap Cover"
                             className="max-w-full max-h-[400px] rounded-md border border-zinc-700/60 shadow-lg"
                           />
@@ -2005,7 +2020,7 @@ const KDPFullWrapGenerator = () => {
 
                     <div className="flex flex-col space-y-3">
                       <a
-                        href={coverState.fullWrapImage || "#"}
+                        href={normalizeUrl(coverState.fullWrapImage) || '#'}
                         download="kdp-full-wrap-cover.jpg"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -2106,13 +2121,13 @@ const KDPFullWrapGenerator = () => {
               {coverState.fullWrapImage ? (
                 <div className="relative group">
                   <img 
-                    src={coverState.fullWrapImage} 
+                    src={normalizeUrl(coverState.fullWrapImage) || ''} 
                     alt="Generated Full Wrap Cover"
                     className="max-w-full max-h-[450px] rounded-md border border-zinc-700/60 shadow-lg"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
                     <a 
-                      href={coverState.fullWrapImage} 
+                      href={normalizeUrl(coverState.fullWrapImage) || '#'} 
                         download="kdp-full-wrap-cover.jpg"
                         target="_blank"
                         rel="noopener noreferrer"
@@ -2126,7 +2141,7 @@ const KDPFullWrapGenerator = () => {
               ) : coverState.frontCoverImage ? (
                 <div className="relative">
                   <img
-                    src={coverState.frontCoverImage}
+                    src={normalizeUrl(coverState.frontCoverImage) || ''}
                     alt="Generated Front Cover"
                     className="max-w-full max-h-[450px] rounded-md border border-zinc-700/60 shadow-lg"
                   />
