@@ -45,12 +45,12 @@ const quickActions = [
     href: '/dashboard/coloring'
   },
   {
-    title: 'Cover Designer',
-    description: 'Create professional book covers',
+    title: 'KDP Cover Generator',
+    description: 'Create professional book covers with AI',
     icon: BookOpen,
     color: 'from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30',
     iconColor: 'text-green-500',
-    href: '/dashboard/covers'
+    href: '/dashboard/kdp-covers'
   },
   {
     title: 'Puzzle Book Generator',

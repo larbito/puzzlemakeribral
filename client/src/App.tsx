@@ -20,7 +20,7 @@ import { Puzzles } from '@/pages/dashboard/Puzzles';
 import { PuzzleGenerator } from '@/pages/dashboard/PuzzleGenerator';
 import { Content } from '@/pages/dashboard/Content';
 import { Settings } from '@/pages/dashboard/Settings';
-import KDPFullWrapGenerator from '@/pages/dashboard/KDPFullWrapGenerator';
+import KDPFuturisticGenerator from '@/pages/generators/KDPFuturisticGenerator';
 import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
@@ -58,7 +58,7 @@ function App() {
                       <Route path="bulk" element={<BulkGeneratorPage />} />
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="t-shirts" element={<TShirtDesigner />} />
-                      <Route path="kdp-covers" element={<KDPFullWrapGenerator />} />
+                      <Route path="kdp-covers" element={<KDPFuturisticGenerator />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
