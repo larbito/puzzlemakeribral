@@ -389,15 +389,32 @@ const KDPFullWrapGenerator = () => {
   const handleExtractorImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
+    console.log("handleExtractorImageUpload called", e.target.files?.length);
+    
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      console.log("File selected:", file.name, file.type, file.size);
+      
       const reader = new FileReader();
+      
       reader.onloadend = () => {
+        console.log("File read completed");
         if (typeof reader.result === "string") {
+          console.log("Setting uploaded image, length:", reader.result.length);
           setUploadedImage(reader.result);
+          toast.success("Image uploaded successfully");
         }
       };
+      
+      reader.onerror = () => {
+        console.error("Error reading file");
+        toast.error("Failed to read image file");
+      };
+      
+      console.log("Starting to read file as data URL");
       reader.readAsDataURL(file);
+    } else {
+      console.log("No files selected or file selection canceled");
     }
   };
 
@@ -485,8 +502,11 @@ const KDPFullWrapGenerator = () => {
 
   // Extract prompt from image
   const handleExtractPrompt = async () => {
+    console.log("handleExtractPrompt called, uploadedImage exists:", !!uploadedImage);
+    
     if (!uploadedImage) {
       setError("Please upload an image first");
+      toast.error("Please upload an image first");
       return;
     }
 
@@ -494,9 +514,10 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("extractPrompt", true);
       setError("");
       toast.loading("Analyzing image...");
+      console.log("Starting to analyze image, image data length:", uploadedImage.length);
 
       // Call the OpenAI API for image description
-      console.log("Using JSON format for OpenAI extract-prompt request");
+      console.log("Preparing OpenAI extract-prompt request to:", `${API_URL}/api/openai/extract-prompt`);
       const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
         method: "POST",
         headers: {
@@ -508,13 +529,19 @@ const KDPFullWrapGenerator = () => {
         }),
       });
 
+      console.log("API response status:", response.status);
+      
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        const errorText = await response.text();
+        console.error("API error response text:", errorText);
+        throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log("API response data:", data);
       
       if (data.extractedPrompt) {
+        console.log("Extracted prompt:", data.extractedPrompt);
         updateCoverState({
           prompt: data.extractedPrompt,
           enhancedPrompt: data.extractedPrompt,
@@ -524,6 +551,7 @@ const KDPFullWrapGenerator = () => {
         saveToHistory(data.extractedPrompt);
         setActiveStep("details");
       } else {
+        console.log("No extracted prompt in response, using fallback");
         // Fallback to generic prompt if no actual prompt was extracted
         const genericPrompt = "Book cover with similar style to the uploaded image. Include professional design elements, balanced composition, and appropriate typography.";
         updateCoverState({
@@ -544,7 +572,8 @@ const KDPFullWrapGenerator = () => {
         prompt: genericPrompt,
         enhancedPrompt: genericPrompt,
       });
-      toast.success("Using default prompt template");
+      toast.error(`Error: ${err.message || "Failed to analyze image"}`);
+      toast.success("Using default prompt template as fallback");
       saveToHistory(genericPrompt);
       setActiveStep("details");
     } finally {
@@ -1574,24 +1603,27 @@ const KDPFullWrapGenerator = () => {
                   <div className="grid grid-cols-2 gap-2 mb-6">
                     <button
                       onClick={() => setSourceTab("text")}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-md ${
+                      className={`flex items-center justify-center gap-2 px-4 py-4 rounded-md ${
                         sourceTab === "text"
-                          ? "bg-indigo-600 text-white font-medium shadow-md"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                      }`}
+                          ? "bg-indigo-600 text-white font-medium shadow-md scale-105 transform"
+                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:scale-105 transition-transform"
+                      } transition-all`}
                     >
-                      <FileText className="h-4 w-4" />
+                      <FileText className="h-5 w-5" />
                       Cover Idea to Prompt
                     </button>
                     <button
-                      onClick={() => setSourceTab("image")}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-md ${
+                      onClick={() => {
+                        console.log("Image to Prompt tab clicked");
+                        setSourceTab("image");
+                      }}
+                      className={`flex items-center justify-center gap-2 px-4 py-4 rounded-md ${
                         sourceTab === "image"
-                          ? "bg-indigo-600 text-white font-medium shadow-md"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
-                      }`}
+                          ? "bg-indigo-600 text-white font-medium shadow-md scale-105 transform"
+                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:scale-105 transition-transform"
+                      } transition-all`}
                     >
-                      <Upload className="h-4 w-4" />
+                      <Upload className="h-5 w-5" />
                       Image to Prompt
                     </button>
                   </div>
@@ -1700,7 +1732,8 @@ const KDPFullWrapGenerator = () => {
                     <div className="space-y-6">
                       <div 
                         className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-700/50 rounded-lg p-8 bg-black/30 dropzone hover:border-indigo-500/70 transition-colors cursor-pointer"
-                        onClick={() => {
+                        onClick={(e) => {
+                          console.log("Upload zone clicked");
                           const fileInput = document.getElementById('image-upload-input');
                           if (fileInput) {
                             fileInput.click();
@@ -1760,18 +1793,22 @@ const KDPFullWrapGenerator = () => {
                       </div>
 
                       <Button
-                        onClick={handleExtractPrompt}
+                        onClick={() => {
+                          console.log("Extract Prompt button clicked");
+                          console.log("Current uploadedImage state:", !!uploadedImage);
+                          handleExtractPrompt();
+                        }}
                         disabled={isLoading.extractPrompt || !uploadedImage}
-                        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg py-4"
                       >
                         {isLoading.extractPrompt ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                             Extracting Prompt...
                           </>
                         ) : (
                           <>
-                            <ImageIcon className="mr-2 h-4 w-4" />
+                            <ImageIcon className="mr-2 h-5 w-5" />
                             Extract Prompt from Image
                           </>
                         )}
