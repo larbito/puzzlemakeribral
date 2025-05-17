@@ -844,7 +844,7 @@ Format your response as a JSON object with an array of prompt variations.`;
             'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4-0125',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
@@ -978,7 +978,7 @@ Format your response as a simple numbered list with one variation per line, like
               'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
             },
             body: JSON.stringify({
-              model: 'gpt-4o',
+              model: 'gpt-4-0125',
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: listUserPrompt }
@@ -1207,7 +1207,7 @@ Format your response as a JSON object with an array of prompt variations.`;
             'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
           },
           body: JSON.stringify({
-            model: 'gpt-4o',
+            model: 'gpt-4-0125',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }

@@ -281,7 +281,7 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4-vision-0125',
         messages: [
           {
             role: 'user',
