@@ -439,15 +439,17 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("enhancePrompt", true);
       setError("");
 
-      console.log("Creating FormData for prompt enhancement");
-      const enhancePromptFormData = new FormData();
-      enhancePromptFormData.append('prompt', coverState.prompt);
-      enhancePromptFormData.append('context', "Create a detailed book cover design prompt. Enhance with visual details, style references, mood, colors, and composition. Focus on professional book cover design elements.");
+      console.log("Using JSON format for OpenAI enhance-prompt request");
       
-      console.log("Sending request to enhance prompt with FormData");
       const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
         method: "POST",
-        body: enhancePromptFormData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: coverState.prompt,
+          context: "Create a detailed book cover design prompt. Enhance with visual details, style references, mood, colors, and composition. Focus on professional book cover design elements.",
+        }),
       });
 
       if (!response.ok) {
@@ -493,15 +495,16 @@ const KDPFullWrapGenerator = () => {
       toast.loading("Analyzing image...");
 
       // Call the OpenAI API for image description
-      console.log("Creating FormData for prompt extraction from image");
-      const extractPromptFormData = new FormData();
-      extractPromptFormData.append('imageUrl', uploadedImage);
-      extractPromptFormData.append('context', "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.");
-      
-      console.log("Sending request to extract prompt with FormData");
+      console.log("Using JSON format for OpenAI extract-prompt request");
       const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
         method: "POST",
-        body: extractPromptFormData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: uploadedImage,
+          context: "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
+        }),
       });
 
       if (!response.ok) {
