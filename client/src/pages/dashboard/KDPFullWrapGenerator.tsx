@@ -595,7 +595,7 @@ const KDPFullWrapGenerator = () => {
             prompt: expandedPrompt,
             width: frontCoverWidth.toString(),
             height: frontCoverHeight.toString(),
-            style: "REALISTIC",
+            rendering_speed: "DEFAULT",
             negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
           }),
         });
