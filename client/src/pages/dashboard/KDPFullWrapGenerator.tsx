@@ -27,6 +27,10 @@ import {
   Lightbulb,
   AlertCircle,
   ArrowLeft,
+  Wand2,
+  BookOpenCheck,
+  PenSquare,
+  AlignLeft,
 } from "lucide-react";
 import { TabsList, TabsTrigger, Tabs, TabsContent } from "@/components/ui/tabs";
 import {
@@ -113,7 +117,7 @@ const KDPFullWrapGenerator = () => {
       pageCount: 300,
       hasBleed: true,
       spineText: "",
-      spineColor: "#4DB6AC", // Default teal color for spine
+      spineColor: "#6366F1", // Changed to indigo to match new color scheme
     },
     promptHistory: [],
   });
@@ -131,7 +135,7 @@ const KDPFullWrapGenerator = () => {
   });
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [dominantColors, setDominantColors] = useState<string[]>(["#4DB6AC", "#26A69A", "#00897B", "#00796B", "#00695C"]);
+  const [dominantColors, setDominantColors] = useState<string[]>(["#6366F1", "#4F46E5", "#4338CA", "#3730A3", "#312E81"]);
 
   // Trim Size options
   const trimSizeOptions = [
@@ -1435,7 +1439,7 @@ const KDPFullWrapGenerator = () => {
         />
         <Button
           onClick={handleButtonClick}
-          className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 w-full py-4"
+          className="flex items-center gap-2 bg-gradient-to-r from-violet-900/80 to-indigo-900/80 hover:from-violet-800/80 hover:to-indigo-800/80 text-white border border-violet-600/20 w-full py-4 transition-all"
           disabled={isUploading}
         >
           {isUploading ? (
@@ -1446,7 +1450,7 @@ const KDPFullWrapGenerator = () => {
           ) : (
             <>
               <Upload className="h-5 w-5" />
-              Image to Prompt
+              Generate from Image
             </>
           )}
         </Button>
@@ -1455,100 +1459,99 @@ const KDPFullWrapGenerator = () => {
   };
 
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4">
-      {/* Header Section */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center mb-4">
-          <div className="h-12 w-12 rounded-full bg-black text-indigo-400 flex items-center justify-center mr-3 border border-indigo-500/30">
-            <BookOpen className="h-6 w-6" />
+    <div className="container max-w-6xl mx-auto py-6 px-4">
+      {/* Header Section with new design */}
+      <div className="mb-8">
+        <div className="flex items-center mb-4">
+          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 text-white flex items-center justify-center mr-3 shadow-lg shadow-indigo-500/30">
+            <BookOpenCheck className="h-6 w-6" />
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-400 via-indigo-400 to-indigo-400 bg-clip-text text-transparent drop-shadow-[0_0_35px_rgba(99,102,241,0.35)]">
-            Amazon KDP Full Wrap Cover Generator
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-indigo-500 bg-clip-text text-transparent drop-shadow-sm">
+            KDP Cover Generator
           </h1>
         </div>
-        <p className="text-zinc-400 max-w-2xl mx-auto">
-          Generate professional full wrap book covers (front, spine, back)
-          optimized for Kindle Direct Publishing
+        <p className="text-zinc-400 max-w-2xl">
+          Create professional book covers optimized for Kindle Direct Publishing with front cover, spine, and back cover
         </p>
       </div>
 
-      {/* Steps Tracker */}
-      <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-zinc-700/50 p-4 mb-8 shadow-lg">
+      {/* Steps Tracker - Redesigned with a cleaner look */}
+      <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 mb-8 border border-indigo-500/10 shadow-lg">
         <div className="flex items-center justify-between">
           <div
-            className={`flex flex-col items-center ${activeStep === "prompt" ? "text-indigo-500 font-medium" : "text-zinc-500"}`}
+            className={`flex flex-col items-center ${activeStep === "prompt" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "prompt" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800 border border-zinc-700"}`}
+              ${activeStep === "prompt" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
+            >
+              <PenSquare className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Describe</span>
+          </div>
+
+          <div
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
+          ></div>
+
+          <div
+            className={`flex flex-col items-center ${activeStep === "details" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
+          >
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
+              ${activeStep === "details" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
+            >
+              <AlignLeft className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Customize</span>
+          </div>
+
+          <div
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
+          ></div>
+
+          <div
+            className={`flex flex-col items-center ${activeStep === "generate" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
+          >
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
+              ${activeStep === "generate" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
+            >
+              <Wand2 className="h-5 w-5" />
+            </div>
+            <span className="text-sm">Generate</span>
+          </div>
+
+          <div
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
+          ></div>
+
+          <div
+            className={`flex flex-col items-center ${activeStep === "enhance" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
+          >
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
+              ${activeStep === "enhance" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
             >
               <Sparkles className="h-5 w-5" />
             </div>
-            <span className="text-sm text-center">Prompt</span>
+            <span className="text-sm">Enhance</span>
           </div>
 
           <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" ? "bg-zinc-800" : "bg-gradient-to-r from-indigo-500 to-indigo-500"}`}
+            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" || activeStep === "enhance" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
           ></div>
 
           <div
-            className={`flex flex-col items-center ${activeStep === "details" ? "text-indigo-500 font-medium" : "text-zinc-500"}`}
+            className={`flex flex-col items-center ${activeStep === "assemble" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
           >
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "details" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800 border border-zinc-700"}`}
-            >
-              <Ruler className="h-5 w-5" />
-            </div>
-            <span className="text-sm text-center">Book Details</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" ? "bg-zinc-800" : "bg-gradient-to-r from-indigo-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "generate" ? "text-indigo-500 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "generate" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800 border border-zinc-700"}`}
-            >
-              <ImageIcon className="h-5 w-5" />
-            </div>
-            <span className="text-sm text-center">Generate</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" ? "bg-zinc-800" : "bg-gradient-to-r from-indigo-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "enhance" ? "text-indigo-500 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "enhance" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800 border border-zinc-700"}`}
-            >
-              <Palette className="h-5 w-5" />
-            </div>
-            <span className="text-sm text-center">Enhance</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" || activeStep === "enhance" ? "bg-zinc-800" : "bg-gradient-to-r from-indigo-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "assemble" ? "text-indigo-500 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "assemble" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800 border border-zinc-700"}`}
+              ${activeStep === "assemble" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
             >
               <Download className="h-5 w-5" />
             </div>
-            <span className="text-sm text-center">Download</span>
+            <span className="text-sm">Download</span>
           </div>
         </div>
       </div>
@@ -1556,41 +1559,41 @@ const KDPFullWrapGenerator = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Controls */}
         <div className="lg:col-span-2">
-          <Card className="bg-black/80 backdrop-blur-sm border border-zinc-700/50 overflow-hidden shadow-lg">
-            <CardHeader className="border-b border-zinc-700/50 bg-black">
+          <Card className="bg-zinc-900/50 backdrop-blur-sm border border-indigo-500/10 overflow-hidden shadow-lg">
+            <CardHeader className="border-b border-zinc-800 bg-zinc-900/80">
               <CardTitle className="flex items-center text-zinc-100">
                 {activeStep === "prompt" && (
                   <>
-                    <Sparkles className="mr-2 h-5 w-5 text-indigo-400" />
-                    <span>Step 1: Create Your Cover Prompt</span>
+                    <PenSquare className="mr-2 h-5 w-5 text-violet-400" />
+                    <span>Step 1: Describe Your Cover</span>
                   </>
                 )}
 
                 {activeStep === "details" && (
                   <>
-                    <Ruler className="mr-2 h-5 w-5 text-indigo-400" />
-                    <span>Step 2: Specify Book Details</span>
+                    <AlignLeft className="mr-2 h-5 w-5 text-violet-400" />
+                    <span>Step 2: Book Specifications</span>
                   </>
                 )}
 
                 {activeStep === "generate" && (
                   <>
-                    <ImageIcon className="mr-2 h-5 w-5 text-indigo-400" />
-                    <span>Step 3: Generate Covers</span>
+                    <Wand2 className="mr-2 h-5 w-5 text-violet-400" />
+                    <span>Step 3: Generate Cover</span>
                   </>
                 )}
 
                 {activeStep === "enhance" && (
                   <>
-                    <Palette className="mr-2 h-5 w-5 text-indigo-400" />
-                    <span>Step 4: Enhance & Add Interior Pages</span>
+                    <Sparkles className="mr-2 h-5 w-5 text-violet-400" />
+                    <span>Step 4: Enhance Cover</span>
                   </>
                 )}
 
                 {activeStep === "assemble" && (
                   <>
-                    <Download className="mr-2 h-5 w-5 text-indigo-400" />
-                    <span>Step 5: Download Full Wrap Cover</span>
+                    <Download className="mr-2 h-5 w-5 text-violet-400" />
+                    <span>Step 5: Download Full Cover</span>
                   </>
                 )}
               </CardTitle>
@@ -1600,52 +1603,41 @@ const KDPFullWrapGenerator = () => {
               {/* Step 1: Prompt Section */}
               {activeStep === "prompt" && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-2 mb-6">
-                    <button
-                      onClick={() => setSourceTab("text")}
-                      className={`flex items-center justify-center gap-2 px-4 py-4 rounded-md ${
-                        sourceTab === "text"
-                          ? "bg-indigo-600 text-white font-medium shadow-md scale-105 transform"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:scale-105 transition-transform"
-                      } transition-all`}
-                    >
-                      <FileText className="h-5 w-5" />
-                      Cover Idea to Prompt
-                    </button>
-                    <button
-                      onClick={() => {
-                        console.log("Image to Prompt tab clicked");
-                        setSourceTab("image");
-                      }}
-                      className={`flex items-center justify-center gap-2 px-4 py-4 rounded-md ${
-                        sourceTab === "image"
-                          ? "bg-indigo-600 text-white font-medium shadow-md scale-105 transform"
-                          : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:scale-105 transition-transform"
-                      } transition-all`}
-                    >
-                      <Upload className="h-5 w-5" />
-                      Image to Prompt
-                    </button>
-                  </div>
+                  <Tabs defaultValue="text" value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                      <TabsTrigger 
+                        value="text" 
+                        className={`py-3 ${sourceTab === "text" ? "data-[state=active]:bg-violet-700 data-[state=active]:text-white" : ""}`}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Describe Your Cover
+                      </TabsTrigger>
+                      <TabsTrigger 
+                        value="image" 
+                        className={`py-3 ${sourceTab === "image" ? "data-[state=active]:bg-violet-700 data-[state=active]:text-white" : ""}`}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Generate from Image
+                      </TabsTrigger>
+                    </TabsList>
 
-                  {sourceTab === "text" && (
-                    <div className="space-y-6">
+                    <TabsContent value="text" className="space-y-6">
                       <div className="space-y-3">
                         <label
                           htmlFor="prompt"
                           className="text-sm font-medium text-zinc-300"
                         >
-                          Describe your book cover
+                          Describe your book cover in detail
                         </label>
                         <div className="relative">
                           <Textarea
                             id="prompt"
                             value={coverState.prompt}
                             onChange={handlePromptChange}
-                            className="w-full min-h-[150px] rounded-lg border border-zinc-700 bg-black/50 p-4 text-zinc-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors resize-y placeholder:text-zinc-600"
+                            className="w-full min-h-[180px] rounded-lg border border-zinc-700/50 bg-zinc-900/30 p-4 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors resize-y placeholder:text-zinc-600"
                             placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
                           />
-                          <div className="absolute bottom-3 right-3 rounded-full bg-zinc-800 px-2 py-1 text-xs text-zinc-400">
+                          <div className="absolute bottom-3 right-3 rounded-full bg-zinc-800/80 px-2 py-1 text-xs text-zinc-400">
                             {coverState.prompt.length} chars
                           </div>
                         </div>
@@ -1657,8 +1649,8 @@ const KDPFullWrapGenerator = () => {
                           <span
                             className={
                               coverState.prompt.length < 5
-                                ? "text-red-400"
-                                : "text-indigo-400"
+                                ? "text-rose-400"
+                                : "text-violet-400"
                             }
                           >
                             {coverState.prompt.length < 5
@@ -1675,7 +1667,7 @@ const KDPFullWrapGenerator = () => {
                             isLoading.enhancePrompt ||
                             coverState.prompt.trim().length < 5
                           }
-                          className="flex-1 bg-zinc-800/70 text-indigo-300 hover:bg-indigo-800/50 active:bg-indigo-700/60 hover:text-white border-indigo-700/50 hover:border-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                          className="flex-1 bg-zinc-800 text-violet-300 hover:bg-violet-900/50 hover:text-white border border-violet-700/30 hover:border-violet-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                           {isLoading.enhancePrompt ? (
                             <>
@@ -1685,7 +1677,7 @@ const KDPFullWrapGenerator = () => {
                           ) : (
                             <>
                               <Sparkles className="mr-2 h-4 w-4" />
-                              Enhance Prompt
+                              Enhance with AI
                             </>
                           )}
                         </Button>
@@ -1693,7 +1685,7 @@ const KDPFullWrapGenerator = () => {
                         <Button
                           onClick={() => setActiveStep("details")}
                           disabled={coverState.prompt.trim().length < 5}
-                          className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                          className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                           Continue
                           <ChevronRight className="ml-2 h-4 w-4" />
@@ -1715,7 +1707,7 @@ const KDPFullWrapGenerator = () => {
                                   onClick={() =>
                                     handleUseHistoryPrompt(historyPrompt)
                                   }
-                                  className="text-xs px-2 py-1 rounded-md bg-zinc-800/80 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 border border-zinc-700/50 truncate max-w-[180px]"
+                                  className="text-xs px-2 py-1 rounded-md bg-zinc-800/50 text-zinc-400 hover:bg-violet-900/40 hover:text-violet-200 border border-zinc-700/30 hover:border-violet-700/50 truncate max-w-[180px] transition-colors"
                                 >
                                   {historyPrompt.slice(0, 30)}
                                   {historyPrompt.length > 30 ? "..." : ""}
@@ -1725,13 +1717,11 @@ const KDPFullWrapGenerator = () => {
                           </div>
                         </div>
                       )}
-                    </div>
-                  )}
+                    </TabsContent>
 
-                  {sourceTab === "image" && (
-                    <div className="space-y-6">
+                    <TabsContent value="image" className="space-y-6">
                       <div 
-                        className="flex flex-col items-center justify-center border-2 border-dashed border-indigo-700/50 rounded-lg p-8 bg-black/30 dropzone hover:border-indigo-500/70 transition-colors cursor-pointer"
+                        className="flex flex-col items-center justify-center border-2 border-dashed border-violet-700/30 rounded-lg p-8 bg-zinc-900/20 dropzone hover:border-violet-500/50 transition-colors cursor-pointer"
                         onClick={(e) => {
                           console.log("Upload zone clicked");
                           const fileInput = document.getElementById('image-upload-input');
@@ -1752,15 +1742,15 @@ const KDPFullWrapGenerator = () => {
                                 e.stopPropagation();
                                 setUploadedImage(null);
                               }}
-                              className="absolute top-2 right-2 bg-red-500/80 text-white rounded-full p-1 hover:bg-red-600"
+                              className="absolute top-2 right-2 bg-rose-500/80 text-white rounded-full p-1 hover:bg-rose-600"
                             >
                               <X className="h-4 w-4" />
                             </button>
                           </div>
                         ) : (
                           <label htmlFor="image-upload-input" className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
-                            <UploadCloud className="h-16 w-16 text-indigo-600/60 mb-4" />
-                            <span className="text-indigo-400 mb-2 font-medium">
+                            <UploadCloud className="h-16 w-16 text-violet-600/50 mb-4" />
+                            <span className="text-violet-300 mb-2 font-medium">
                               Upload book cover image
                             </span>
                             <span className="text-zinc-400 text-sm mb-6">
@@ -1775,7 +1765,7 @@ const KDPFullWrapGenerator = () => {
                             />
                             <Button
                               variant="secondary"
-                              className="bg-indigo-800/70 text-white hover:bg-indigo-700 active:bg-indigo-600 border-indigo-600/50 hover:border-indigo-500 transition-all transform hover:scale-[1.05] active:scale-[0.98] shadow-md"
+                              className="bg-violet-800/70 text-white hover:bg-violet-700 active:bg-violet-600 border-violet-600/50 hover:border-violet-500 transition-all transform hover:scale-[1.05] active:scale-[0.98] shadow-md"
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1799,43 +1789,62 @@ const KDPFullWrapGenerator = () => {
                           handleExtractPrompt();
                         }}
                         disabled={isLoading.extractPrompt || !uploadedImage}
-                        className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg py-4"
+                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg py-4"
                       >
                         {isLoading.extractPrompt ? (
                           <>
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            Extracting Prompt...
+                            Analyzing Image...
                           </>
                         ) : (
                           <>
-                            <ImageIcon className="mr-2 h-5 w-5" />
-                            Extract Prompt from Image
+                            <Wand2 className="mr-2 h-5 w-5" />
+                            Generate Cover from Image
                           </>
                         )}
                       </Button>
-                    </div>
-                  )}
+                      
+                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
+                          <p className="text-violet-300">
+                            We'll analyze your image and create an AI-generated description to produce a similar cover style. You can edit the description before generating.
+                          </p>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                 </div>
               )}
 
               {/* Step 2: Book Details */}
               {activeStep === "details" && (
                 <div className="space-y-6">
-                  <div className="space-y-6 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                  <div className="space-y-6 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <Ruler className="h-4 w-4 mr-2 text-indigo-400" />
-                      Book Specifications
+                      <Ruler className="h-4 w-4 mr-2 text-violet-400" />
+                      Book Size and Pages
                     </h3>
 
                     {/* Trim Size Selection */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Trim Size
+                      <label className="text-sm font-medium text-zinc-300 flex items-center">
+                        <span>Trim Size</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
+                              <p>The final cut size of your printed book, measured in inches.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
                       <select
                         value={coverState.bookDetails.trimSize}
                         onChange={handleTrimSizeChange}
-                        className="w-full rounded-md border border-zinc-700 bg-black p-2 text-sm text-zinc-300 focus:border-cyan-500 focus:outline-none"
+                        className="w-full rounded-md border border-zinc-700/50 bg-zinc-900/70 p-2.5 text-sm text-zinc-300 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
                       >
                         {trimSizeOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -1847,19 +1856,31 @@ const KDPFullWrapGenerator = () => {
 
                     {/* Paper Type */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Paper Type
+                      <label className="text-sm font-medium text-zinc-300 flex items-center">
+                        <span>Paper Type</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
+                              <p>White: Bright white paper suitable for most books.<br />
+                              Cream: Warmer tone, often used for fiction.<br />
+                              Color: For interior color printing.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
-                      <div className="flex space-x-2">
+                      <div className="grid grid-cols-3 gap-2">
                         {paperTypeOptions.map((option) => (
                           <button
                             key={option.value}
                             type="button"
                             onClick={() => handlePaperTypeChange(option.value)}
-                            className={`flex-1 px-3 py-2 rounded-md text-sm ${
+                            className={`px-3 py-2.5 rounded-md text-sm transition-all ${
                               coverState.bookDetails.paperType === option.value
-                                ? "bg-cyan-500 text-black font-medium"
-                                : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                                ? "bg-violet-700 text-white font-medium shadow-sm"
+                                : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
                             }`}
                           >
                             {option.label}
@@ -1871,13 +1892,23 @@ const KDPFullWrapGenerator = () => {
                     {/* Page Count */}
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <FileText className="h-4 w-4 mr-1 text-indigo-400" />
-                        Page Count:{" "}
-                        <span className="ml-2 text-indigo-400 font-medium">
+                        <span>Page Count</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
+                              <p>The total number of pages in your book. This affects spine width.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        
+                        <span className="ml-auto text-violet-400 font-medium">
                           {coverState.bookDetails.pageCount} pages
                         </span>
                       </label>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         <Slider
                           value={[coverState.bookDetails.pageCount]}
                           min={24}
@@ -1892,27 +1923,37 @@ const KDPFullWrapGenerator = () => {
                           max={999}
                           value={coverState.bookDetails.pageCount}
                           onChange={handlePageCountInput}
-                          className="w-16 text-center bg-black border-zinc-700 text-zinc-300"
+                          className="w-20 text-center bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                         />
                       </div>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-zinc-500 mt-1">
                         Minimum: 24, Maximum: 999
                       </p>
                     </div>
 
                     {/* Bleed Option */}
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Bleed Setting
+                      <label className="text-sm font-medium text-zinc-300 flex items-center">
+                        <span>Bleed Setting</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
+                              <p>Bleed is the extension of artwork beyond the trim edge. Recommended for covers with elements that reach the edge.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </label>
-                      <div className="flex space-x-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => handleBleedChange(true)}
-                          className={`flex-1 px-3 py-2 rounded-md text-sm ${
+                          className={`px-3 py-2.5 rounded-md text-sm transition-all ${
                             coverState.bookDetails.hasBleed
-                              ? "bg-cyan-500 text-black font-medium"
-                              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                              ? "bg-violet-700 text-white font-medium shadow-sm"
+                              : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
                           }`}
                         >
                           With Bleed (0.125")
@@ -1920,52 +1961,84 @@ const KDPFullWrapGenerator = () => {
                         <button
                           type="button"
                           onClick={() => handleBleedChange(false)}
-                          className={`flex-1 px-3 py-2 rounded-md text-sm ${
+                          className={`px-3 py-2.5 rounded-md text-sm transition-all ${
                             !coverState.bookDetails.hasBleed
-                              ? "bg-cyan-500 text-black font-medium"
-                              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                              ? "bg-violet-700 text-white font-medium shadow-sm"
+                              : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
                           }`}
                         >
                           No Bleed
                         </button>
                       </div>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-zinc-500 mt-1">
                         Most KDP books require bleed. Only choose "No Bleed" if
                         specifically instructed.
                       </p>
                     </div>
 
+                    {/* Spine Text Input */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-zinc-300 flex items-center">
+                        <span>Spine Text</span>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
+                              <p>Text that will appear on the book's spine. Only applicable for books with 100+ pages.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </label>
+                      <Input
+                        type="text"
+                        value={coverState.bookDetails.spineText}
+                        onChange={handleSpineTextChange}
+                        placeholder={coverState.bookDetails.pageCount >= 100 ? "Enter spine text (optional)" : "Spine too thin for text"}
+                        className="w-full bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+                        disabled={coverState.bookDetails.pageCount < 100}
+                      />
+                      {coverState.bookDetails.pageCount < 100 ? (
+                        <p className="text-xs text-amber-500 mt-1">
+                          For books with less than 100 pages, spine text is not recommended
+                        </p>
+                      ) : (
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {coverState.bookDetails.spineText.length}/40 characters
+                        </p>
+                      )}
+                    </div>
+
                     {/* Auto-Calculated Output Box */}
-                    <div className="rounded-md bg-zinc-800/80 p-3 space-y-1">
-                      <h4 className="text-sm font-medium text-indigo-400">
-                        Auto Size Preview
+                    <div className="rounded-md bg-black/30 p-4 space-y-1 border border-zinc-800/50">
+                      <h4 className="text-sm font-medium text-violet-400 mb-2">
+                        Cover Dimensions Preview
                       </h4>
-                      <ul className="text-xs space-y-1 text-zinc-500">
-                        <li className="flex justify-between">
-                          <span>Final size with bleed:</span>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Final size with bleed:</span>
                           <span className="font-medium text-zinc-300">
-                            {coverState.dimensions.totalWidthInches}" x{" "}
-                            {coverState.dimensions.totalHeightInches}"
+                            {coverState.dimensions.totalWidthInches}" × {coverState.dimensions.totalHeightInches}"
                           </span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span>Spine width:</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Spine width:</span>
                           <span className="font-medium text-zinc-300">
                             {coverState.dimensions.spineWidthInches}"
                           </span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span>Resolution:</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">Resolution:</span>
                           <span className="font-medium text-zinc-300">
-                            {coverState.dimensions.width} x{" "}
-                            {coverState.dimensions.height} px
+                            {coverState.dimensions.width} × {coverState.dimensions.height} px
                           </span>
-                        </li>
-                        <li className="flex justify-between">
-                          <span>DPI:</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-zinc-500">DPI:</span>
                           <span className="font-medium text-zinc-300">300</span>
-                        </li>
-                      </ul>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -1974,10 +2047,10 @@ const KDPFullWrapGenerator = () => {
                     <Button
                       variant="outline"
                       onClick={() => setActiveStep("prompt")}
-                      className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
+                      Back to Prompt
                     </Button>
 
                     <Button
@@ -1991,9 +2064,9 @@ const KDPFullWrapGenerator = () => {
                           handleGenerateFrontCover();
                         }, 300);
                       }}
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      Continue to Generate
+                      Generate Covers
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -2007,10 +2080,10 @@ const KDPFullWrapGenerator = () => {
                     {/* Front Cover Preview */}
                     <div className="space-y-3">
                       <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Sparkles className="h-4 w-4 mr-2 text-cyan-400" />
+                        <Wand2 className="h-4 w-4 mr-2 text-violet-400" />
                         Front Cover
                       </h3>
-                      <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
+                      <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
                         {coverState.frontCoverImage ? (
                           <img
                             src={normalizeUrl(coverState.frontCoverImage) || ''}
@@ -2027,20 +2100,20 @@ const KDPFullWrapGenerator = () => {
                         variant="outline"
                         onClick={() => handleGenerateFrontCover()}
                         disabled={isLoading.generateFront}
-                        className="w-full bg-zinc-800/70 text-indigo-300 hover:bg-indigo-800/30 hover:text-indigo-300 border-zinc-700 hover:border-indigo-600 transition-all"
+                        className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
                       >
                         <RotateCw className="mr-2 h-4 w-4" />
-                        Regenerate Front
+                        Regenerate Front Cover
                       </Button>
                     </div>
 
                     {/* Back Cover Preview */}
                     <div className="space-y-3">
                       <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Layout className="h-4 w-4 mr-2 text-cyan-400" />
+                        <Layout className="h-4 w-4 mr-2 text-violet-400" />
                         Back Cover
                       </h3>
-                      <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
+                      <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
                         {coverState.backCoverImage ? (
                           <>
                             <img
@@ -2059,7 +2132,7 @@ const KDPFullWrapGenerator = () => {
                                   e.currentTarget.style.display = 'none';
                                   const errorDiv = document.createElement('div');
                                   errorDiv.className = 'flex items-center justify-center h-full';
-                                  errorDiv.innerHTML = '<span class="text-red-500 text-sm">Error loading image</span>';
+                                  errorDiv.innerHTML = '<span class="text-rose-500 text-sm">Error loading image</span>';
                                   e.currentTarget.parentNode?.appendChild(errorDiv);
                                 }
                               }}
@@ -2069,7 +2142,7 @@ const KDPFullWrapGenerator = () => {
                                 Mirrored Fallback
                               </div>
                             )}
-                            <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                            <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
                               Back Cover
                             </div>
                           </>
@@ -2094,7 +2167,7 @@ const KDPFullWrapGenerator = () => {
                         disabled={
                           !coverState.frontCoverImage || isLoading.generateBack
                         }
-                        className="w-full bg-zinc-800/70 text-indigo-300 hover:bg-indigo-800/30 hover:text-indigo-300 border-zinc-700 hover:border-indigo-600 transition-all"
+                        className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
                       >
                         {isLoading.generateBack ? (
                           <>
@@ -2104,7 +2177,7 @@ const KDPFullWrapGenerator = () => {
                         ) : (
                           <>
                             <RotateCw className="mr-2 h-4 w-4" />
-                            Regenerate Back
+                            Regenerate Back Cover
                           </>
                         )}
                       </Button>
@@ -2112,9 +2185,9 @@ const KDPFullWrapGenerator = () => {
                   </div>
 
                   {/* Spine Settings */}
-                  <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <LucideBook className="h-4 w-4 mr-2 text-cyan-400" />
+                      <LucideBook className="h-4 w-4 mr-2 text-violet-400" />
                       Spine Settings
                     </h3>
 
@@ -2128,7 +2201,7 @@ const KDPFullWrapGenerator = () => {
                           <button
                             key={index}
                             onClick={() => handleSpineColorSelect(color)}
-                            className={`w-8 h-8 rounded-full border-2 transition-transform ${
+                            className={`w-9 h-9 rounded-full border-2 transition-transform ${
                               color === coverState.bookDetails.spineColor
                                 ? "border-white shadow-lg scale-110"
                                 : "border-transparent hover:scale-105"
@@ -2139,7 +2212,7 @@ const KDPFullWrapGenerator = () => {
                         ))}
                       </div>
                       <p className="text-xs text-zinc-500">
-                        These colors were extracted from your cover image
+                        Colors extracted from your cover image
                       </p>
                     </div>
 
@@ -2154,7 +2227,7 @@ const KDPFullWrapGenerator = () => {
                           value={coverState.bookDetails.spineText}
                           onChange={handleSpineTextChange}
                           placeholder="Text to display on the spine"
-                          className="w-full bg-black border-zinc-700 text-zinc-300"
+                          className="w-full bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
                           maxLength={40}
                         />
                         <p className="text-xs text-zinc-500">
@@ -2171,7 +2244,7 @@ const KDPFullWrapGenerator = () => {
                     <Button
                       variant="outline"
                       onClick={() => setActiveStep("details")}
-                      className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to Details
@@ -2185,7 +2258,7 @@ const KDPFullWrapGenerator = () => {
                         isLoading.generateFront ||
                         isLoading.generateBack
                       }
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
                     >
                       {isLoading.generateFront || isLoading.generateBack ? (
                         <>
@@ -2207,10 +2280,10 @@ const KDPFullWrapGenerator = () => {
               {activeStep === "enhance" && (
                 <div className="space-y-6">
                   {/* Enhance Covers Section */}
-                  <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <Palette className="h-4 w-4 mr-2 text-cyan-400" />
-                      Enhance Cover Images
+                      <Sparkles className="h-4 w-4 mr-2 text-violet-400" />
+                      Enhance Cover Quality
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2218,7 +2291,7 @@ const KDPFullWrapGenerator = () => {
                         <h4 className="text-sm font-medium text-zinc-400">
                           Front Cover
                         </h4>
-                        <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
+                        <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
                           {coverState.frontCoverImage ? (
                             <img
                               src={normalizeUrl(coverState.frontCoverImage) || ''}
@@ -2238,7 +2311,7 @@ const KDPFullWrapGenerator = () => {
                             isLoading.enhanceImage ||
                             !coverState.frontCoverImage
                           }
-                          className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
+                          className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
                         >
                           {isLoading.enhanceImage ? (
                             <>
@@ -2257,7 +2330,7 @@ const KDPFullWrapGenerator = () => {
                         <h4 className="text-sm font-medium text-zinc-400">
                           Back Cover
                         </h4>
-                        <div className="relative aspect-[2/3] bg-zinc-900/50 rounded-lg overflow-hidden border border-zinc-700/50">
+                        <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
                           {coverState.backCoverImage ? (
                             <img
                               src={normalizeUrl(coverState.backCoverImage) || ''}
@@ -2276,7 +2349,7 @@ const KDPFullWrapGenerator = () => {
                           disabled={
                             isLoading.enhanceImage || !coverState.backCoverImage
                           }
-                          className="w-full bg-zinc-800/70 text-zinc-300 hover:bg-cyan-500/20 hover:text-cyan-300 border-zinc-700 hover:border-cyan-600"
+                          className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
                         >
                           {isLoading.enhanceImage ? (
                             <>
@@ -2293,26 +2366,23 @@ const KDPFullWrapGenerator = () => {
                       </div>
                     </div>
 
-                    <div className="bg-cyan-950/30 border border-cyan-800/30 rounded-md p-3 text-xs text-cyan-300 flex items-start space-x-2">
+                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start space-x-2">
                       <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <p>
-                        Enhancement uses AI upscaling to improve resolution and
-                        clarity. This is optional but recommended for highest
-                        quality.
+                        AI enhancement improves the resolution and visual quality of your covers. This step is optional but recommended for professional results.
                       </p>
                     </div>
                   </div>
 
                   {/* Interior Page Thumbnails */}
-                  <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <ImageIcon className="h-4 w-4 mr-2 text-cyan-400" />
-                      Add Interior Page Previews (Optional)
+                      <ImageIcon className="h-4 w-4 mr-2 text-violet-400" />
+                      Interior Page Previews <span className="text-xs ml-2 text-zinc-500">(Optional)</span>
                     </h3>
 
                     <p className="text-sm text-zinc-400">
-                      Upload up to 3 interior page samples to display on the
-                      back cover. These will be arranged in a grid.
+                      Upload up to 3 sample pages from your book to display on the back cover.
                     </p>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -2324,11 +2394,11 @@ const KDPFullWrapGenerator = () => {
                           <img
                             src={image}
                             alt={`Interior page ${index + 1}`}
-                            className="w-full h-full object-cover rounded-md border border-zinc-700/50"
+                            className="w-full h-full object-cover rounded-md border border-zinc-800/50 shadow-inner"
                           />
                           <button
                             onClick={() => handleRemoveInteriorImage(index)}
-                            className="absolute top-1 right-1 bg-red-500/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 bg-rose-500/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                             aria-label="Remove image"
                           >
                             <X className="h-3 w-3" />
@@ -2337,14 +2407,14 @@ const KDPFullWrapGenerator = () => {
                       ))}
 
                       {coverState.interiorPages.length < 3 && (
-                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-700/50 rounded-md cursor-pointer hover:bg-zinc-800/30 transition-colors aspect-[3/4]">
+                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-violet-700/20 rounded-md cursor-pointer hover:border-violet-600/30 hover:bg-violet-900/10 transition-colors aspect-[3/4]">
                           <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
                             onChange={handleInteriorImageUpload}
                             className="hidden"
                           />
-                          <PlusCircle className="h-6 w-6 text-zinc-600 mb-2" />
+                          <PlusCircle className="h-6 w-6 text-violet-700/50 mb-2" />
                           <span className="text-xs text-zinc-500 text-center px-2">
                             Add page preview
                           </span>
@@ -2352,11 +2422,10 @@ const KDPFullWrapGenerator = () => {
                       )}
                     </div>
 
-                    <div className="bg-cyan-950/30 border border-cyan-800/30 rounded-md p-3 text-xs text-cyan-300 flex items-start space-x-2">
+                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start space-x-2">
                       <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <p>
-                        Interior page previews help customers see samples of
-                        your book's content. Upload clear, high-quality images.
+                        Interior page previews help potential readers see samples of your book's content on the back cover.
                       </p>
                     </div>
                   </div>
@@ -2366,7 +2435,7 @@ const KDPFullWrapGenerator = () => {
                     <Button
                       variant="outline"
                       onClick={() => setActiveStep("generate")}
-                      className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to Covers
@@ -2379,16 +2448,16 @@ const KDPFullWrapGenerator = () => {
                         !coverState.frontCoverImage ||
                         !coverState.backCoverImage
                       }
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
+                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
                     >
                       {isLoading.assembleWrap ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Assembling Cover...
+                          Creating Full Cover...
                         </>
                       ) : (
                         <>
-                          Generate Full Wrap
+                          Create Full Wrap Cover
                           <ChevronRight className="ml-2 h-4 w-4" />
                         </>
                       )}
@@ -2400,41 +2469,39 @@ const KDPFullWrapGenerator = () => {
               {/* Step 5: Download */}
               {activeStep === "assemble" && (
                 <div className="space-y-6">
-                  <div className="rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50 space-y-4">
+                  <div className="rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 space-y-5 shadow-inner">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <Download className="h-5 w-5 mr-2 text-cyan-400" />
-                      Download Your Full Wrap Cover
+                      <Download className="h-5 w-5 mr-2 text-violet-400" />
+                      Your Cover is Ready
                     </h3>
 
                     <p className="text-sm text-zinc-400">
-                      Your full wrap cover is ready to download. This file is
-                      optimized for Amazon KDP and includes all specifications
-                      based on your book details.
+                      Your full wrap cover is ready to download for Amazon KDP. It includes all specifications based on your book details.
                     </p>
 
-                    <div className="flex justify-center p-4">
+                    <div className="flex justify-center py-4">
                       {coverState.fullWrapImage ? (
                         <div className="relative">
                           <img
                             src={normalizeUrl(coverState.fullWrapImage) || ''}
                             alt="Full Wrap Cover"
-                            className="max-w-full max-h-[400px] rounded-md border border-zinc-700/60 shadow-lg"
+                            className="max-w-full max-h-[400px] rounded-md border border-indigo-700/20 shadow-lg"
                           />
 
                           {/* Overlay labels for front, spine, back */}
                           <div className="absolute inset-0 flex">
-                            <div className="flex-1 border-r border-zinc-500/30 relative">
-                              <span className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/60 text-zinc-300 text-xs rounded">
+                            <div className="flex-1 border-r border-indigo-500/20 relative">
+                              <span className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded">
                                 Back
                               </span>
                             </div>
-                            <div className="w-[3%] border-r border-zinc-500/30 relative">
-                              <span className="absolute top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/60 text-zinc-300 text-xs rounded whitespace-nowrap rotate-90">
+                            <div className="w-[3%] border-r border-indigo-500/20 relative">
+                              <span className="absolute top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded whitespace-nowrap rotate-90">
                                 Spine
                               </span>
                             </div>
                             <div className="flex-1 relative">
-                              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/60 text-zinc-300 text-xs rounded">
+                              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded">
                                 Front
                               </span>
                             </div>
@@ -2442,9 +2509,9 @@ const KDPFullWrapGenerator = () => {
                         </div>
                       ) : isLoading.assembleWrap ? (
                         <div className="flex flex-col items-center justify-center h-48 gap-3">
-                          <Loader2 className="h-10 w-10 text-cyan-500 animate-spin" />
+                          <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
                           <p className="text-zinc-400">
-                            Assembling your full wrap cover...
+                            Creating your full wrap cover...
                           </p>
                         </div>
                       ) : (
@@ -2455,44 +2522,55 @@ const KDPFullWrapGenerator = () => {
                       )}
                     </div>
 
-                    <div className="flex flex-col space-y-3">
-                      <a
-                        href={normalizeUrl(coverState.fullWrapImage) || '#'}
-                        download="kdp-full-wrap-cover.jpg"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={`bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-medium rounded-md px-6 py-3 flex items-center justify-center text-center ${!coverState.fullWrapImage ? "opacity-50 cursor-not-allowed" : "hover:from-indigo-700 hover:to-indigo-600"}`}
-                        onClick={(e) =>
-                          !coverState.fullWrapImage && e.preventDefault()
-                        }
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        onClick={handleDownloadFullCover}
+                        disabled={!coverState.fullWrapImage}
+                        className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium rounded-md px-6 py-4 flex items-center justify-center text-center hover:from-violet-700 hover:to-indigo-700 active:from-violet-800 active:to-indigo-800 transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-indigo-700/10" 
                       >
                         <Download className="h-5 w-5 mr-2" />
-                        Download Full KDP Cover (PDF)
-                      </a>
-
-                      <Button
-                        variant="outline"
-                        onClick={() => setActiveStep("enhance")}
-                        className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
-                      >
-                        <Undo className="mr-2 h-4 w-4" />
-                        Go Back to Edit
+                        Download Full KDP Cover
                       </Button>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <a
+                          href={normalizeUrl(coverState.fullWrapImage) || '#'}
+                          download="kdp-full-wrap-cover.jpg"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`bg-zinc-800 text-white font-medium rounded-md px-4 py-2 flex items-center justify-center text-center text-sm ${!coverState.fullWrapImage ? "opacity-50 cursor-not-allowed" : "hover:bg-zinc-700"}`}
+                          onClick={(e) =>
+                            !coverState.fullWrapImage && e.preventDefault()
+                          }
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download as JPEG
+                        </a>
+
+                        <Button
+                          variant="outline"
+                          onClick={() => setActiveStep("enhance")}
+                          className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all text-sm"
+                        >
+                          <Undo className="mr-2 h-4 w-4" />
+                          Back to Edit
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="bg-cyan-950/30 border border-cyan-800/30 rounded-md p-3 text-xs text-cyan-300 flex items-start space-x-2">
+                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start gap-3">
                       <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <p>
-                        Your cover is exactly {coverState.dimensions.width} x{" "}
-                        {coverState.dimensions.height} pixels at 300 DPI,
-                        matching your book's specifications. Ready to upload
-                        directly to Amazon KDP.
-                      </p>
+                      <div>
+                        <p className="mb-1">
+                          Your cover is exactly {coverState.dimensions.width} × {coverState.dimensions.height} pixels at 300 DPI, matching your book's specifications.
+                        </p>
+                        <p>Ready to upload directly to Amazon KDP.</p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Tips Section */}
-                  <div className="rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                  <div className="rounded-lg bg-zinc-900/30 p-5 border border-zinc-800/50">
                     <div className="flex items-center mb-3">
                       <Lightbulb className="h-4 w-4 mr-2 text-amber-400" />
                       <h3 className="font-medium text-zinc-300">
@@ -2504,22 +2582,19 @@ const KDPFullWrapGenerator = () => {
                       <li className="flex items-start">
                         <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
                         <span>
-                          Always check your cover in the KDP previewer before
-                          publishing.
+                          Always check your cover in the KDP previewer before publishing.
                         </span>
                       </li>
                       <li className="flex items-start">
                         <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
                         <span>
-                          KDP may reject covers with text too close to the trim
-                          edges. Keep important elements away from edges.
+                          KDP may reject covers with text too close to the trim edges. Keep important elements away from edges.
                         </span>
                       </li>
                       <li className="flex items-start">
                         <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
                         <span>
-                          For best results, upload this cover as PDF. KDP
-                          accepts JPEG but PDF maintains higher quality.
+                          For best results, upload this cover as PDF. KDP accepts JPEG but PDF maintains higher quality.
                         </span>
                       </li>
                     </ul>
@@ -2535,32 +2610,32 @@ const KDPFullWrapGenerator = () => {
         <div className="space-y-4">
           {/* Error display */}
           {error && (
-            <Card className="bg-red-950/40 border border-red-700/50 overflow-hidden shadow-lg mb-4">
+            <Card className="bg-rose-950/40 border border-rose-700/30 overflow-hidden shadow-lg mb-4">
               <CardContent className="p-4 flex items-center space-x-3">
-                <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
-                <p className="text-red-300 text-sm">{error}</p>
+                <AlertCircle className="h-5 w-5 text-rose-400 flex-shrink-0" />
+                <p className="text-rose-300 text-sm">{error}</p>
               </CardContent>
             </Card>
           )}
           
           {/* Preview Card */}
-          <Card className="bg-black/80 backdrop-blur-sm border border-zinc-700/50 overflow-hidden shadow-lg">
-            <CardHeader className="border-b border-zinc-700/50 bg-black/80">
-              <CardTitle className="text-center text-zinc-300">
+          <Card className="bg-gradient-to-b from-zinc-900/60 to-black/60 backdrop-blur-sm border border-indigo-500/10 overflow-hidden shadow-lg">
+            <CardHeader className="border-b border-zinc-800 bg-black/40 pb-3">
+              <CardTitle className="text-center text-zinc-300 text-sm font-medium">
                 {coverState.fullWrapImage
-                  ? "Full Wrap Cover"
+                  ? "Full Wrap Cover Preview"
                   : coverState.frontCoverImage
                     ? "Cover Preview"
                     : "Preview"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 flex flex-col items-center justify-center min-h-[450px]">
+            <CardContent className="p-5 flex flex-col items-center justify-center min-h-[450px]">
               {coverState.fullWrapImage ? (
                 <div className="relative group">
                   <img 
                     src={normalizeUrl(coverState.fullWrapImage) || ''} 
                     alt="Generated Full Wrap Cover"
-                    className="max-w-full max-h-[450px] rounded-md border border-zinc-700/60 shadow-lg"
+                    className="max-w-full max-h-[450px] rounded-md border border-indigo-600/20 shadow-lg"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
                     <a 
@@ -2568,7 +2643,7 @@ const KDPFullWrapGenerator = () => {
                         download="kdp-full-wrap-cover.jpg"
                         target="_blank"
                         rel="noopener noreferrer"
-                      className="bg-cyan-500 hover:bg-cyan-600 text-black font-medium rounded-md px-4 py-2 flex items-center text-sm"
+                      className="bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm transition-colors"
                       >
                         <Download className="h-4 w-4 mr-2" />
                         Download Cover
@@ -2577,14 +2652,14 @@ const KDPFullWrapGenerator = () => {
                 </div>
               ) : coverState.frontCoverImage && coverState.backCoverImage ? (
                 <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-2 bg-zinc-900/50 p-2 rounded-md">
+                  <div className="flex items-center gap-3 bg-zinc-900/30 p-3 rounded-lg">
                     <div className="relative w-[150px]">
                       <img
                         src={normalizeUrl(coverState.frontCoverImage) || ''}
                         alt="Generated Front Cover"
-                        className="w-full h-auto rounded-md border border-zinc-700/60 shadow-lg"
+                        className="w-full h-auto rounded-md border border-indigo-600/20 shadow-lg"
                       />
-                      <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                      <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
                         Front
                       </div>
                     </div>
@@ -2592,15 +2667,15 @@ const KDPFullWrapGenerator = () => {
                       <img
                         src={normalizeUrl(coverState.backCoverImage) || ''}
                         alt="Generated Back Cover"
-                        className="w-full h-auto rounded-md border border-zinc-700/60 shadow-lg"
+                        className="w-full h-auto rounded-md border border-indigo-600/20 shadow-lg"
                       />
-                      <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
+                      <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
                         Back
                       </div>
                     </div>
                   </div>
                   <div className="text-center text-sm text-zinc-400">
-                    Front and back covers generated successfully. Continue to assemble the full wrap cover.
+                    Front and back covers generated. Continue to create the full wrap cover.
                   </div>
                 </div>
               ) : coverState.frontCoverImage ? (
@@ -2608,14 +2683,14 @@ const KDPFullWrapGenerator = () => {
                   <img
                     src={normalizeUrl(coverState.frontCoverImage) || ''}
                     alt="Generated Front Cover"
-                    className="max-w-full max-h-[450px] rounded-md border border-zinc-700/60 shadow-lg"
+                    className="max-w-full max-h-[450px] rounded-md border border-indigo-600/20 shadow-lg"
                   />
                 </div>
               ) : (
-                <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-zinc-900/50 border border-dashed border-zinc-700/60 text-zinc-500 p-6 text-center">
+                <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-gradient-to-b from-zinc-900/30 to-black/30 border border-dashed border-indigo-500/20 text-zinc-500 p-6 text-center">
                   <div>
                     <div className="mb-4 opacity-70">
-                      <LucideBook className="h-16 w-16 mx-auto text-zinc-700" />
+                      <BookOpenCheck className="h-16 w-16 mx-auto text-indigo-800/30" />
                     </div>
                     <p className="text-sm">
                       Your generated book cover will appear here
@@ -2628,19 +2703,20 @@ const KDPFullWrapGenerator = () => {
               {activeStep === "assemble" && coverState.fullWrapImage && (
                 <Button
                   onClick={handleDownloadFullCover}
-                  className="mt-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-medium rounded-md px-6 py-3 flex items-center text-sm hover:from-indigo-700 hover:to-indigo-600"
+                  className="mt-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium rounded-md px-6 py-2.5 flex items-center text-sm hover:from-violet-700 hover:to-indigo-700 transition-all"
                 >
                   <Download className="h-5 w-5 mr-2" />
-                  Download Full KDP Cover (PDF)
+                  Download Full KDP Cover
                 </Button>
               )}
             </CardContent>
           </Card>
 
           {/* Cover Specifications Summary */}
-          <Card className="bg-black/80 backdrop-blur-sm border border-zinc-700/50 shadow-lg">
-            <CardHeader className="pb-2 border-b border-zinc-700/50">
-              <CardTitle className="text-sm text-zinc-300">
+          <Card className="bg-black/40 backdrop-blur-sm border border-indigo-500/10 shadow-lg">
+            <CardHeader className="pb-2 border-b border-zinc-800 bg-black/20">
+              <CardTitle className="text-sm text-zinc-300 flex items-center">
+                <Ruler className="h-4 w-4 mr-2 text-violet-400" />
                 Cover Specifications
               </CardTitle>
             </CardHeader>
@@ -2675,7 +2751,7 @@ const KDPFullWrapGenerator = () => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Spine Text:</span>
+                  <span className="text-zinc-500">Has Spine Text:</span>
                   <span className="text-zinc-300">
                     {coverState.bookDetails.pageCount >= 100 &&
                     coverState.bookDetails.spineText
@@ -2692,23 +2768,18 @@ const KDPFullWrapGenerator = () => {
                 <div className="flex justify-between">
                   <span className="text-zinc-500">Resolution:</span>
                   <span className="text-zinc-300">
-                    {coverState.dimensions.width} x{" "}
-                    {coverState.dimensions.height} px
+                    {coverState.dimensions.width} × {coverState.dimensions.height} px
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">DPI:</span>
-                  <span className="text-zinc-300">300</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-500">Status:</span>
                   <span
                     className={`
                     ${Object.values(isLoading).some((v) => v) ? "text-amber-400" : ""} 
-                    ${activeStep === "assemble" && coverState.fullWrapImage ? "text-indigo-400" : ""}
-                    ${error ? "text-red-400" : ""}
+                    ${activeStep === "assemble" && coverState.fullWrapImage ? "text-violet-400" : ""}
+                    ${error ? "text-rose-400" : ""}
                     ${!Object.values(isLoading).some((v) => v) && !coverState.frontCoverImage && !error ? "text-zinc-500" : ""}
-                    ${coverState.frontCoverImage && !coverState.fullWrapImage && !Object.values(isLoading).some((v) => v) ? "text-indigo-400" : ""}
+                    ${coverState.frontCoverImage && !coverState.fullWrapImage && !Object.values(isLoading).some((v) => v) ? "text-violet-400" : ""}
                   `}
                   >
                     {Object.values(isLoading).some((v) => v)
