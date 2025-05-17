@@ -1603,18 +1603,18 @@ const KDPFullWrapGenerator = () => {
               {/* Step 1: Prompt Section */}
               {activeStep === "prompt" && (
                 <div className="space-y-6">
-                  <Tabs defaultValue="text" value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
+                  <Tabs value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-900/50 p-1 rounded-md border border-zinc-800/30">
                       <TabsTrigger 
-                        value="text" 
-                        className={`py-3 ${sourceTab === "text" ? "data-[state=active]:bg-violet-700 data-[state=active]:text-white" : ""}`}
+                        value="text"
+                        className="py-3 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400"
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         Describe Your Cover
                       </TabsTrigger>
                       <TabsTrigger 
-                        value="image" 
-                        className={`py-3 ${sourceTab === "image" ? "data-[state=active]:bg-violet-700 data-[state=active]:text-white" : ""}`}
+                        value="image"
+                        className="py-3 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400"
                       >
                         <Upload className="h-4 w-4 mr-2" />
                         Generate from Image
