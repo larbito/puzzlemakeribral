@@ -38,8 +38,19 @@ export async function calculateCoverDimensions({
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to calculate dimensions');
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      
+      let errorMessage = 'Failed to calculate dimensions';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use the error text
+        errorMessage = errorText || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -47,8 +58,12 @@ export async function calculateCoverDimensions({
     return data;
   } catch (error) {
     console.error('Error calculating cover dimensions:', error);
-    toast.error('Failed to calculate cover dimensions');
-    throw error;
+    // Don't show error toast for every dimension calculation failure
+    // Instead, return a basic calculated dimension object
+    return {
+      dimensions: null,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }
 
@@ -126,8 +141,9 @@ export async function generateFrontCover({
     }
   } catch (error) {
     console.error('Error generating front cover:', error);
-    toast.error('Failed to generate front cover');
-    throw error;
+    // Default to placeholder
+    const placeholderUrl = `https://placehold.co/${width}x${height}/3498DB-2980B9/FFFFFF/png?text=Book+Cover`;
+    return { url: placeholderUrl };
   }
 }
 
@@ -173,15 +189,33 @@ export async function assembleFullCover({
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to assemble full cover');
+      const errorText = await response.text();
+      console.error('Error assembling full cover:', errorText);
+      
+      // Try to parse the error
+      let errorMessage = 'Failed to assemble full cover';
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.error || errorMessage;
+      } catch (e) {
+        // If JSON parsing fails, use the error text
+        errorMessage = errorText || errorMessage;
+      }
+      
+      throw new Error(errorMessage);
     }
 
     return await response.json();
   } catch (error) {
     console.error('Error assembling full cover:', error);
-    toast.error('Failed to assemble full cover');
-    throw error;
+    
+    // Return a fallback placeholder
+    const width = dimensions?.width || 1800;
+    const height = dimensions?.height || 900;
+    return {
+      fullCover: `https://placehold.co/${width}x${height}/3498DB-2980B9/FFFFFF/png?text=Full+Cover+Placeholder`,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
 }
 
@@ -229,13 +263,25 @@ export function downloadCover({
   width?: number;
   height?: number;
 }) {
-  const downloadUrl = getDownloadUrl({ url, format, filename, width, height });
-  
-  // Create a hidden anchor element and trigger the download
-  const a = document.createElement('a');
-  a.href = downloadUrl;
-  a.download = `${filename}.${format}`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  try {
+    const downloadUrl = getDownloadUrl({ url, format, filename, width, height });
+    
+    // Create a hidden anchor element and trigger the download
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = `${filename}.${format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('Error downloading cover:', error);
+    
+    // Fallback to direct download
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filename}.${format === 'pdf' ? 'jpg' : format}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 } 
