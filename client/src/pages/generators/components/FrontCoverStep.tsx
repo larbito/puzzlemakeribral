@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import BookCoverGallery from "./BookCoverGallery";
 
 interface FrontCoverStepProps {
   coverState: {
@@ -215,6 +216,15 @@ const FrontCoverStep: React.FC<FrontCoverStepProps> = ({
             value={coverState.frontPrompt}
             onChange={handlePromptChange}
             className="min-h-[150px] bg-gray-800/30"
+          />
+          <BookCoverGallery 
+            onSelectTemplate={(prompt) => {
+              setCoverState((prev: any) => ({
+                ...prev,
+                frontPrompt: prompt,
+              }));
+              toast.success("Template prompt applied");
+            }}
           />
           <div className="flex gap-2">
             <Button

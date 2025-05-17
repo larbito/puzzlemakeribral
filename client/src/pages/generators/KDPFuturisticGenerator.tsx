@@ -56,6 +56,7 @@ import {
   enhanceBookCover,
   checkEnhancementStatus,
 } from "@/lib/bookCoverApi";
+import SaveLoadProject from "./components/SaveLoadProject";
 
 // API URL configuration
 const API_URL = "https://puzzlemakeribral-production.up.railway.app";
@@ -271,14 +272,28 @@ const KDPFuturisticGenerator = () => {
   // Get current step component
   const CurrentStepComponent = STEPS[currentStep].component;
 
+  // Add a handler to load saved projects
+  const handleLoadProject = (savedCoverState: any, savedBookSettings: any) => {
+    setCoverState(savedCoverState);
+    setBookSettings(savedBookSettings);
+    toast.success("Project loaded successfully");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white">
       <div className="container max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-violet-600 bg-clip-text text-transparent">
-            KDP Full Wrap Cover Generator
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-violet-600 bg-clip-text text-transparent">
+              KDP Full Wrap Cover Generator
+            </h1>
+            <SaveLoadProject 
+              coverState={coverState}
+              bookSettings={bookSettings}
+              onLoadProject={handleLoadProject}
+            />
+          </div>
           <p className="text-gray-400">
             Create professional book covers for Amazon KDP with AI-powered design tools
           </p>
