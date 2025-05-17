@@ -44,7 +44,7 @@ router.post('/enhance-prompt', express.json(), async (req, res) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4-turbo',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Enhance this book cover prompt with more detailed visual descriptions: "${prompt}"` }
@@ -104,7 +104,7 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4-vision-preview',
+        model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
           { 
