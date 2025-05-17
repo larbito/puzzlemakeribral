@@ -25,37 +25,25 @@ import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
 import { Toaster } from 'sonner';
-import KDPCoverWizard from '@/pages/dashboard/KDPCoverWizard';
 
 function App() {
   return (
     <>
-      <Toaster position="top-right" />
+      <Toaster richColors position="top-center" />
       <Router>
-        <div className="min-h-screen bg-background text-foreground">
-          {/* Content */}
-          <div className="relative">
+        <div className="flex flex-col min-h-screen">
+          <Navbar />
+          <div className="flex-grow">
             <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
-              <Route path="/features" element={<><Navbar /><Features /><Footer /></>} />
-              <Route path="/templates" element={<><Navbar /><Templates /><Footer /></>} />
-              <Route path="/pricing" element={<><Navbar /><MainPricing /><Footer /></>} />
-              <Route path="/blog" element={<><Navbar /><Blog /><Footer /></>} />
-              <Route path="/about" element={<><Navbar /><About /><Footer /></>} />
-              <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
-              <Route path="/privacy" element={<><Navbar /><Privacy /><Footer /></>} />
-              <Route path="/terms" element={<><Navbar /><Terms /><Footer /></>} />
-
-              {/* Dashboard routes */}
-              <Route
-                path="/dashboard"
-                element={
-                  <DashboardLayout>
-                    <Overview />
-                  </DashboardLayout>
-                }
-              />
+              <Route path="/" element={<Home />} />
+              <Route path="/pricing" element={<MainPricing />} />
+              <Route path="/features" element={<Features />} />
+              <Route path="/templates" element={<Templates />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/about" element={<About />} />
               <Route
                 path="/dashboard/*"
                 element={
@@ -71,7 +59,6 @@ function App() {
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="t-shirts" element={<TShirtDesigner />} />
                       <Route path="kdp-covers" element={<KDPFullWrapGenerator />} />
-                      <Route path="kdp-wizard" element={<KDPCoverWizard />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
