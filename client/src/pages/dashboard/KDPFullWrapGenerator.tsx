@@ -399,20 +399,42 @@ const KDPFullWrapGenerator = () => {
       const file = e.target.files[0];
       console.log("File selected:", file.name, file.type, file.size);
       
+      // Show loading toast
+      toast.loading("Reading image file...");
+      
       const reader = new FileReader();
       
       reader.onloadend = () => {
         console.log("File read completed");
         if (typeof reader.result === "string") {
           console.log("Setting uploaded image, length:", reader.result.length);
+          
+          // Set the uploaded image
           setUploadedImage(reader.result);
+          
+          // Clear any previous errors
+          setError("");
+          
+          // Success notification
           toast.success("Image uploaded successfully");
+          
+          // Focus the "Generate Cover from Image" button for better UX
+          setTimeout(() => {
+            const generateButton = document.querySelector('[data-image-analyze-button="true"]');
+            if (generateButton) {
+              (generateButton as HTMLButtonElement).focus();
+            }
+          }, 100);
         }
+        
+        // Dismiss loading toast
+        toast.dismiss();
       };
       
       reader.onerror = () => {
         console.error("Error reading file");
         toast.error("Failed to read image file");
+        toast.dismiss();
       };
       
       console.log("Starting to read file as data URL");
@@ -546,13 +568,23 @@ const KDPFullWrapGenerator = () => {
       
       if (data.extractedPrompt) {
         console.log("Extracted prompt:", data.extractedPrompt);
+        
+        // Update cover state with the extracted prompt
         updateCoverState({
           prompt: data.extractedPrompt,
           enhancedPrompt: data.extractedPrompt,
         });
 
-        toast.success("Prompt extracted successfully");
+        // Clear any previous errors
+        setError("");
+        
+        // Save to prompt history
         saveToHistory(data.extractedPrompt);
+        
+        // Success notification
+        toast.success("Successfully analyzed image and created prompt");
+        
+        // Move to the next step (details)
         setActiveStep("details");
       } else {
         console.log("No extracted prompt in response, using fallback");
@@ -570,14 +602,19 @@ const KDPFullWrapGenerator = () => {
       
     } catch (err: any) {
       console.error("Error extracting prompt:", err);
+      
       // Use a fallback approach instead of just showing error
       const genericPrompt = "Professional book cover with balanced composition and eye-catching design. High quality printing with clear typography and strong visual appeal.";
+      
       updateCoverState({
         prompt: genericPrompt,
         enhancedPrompt: genericPrompt,
       });
+      
+      // Both error and success messages to explain fallback behavior
       toast.error(`Error: ${err.message || "Failed to analyze image"}`);
       toast.success("Using default prompt template as fallback");
+      
       saveToHistory(genericPrompt);
       setActiveStep("details");
     } finally {
@@ -1790,6 +1827,7 @@ const KDPFullWrapGenerator = () => {
                         }}
                         disabled={isLoading.extractPrompt || !uploadedImage}
                         className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg py-4"
+                        data-image-analyze-button="true"
                       >
                         {isLoading.extractPrompt ? (
                           <>
