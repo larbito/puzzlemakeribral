@@ -96,6 +96,22 @@ try {
   });
 }
 
+// Load the OpenAI routes module
+let openaiRoutes;
+try {
+  console.log('Attempting to require openai.js');
+  openaiRoutes = require('./routes/openai');
+  console.log('Successfully loaded openai.js');
+} catch (e) {
+  console.error('Failed to load openai.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  openaiRoutes = express.Router();
+  openaiRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load OpenAI routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -155,6 +171,10 @@ console.log('Registered route: /api/vectorize/*');
 app.use('/api/book-cover', bookCoverRoutes);
 console.log('Registered route: /api/book-cover/*');
 
+// Register OpenAI routes
+app.use('/api/openai', openaiRoutes);
+console.log('Registered route: /api/openai/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -173,7 +193,9 @@ app.get('/', (req, res) => {
       '/api/book-cover/calculate-dimensions',
       '/api/book-cover/generate-front',
       '/api/book-cover/assemble-full',
-      '/api/book-cover/download'
+      '/api/book-cover/download',
+      '/api/openai/enhance-prompt',
+      '/api/openai/extract-prompt'
     ]
   });
 });
