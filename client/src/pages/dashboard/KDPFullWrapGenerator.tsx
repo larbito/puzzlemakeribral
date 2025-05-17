@@ -539,11 +539,11 @@ const KDPFullWrapGenerator = () => {
     try {
       setLoadingState("extractPrompt", true);
       setError("");
-      toast.loading("Analyzing image...");
+      toast.loading("Analyzing image to create prompt...");
       console.log("Starting to analyze image, image data length:", uploadedImage.length);
 
       // Call the OpenAI API for image description
-      console.log("Preparing OpenAI extract-prompt request to:", `${API_URL}/api/openai/extract-prompt`);
+      console.log("Preparing OpenAI extract-prompt request");
       const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
         method: "POST",
         headers: {
@@ -551,7 +551,7 @@ const KDPFullWrapGenerator = () => {
         },
         body: JSON.stringify({
           imageUrl: uploadedImage,
-          context: "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
+          context: "Create a detailed book cover design description based on this image. Focus on capturing the style, mood, colors, composition, and key visual elements that would make a great book cover. Consider aspects like typography placement, imagery arrangement, and overall aesthetic.",
         }),
       });
 
@@ -581,42 +581,21 @@ const KDPFullWrapGenerator = () => {
         // Save to prompt history
         saveToHistory(data.extractedPrompt);
         
-        // Success notification
-        toast.success("Successfully analyzed image and created prompt");
+        // Switch to text tab to show the generated prompt for editing
+        setSourceTab("text");
         
-        // Move to the next step (details)
-        setActiveStep("details");
+        // Success notification
+        toast.success("Prompt generated! You can now edit it before creating your cover.");
       } else {
-        console.log("No extracted prompt in response, using fallback");
-        // Fallback to generic prompt if no actual prompt was extracted
-        const genericPrompt = "Book cover with similar style to the uploaded image. Include professional design elements, balanced composition, and appropriate typography.";
-        updateCoverState({
-          prompt: genericPrompt,
-          enhancedPrompt: genericPrompt,
-        });
-
-        toast.success("Using generic prompt from image");
-        saveToHistory(genericPrompt);
-        setActiveStep("details");
+        console.log("No extracted prompt in response");
+        setError("Failed to generate prompt from image");
+        toast.error("Failed to generate prompt from image");
       }
       
     } catch (err: any) {
       console.error("Error extracting prompt:", err);
-      
-      // Use a fallback approach instead of just showing error
-      const genericPrompt = "Professional book cover with balanced composition and eye-catching design. High quality printing with clear typography and strong visual appeal.";
-      
-      updateCoverState({
-        prompt: genericPrompt,
-        enhancedPrompt: genericPrompt,
-      });
-      
-      // Both error and success messages to explain fallback behavior
-      toast.error(`Error: ${err.message || "Failed to analyze image"}`);
-      toast.success("Using default prompt template as fallback");
-      
-      saveToHistory(genericPrompt);
-      setActiveStep("details");
+      setError(err.message || "Failed to analyze image");
+      toast.error("Error analyzing image");
     } finally {
       setLoadingState("extractPrompt", false);
       toast.dismiss();
@@ -1641,24 +1620,39 @@ const KDPFullWrapGenerator = () => {
               {activeStep === "prompt" && (
                 <div className="space-y-6">
                   <Tabs value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-900/50 p-1 rounded-md border border-zinc-800/30">
+                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800/30">
                       <TabsTrigger 
                         value="text"
-                        className="py-3 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400"
+                        className="flex items-center justify-center gap-2 py-4 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400 transition-all"
                       >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Describe Your Cover
+                        <FileText className="h-4 w-4" />
+                        <div className="flex flex-col items-center">
+                          <span>Describe Your Cover</span>
+                          <span className="text-xs opacity-70">Write a prompt manually</span>
+                        </div>
                       </TabsTrigger>
                       <TabsTrigger 
                         value="image"
-                        className="py-3 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400"
+                        className="flex items-center justify-center gap-2 py-4 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400 transition-all"
                       >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Generate from Image
+                        <Upload className="h-4 w-4" />
+                        <div className="flex flex-col items-center">
+                          <span>Generate from Image</span>
+                          <span className="text-xs opacity-70">Upload a reference image</span>
+                        </div>
                       </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="text" className="space-y-6">
+                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs mb-4">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
+                          <p className="text-violet-300">
+                            Describe your ideal book cover in detail. Include style, mood, colors, composition, and any specific elements you want to see in your cover.
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="space-y-3">
                         <label
                           htmlFor="prompt"
@@ -1757,6 +1751,15 @@ const KDPFullWrapGenerator = () => {
                     </TabsContent>
 
                     <TabsContent value="image" className="space-y-6">
+                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs mb-4">
+                        <div className="flex items-start gap-2">
+                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
+                          <p className="text-violet-300">
+                            Upload a reference image and our AI will analyze it to create a detailed prompt. You can then edit the prompt before generating your cover.
+                          </p>
+                        </div>
+                      </div>
+
                       <div 
                         className="flex flex-col items-center justify-center border-2 border-dashed border-violet-700/30 rounded-lg p-8 bg-zinc-900/20 dropzone hover:border-violet-500/50 transition-colors cursor-pointer"
                         onClick={(e) => {
@@ -1837,7 +1840,7 @@ const KDPFullWrapGenerator = () => {
                         ) : (
                           <>
                             <Wand2 className="mr-2 h-5 w-5" />
-                            Generate Cover from Image
+                            Generate Prompt from Image
                           </>
                         )}
                       </Button>
@@ -1846,7 +1849,7 @@ const KDPFullWrapGenerator = () => {
                         <div className="flex items-start gap-2">
                           <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
                           <p className="text-violet-300">
-                            Our AI will analyze your uploaded image and create a detailed description to produce a similar cover style. You can edit this description before generating your final cover.
+                            Our AI will analyze your image and create a detailed prompt that you can edit before generating your cover. This helps ensure the generated cover matches your vision.
                           </p>
                         </div>
                       </div>
