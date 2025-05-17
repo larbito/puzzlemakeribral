@@ -1644,31 +1644,18 @@ const KDPFullWrapGenerator = () => {
 
                     <Button
                       onClick={() => {
-                        console.log("Generate Cover button clicked!");
-                        // Ensure trim size is parsed and set
-                        const [widthStr, heightStr] = coverState.bookDetails.trimSize.split('x');
-                        const trimWidth = parseFloat(widthStr);
-                        const trimHeight = parseFloat(heightStr);
+                        console.log("Continue to Generate button clicked!");
+                        // Force dimension calculation before proceeding
+                        handleCalculateDimensions();
                         
-                        if (!isNaN(trimWidth) && !isNaN(trimHeight)) {
-                          setCoverState(prev => ({
-                            ...prev,
-                            dimensions: {
-                              ...prev.dimensions,
-                              trimWidthInches: trimWidth,
-                              trimHeightInches: trimHeight
-                            }
-                          }));
-                        }
-                        
-                        // Force timeout to ensure state is updated
+                        // After a small delay, start the generation process
                         setTimeout(() => {
                           handleGenerateFrontCover();
-                        }, 100);
+                        }, 300);
                       }}
                       className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      Generate Cover
+                      Continue to Generate
                       <ChevronRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
@@ -1814,19 +1801,30 @@ const KDPFullWrapGenerator = () => {
                       className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
+                      Back to Details
                     </Button>
 
                     <Button
                       onClick={() => setActiveStep("enhance")}
                       disabled={
                         !coverState.frontCoverImage ||
-                        !coverState.backCoverImage
+                        !coverState.backCoverImage ||
+                        isLoading.generateFront ||
+                        isLoading.generateBack
                       }
                       className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      Continue to Enhance
-                      <ChevronRight className="ml-2 h-4 w-4" />
+                      {isLoading.generateFront || isLoading.generateBack ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          Continue to Enhance
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -1998,7 +1996,7 @@ const KDPFullWrapGenerator = () => {
                       className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back
+                      Back to Covers
                     </Button>
 
                     <Button
@@ -2010,8 +2008,17 @@ const KDPFullWrapGenerator = () => {
                       }
                       className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
-                      Generate Full Wrap
-                      <ChevronRight className="ml-2 h-4 w-4" />
+                      {isLoading.assembleWrap ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Assembling Cover...
+                        </>
+                      ) : (
+                        <>
+                          Generate Full Wrap
+                          <ChevronRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
