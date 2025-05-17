@@ -124,7 +124,7 @@ const KDPFullWrapGenerator = () => {
 
   // UI state
   const [activeStep, setActiveStep] = useState<GenerationStep>("prompt");
-  const [sourceTab, setSourceTab] = useState<"text" | "image">("text");
+  const [sourceTab, setSourceTab] = useState<"text" | "image">("image");
   const [isLoading, setIsLoading] = useState<{ [key: string]: boolean }>({
     enhancePrompt: false,
     extractPrompt: false,
@@ -1508,7 +1508,7 @@ const KDPFullWrapGenerator = () => {
           </h1>
         </div>
         <p className="text-zinc-400 max-w-2xl">
-          Create professional book covers optimized for Kindle Direct Publishing with front cover, spine, and back cover
+          Create professional book covers optimized for Kindle Direct Publishing. Start by uploading an image for inspiration, and AI will analyze it to generate a prompt for your cover design.
         </p>
       </div>
 
@@ -1788,10 +1788,10 @@ const KDPFullWrapGenerator = () => {
                           <label htmlFor="image-upload-input" className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
                             <UploadCloud className="h-16 w-16 text-violet-600/50 mb-4" />
                             <span className="text-violet-300 mb-2 font-medium">
-                              Upload book cover image
+                              Upload a reference image
                             </span>
                             <span className="text-zinc-400 text-sm mb-6">
-                              Click here or drop an image
+                              Upload any book cover or design you like for inspiration
                             </span>
                             <input
                               id="image-upload-input"
@@ -1846,7 +1846,7 @@ const KDPFullWrapGenerator = () => {
                         <div className="flex items-start gap-2">
                           <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
                           <p className="text-violet-300">
-                            We'll analyze your image and create an AI-generated description to produce a similar cover style. You can edit the description before generating.
+                            Our AI will analyze your uploaded image and create a detailed description to produce a similar cover style. You can edit this description before generating your final cover.
                           </p>
                         </div>
                       </div>
