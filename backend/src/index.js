@@ -80,6 +80,22 @@ try {
   });
 }
 
+// Load the book cover routes module
+let bookCoverRoutes;
+try {
+  console.log('Attempting to require book-cover.js');
+  bookCoverRoutes = require('./routes/book-cover');
+  console.log('Successfully loaded book-cover.js');
+} catch (e) {
+  console.error('Failed to load book-cover.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  bookCoverRoutes = express.Router();
+  bookCoverRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load book cover routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -135,6 +151,10 @@ console.log('Registered route: /api/ideogram/*');
 app.use('/api/vectorize', vectorizeRoutes);
 console.log('Registered route: /api/vectorize/*');
 
+// Register book cover routes
+app.use('/api/book-cover', bookCoverRoutes);
+console.log('Registered route: /api/book-cover/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -148,7 +168,12 @@ app.get('/', (req, res) => {
       '/api/ideogram/test',
       '/api/ideogram/generate',
       '/api/ideogram/proxy-image',
-      '/api/vectorize'
+      '/api/vectorize',
+      '/api/book-cover/test',
+      '/api/book-cover/calculate-dimensions',
+      '/api/book-cover/generate-front',
+      '/api/book-cover/assemble-full',
+      '/api/book-cover/download'
     ]
   });
 });
