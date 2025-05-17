@@ -374,6 +374,14 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     let backCoverBuffer;
     try {
       console.log('Creating back cover from front cover');
+      
+      // Get image dimensions from the actual front cover rather than parameters
+      const metadata = await sharp(frontCoverBuffer).metadata();
+      const imageWidth = metadata.width;
+      const imageHeight = metadata.height;
+      
+      console.log('Front cover actual dimensions:', { width: imageWidth, height: imageHeight });
+      
       // Create a back cover that is a mirrored version of the front but with a gradient overlay
       backCoverBuffer = await sharp(frontCoverBuffer)
         .flop() // Mirror horizontally
@@ -381,8 +389,8 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         .composite([{
           input: {
             create: {
-              width: parseInt(width) || 1800,
-              height: parseInt(height) || 2700,
+              width: imageWidth,
+              height: imageHeight,
               channels: 4,
               background: { r: 255, g: 255, b: 255, alpha: 0.3 } // Soft white overlay
             }
