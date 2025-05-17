@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const path = require('path');
 
 // STARTUP DEBUG - THIS SHOULD APPEAR IN LOGS
 console.log('=====================================');
@@ -132,6 +133,11 @@ app.options('*', (req, res) => {
   res.header('Access-Control-Max-Age', '86400');
   res.sendStatus(200);
 });
+
+// Serve static files from the 'static' directory
+const staticDir = path.join(__dirname, '..', 'static');
+console.log(`Serving static files from: ${staticDir}`);
+app.use('/static', express.static(staticDir));
 
 // Increase the payload size limit for large images
 app.use(express.json({ limit: '10mb' }));

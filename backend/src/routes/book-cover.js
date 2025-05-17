@@ -7,6 +7,17 @@ const sharp = require('sharp');
 const { Readable } = require('stream');
 const archiver = require('archiver');
 const ColorThief = require('colorthief');
+const path = require('path');
+const fs = require('fs');
+
+// Define static directory for storing image files
+const staticDir = path.join(__dirname, '..', '..', 'static');
+
+// Create static directory if it doesn't exist
+if (!fs.existsSync(staticDir)) {
+  console.log(`Creating static directory: ${staticDir}`);
+  fs.mkdirSync(staticDir, { recursive: true });
+}
 
 // Configure multer for handling form data
 const upload = multer({
@@ -351,25 +362,24 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     
     if (!frontCoverUrl) {
       console.error('Missing required parameter: frontCoverUrl');
-      return res.status(400).json({ error: 'Front cover URL is required' });
+      return res.status(400).json({ status: 'error', message: 'Missing frontCoverUrl parameter' });
     }
 
-    console.log('Generating back cover with params:', { frontCoverUrl, width, height });
-
-    // First try to get the front cover image
+    // Download the front cover image
     let frontCoverBuffer;
     try {
-      const frontCoverResponse = await fetch(frontCoverUrl);
-      if (!frontCoverResponse.ok) {
-        throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
+      const response = await fetch(frontCoverUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
       }
-      frontCoverBuffer = await frontCoverResponse.buffer();
-      console.log('Successfully retrieved front cover image');
+      frontCoverBuffer = await response.arrayBuffer();
+      frontCoverBuffer = Buffer.from(frontCoverBuffer);
+      console.log('Successfully downloaded front cover image:', frontCoverUrl.substring(0, 100) + '...');
     } catch (error) {
-      console.error('Error fetching front cover:', error);
-      return res.status(400).json({ error: 'Could not retrieve front cover image' });
+      console.error('Error downloading front cover:', error);
+      return res.status(500).json({ status: 'error', message: 'Failed to download front cover image' });
     }
-    
+
     // Extract colors from the front cover to use in the back cover
     let backCoverBuffer;
     try {
@@ -392,51 +402,61 @@ router.post('/generate-back', upload.none(), async (req, res) => {
               width: imageWidth,
               height: imageHeight,
               channels: 4,
-              background: { r: 255, g: 255, b: 255, alpha: 0.3 } // Soft white overlay
+              background: { r: 0, g: 0, b: 0, alpha: 0.5 }
             }
           },
-          blend: 'over'
+          blend: 'overlay'
         }])
-        .jpeg({ quality: 90 })
         .toBuffer();
       
-      console.log('Successfully created back cover');
+      // Resize to a reasonable size for faster transmission
+      const MAX_SIZE = 1024;
+      if (imageWidth > MAX_SIZE || imageHeight > MAX_SIZE) {
+        const aspectRatio = imageWidth / imageHeight;
+        let newWidth, newHeight;
+        
+        if (imageWidth > imageHeight) {
+          newWidth = MAX_SIZE;
+          newHeight = Math.round(MAX_SIZE / aspectRatio);
+        } else {
+          newHeight = MAX_SIZE;
+          newWidth = Math.round(MAX_SIZE * aspectRatio);
+        }
+        
+        console.log('Resizing back cover to:', { width: newWidth, height: newHeight });
+        backCoverBuffer = await sharp(backCoverBuffer)
+          .resize(newWidth, newHeight)
+          .toBuffer();
+      }
       
-      // Save to a temporary file with a unique filename
-      const timestamp = Date.now();
-      const filename = `back-cover-${timestamp}.jpg`;
-      const filePath = `/tmp/${filename}`;
+      // Save to a temporary file with a unique name
+      const uniqueId = Date.now();
+      const fileName = `back-cover-${uniqueId}.jpg`;
+      const filePath = path.join(staticDir, fileName);
       
-      await sharp(backCoverBuffer).toFile(filePath);
-      console.log(`Saved back cover to ${filePath}`);
+      // Save with higher JPEG quality
+      await sharp(backCoverBuffer)
+        .jpeg({ quality: 92 })
+        .toFile(filePath);
       
-      // Instead of returning base64, return a direct URL reference to the file
-      // In a production setup, you'd upload this to S3 or similar
-      // For this example, we'll return a direct URL to a placeholder
-      const backCoverUrl = `https://placehold.co/${imageWidth}x${imageHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover+${timestamp}`;
+      // Return the URL to the saved file
+      const backCoverUrl = `/static/${fileName}`;
+      console.log('Successfully created back cover:', backCoverUrl);
       
-      // For development, still include the base64 as a fallback
-      // but smaller to avoid transmission issues
-      const resizedBuffer = await sharp(backCoverBuffer)
-        .resize({ width: 800, height: 800, fit: 'inside' })
-        .jpeg({ quality: 60 })
-        .toBuffer();
-      
-      const base64BackCover = `data:image/jpeg;base64,${resizedBuffer.toString('base64')}`;
-      
-      return res.json({
-        status: 'success',
-        url: base64BackCover,
+      res.set('Content-Type', 'application/json');
+      return res.json({ 
+        status: 'success', 
+        url: backCoverUrl,
         width: imageWidth,
-        height: imageHeight
+        height: imageHeight 
       });
     } catch (error) {
-      console.error('Error generating back cover:', error);
-      return res.status(500).json({ error: 'Failed to generate back cover' });
+      console.error('Error creating back cover:', error);
+      res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
     }
   } catch (error) {
-    console.error('Error in generate-back endpoint:', error);
-    res.status(500).json({ error: 'Failed to generate back cover' });
+    console.error('Error in back cover generation:', error);
+    res.status(500).json({ status: 'error', message: 'Server error' });
   }
 });
 

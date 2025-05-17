@@ -764,21 +764,36 @@ const KDPFullWrapGenerator = () => {
         console.log("Back cover response data:", data);
         
         if (data.status === 'success' && data.url) {
-          console.log("Back cover URL found:", data.url.substring(0, 100) + "...");
+          console.log("Back cover URL found:", data.url);
           
-          const backCoverUrl = data.url;
+          const backCoverUrl = normalizeUrl(data.url);
+          console.log("Normalized back cover URL:", backCoverUrl);
           
-          // Update state with the back cover image URL
-          setCoverState((prevState) => {
-            console.log("Setting back cover image state");
-            return {
+          // Preload the image to ensure it's in browser cache
+          const img = new Image();
+          img.onload = () => {
+            console.log("Back cover image preloaded successfully");
+            // Update state with the back cover image URL
+            setCoverState((prevState) => ({
               ...prevState,
               backCoverImage: backCoverUrl,
-            };
-          });
+            }));
+            toast.success("Back cover generated successfully");
+          };
           
-          console.log("Back cover state updated, current state:", coverState.backCoverImage ? "Has image" : "No image");
-          toast.success("Back cover generated successfully");
+          img.onerror = (e) => {
+            console.error("Failed to preload back cover image:", e);
+            // Try a fallback URL
+            toast.error("Error loading back cover, using fallback");
+            
+            // Use front cover as fallback
+            setCoverState((prevState) => ({
+              ...prevState,
+              backCoverImage: frontCoverUrl,
+            }));
+          };
+          
+          img.src = backCoverUrl || '';
           return;
         } else {
           console.error("Invalid response format:", data);
@@ -1131,6 +1146,7 @@ const KDPFullWrapGenerator = () => {
   // Helper to normalize image URLs
   function normalizeUrl(url: string | null): string | null {
     if (!url) return url;
+    if (url.startsWith('data:')) return url; // Don't modify data URLs
     if (url.startsWith('http')) return url;
     return `https://puzzlemakeribral-production.up.railway.app${url.startsWith('/') ? '' : '/'}${url}`;
   }
