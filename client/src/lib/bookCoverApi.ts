@@ -284,4 +284,71 @@ export function downloadCover({
     a.click();
     document.body.removeChild(a);
   }
+}
+
+/**
+ * Enhance a book cover image using Real-ESRGAN
+ */
+export async function enhanceBookCover({
+  imageUrl,
+  target
+}: {
+  imageUrl: string;
+  target: 'front' | 'back';
+}) {
+  try {
+    console.log(`Enhancing ${target} cover:`, imageUrl);
+    
+    // Create form data for the request
+    const formData = new FormData();
+    formData.append('imageUrl', imageUrl);
+    formData.append('target', target);
+    
+    // Start the enhancement process
+    const response = await fetch(`${API_URL}/api/book-cover/enhance`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error enhancing cover:', errorText);
+      throw new Error(errorText);
+    }
+
+    const data = await response.json();
+    
+    if (!data.success || !data.predictionId) {
+      throw new Error('Enhancement failed to start');
+    }
+
+    // Return the prediction ID and status endpoint for polling
+    return {
+      predictionId: data.predictionId,
+      statusEndpoint: data.statusEndpoint,
+      status: data.status
+    };
+  } catch (error) {
+    console.error('Error enhancing book cover:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check the status of an enhancement job
+ */
+export async function checkEnhancementStatus(statusEndpoint: string) {
+  try {
+    const response = await fetch(`${API_URL}${statusEndpoint}`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to check status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error checking enhancement status:', error);
+    throw error;
+  }
 } 

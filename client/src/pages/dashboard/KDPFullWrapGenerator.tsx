@@ -39,13 +39,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, normalizeUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import {
   calculateCoverDimensions,
   generateFrontCover,
   assembleFullCover,
   downloadCover,
+  enhanceBookCover,
+  checkEnhancementStatus,
 } from "@/lib/bookCoverApi";
 
 // API URL configuration - Remove the /api to avoid duplication
@@ -944,47 +946,53 @@ const KDPFullWrapGenerator = () => {
 
       console.log(`Enhancing ${target} cover image:`, imageUrl);
       
-      // Try to enhance with API first
-      try {
-        console.log("Creating FormData for image enhancement");
-        const enhanceFormData = new FormData();
-        enhanceFormData.append('imageUrl', imageUrl);
-        enhanceFormData.append('target', target);
-        enhanceFormData.append('width', coverState.dimensions.width.toString());
-        enhanceFormData.append('height', coverState.dimensions.height.toString());
-        
-        console.log("Sending request to enhance image with FormData");
-        const response = await fetch(`${API_URL}/api/book-cover/enhance`, {
-          method: "POST",
-          body: enhanceFormData,
-        });
+      // Start the enhancement process
+      const enhancementResult = await enhanceBookCover({
+        imageUrl,
+        target
+      });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.enhancedUrl) {
+      // Create a toast to show progress
+      const toastId = toast.loading(`Enhancing ${target} cover...`);
+
+      // Poll for completion
+      let retries = 0;
+      const maxRetries = 60; // 5 minutes max (with 5s interval)
+      const pollInterval = 5000; // 5 seconds
+
+      while (retries < maxRetries) {
+        try {
+          const status = await checkEnhancementStatus(enhancementResult.statusEndpoint);
+
+          if (status.status === 'completed' && status.imageUrl) {
             // Update the appropriate cover image
             setCoverState((prevState) => ({
               ...prevState,
-              [target === "front" ? "frontCoverImage" : "backCoverImage"]: normalizeUrl(data.enhancedUrl),
+              [target === "front" ? "frontCoverImage" : "backCoverImage"]: normalizeUrl(status.imageUrl),
             }));
             
+            toast.dismiss(toastId);
             toast.success(`${target === "front" ? "Front" : "Back"} cover enhanced successfully`);
             setActiveStep("enhance");
             return;
+          } else if (status.status === 'failed') {
+            throw new Error(status.error || 'Enhancement failed');
           }
+
+          // Wait before checking again
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          retries++;
+        } catch (error) {
+          console.error('Error checking enhancement status:', error);
+          toast.dismiss(toastId);
+          throw error;
         }
-        throw new Error(`API failed to enhance ${target} cover`);
-      } catch (apiError) {
-        console.error(`API error enhancing ${target} cover:`, apiError);
-        // Continue with original image
       }
-      
-      // If API fails, keep original image
-      toast.success(`Using original ${target} cover image`);
-      setActiveStep("enhance");
-      
-    } catch (err) {
-      console.error("Error enhancing image:", err);
+
+      // If we get here, we've timed out
+      throw new Error('Enhancement timed out');
+    } catch (error) {
+      console.error("Error enhancing image:", error);
       setError(`Failed to enhance ${target} cover. Using original image.`);
       toast.error(`Error enhancing ${target} cover`);
     } finally {
@@ -1346,14 +1354,6 @@ const KDPFullWrapGenerator = () => {
       handleCalculateDimensions();
     }, 100);
   };
-
-  // Helper to normalize image URLs
-  function normalizeUrl(url: string | null): string | null {
-    if (!url) return url;
-    if (url.startsWith('data:')) return url; // Don't modify data URLs
-    if (url.startsWith('http')) return url;
-    return `https://puzzlemakeribral-production.up.railway.app${url.startsWith('/') ? '' : '/'}${url}`;
-  }
 
   // Image to Prompt Button Component
   const ImageToPromptButton = () => {

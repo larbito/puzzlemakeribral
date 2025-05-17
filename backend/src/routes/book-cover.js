@@ -9,6 +9,7 @@ const archiver = require('archiver');
 const ColorThief = require('colorthief');
 const path = require('path');
 const fs = require('fs');
+const { enhanceImage } = require('../controllers/imageEnhancementController');
 
 // Define static directory for storing image files
 const staticDir = path.join(__dirname, '..', '..', 'static');
@@ -858,6 +859,72 @@ router.post('/generate-full-wrap', express.json(), async (req, res) => {
     console.error('Error generating full wrap cover:', error);
     res.status(500).json({
       error: 'Failed to generate full wrap cover',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Enhance cover image quality using Real-ESRGAN
+ * POST /api/book-cover/enhance
+ */
+router.post('/enhance', upload.none(), async (req, res) => {
+  try {
+    console.log('=== Book Cover Enhancement Request ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request body:', req.body);
+    
+    const { imageUrl, target } = req.body;
+    
+    if (!imageUrl) {
+      console.error('Missing required parameter: imageUrl');
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+
+    // Create a mock file object for the enhanceImage controller
+    const mockFile = {
+      buffer: await (await fetch(imageUrl)).buffer()
+    };
+
+    // Call the existing image enhancement controller
+    const mockReq = {
+      file: mockFile,
+      body: {
+        scale: 2 // Use a moderate scale factor for book covers
+      }
+    };
+
+    // Create a mock response to capture the enhancement result
+    const mockRes = {
+      status: function(code) {
+        this.statusCode = code;
+        return this;
+      },
+      json: function(data) {
+        this.data = data;
+        return this;
+      }
+    };
+
+    // Call the enhancement controller
+    await enhanceImage(mockReq, mockRes);
+
+    // Check if enhancement was successful
+    if (mockRes.data?.success && mockRes.data?.predictionId) {
+      res.json({
+        success: true,
+        message: 'Enhancement initiated',
+        predictionId: mockRes.data.predictionId,
+        status: mockRes.data.status,
+        statusEndpoint: mockRes.data.statusEndpoint
+      });
+    } else {
+      throw new Error('Enhancement failed');
+    }
+  } catch (error) {
+    console.error('Error enhancing book cover:', error);
+    res.status(500).json({ 
+      error: 'Failed to enhance book cover',
       details: error.message
     });
   }
