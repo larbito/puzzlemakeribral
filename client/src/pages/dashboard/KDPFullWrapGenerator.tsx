@@ -439,16 +439,15 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("enhancePrompt", true);
       setError("");
 
+      console.log("Creating FormData for prompt enhancement");
+      const enhancePromptFormData = new FormData();
+      enhancePromptFormData.append('prompt', coverState.prompt);
+      enhancePromptFormData.append('context', "Create a detailed book cover design prompt. Enhance with visual details, style references, mood, colors, and composition. Focus on professional book cover design elements.");
+      
+      console.log("Sending request to enhance prompt with FormData");
       const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: coverState.prompt,
-          context:
-            "Create a detailed book cover design prompt. Enhance with visual details, style references, mood, colors, and composition. Focus on professional book cover design elements.",
-        }),
+        body: enhancePromptFormData,
       });
 
       if (!response.ok) {
@@ -494,15 +493,15 @@ const KDPFullWrapGenerator = () => {
       toast.loading("Analyzing image...");
 
       // Call the OpenAI API for image description
+      console.log("Creating FormData for prompt extraction from image");
+      const extractPromptFormData = new FormData();
+      extractPromptFormData.append('imageUrl', uploadedImage);
+      extractPromptFormData.append('context', "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.");
+      
+      console.log("Sending request to extract prompt with FormData");
       const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          imageUrl: uploadedImage,
-          context: "Describe this book cover image in detail for generating a similar style. Focus on visual elements, style, colors, composition, and mood.",
-        }),
+        body: extractPromptFormData,
       });
 
       if (!response.ok) {
@@ -583,18 +582,18 @@ const KDPFullWrapGenerator = () => {
       // Try directly with the Ideogram API endpoint
       try {
         // First try with the correct Ideogram API endpoint
+        console.log("Creating FormData for Ideogram request");
+        const formData = new FormData();
+        formData.append('prompt', expandedPrompt);
+        formData.append('width', frontCoverWidth.toString());
+        formData.append('height', frontCoverHeight.toString());
+        formData.append('style', 'REALISTIC');
+        formData.append('negative_prompt', "text overlays, watermark, signature, blurry, low quality, distorted");
+        
+        console.log("Sending request to Ideogram API with FormData");
         const response = await fetch(`${API_URL}/api/ideogram/generate-custom`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt: expandedPrompt,
-            width: frontCoverWidth,
-            height: frontCoverHeight,
-            style: "REALISTIC",
-            negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
-          }),
+          body: formData,
         });
 
         console.log("Ideogram API response status:", response.status);
@@ -627,17 +626,17 @@ const KDPFullWrapGenerator = () => {
         // Try fallback to book-cover endpoint
         try {
           console.log("Trying fallback to book-cover endpoint");
+          
+          const fallbackFormData = new FormData();
+          fallbackFormData.append('prompt', expandedPrompt);
+          fallbackFormData.append('width', frontCoverWidth.toString());
+          fallbackFormData.append('height', frontCoverHeight.toString());
+          fallbackFormData.append('negative_prompt', "text overlays, watermark, signature, blurry, low quality, distorted");
+          
+          console.log("Sending request to fallback API with FormData");
           const fallbackResponse = await fetch(`${API_URL}/api/book-cover/generate-front`, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              prompt: expandedPrompt,
-              width: frontCoverWidth,
-              height: frontCoverHeight,
-              negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
-            }),
+            body: fallbackFormData,
           });
 
           console.log("Fallback API response status:", fallbackResponse.status);
@@ -741,16 +740,16 @@ const KDPFullWrapGenerator = () => {
       
       // First try the API if available
       try {
+        console.log("Creating FormData for back cover request");
+        const backCoverFormData = new FormData();
+        backCoverFormData.append('frontCoverUrl', frontCoverUrl);
+        backCoverFormData.append('width', (coverState.dimensions.width / 2).toString());
+        backCoverFormData.append('height', coverState.dimensions.height.toString());
+        
+        console.log("Sending request to generate back cover with FormData");
         const response = await fetch(`${API_URL}/api/book-cover/generate-back`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            frontCoverUrl,
-            width: coverState.dimensions.width / 2,
-            height: coverState.dimensions.height,
-          }),
+          body: backCoverFormData,
         });
         
         if (response.ok) {
@@ -818,17 +817,17 @@ const KDPFullWrapGenerator = () => {
       
       // Try to enhance with API first
       try {
+        console.log("Creating FormData for image enhancement");
+        const enhanceFormData = new FormData();
+        enhanceFormData.append('imageUrl', imageUrl);
+        enhanceFormData.append('target', target);
+        enhanceFormData.append('width', coverState.dimensions.width.toString());
+        enhanceFormData.append('height', coverState.dimensions.height.toString());
+        
+        console.log("Sending request to enhance image with FormData");
         const response = await fetch(`${API_URL}/api/book-cover/enhance`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            imageUrl,
-            target,
-            width: coverState.dimensions.width,
-            height: coverState.dimensions.height,
-          }),
+          body: enhanceFormData,
         });
 
         if (response.ok) {
