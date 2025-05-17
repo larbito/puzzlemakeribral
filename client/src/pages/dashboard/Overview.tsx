@@ -45,6 +45,14 @@ const quickActions = [
     href: '/dashboard/coloring'
   },
   {
+    title: 'Book Cover Generator',
+    description: 'Create professional Amazon KDP book covers with AI',
+    icon: BookOpen,
+    color: 'from-emerald-500/20 to-green-500/20 hover:from-emerald-500/30 hover:to-green-500/30',
+    iconColor: 'text-emerald-500',
+    href: '/dashboard/book-covers'
+  },
+  {
     title: 'KDP Cover Generator',
     description: 'Create professional book covers with AI',
     icon: BookOpen,

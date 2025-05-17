@@ -28,6 +28,7 @@ const navigation = [
   { name: 'All Projects', href: '/dashboard/projects', icon: FolderKanban },
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
+  { name: 'Book Cover Generator', href: '/dashboard/book-covers', icon: BookOpen },
   { name: 'KDP Book Covers', href: '/dashboard/kdp-covers', icon: BookOpenCheck },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
   { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
