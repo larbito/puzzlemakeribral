@@ -57,6 +57,7 @@ const API_URL = "https://puzzlemakeribral-production.up.railway.app";
 interface CoverState {
   prompt: string;
   enhancedPrompt: string;
+  backCoverPrompt: string;
   frontCoverImage: string | null;
   backCoverImage: string | null;
   fullWrapImage: string | null;
@@ -98,6 +99,7 @@ const KDPFullWrapGenerator = () => {
   const [coverState, setCoverState] = useState<CoverState>({
     prompt: "",
     enhancedPrompt: "",
+    backCoverPrompt: "",
     frontCoverImage: null,
     backCoverImage: null,
     fullWrapImage: null,
@@ -134,6 +136,7 @@ const KDPFullWrapGenerator = () => {
     generateBack: false,
     enhanceImage: false,
     assembleWrap: false,
+    generateBackPrompt: false
   });
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -1474,6 +1477,43 @@ const KDPFullWrapGenerator = () => {
     );
   };
 
+  // Generate back cover prompt based on front cover theme
+  const handleGenerateBackPrompt = async () => {
+    try {
+      setLoadingState("generateBackPrompt", true);
+      setError("");
+
+      const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: coverState.prompt,
+          context: "Based on this front cover design prompt, create a matching back cover description. The back cover should complement the front cover's style and theme while being more subdued. Include suggestions for layout, text placement, and any imagery that would work well with the front cover design.",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to generate back cover prompt");
+      }
+
+      const data = await response.json();
+      
+      updateCoverState({
+        backCoverPrompt: data.enhancedPrompt,
+      });
+
+      toast.success("Back cover prompt generated successfully!");
+    } catch (error) {
+      console.error("Error generating back cover prompt:", error);
+      setError("Failed to generate back cover prompt. Please try again.");
+      toast.error("Failed to generate back cover prompt");
+    } finally {
+      setLoadingState("generateBackPrompt", false);
+    }
+  };
+
   return (
     <div className="container max-w-6xl mx-auto py-6 px-4">
       {/* Header Section with new design */}
@@ -2117,175 +2157,163 @@ const KDPFullWrapGenerator = () => {
               {/* Step 3: Generate Covers */}
               {activeStep === "generate" && (
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Front Cover Preview */}
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Wand2 className="h-4 w-4 mr-2 text-violet-400" />
-                        Front Cover
-                      </h3>
-                      <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
-                        {coverState.frontCoverImage ? (
-                          <img
-                            src={normalizeUrl(coverState.frontCoverImage) || ''}
-                            alt="Front Cover"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleGenerateFrontCover()}
-                        disabled={isLoading.generateFront}
-                        className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
-                      >
-                        <RotateCw className="mr-2 h-4 w-4" />
-                        Regenerate Front Cover
-                      </Button>
-                    </div>
-
-                    {/* Back Cover Preview */}
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-zinc-300 flex items-center">
-                        <Layout className="h-4 w-4 mr-2 text-violet-400" />
-                        Back Cover
-                      </h3>
-                      <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
-                        {coverState.backCoverImage ? (
-                          <>
-                            <img
-                              src={normalizeUrl(coverState.backCoverImage) || ''}
-                              alt="Back Cover"
-                              className={`w-full h-full object-cover ${coverState.useMirroredFrontCover ? 'transform scale-x-[-1] opacity-70 hue-rotate-180' : ''}`}
-                              onError={(e) => {
-                                console.error("Error loading back cover image", e);
-                                // If the back cover fails to load, use the front cover with a filter as fallback
-                                if (coverState.frontCoverImage) {
-                                  e.currentTarget.src = normalizeUrl(coverState.frontCoverImage) || '';
-                                  e.currentTarget.style.filter = "hue-rotate(180deg) opacity(0.7)";
-                                  e.currentTarget.style.transform = "scaleX(-1)"; // flip horizontally
-                                } else {
-                                  // Show error state
-                                  e.currentTarget.style.display = 'none';
-                                  const errorDiv = document.createElement('div');
-                                  errorDiv.className = 'flex items-center justify-center h-full';
-                                  errorDiv.innerHTML = '<span class="text-rose-500 text-sm">Error loading image</span>';
-                                  e.currentTarget.parentNode?.appendChild(errorDiv);
-                                }
-                              }}
-                            />
-                            {coverState.useMirroredFrontCover && (
-                              <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 text-xs rounded-full">
-                                Mirrored Fallback
-                              </div>
-                            )}
-                            <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
-                              Back Cover
-                            </div>
-                          </>
-                        ) : isLoading.generateBack ? (
-                          <div className="flex items-center justify-center h-full flex-col gap-2">
-                            <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-                            <span className="text-zinc-500 text-sm">
-                              Generating back cover...
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-full">
-                            <span className="text-zinc-500 text-sm">
-                              Back cover will be generated
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleGenerateBackCover()}
-                        disabled={
-                          !coverState.frontCoverImage || isLoading.generateBack
-                        }
-                        className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
-                      >
-                        {isLoading.generateBack ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <RotateCw className="mr-2 h-4 w-4" />
-                            Regenerate Back Cover
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Spine Settings */}
-                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
+                  {/* Front Cover Section */}
+                  <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
                     <h3 className="font-medium flex items-center text-zinc-300">
-                      <LucideBook className="h-4 w-4 mr-2 text-violet-400" />
-                      Spine Settings
+                      <Layout className="h-4 w-4 mr-2 text-indigo-400" />
+                      Front Cover
                     </h3>
 
-                    {/* Spine Color Selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300">
-                        Spine Color
-                      </label>
-                      <div className="flex flex-wrap gap-2">
-                        {dominantColors.map((color, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSpineColorSelect(color)}
-                            className={`w-9 h-9 rounded-full border-2 transition-transform ${
-                              color === coverState.bookDetails.spineColor
-                                ? "border-white shadow-lg scale-110"
-                                : "border-transparent hover:scale-105"
-                            }`}
-                            style={{ backgroundColor: color }}
-                            aria-label={`Color ${index + 1}`}
-                          />
-                        ))}
+                    {/* Show the front cover prompt */}
+                    {coverState.prompt && (
+                      <div className="rounded-md bg-black/30 p-4 space-y-2">
+                        <h4 className="text-sm font-medium text-indigo-400">Generated Prompt</h4>
+                        <p className="text-sm text-zinc-300">{coverState.prompt}</p>
+                        <div className="flex gap-2 mt-2">
+                          <Button
+                            onClick={() => handleGenerateFrontCover()}
+                            disabled={isLoading.generateFront}
+                            className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
+                          >
+                            {isLoading.generateFront ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Generate Front Cover
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-xs text-zinc-500">
-                        Colors extracted from your cover image
-                      </p>
-                    </div>
+                    )}
 
-                    {/* Spine Text - only if page count >= 100 */}
-                    {coverState.bookDetails.pageCount >= 100 && (
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-300">
-                          Spine Text (Optional)
-                        </label>
-                        <Input
-                          type="text"
-                          value={coverState.bookDetails.spineText}
-                          onChange={handleSpineTextChange}
-                          placeholder="Text to display on the spine"
-                          className="w-full bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                          maxLength={40}
+                    {/* Show the generated front cover */}
+                    {coverState.frontCoverImage && (
+                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-700/50">
+                        <img
+                          src={normalizeUrl(coverState.frontCoverImage) || ''}
+                          alt="Generated front cover"
+                          className="w-full h-full object-cover"
                         />
-                        <p className="text-xs text-zinc-500">
-                          {coverState.bookDetails.spineText.length}/40
-                          characters - For books with less than 100 pages, spine
-                          text is not recommended.
-                        </p>
+                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEnhanceImage("front")}
+                              disabled={isLoading.enhanceImage}
+                              className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                            >
+                              {isLoading.enhanceImage ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              <span className="ml-2">Enhance</span>
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  {/* Back Cover Section */}
+                  {coverState.frontCoverImage && (
+                    <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
+                      <h3 className="font-medium flex items-center text-zinc-300">
+                        <Layout className="h-4 w-4 mr-2 text-indigo-400" />
+                        Back Cover
+                      </h3>
+
+                      {/* Generate Back Cover Prompt Button */}
+                      {!coverState.backCoverPrompt && (
+                        <Button
+                          onClick={handleGenerateBackPrompt}
+                          disabled={isLoading.generateBackPrompt}
+                          className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
+                        >
+                          {isLoading.generateBackPrompt ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Generating Back Cover Prompt...
+                            </>
+                          ) : (
+                            <>
+                              <Lightbulb className="mr-2 h-4 w-4" />
+                              Generate Back Cover Prompt
+                            </>
+                          )}
+                        </Button>
+                      )}
+
+                      {/* Show the back cover prompt */}
+                      {coverState.backCoverPrompt && (
+                        <div className="rounded-md bg-black/30 p-4 space-y-2">
+                          <h4 className="text-sm font-medium text-indigo-400">Generated Back Cover Prompt</h4>
+                          <p className="text-sm text-zinc-300">{coverState.backCoverPrompt}</p>
+                          <div className="flex gap-2 mt-2">
+                            <Button
+                              onClick={() => handleGenerateBackCover()}
+                              disabled={isLoading.generateBack}
+                              className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
+                            >
+                              {isLoading.generateBack ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Generating...
+                                </>
+                              ) : (
+                                <>
+                                  <Wand2 className="mr-2 h-4 w-4" />
+                                  Generate Back Cover
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Show the generated back cover */}
+                      {coverState.backCoverImage && (
+                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-700/50">
+                          <img
+                            src={normalizeUrl(coverState.backCoverImage) || ''}
+                            alt="Generated back cover"
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEnhanceImage("back")}
+                                disabled={isLoading.enhanceImage}
+                                className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
+                              >
+                                {isLoading.enhanceImage ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Sparkles className="h-4 w-4" />
+                                )}
+                                <span className="ml-2">Enhance</span>
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Navigation Buttons */}
                   <div className="flex gap-3">
                     <Button
                       variant="outline"
                       onClick={() => setActiveStep("details")}
-                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
+                      className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
                     >
                       <ArrowLeft className="mr-2 h-4 w-4" />
                       Back to Details
@@ -2299,7 +2327,7 @@ const KDPFullWrapGenerator = () => {
                         isLoading.generateFront ||
                         isLoading.generateBack
                       }
-                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
+                      className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
                     >
                       {isLoading.generateFront || isLoading.generateBack ? (
                         <>
