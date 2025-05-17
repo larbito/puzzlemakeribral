@@ -1151,8 +1151,368 @@ const KDPFullWrapGenerator = () => {
   };
 
   return (
-    <div className="flex flex-col space-y-4">
-      {/* Rest of the component content */}
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">KDP Book Cover Generator</h1>
+        <Button
+          variant="outline"
+          onClick={handleStartOver}
+          className="flex items-center gap-2"
+        >
+          <RotateCw className="w-4 h-4" />
+          Start Over
+        </Button>
+      </div>
+
+      {/* Error display */}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <span className="block sm:inline">{error}</span>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left column - Controls */}
+        <div className="space-y-6">
+          {/* Book Details Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5" />
+                Book Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Trim Size */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Trim Size</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={coverState.bookDetails.trimSize}
+                  onChange={(e) => updateBookDetails({ trimSize: e.target.value })}
+                >
+                  {trimSizeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Paper Type */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Paper Type</label>
+                <select
+                  className="w-full p-2 border rounded-md"
+                  value={coverState.bookDetails.paperType}
+                  onChange={(e) => updateBookDetails({ paperType: e.target.value })}
+                >
+                  {paperTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Page Count */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Page Count</label>
+                <div className="flex items-center gap-4">
+                  <Slider
+                    value={[coverState.bookDetails.pageCount]}
+                    onValueChange={handlePageCountChange}
+                    min={24}
+                    max={999}
+                    step={1}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="number"
+                    value={coverState.bookDetails.pageCount}
+                    onChange={handlePageCountInput}
+                    className="w-20"
+                    min={24}
+                    max={999}
+                  />
+                </div>
+              </div>
+
+              {/* Spine Text */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Spine Text</label>
+                <Input
+                  value={coverState.bookDetails.spineText}
+                  onChange={handleSpineTextChange}
+                  placeholder="Enter spine text"
+                />
+              </div>
+
+              {/* Spine Color */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Spine Color</label>
+                <div className="flex gap-2">
+                  {dominantColors.map((color) => (
+                    <button
+                      key={color}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2",
+                        color === coverState.bookDetails.spineColor
+                          ? "border-white ring-2 ring-primary"
+                          : "border-transparent"
+                      )}
+                      style={{ backgroundColor: color }}
+                      onClick={() => handleSpineColorSelect(color)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Cover Generation Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wand2 className="w-5 h-5" />
+                Cover Generation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Tabs value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="text" className="flex items-center gap-2">
+                    <PenSquare className="w-4 h-4" />
+                    Text to Image
+                  </TabsTrigger>
+                  <TabsTrigger value="image" className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    Image to Text
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="text" className="space-y-4">
+                  <Textarea
+                    placeholder="Describe your book cover..."
+                    value={coverState.prompt}
+                    onChange={handlePromptChange}
+                    className="min-h-[100px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleEnhancePrompt}
+                      disabled={isLoading.enhancePrompt}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading.enhancePrompt ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      Enhance Prompt
+                    </Button>
+                    <Button
+                      onClick={handleGenerateFrontCover}
+                      disabled={isLoading.generateFront}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading.generateFront ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4" />
+                      )}
+                      Generate Cover
+                    </Button>
+                  </div>
+                </TabsContent>
+                <TabsContent value="image" className="space-y-4">
+                  <div
+                    className={cn(
+                      "border-2 border-dashed rounded-lg p-6 text-center dropzone",
+                      uploadedImage ? "border-primary" : "border-gray-300"
+                    )}
+                  >
+                    {uploadedImage ? (
+                      <div className="space-y-4">
+                        <img
+                          src={uploadedImage}
+                          alt="Uploaded cover"
+                          className="max-h-[200px] mx-auto"
+                        />
+                        <Button
+                          onClick={() => setUploadedImage(null)}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <X className="w-4 h-4" />
+                          Remove Image
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <UploadCloud className="w-12 h-12 mx-auto text-gray-400" />
+                        <div className="text-sm text-gray-600">
+                          Drag and drop an image here, or click to select
+                        </div>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleExtractorImageUpload}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => document.getElementById("image-upload")?.click()}
+                        >
+                          Select Image
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {uploadedImage && (
+                    <Button
+                      onClick={handleExtractPrompt}
+                      disabled={isLoading.extractPrompt}
+                      className="w-full flex items-center gap-2"
+                      data-image-analyze-button="true"
+                    >
+                      {isLoading.extractPrompt ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Lightbulb className="w-4 h-4" />
+                      )}
+                      Generate Cover from Image
+                    </Button>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column - Preview */}
+        <div className="space-y-6">
+          {/* Preview Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layout className="w-5 h-5" />
+                Cover Preview
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {coverState.frontCoverImage && (
+                <div className="space-y-4">
+                  <img
+                    src={coverState.frontCoverImage}
+                    alt="Front cover"
+                    className="max-w-full rounded-lg shadow-lg"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleGenerateBackPrompt}
+                      disabled={isLoading.generateBackPrompt}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading.generateBackPrompt ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <AlignLeft className="w-4 h-4" />
+                      )}
+                      Generate Back Cover Prompt
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {coverState.backCoverPrompt && (
+                <div className="space-y-4">
+                  <Textarea
+                    value={coverState.backCoverPrompt}
+                    onChange={(e) => updateCoverState({ backCoverPrompt: e.target.value })}
+                    className="min-h-[100px]"
+                    placeholder="Back cover prompt..."
+                  />
+                  <Button
+                    onClick={handleGenerateBackCover}
+                    disabled={isLoading.generateBack}
+                    className="flex items-center gap-2"
+                  >
+                    {isLoading.generateBack ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ImageIcon className="w-4 h-4" />
+                    )}
+                    Generate Back Cover
+                  </Button>
+                </div>
+              )}
+
+              {coverState.backCoverImage && (
+                <div className="space-y-4">
+                  <img
+                    src={coverState.backCoverImage}
+                    alt="Back cover"
+                    className="max-w-full rounded-lg shadow-lg"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleEnhanceCover}
+                      disabled={isLoading.enhanceImage}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading.enhanceImage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      Enhance Covers
+                    </Button>
+                    <Button
+                      onClick={handleAssembleFullWrap}
+                      disabled={isLoading.assembleWrap}
+                      className="flex items-center gap-2"
+                    >
+                      {isLoading.assembleWrap ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <BookOpenCheck className="w-4 h-4" />
+                      )}
+                      Assemble Full Wrap
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {coverState.fullWrapImage && (
+                <div className="space-y-4">
+                  <img
+                    src={coverState.fullWrapImage}
+                    alt="Full wrap cover"
+                    className="max-w-full rounded-lg shadow-lg"
+                  />
+                  <Button
+                    onClick={handleDownloadCover}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download Cover
+                  </Button>
+                </div>
+              )}
+
+              {!coverState.frontCoverImage && (
+                <div className="text-center py-12 text-gray-500">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-4" />
+                  <p>Generate a cover to see the preview</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
