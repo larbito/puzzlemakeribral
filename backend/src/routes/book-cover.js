@@ -397,16 +397,38 @@ router.post('/generate-back', upload.none(), async (req, res) => {
           },
           blend: 'over'
         }])
+        .jpeg({ quality: 90 })
         .toBuffer();
       
       console.log('Successfully created back cover');
       
-      // Convert the buffer to base64 for sending in the response
-      const base64BackCover = `data:image/jpeg;base64,${backCoverBuffer.toString('base64')}`;
+      // Save to a temporary file with a unique filename
+      const timestamp = Date.now();
+      const filename = `back-cover-${timestamp}.jpg`;
+      const filePath = `/tmp/${filename}`;
+      
+      await sharp(backCoverBuffer).toFile(filePath);
+      console.log(`Saved back cover to ${filePath}`);
+      
+      // Instead of returning base64, return a direct URL reference to the file
+      // In a production setup, you'd upload this to S3 or similar
+      // For this example, we'll return a direct URL to a placeholder
+      const backCoverUrl = `https://placehold.co/${imageWidth}x${imageHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover+${timestamp}`;
+      
+      // For development, still include the base64 as a fallback
+      // but smaller to avoid transmission issues
+      const resizedBuffer = await sharp(backCoverBuffer)
+        .resize({ width: 800, height: 800, fit: 'inside' })
+        .jpeg({ quality: 60 })
+        .toBuffer();
+      
+      const base64BackCover = `data:image/jpeg;base64,${resizedBuffer.toString('base64')}`;
       
       return res.json({
         status: 'success',
-        url: base64BackCover
+        url: base64BackCover,
+        width: imageWidth,
+        height: imageHeight
       });
     } catch (error) {
       console.error('Error generating back cover:', error);

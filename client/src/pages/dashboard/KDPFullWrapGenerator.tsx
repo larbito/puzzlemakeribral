@@ -739,10 +739,6 @@ const KDPFullWrapGenerator = () => {
 
       console.log("Generating back cover using front cover URL:", frontCoverUrl);
       
-      // Create a more appropriate back cover design rather than just mirroring
-      // For simplicity, we'll create a back cover with a solid color from the front
-      // and a placeholder for where text would go
-      
       // First try the API if available
       try {
         console.log("Creating FormData for back cover request");
@@ -757,18 +753,28 @@ const KDPFullWrapGenerator = () => {
           body: backCoverFormData,
         });
         
-        if (response.ok) {
-          const data = await response.json();
-          if (data.url) {
-            setCoverState((prevState) => ({
-              ...prevState,
-              backCoverImage: normalizeUrl(data.url),
-            }));
-            toast.success("Back cover generated successfully");
-            return;
-          }
+        console.log("Back cover API response status:", response.status);
+        
+        if (!response.ok) {
+          console.error("Backend error:", response.status, response.statusText);
+          throw new Error(`Backend error: ${response.status}`);
         }
-        throw new Error("API failed to generate back cover");
+        
+        const data = await response.json();
+        console.log("Back cover response data:", data);
+        
+        if (data.status === 'success' && data.url) {
+          console.log("Back cover URL found");
+          setCoverState((prevState) => ({
+            ...prevState,
+            backCoverImage: data.url,
+          }));
+          toast.success("Back cover generated successfully");
+          return;
+        } else {
+          console.error("Invalid response format:", data);
+          throw new Error("Invalid response from server");
+        }
       } catch (apiError) {
         console.error("API error generating back cover:", apiError);
         // Continue to fallback
