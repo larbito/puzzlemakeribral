@@ -588,23 +588,32 @@ const KDPFullWrapGenerator = () => {
             prompt: expandedPrompt,
             width: frontCoverWidth,
             height: frontCoverHeight,
+            negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
           }),
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.url) {
-            setCoverState((prevState) => ({
-              ...prevState,
-              frontCoverImage: data.url,
-              promptHistory: [...prevState.promptHistory, prevState.prompt],
-            }));
-            
-            toast.success("Front cover generated successfully");
-            handleGenerateBackCover(data.url);
-            setActiveStep("generate");
-            return;
-          }
+        console.log("API response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("API error response:", errorText);
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("API response data:", data);
+
+        if (data.url) {
+          setCoverState((prevState: CoverState) => ({
+            ...prevState,
+            frontCoverImage: data.url,
+            promptHistory: [...prevState.promptHistory, prevState.prompt],
+          }));
+          
+          toast.success("Front cover generated successfully");
+          handleGenerateBackCover(data.url);
+          setActiveStep("generate");
+          return;
         }
         throw new Error("API failed to generate front cover");
       } catch (apiError) {
@@ -612,32 +621,21 @@ const KDPFullWrapGenerator = () => {
         // Continue to fallback
       }
 
-      // Create fallback if API fails
-      const placeholderUrl = `https://placehold.co/${frontCoverWidth}x${frontCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover:+${encodeURIComponent(coverState.prompt.slice(0, 30))}`;
-      
-      setCoverState((prevState) => ({
+      // Fallback: use a placeholder
+      const placeholderUrl = `https://placehold.co/${frontCoverWidth}x${frontCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover`;
+      setCoverState((prevState: CoverState) => ({
         ...prevState,
         frontCoverImage: placeholderUrl,
         promptHistory: [...prevState.promptHistory, prevState.prompt],
       }));
       
-      toast.success("Using placeholder for front cover");
+      toast.warning("Using placeholder image due to API error");
       handleGenerateBackCover(placeholderUrl);
       setActiveStep("generate");
-      
-    } catch (error) {
-      console.error("Error generating front cover:", error);
-      setError("Failed to generate front cover. Using fallback placeholder.");
-      
-      // Ultimate fallback if all else fails
-      const fallbackUrl = `https://placehold.co/600x900/3498DB-2980B9/FFFFFF/png?text=Cover:+${encodeURIComponent(coverState.prompt.slice(0, 20))}`;
-      
-      setCoverState((prevState) => ({
-        ...prevState,
-        frontCoverImage: fallbackUrl,
-      }));
-      
-      setActiveStep("generate");
+    } catch (err) {
+      console.error("Error generating front cover:", err);
+      setError("Failed to generate front cover");
+      toast.error("Error generating front cover");
     } finally {
       setLoadingState("generateFront", false);
     }
@@ -832,62 +830,48 @@ const KDPFullWrapGenerator = () => {
         interiorPages: coverState.interiorPages.length
       });
 
+      // Try to use the backend API first
       try {
-        // Try to use the backend API first
         const result = await assembleFullCover({
           frontCoverUrl: coverState.frontCoverImage,
-          backCoverUrl: coverState.backCoverImage,
-          dimensions: {
-            width: coverState.dimensions.width,
-            height: coverState.dimensions.height,
-            spine: coverState.dimensions.spine,
-            trimSize: coverState.bookDetails.trimSize,
-            paperType: coverState.bookDetails.paperType,
-            pageCount: coverState.bookDetails.pageCount,
-            hasBleed: coverState.bookDetails.hasBleed
-          },
+          dimensions: coverState.dimensions,
           spineText: coverState.bookDetails.spineText,
           spineColor: coverState.bookDetails.spineColor,
-          interiorImagesUrls: coverState.interiorPages,
+          interiorImagesUrls: coverState.interiorPages
         });
 
-        if (result && result.fullCover) {
+        if (result.fullCover) {
           setCoverState((prevState) => ({
             ...prevState,
             fullWrapImage: result.fullCover,
           }));
-
+          
           toast.success("Full wrap cover assembled successfully");
           setActiveStep("assemble");
           return;
         }
-        
-        if (result && result.error) {
-          console.error("Error from API:", result.error);
-          throw new Error(result.error);
-        }
-        
-        throw new Error("Failed to get full cover from API");
+        throw new Error("Failed to assemble full cover");
       } catch (apiError) {
-        console.error("API error assembling cover, using fallback:", apiError);
-        throw apiError; // Re-throw to be caught by outer try-catch
+        console.error("API error assembling full cover:", apiError);
+        // Continue to fallback
       }
-    } catch (error) {
-      console.error("Error assembling full cover:", error);
-      setError("Failed to assemble full cover. Using placeholder.");
 
-      // Create a simple fallback placeholder
-      const totalWidth = coverState.dimensions.width;
-      const height = coverState.dimensions.height;
-      const placeholderFullCover = `https://placehold.co/${totalWidth}x${height}/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover`;
+      // Fallback: create a simple placeholder
+      const fullWrapWidth = coverState.dimensions.width;
+      const fullWrapHeight = coverState.dimensions.height;
+      const placeholderUrl = `https://placehold.co/${fullWrapWidth}x${fullWrapHeight}/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover`;
       
       setCoverState((prevState) => ({
         ...prevState,
-        fullWrapImage: placeholderFullCover,
+        fullWrapImage: placeholderUrl,
       }));
       
-      toast.error("Using placeholder for full wrap cover");
+      toast.warning("Using placeholder for full wrap cover");
       setActiveStep("assemble");
+    } catch (err) {
+      console.error("Error assembling full cover:", err);
+      setError("Failed to assemble full wrap cover");
+      toast.error("Error assembling full wrap cover");
     } finally {
       setLoadingState("assembleWrap", false);
     }
