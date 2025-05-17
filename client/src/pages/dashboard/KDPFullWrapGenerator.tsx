@@ -75,6 +75,7 @@ interface CoverState {
     spineColor: string;
   };
   promptHistory: string[];
+  useMirroredFrontCover?: boolean;
 }
 
 // Step type
@@ -575,8 +576,8 @@ const KDPFullWrapGenerator = () => {
         coverState.dimensions.trimHeightInches * coverState.dimensions.dpi,
       );
 
-      // The expanded prompt focuses on content and style without explicitly asking for a book cover mockup
-      const expandedPrompt = `${coverState.prompt}. Create a striking high-quality image with professional composition. 300 DPI, detailed artwork.`;
+      // Create a prompt that specifically avoids 3D book mockups and focuses on flat, professional cover art
+      const expandedPrompt = `${coverState.prompt}. Create a flat, professional book cover design - NOT a 3D mockup. The image should be a straight-on view of just the cover art itself without any book perspective, spine, or 3D rendering. High quality 300 DPI with detailed artwork. No 3D effects, no physical book mockup.`;
 
       console.log("Generating front cover with dimensions:", frontCoverWidth, "x", frontCoverHeight);
       console.log("Using prompt:", expandedPrompt);
@@ -769,28 +770,66 @@ const KDPFullWrapGenerator = () => {
           const backCoverUrl = normalizeUrl(data.url);
           console.log("Normalized back cover URL:", backCoverUrl);
           
-          // Preload the image to ensure it's in browser cache
+          // Use fallback URL if available
+          const fallbackUrl = data.fallbackUrl || null;
+          console.log("Fallback URL available:", !!fallbackUrl);
+
+          // Create a simple mirror effect if we need to use the front cover as a fallback
+          const mirrorFrontCover = () => {
+            console.log("Creating mirrored version of front cover as fallback");
+            setCoverState((prevState) => ({
+              ...prevState,
+              backCoverImage: frontCoverUrl,
+              // Add a flag to indicate this is a fallback, UI can use this to apply filters
+              useMirroredFrontCover: true
+            }));
+            toast.warning("Using mirrored front cover as fallback");
+          };
+          
+          // Try to load the image first to validate it works
           const img = new Image();
+          
+          // Set a timeout to handle cases where the image loading hangs
+          const imageLoadTimeout = setTimeout(() => {
+            console.warn("Image load timed out, using fallback");
+            if (fallbackUrl) {
+              setCoverState((prevState) => ({
+                ...prevState,
+                backCoverImage: fallbackUrl
+              }));
+              toast.warning("Using data URL fallback for back cover");
+            } else {
+              mirrorFrontCover();
+            }
+          }, 5000); // 5 second timeout
+          
           img.onload = () => {
-            console.log("Back cover image preloaded successfully");
-            // Update state with the back cover image URL
+            clearTimeout(imageLoadTimeout);
+            console.log("Back cover image loaded successfully");
+            
             setCoverState((prevState) => ({
               ...prevState,
               backCoverImage: backCoverUrl,
+              useMirroredFrontCover: false
             }));
             toast.success("Back cover generated successfully");
           };
           
-          img.onerror = (e) => {
-            console.error("Failed to preload back cover image:", e);
-            // Try a fallback URL
-            toast.error("Error loading back cover, using fallback");
+          img.onerror = () => {
+            clearTimeout(imageLoadTimeout);
+            console.error("Failed to load back cover image");
             
-            // Use front cover as fallback
-            setCoverState((prevState) => ({
-              ...prevState,
-              backCoverImage: frontCoverUrl,
-            }));
+            if (fallbackUrl) {
+              console.log("Using data URL fallback");
+              setCoverState((prevState) => ({
+                ...prevState,
+                backCoverImage: fallbackUrl,
+                useMirroredFrontCover: false
+              }));
+              toast.warning("Using data URL fallback for back cover");
+            } else {
+              mirrorFrontCover();
+            }
           };
           
           img.src = backCoverUrl || '';
@@ -815,6 +854,7 @@ const KDPFullWrapGenerator = () => {
       setCoverState((prevState) => ({
         ...prevState,
         backCoverImage: placeholderBackCover,
+        useMirroredFrontCover: false
       }));
 
       toast.success("Using placeholder for back cover");
@@ -826,7 +866,10 @@ const KDPFullWrapGenerator = () => {
       setCoverState((prevState) => ({
         ...prevState,
         backCoverImage: frontCoverUrl,
+        useMirroredFrontCover: true
       }));
+      
+      toast.warning("Using mirrored front cover as fallback");
     } finally {
       setLoadingState("generateBack", false);
     }
@@ -1735,17 +1778,29 @@ const KDPFullWrapGenerator = () => {
                             <img
                               src={normalizeUrl(coverState.backCoverImage) || ''}
                               alt="Back Cover"
-                              className="w-full h-full object-cover"
+                              className={`w-full h-full object-cover ${coverState.useMirroredFrontCover ? 'transform scale-x-[-1] opacity-70 hue-rotate-180' : ''}`}
                               onError={(e) => {
                                 console.error("Error loading back cover image", e);
-                                // If the image fails to load, show error state
-                                e.currentTarget.style.display = 'none';
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'flex items-center justify-center h-full';
-                                errorDiv.innerHTML = '<span class="text-red-500 text-sm">Error loading image</span>';
-                                e.currentTarget.parentNode?.appendChild(errorDiv);
+                                // If the back cover fails to load, use the front cover with a filter as fallback
+                                if (coverState.frontCoverImage) {
+                                  e.currentTarget.src = normalizeUrl(coverState.frontCoverImage) || '';
+                                  e.currentTarget.style.filter = "hue-rotate(180deg) opacity(0.7)";
+                                  e.currentTarget.style.transform = "scaleX(-1)"; // flip horizontally
+                                } else {
+                                  // Show error state
+                                  e.currentTarget.style.display = 'none';
+                                  const errorDiv = document.createElement('div');
+                                  errorDiv.className = 'flex items-center justify-center h-full';
+                                  errorDiv.innerHTML = '<span class="text-red-500 text-sm">Error loading image</span>';
+                                  e.currentTarget.parentNode?.appendChild(errorDiv);
+                                }
                               }}
                             />
+                            {coverState.useMirroredFrontCover && (
+                              <div className="absolute top-2 left-2 bg-amber-500 text-white px-2 py-1 text-xs rounded-full">
+                                Mirrored Fallback
+                              </div>
+                            )}
                             <div className="absolute bottom-2 right-2 bg-indigo-500 text-white px-2 py-1 text-xs rounded-full">
                               Back Cover
                             </div>
