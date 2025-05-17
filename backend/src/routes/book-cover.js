@@ -338,6 +338,79 @@ router.post('/generate-front', express.json(), async (req, res) => {
 });
 
 /**
+ * Generate back cover based on front cover
+ * POST /api/book-cover/generate-back
+ */
+router.post('/generate-back', upload.none(), async (req, res) => {
+  try {
+    console.log('=== Back Cover Generation Request ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request body:', req.body);
+    
+    const { frontCoverUrl, width, height } = req.body;
+    
+    if (!frontCoverUrl) {
+      console.error('Missing required parameter: frontCoverUrl');
+      return res.status(400).json({ error: 'Front cover URL is required' });
+    }
+
+    console.log('Generating back cover with params:', { frontCoverUrl, width, height });
+
+    // First try to get the front cover image
+    let frontCoverBuffer;
+    try {
+      const frontCoverResponse = await fetch(frontCoverUrl);
+      if (!frontCoverResponse.ok) {
+        throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
+      }
+      frontCoverBuffer = await frontCoverResponse.buffer();
+      console.log('Successfully retrieved front cover image');
+    } catch (error) {
+      console.error('Error fetching front cover:', error);
+      return res.status(400).json({ error: 'Could not retrieve front cover image' });
+    }
+    
+    // Extract colors from the front cover to use in the back cover
+    let backCoverBuffer;
+    try {
+      console.log('Creating back cover from front cover');
+      // Create a back cover that is a mirrored version of the front but with a gradient overlay
+      backCoverBuffer = await sharp(frontCoverBuffer)
+        .flop() // Mirror horizontally
+        .modulate({ saturation: 0.7 }) // Slightly desaturate
+        .composite([{
+          input: {
+            create: {
+              width: parseInt(width) || 1800,
+              height: parseInt(height) || 2700,
+              channels: 4,
+              background: { r: 255, g: 255, b: 255, alpha: 0.3 } // Soft white overlay
+            }
+          },
+          blend: 'over'
+        }])
+        .toBuffer();
+      
+      console.log('Successfully created back cover');
+      
+      // Convert the buffer to base64 for sending in the response
+      const base64BackCover = `data:image/jpeg;base64,${backCoverBuffer.toString('base64')}`;
+      
+      return res.json({
+        status: 'success',
+        url: base64BackCover
+      });
+    } catch (error) {
+      console.error('Error generating back cover:', error);
+      return res.status(500).json({ error: 'Failed to generate back cover' });
+    }
+  } catch (error) {
+    console.error('Error in generate-back endpoint:', error);
+    res.status(500).json({ error: 'Failed to generate back cover' });
+  }
+});
+
+/**
  * Assemble full cover (front, spine, back)
  * POST /api/book-cover/assemble-full
  */

@@ -575,8 +575,8 @@ const KDPFullWrapGenerator = () => {
         coverState.dimensions.trimHeightInches * coverState.dimensions.dpi,
       );
 
-      // The expanded prompt combines the original prompt with details about the book
-      const expandedPrompt = `Book cover design: ${coverState.prompt}. High quality, 300 DPI professional book cover art.`;
+      // The expanded prompt focuses on content and style without explicitly asking for a book cover mockup
+      const expandedPrompt = `${coverState.prompt}. Create a striking high-quality image with professional composition. 300 DPI, detailed artwork.`;
 
       console.log("Generating front cover with dimensions:", frontCoverWidth, "x", frontCoverHeight);
       console.log("Using prompt:", expandedPrompt);
