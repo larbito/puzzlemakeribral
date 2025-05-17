@@ -590,8 +590,8 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     form.append('width', parsedWidth.toString());
     form.append('height', parsedHeight.toString());
     
-    // Use standard rendering for better quality
-    form.append('rendering_speed', 'STANDARD');
+    // Use default rendering for better quality
+    form.append('rendering_speed', 'DEFAULT');
 
     if (negative_prompt) {
       form.append('negative_prompt', negative_prompt);
@@ -623,7 +623,7 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
     console.log(`prompt: ${prompt}`);
     console.log(`width: ${parsedWidth.toString()}`);
     console.log(`height: ${parsedHeight.toString()}`);
-    console.log(`rendering_speed: STANDARD`);
+    console.log(`rendering_speed: DEFAULT`);
     console.log(`negative_prompt: ${negative_prompt || 'text overlays, watermark, signature, blurry, low quality, distorted'}`);
     if (style) {
       const validStyles = ['AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'];

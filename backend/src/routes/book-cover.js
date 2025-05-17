@@ -228,7 +228,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
       // Add some default parameters
       form.append('num_images', '1');
       form.append('seed', Math.floor(Math.random() * 1000000));
-      form.append('rendering_speed', 'STANDARD');
+      form.append('rendering_speed', 'DEFAULT');
       
       console.log('Form data prepared for Ideogram API');
       // Directly log what we're sending
@@ -239,7 +239,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
         negative_prompt: negative_prompt || 'text, watermark, signature, blurry, low quality, distorted, deformed',
         num_images: '1',
         seed: Math.floor(Math.random() * 1000000),
-        rendering_speed: 'STANDARD'
+        rendering_speed: 'DEFAULT'
       });
       
       // The correct Ideogram API URL is v1 not api/v1
