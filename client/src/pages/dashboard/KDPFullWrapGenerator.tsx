@@ -578,10 +578,12 @@ const KDPFullWrapGenerator = () => {
 
       console.log("Generating front cover with dimensions:", frontCoverWidth, "x", frontCoverHeight);
       console.log("Using prompt:", expandedPrompt);
+      console.log("API URL being called:", `${API_URL}/api/ideogram/generate-custom`);
 
-      // Try to generate with API first
+      // Try directly with the Ideogram API endpoint
       try {
-        const response = await fetch(`${API_URL}/book-cover/generate-front`, {
+        // First try with the correct Ideogram API endpoint
+        const response = await fetch(`${API_URL}/api/ideogram/generate-custom`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -590,20 +592,21 @@ const KDPFullWrapGenerator = () => {
             prompt: expandedPrompt,
             width: frontCoverWidth,
             height: frontCoverHeight,
+            style: "REALISTIC",
             negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
           }),
         });
 
-        console.log("API response status:", response.status);
+        console.log("Ideogram API response status:", response.status);
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error("API error response:", errorText);
-          throw new Error(`API error: ${response.status}`);
+          console.error("Ideogram API error response:", errorText);
+          throw new Error(`Ideogram API error: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log("API response data:", data);
+        console.log("Ideogram API response data:", data);
 
         if (data.url) {
           setCoverState((prevState: CoverState) => ({
@@ -612,15 +615,59 @@ const KDPFullWrapGenerator = () => {
             promptHistory: [...prevState.promptHistory, prevState.prompt],
           }));
           
-          toast.success("Front cover generated successfully");
+          toast.success("Front cover generated successfully with Ideogram");
           handleGenerateBackCover(normalizeUrl(data.url));
           setActiveStep("generate");
           return;
         }
-        throw new Error("API failed to generate front cover");
-      } catch (apiError) {
-        console.error("API error generating front cover:", apiError);
-        // Continue to fallback
+        throw new Error("Ideogram API failed to generate front cover");
+      } catch (ideogramError) {
+        console.error("Ideogram API error:", ideogramError);
+        
+        // Try fallback to book-cover endpoint
+        try {
+          console.log("Trying fallback to book-cover endpoint");
+          const fallbackResponse = await fetch(`${API_URL}/api/book-cover/generate-front`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: expandedPrompt,
+              width: frontCoverWidth,
+              height: frontCoverHeight,
+              negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
+            }),
+          });
+
+          console.log("Fallback API response status:", fallbackResponse.status);
+          
+          if (!fallbackResponse.ok) {
+            const errorText = await fallbackResponse.text();
+            console.error("Fallback API error response:", errorText);
+            throw new Error(`Fallback API error: ${fallbackResponse.status}`);
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          console.log("Fallback API response data:", fallbackData);
+
+          if (fallbackData.url) {
+            setCoverState((prevState: CoverState) => ({
+              ...prevState,
+              frontCoverImage: normalizeUrl(fallbackData.url),
+              promptHistory: [...prevState.promptHistory, prevState.prompt],
+            }));
+            
+            toast.success("Front cover generated successfully with fallback");
+            handleGenerateBackCover(normalizeUrl(fallbackData.url));
+            setActiveStep("generate");
+            return;
+          }
+          throw new Error("Fallback API failed to generate front cover");
+        } catch (fallbackError) {
+          console.error("Fallback API error:", fallbackError);
+          // Continue to placeholder
+        }
       }
 
       // Fallback: use a placeholder
@@ -631,7 +678,7 @@ const KDPFullWrapGenerator = () => {
         promptHistory: [...prevState.promptHistory, prevState.prompt],
       }));
       
-      toast.warning("Using placeholder image due to API error");
+      toast.warning("Using placeholder image due to API errors");
       handleGenerateBackCover(placeholderUrl);
       setActiveStep("generate");
     } catch (err) {
