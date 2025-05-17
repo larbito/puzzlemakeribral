@@ -44,6 +44,9 @@ import {
   downloadCover,
 } from "@/lib/bookCoverApi";
 
+// API URL configuration
+const API_URL = "https://puzzlemakeribral-production.up.railway.app/api";
+
 // Type for cover state
 interface CoverState {
   prompt: string;
@@ -145,9 +148,6 @@ const KDPFullWrapGenerator = () => {
     { value: "cream", label: "Cream" },
     { value: "color", label: "Color" },
   ];
-
-  // API URL
-  const API_URL = "https://puzzlemakeribral-production.up.railway.app/api";
 
   // Call API to calculate dimensions on initial load
   useEffect(() => {
@@ -577,7 +577,42 @@ const KDPFullWrapGenerator = () => {
       console.log("Generating front cover with dimensions:", frontCoverWidth, "x", frontCoverHeight);
       console.log("Using prompt:", expandedPrompt);
 
-      // Create fallback immediately to ensure we have something
+      // Try to generate with API first
+      try {
+        const response = await fetch(`${API_URL}/book-cover/generate-front`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: expandedPrompt,
+            width: frontCoverWidth,
+            height: frontCoverHeight,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.url) {
+            setCoverState((prevState) => ({
+              ...prevState,
+              frontCoverImage: data.url,
+              promptHistory: [...prevState.promptHistory, prevState.prompt],
+            }));
+            
+            toast.success("Front cover generated successfully");
+            handleGenerateBackCover(data.url);
+            setActiveStep("generate");
+            return;
+          }
+        }
+        throw new Error("API failed to generate front cover");
+      } catch (apiError) {
+        console.error("API error generating front cover:", apiError);
+        // Continue to fallback
+      }
+
+      // Create fallback if API fails
       const placeholderUrl = `https://placehold.co/${frontCoverWidth}x${frontCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover:+${encodeURIComponent(coverState.prompt.slice(0, 30))}`;
       
       setCoverState((prevState) => ({
@@ -586,13 +621,8 @@ const KDPFullWrapGenerator = () => {
         promptHistory: [...prevState.promptHistory, prevState.prompt],
       }));
       
-      // Show success immediately to keep flow moving
-      toast.success("Front cover generated successfully");
-      
-      // Auto-generate back cover
+      toast.success("Using placeholder for front cover");
       handleGenerateBackCover(placeholderUrl);
-      
-      // Move to generate step
       setActiveStep("generate");
       
     } catch (error) {
@@ -607,7 +637,6 @@ const KDPFullWrapGenerator = () => {
         frontCoverImage: fallbackUrl,
       }));
       
-      // Move to generate step despite error
       setActiveStep("generate");
     } finally {
       setLoadingState("generateFront", false);
@@ -736,17 +765,50 @@ const KDPFullWrapGenerator = () => {
 
       console.log(`Enhancing ${target} cover image:`, imageUrl);
       
-      // Simple enhancement - just show success message and keep same image
-      // since we may not have API access
-      setTimeout(() => {
-        toast.success(`${target === "front" ? "Front" : "Back"} cover enhanced successfully`);
-        setActiveStep("enhance");
-        setLoadingState("enhanceImage", false);
-      }, 1500);
+      // Try to enhance with API first
+      try {
+        const response = await fetch(`${API_URL}/book-cover/enhance`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageUrl,
+            target,
+            width: coverState.dimensions.width,
+            height: coverState.dimensions.height,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.enhancedUrl) {
+            // Update the appropriate cover image
+            setCoverState((prevState) => ({
+              ...prevState,
+              [target === "front" ? "frontCoverImage" : "backCoverImage"]: data.enhancedUrl,
+            }));
+            
+            toast.success(`${target === "front" ? "Front" : "Back"} cover enhanced successfully`);
+            setActiveStep("enhance");
+            return;
+          }
+        }
+        throw new Error(`API failed to enhance ${target} cover`);
+      } catch (apiError) {
+        console.error(`API error enhancing ${target} cover:`, apiError);
+        // Continue with original image
+      }
       
-    } catch (err: any) {
-      console.error("Error enhancing image:", err);
+      // If API fails, keep original image
       toast.success(`Using original ${target} cover image`);
+      setActiveStep("enhance");
+      
+    } catch (err) {
+      console.error("Error enhancing image:", err);
+      setError(`Failed to enhance ${target} cover. Using original image.`);
+      toast.error(`Error enhancing ${target} cover`);
+    } finally {
       setLoadingState("enhanceImage", false);
     }
   };
@@ -763,8 +825,8 @@ const KDPFullWrapGenerator = () => {
       setError("");
 
       console.log("Assembling full wrap cover with:", {
-        frontCover: coverState.frontCoverImage ? "Available" : "Missing",
-        backCover: coverState.backCoverImage ? "Available" : "Missing",
+        frontCover: coverState.frontCoverImage,
+        backCover: coverState.backCoverImage,
         spineText: coverState.bookDetails.spineText,
         spineColor: coverState.bookDetails.spineColor,
         interiorPages: coverState.interiorPages.length
@@ -774,16 +836,26 @@ const KDPFullWrapGenerator = () => {
         // Try to use the backend API first
         const result = await assembleFullCover({
           frontCoverUrl: coverState.frontCoverImage,
-          dimensions: coverState.dimensions,
+          backCoverUrl: coverState.backCoverImage,
+          dimensions: {
+            width: coverState.dimensions.width,
+            height: coverState.dimensions.height,
+            spine: coverState.dimensions.spine,
+            trimSize: coverState.bookDetails.trimSize,
+            paperType: coverState.bookDetails.paperType,
+            pageCount: coverState.bookDetails.pageCount,
+            hasBleed: coverState.bookDetails.hasBleed
+          },
           spineText: coverState.bookDetails.spineText,
           spineColor: coverState.bookDetails.spineColor,
           interiorImagesUrls: coverState.interiorPages,
         });
 
         if (result && result.fullCover) {
-          updateCoverState({
+          setCoverState((prevState) => ({
+            ...prevState,
             fullWrapImage: result.fullCover,
-          });
+          }));
 
           toast.success("Full wrap cover assembled successfully");
           setActiveStep("assemble");
@@ -792,40 +864,29 @@ const KDPFullWrapGenerator = () => {
         
         if (result && result.error) {
           console.error("Error from API:", result.error);
+          throw new Error(result.error);
         }
         
         throw new Error("Failed to get full cover from API");
       } catch (apiError) {
         console.error("API error assembling cover, using fallback:", apiError);
+        throw apiError; // Re-throw to be caught by outer try-catch
       }
-
-      // If the API call fails, create a simple placeholder full cover
-      // Get dimensions for the full cover from coverState
-      const totalWidth = coverState.dimensions.width;
-      const height = coverState.dimensions.height;
-      
-      // Create a placeholder URL for the full wrap cover
-      const placeholderFullCover = `https://placehold.co/${totalWidth}x${height}/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover`;
-      
-      updateCoverState({
-        fullWrapImage: placeholderFullCover,
-      });
-      
-      toast.success("Using placeholder for full wrap cover");
-      setActiveStep("assemble");
-
     } catch (error) {
       console.error("Error assembling full cover:", error);
       setError("Failed to assemble full cover. Using placeholder.");
 
       // Create a simple fallback placeholder
-      const placeholderUrl = `https://placehold.co/1800x900/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover+Placeholder`;
+      const totalWidth = coverState.dimensions.width;
+      const height = coverState.dimensions.height;
+      const placeholderFullCover = `https://placehold.co/${totalWidth}x${height}/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover`;
       
-      updateCoverState({
-        fullWrapImage: placeholderUrl,
-      });
+      setCoverState((prevState) => ({
+        ...prevState,
+        fullWrapImage: placeholderFullCover,
+      }));
       
-      // Still move to the final step so users can complete the flow
+      toast.error("Using placeholder for full wrap cover");
       setActiveStep("assemble");
     } finally {
       setLoadingState("assembleWrap", false);
@@ -833,7 +894,7 @@ const KDPFullWrapGenerator = () => {
   };
 
   // Handle downloading the full wrap cover
-  const handleDownloadFullCover = () => {
+  const handleDownloadFullCover = async () => {
     if (!coverState.fullWrapImage) {
       setError("No full wrap cover to download");
       return;
@@ -842,18 +903,45 @@ const KDPFullWrapGenerator = () => {
     try {
       // Try to use the API download function first
       try {
-        downloadCover({
-          url: coverState.fullWrapImage,
-          format: "pdf",
-          filename: "kdp-full-wrap-cover",
-          width: coverState.dimensions.width,
-          height: coverState.dimensions.height,
+        const response = await fetch(`${API_URL}/book-cover/download`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageUrl: coverState.fullWrapImage,
+            format: 'pdf',
+            filename: 'kdp-full-wrap-cover',
+            width: coverState.dimensions.width,
+            height: coverState.dimensions.height,
+            metadata: {
+              title: 'KDP Full Wrap Cover',
+              author: 'Generated by PuzzleMaker',
+              trimSize: coverState.bookDetails.trimSize,
+              pageCount: coverState.bookDetails.pageCount,
+              paperType: coverState.bookDetails.paperType
+            }
+          })
         });
-        
-        toast.success("Full wrap cover downloaded successfully");
-        return;
+
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'kdp-full-wrap-cover.pdf';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+          
+          toast.success("Full wrap cover downloaded successfully");
+          return;
+        }
+        throw new Error("Failed to download from API");
       } catch (apiError) {
         console.error("API download error, using direct download:", apiError);
+        // Continue to fallback
       }
       
       // Fallback: direct download of the image
