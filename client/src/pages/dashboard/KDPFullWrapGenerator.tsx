@@ -44,8 +44,8 @@ import {
   downloadCover,
 } from "@/lib/bookCoverApi";
 
-// API URL configuration
-const API_URL = "https://puzzlemakeribral-production.up.railway.app/api";
+// API URL configuration - Remove the /api to avoid duplication
+const API_URL = "https://puzzlemakeribral-production.up.railway.app";
 
 // Type for cover state
 interface CoverState {
@@ -439,7 +439,7 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("enhancePrompt", true);
       setError("");
 
-      const response = await fetch(`${API_URL}/openai/enhance-prompt`, {
+      const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -494,7 +494,7 @@ const KDPFullWrapGenerator = () => {
       toast.loading("Analyzing image...");
 
       // Call the OpenAI API for image description
-      const response = await fetch(`${API_URL}/openai/extract-prompt`, {
+      const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -694,7 +694,7 @@ const KDPFullWrapGenerator = () => {
   const extractColorsFromImage = async (imageUrl: string) => {
     try {
       const colorsResponse = await fetch(
-        `${API_URL}/book-cover/extract-colors`,
+        `${API_URL}/api/book-cover/extract-colors`,
         {
           method: "POST",
           headers: {
@@ -741,7 +741,7 @@ const KDPFullWrapGenerator = () => {
       
       // First try the API if available
       try {
-        const response = await fetch(`${API_URL}/book-cover/generate-back`, {
+        const response = await fetch(`${API_URL}/api/book-cover/generate-back`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -818,7 +818,7 @@ const KDPFullWrapGenerator = () => {
       
       // Try to enhance with API first
       try {
-        const response = await fetch(`${API_URL}/book-cover/enhance`, {
+        const response = await fetch(`${API_URL}/api/book-cover/enhance`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -944,7 +944,7 @@ const KDPFullWrapGenerator = () => {
     try {
       // Try to use the API download function first
       try {
-        const response = await fetch(`${API_URL}/book-cover/download`, {
+        const response = await fetch(`${API_URL}/api/book-cover/download`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

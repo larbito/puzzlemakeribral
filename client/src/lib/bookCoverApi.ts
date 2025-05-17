@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 
-// Use Railway API URL instead of local proxy
-const API_URL = 'https://puzzlemakeribral-production.up.railway.app/api';
+// Use Railway API URL instead of local proxy (without the /api suffix)
+const API_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
 /**
  * Calculate the dimensions for a book cover based on KDP specifications
@@ -23,7 +23,7 @@ export async function calculateCoverDimensions({
     console.log('Calculating dimensions with:', { trimSize, pageCount, paperColor, bookType, includeBleed });
     console.log('API URL:', API_URL);
     
-    const response = await fetch(`${API_URL}/book-cover/calculate-dimensions`, {
+    const response = await fetch(`${API_URL}/api/book-cover/calculate-dimensions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +83,7 @@ export async function generateFrontCover({
 }) {
   try {
     console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt });
-    console.log('API URL for generation:', `${API_URL}/book-cover/generate-front`);
+    console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
     
     // Create JSON payload instead of FormData
     const payload = {
@@ -94,7 +94,7 @@ export async function generateFrontCover({
     };
 
     console.log('Sending request to backend with payload:', payload);
-    const response = await fetch(`${API_URL}/book-cover/generate-front`, {
+    const response = await fetch(`${API_URL}/api/book-cover/generate-front`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -183,7 +183,7 @@ export async function assembleFullCover({
       });
     }
 
-    const response = await fetch(`${API_URL}/book-cover/assemble-full`, {
+    const response = await fetch(`${API_URL}/api/book-cover/assemble-full`, {
       method: 'POST',
       body: formData
     });
@@ -244,7 +244,7 @@ export function getDownloadUrl({
   if (width) params.append('width', width.toString());
   if (height) params.append('height', height.toString());
   
-  return `${API_URL}/book-cover/download?${params.toString()}`;
+  return `${API_URL}/api/book-cover/download?${params.toString()}`;
 }
 
 /**
