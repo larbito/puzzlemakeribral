@@ -88,8 +88,9 @@ interface CoverState {
 // Step type
 type GenerationStep =
   | "prompt"
-  | "details"
-  | "generate"
+  | "front_cover"
+  | "back_prompt"
+  | "back_cover"
   | "enhance"
   | "assemble";
 
@@ -674,8 +675,7 @@ const KDPFullWrapGenerator = () => {
           }));
           
           toast.success("Front cover generated successfully with Ideogram");
-          handleGenerateBackCover(normalizeUrl(data.url));
-          setActiveStep("generate");
+          setActiveStep("front_cover");
           return;
         }
         throw new Error("Ideogram API failed to generate front cover");
@@ -718,8 +718,7 @@ const KDPFullWrapGenerator = () => {
             }));
             
             toast.success("Front cover generated successfully with fallback");
-            handleGenerateBackCover(normalizeUrl(fallbackData.url));
-            setActiveStep("generate");
+            setActiveStep("front_cover");
             return;
           }
           throw new Error("Fallback API failed to generate front cover");
@@ -738,8 +737,7 @@ const KDPFullWrapGenerator = () => {
       }));
       
       toast.warning("Using placeholder image due to API errors");
-      handleGenerateBackCover(placeholderUrl);
-      setActiveStep("generate");
+      setActiveStep("front_cover");
     } catch (err) {
       console.error("Error generating front cover:", err);
       setError("Failed to generate front cover");
@@ -780,11 +778,12 @@ const KDPFullWrapGenerator = () => {
   };
 
   // Generate back cover
-  const handleGenerateBackCover = async (frontCoverUrl = coverState.frontCoverImage) => {
+  const handleGenerateBackCover = async () => {
     console.log("[Button] Generate Back Cover clicked");
     toast.info("Generating back cover...");
-    if (!frontCoverUrl) {
-      setError("Please generate a front cover first");
+    
+    if (!coverState.backCoverPrompt) {
+      setError("Please generate a back cover prompt first");
       return;
     }
 
@@ -792,2081 +791,368 @@ const KDPFullWrapGenerator = () => {
       setLoadingState("generateBack", true);
       setError("");
 
-      console.log("Generating back cover using front cover URL:", frontCoverUrl);
+      console.log("Generating back cover using prompt:", coverState.backCoverPrompt);
       
-      // First try the API if available
-      try {
-        console.log("Creating FormData for back cover request");
-        const backCoverFormData = new FormData();
-        backCoverFormData.append('frontCoverUrl', frontCoverUrl);
-        backCoverFormData.append('width', (coverState.dimensions.width / 2).toString());
-        backCoverFormData.append('height', coverState.dimensions.height.toString());
-        
-        console.log("Sending request to generate back cover with FormData");
-        const response = await fetch(`${API_URL}/api/book-cover/generate-back`, {
-          method: "POST",
-          body: backCoverFormData,
-        });
-        
-        console.log("Back cover API response status:", response.status);
-        
-        if (!response.ok) {
-          console.error("Backend error:", response.status, response.statusText);
-          throw new Error(`Backend error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log("Back cover response data:", data);
-        
-        if (data.status === 'success' && data.url) {
-          console.log("Back cover URL found:", data.url);
-          
-          const backCoverUrl = normalizeUrl(data.url);
-          console.log("Normalized back cover URL:", backCoverUrl);
-          
-          // Use fallback URL if available
-          const fallbackUrl = data.fallbackUrl || null;
-          console.log("Fallback URL available:", !!fallbackUrl);
-
-          // Create a simple mirror effect if we need to use the front cover as a fallback
-          const mirrorFrontCover = () => {
-            console.log("Creating mirrored version of front cover as fallback");
-            setCoverState((prevState) => ({
-              ...prevState,
-              backCoverImage: frontCoverUrl,
-              // Add a flag to indicate this is a fallback, UI can use this to apply filters
-              useMirroredFrontCover: true
-            }));
-            toast.warning("Using mirrored front cover as fallback");
-          };
-          
-          // Try to load the image first to validate it works
-          const img = new Image();
-          
-          // Set a timeout to handle cases where the image loading hangs
-          const imageLoadTimeout = setTimeout(() => {
-            console.warn("Image load timed out, using fallback");
-            if (fallbackUrl) {
-              setCoverState((prevState) => ({
-                ...prevState,
-                backCoverImage: fallbackUrl
-              }));
-              toast.warning("Using data URL fallback for back cover");
-            } else {
-              mirrorFrontCover();
-            }
-          }, 5000); // 5 second timeout
-          
-          img.onload = () => {
-            clearTimeout(imageLoadTimeout);
-            console.log("Back cover image loaded successfully");
-            
-            setCoverState((prevState) => ({
-              ...prevState,
-              backCoverImage: backCoverUrl,
-              useMirroredFrontCover: false
-            }));
-            toast.success("Back cover generated successfully");
-          };
-          
-          img.onerror = () => {
-            clearTimeout(imageLoadTimeout);
-            console.error("Failed to load back cover image");
-            
-            if (fallbackUrl) {
-              console.log("Using data URL fallback");
-              setCoverState((prevState) => ({
-                ...prevState,
-                backCoverImage: fallbackUrl,
-                useMirroredFrontCover: false
-              }));
-              toast.warning("Using data URL fallback for back cover");
-            } else {
-              mirrorFrontCover();
-            }
-          };
-          
-          img.src = backCoverUrl || '';
-          return;
-        } else {
-          console.error("Invalid response format:", data);
-          throw new Error("Invalid response from server");
-        }
-      } catch (apiError) {
-        console.error("API error generating back cover:", apiError);
-        // Continue to fallback
-      }
-
-      // Fallback: use a placeholder for the back cover
+      // Calculate back cover dimensions
       const backCoverWidth = Math.round(coverState.dimensions.trimWidthInches * coverState.dimensions.dpi);
       const backCoverHeight = Math.round(coverState.dimensions.trimHeightInches * coverState.dimensions.dpi);
-      
-      const placeholderBackCover = `https://placehold.co/${backCoverWidth}x${backCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover`;
-      
-      console.log("Using placeholder back cover:", placeholderBackCover);
-      
+
+      // Create a prompt that specifically focuses on the back cover design
+      const expandedPrompt = `${coverState.backCoverPrompt}. Create a flat, professional book back cover design - NOT a 3D mockup. The image should be a straight-on view suitable for text overlay. High quality 300 DPI with detailed artwork. No 3D effects, no physical book mockup.`;
+
+      // First try with the Ideogram API
+      try {
+        console.log("Using JSON format for Ideogram API request");
+        const response = await fetch(`${API_URL}/api/ideogram/generate-custom`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: expandedPrompt,
+            width: backCoverWidth.toString(),
+            height: backCoverHeight.toString(),
+            rendering_speed: "DEFAULT",
+            negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
+          }),
+        });
+
+        console.log("Ideogram API response status:", response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Ideogram API error response:", errorText);
+          throw new Error(`Ideogram API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Ideogram API response data:", data);
+
+        if (data.url) {
+          setCoverState((prevState) => ({
+            ...prevState,
+            backCoverImage: normalizeUrl(data.url),
+            promptHistory: [...prevState.promptHistory, prevState.backCoverPrompt],
+          }));
+          
+          toast.success("Back cover generated successfully");
+          setActiveStep("back_cover");
+          return;
+        }
+        throw new Error("Ideogram API failed to generate back cover");
+      } catch (ideogramError) {
+        console.error("Ideogram API error:", ideogramError);
+        
+        // Try fallback to book-cover endpoint
+        try {
+          console.log("Trying fallback to book-cover endpoint");
+          const fallbackResponse = await fetch(`${API_URL}/api/book-cover/generate-back`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: expandedPrompt,
+              width: backCoverWidth.toString(),
+              height: backCoverHeight.toString(),
+              negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
+            }),
+          });
+
+          if (!fallbackResponse.ok) {
+            const errorText = await fallbackResponse.text();
+            console.error("Fallback API error response:", errorText);
+            throw new Error(`Fallback API error: ${fallbackResponse.status}`);
+          }
+
+          const fallbackData = await fallbackResponse.json();
+          console.log("Fallback API response data:", fallbackData);
+
+          if (fallbackData.url) {
+            setCoverState((prevState) => ({
+              ...prevState,
+              backCoverImage: normalizeUrl(fallbackData.url),
+              promptHistory: [...prevState.promptHistory, prevState.backCoverPrompt],
+            }));
+            
+            toast.success("Back cover generated successfully with fallback");
+            setActiveStep("back_cover");
+            return;
+          }
+          throw new Error("Fallback API failed to generate back cover");
+        } catch (fallbackError) {
+          console.error("Fallback API error:", fallbackError);
+          // Continue to placeholder
+        }
+      }
+
+      // Fallback: use a placeholder
+      const placeholderUrl = `https://placehold.co/${backCoverWidth}x${backCoverHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover`;
       setCoverState((prevState) => ({
         ...prevState,
-        backCoverImage: placeholderBackCover,
-        useMirroredFrontCover: false
+        backCoverImage: placeholderUrl,
+        promptHistory: [...prevState.promptHistory, prevState.backCoverPrompt],
       }));
-
-      toast.success("Using placeholder for back cover");
+      
+      toast.warning("Using placeholder for back cover");
+      setActiveStep("back_cover");
     } catch (error) {
       console.error("Error generating back cover:", error);
-      setError("Failed to generate back cover. Using front cover as fallback.");
+      setError("Failed to generate back cover");
       
-      // Use front cover as fallback
+      // Use a placeholder as fallback
+      const placeholderWidth = Math.round(coverState.dimensions.trimWidthInches * coverState.dimensions.dpi);
+      const placeholderHeight = Math.round(coverState.dimensions.trimHeightInches * coverState.dimensions.dpi);
+      const placeholderUrl = `https://placehold.co/${placeholderWidth}x${placeholderHeight}/3498DB-2980B9/FFFFFF/png?text=Back+Cover`;
       setCoverState((prevState) => ({
         ...prevState,
-        backCoverImage: frontCoverUrl,
-        useMirroredFrontCover: true
+        backCoverImage: placeholderUrl,
+        promptHistory: [...prevState.promptHistory, prevState.backCoverPrompt],
       }));
       
-      toast.warning("Using mirrored front cover as fallback");
-    } finally {
+      toast.warning("Using placeholder for back cover");
+        } finally {
       setLoadingState("generateBack", false);
+    }
+    setActiveStep("back_cover");
+  };
+
+  // Generate back cover prompt
+  const handleGenerateBackPrompt = async () => {
+    console.log("[Button] Generate Back Cover Prompt clicked");
+    
+    if (!coverState.prompt || !coverState.frontCoverImage) {
+      setError("Please generate a front cover first");
+      return;
+    }
+
+    try {
+      setLoadingState("generateBackPrompt", true);
+      setError("");
+      toast.loading("Generating back cover prompt...");
+
+      // Create a context that includes the front cover prompt and design elements
+      const context = {
+        frontCoverPrompt: coverState.prompt,
+        style: "Create a complementary back cover design that maintains visual harmony with the front cover while providing a suitable background for text overlay. The design should be subtle enough to not interfere with readability."
+      };
+
+      const response = await fetch(`${API_URL}/api/openai/generate-back-prompt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          context: context,
+          frontPrompt: coverState.prompt
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.backPrompt) {
+        updateCoverState({
+          backCoverPrompt: data.backPrompt
+        });
+        toast.success("Back cover prompt generated successfully");
+        saveToHistory(data.backPrompt);
+      } else {
+        // Fallback prompt generation if API fails
+        const fallbackPrompt = `Create a complementary back cover design based on the front cover theme: ${coverState.prompt}. Use a subtle, elegant design that allows for text overlay while maintaining visual harmony with the front cover.`;
+        updateCoverState({
+          backCoverPrompt: fallbackPrompt
+        });
+        toast.warning("Using fallback prompt generation");
+        saveToHistory(fallbackPrompt);
+      }
+      
+      setActiveStep("back_prompt");
+    } catch (err: any) {
+      console.error("Error generating back cover prompt:", err);
+      setError(err.message || "Failed to generate back cover prompt");
+      
+      // Fallback prompt generation on error
+      const fallbackPrompt = `Create a complementary back cover design based on the front cover theme: ${coverState.prompt}. Use a subtle, elegant design that allows for text overlay while maintaining visual harmony with the front cover.`;
+      updateCoverState({
+        backCoverPrompt: fallbackPrompt
+      });
+      toast.warning("Using fallback prompt generation due to error");
+      saveToHistory(fallbackPrompt);
+      setActiveStep("back_prompt");
+    } finally {
+      setLoadingState("generateBackPrompt", false);
+      toast.dismiss();
     }
   };
 
-  // Enhance image with AI - fixed to work directly
-  const handleEnhanceImage = async (target: "front" | "back") => {
-    console.log(`[Button] Enhance ${target} Cover clicked`);
-    toast.info(`Enhancing ${target} cover...`);
-    const imageUrl =
-      target === "front"
-        ? coverState.frontCoverImage
-        : coverState.backCoverImage;
+  // Handle start over functionality
+  const handleStartOver = () => {
+    // Reset the cover state to initial values
+    setCoverState((prevState) => ({
+      ...prevState,
+      prompt: "",
+      enhancedPrompt: "",
+      backCoverPrompt: "",
+      frontCoverImage: null,
+      backCoverImage: null,
+      fullWrapImage: null,
+      // Keep the book details and dimensions
+      promptHistory: prevState.promptHistory,
+    }));
 
-    if (!imageUrl) {
-      setError(`No ${target} cover image to enhance`);
+    // Reset UI state
+    setActiveStep("prompt");
+    setSourceTab("text");
+    setUploadedImage(null);
+    setError("");
+    setIsLoading({
+      enhancePrompt: false,
+      extractPrompt: false,
+      generateFront: false,
+      generateBack: false,
+      enhanceImage: false,
+      assembleWrap: false,
+      generateBackPrompt: false
+    });
+
+    // Clear file input if it exists
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (fileInput) {
+      fileInput.value = "";
+    }
+
+    toast.success("Started fresh cover generation");
+  };
+
+  // Enhance cover image using Real-ESRGAN
+  const handleEnhanceCover = async () => {
+    if (!coverState.frontCoverImage || !coverState.backCoverImage) {
+      setError("Please generate both front and back covers first");
       return;
     }
 
     try {
       setLoadingState("enhanceImage", true);
       setError("");
+      toast.loading("Enhancing cover images...");
 
-      console.log(`Enhancing ${target} cover image:`, imageUrl);
-      
-      // Start the enhancement process
-      const enhancementResult = await enhanceBookCover({
-        imageUrl,
-        target
+      // Enhance front cover
+      const frontEnhanceResponse = await enhanceBookCover({
+        imageUrl: coverState.frontCoverImage,
+        target: "front"
       });
-
-      // Create a toast to show progress
-      const toastId = toast.loading(`Enhancing ${target} cover...`);
-
-      // Poll for completion
-      let retries = 0;
-      const maxRetries = 60; // 5 minutes max (with 5s interval)
-      const pollInterval = 5000; // 5 seconds
-
-      while (retries < maxRetries) {
-        try {
-          const status = await checkEnhancementStatus(enhancementResult.statusEndpoint);
-
-          if (status.status === 'completed' && status.imageUrl) {
-            // Update the appropriate cover image
-            setCoverState((prevState) => ({
-              ...prevState,
-              [target === "front" ? "frontCoverImage" : "backCoverImage"]: normalizeUrl(status.imageUrl),
-            }));
-            
-            toast.dismiss(toastId);
-            toast.success(`${target === "front" ? "Front" : "Back"} cover enhanced successfully`);
-            setActiveStep("enhance");
-            return;
-          } else if (status.status === 'failed') {
-            throw new Error(status.error || 'Enhancement failed');
-          }
-
-          // Wait before checking again
-          await new Promise(resolve => setTimeout(resolve, pollInterval));
-          retries++;
-        } catch (error) {
-          console.error('Error checking enhancement status:', error);
-          toast.dismiss(toastId);
-          throw error;
-        }
+      
+      // Check enhancement status
+      const frontEnhanceStatus = await checkEnhancementStatus(frontEnhanceResponse.predictionId);
+      if (frontEnhanceStatus.status !== "succeeded") {
+        throw new Error("Front cover enhancement failed");
       }
 
-      // If we get here, we've timed out
-      throw new Error('Enhancement timed out');
-    } catch (error) {
-      console.error("Error enhancing image:", error);
-      setError(`Failed to enhance ${target} cover. Using original image.`);
-      toast.error(`Error enhancing ${target} cover`);
+      // Enhance back cover
+      const backEnhanceResponse = await enhanceBookCover({
+        imageUrl: coverState.backCoverImage,
+        target: "back"
+      });
+      
+      // Check enhancement status
+      const backEnhanceStatus = await checkEnhancementStatus(backEnhanceResponse.predictionId);
+      if (backEnhanceStatus.status !== "succeeded") {
+        throw new Error("Back cover enhancement failed");
+      }
+
+      // Update state with enhanced images
+      updateCoverState({
+        frontCoverImage: frontEnhanceStatus.output || coverState.frontCoverImage,
+        backCoverImage: backEnhanceStatus.output || coverState.backCoverImage
+      });
+
+      toast.success("Cover images enhanced successfully");
+      setActiveStep("enhance");
+    } catch (err: any) {
+      console.error("Error enhancing covers:", err);
+      setError(err.message || "Failed to enhance covers");
+      toast.error("Failed to enhance cover images");
     } finally {
       setLoadingState("enhanceImage", false);
+      toast.dismiss();
     }
   };
 
   // Assemble full wrap cover
-  const handleAssembleFullCover = async () => {
-    console.log("[Button] Assemble Full Wrap Cover clicked");
-    toast.info("Assembling full wrap cover...");
+  const handleAssembleFullWrap = async () => {
     if (!coverState.frontCoverImage || !coverState.backCoverImage) {
-      setError("Front and back cover images are required");
+      setError("Please generate both front and back covers first");
       return;
     }
 
     try {
       setLoadingState("assembleWrap", true);
       setError("");
+      toast.loading("Assembling full wrap cover...");
 
-      console.log("Assembling full wrap cover with:", {
-        frontCover: coverState.frontCoverImage,
-        backCover: coverState.backCoverImage,
+      // Prepare interior images if available
+      const interiorImagesUrls = coverState.interiorPages.length > 0 ? coverState.interiorPages : undefined;
+
+      const response = await assembleFullCover({
+        frontCoverUrl: coverState.frontCoverImage,
+        dimensions: coverState.dimensions,
         spineText: coverState.bookDetails.spineText,
         spineColor: coverState.bookDetails.spineColor,
-        interiorPages: coverState.interiorPages.length
+        interiorImagesUrls: interiorImagesUrls
       });
 
-      // Try client-side canvas assembly
-      try {
-        console.log("Using client-side canvas assembly");
-        
-        // Create a canvas
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          throw new Error("Could not create canvas context");
-        }
-        
-        // Set canvas dimensions to match the full wrap cover
-        canvas.width = coverState.dimensions.width;
-        canvas.height = coverState.dimensions.height;
-        
-        // Calculate positions
-        const frontCoverWidth = Math.round(coverState.dimensions.trimWidthInches * coverState.dimensions.dpi);
-        const spineWidth = coverState.dimensions.spine;
-        
-        // Create images for front and back covers
-        const frontImage = new Image();
-        const backImage = new Image();
-        
-        // Promise for loading both images
-        const imagesLoaded = new Promise((resolve, reject) => {
-          let imagesLoadedCount = 0;
-          
-          const onLoad = () => {
-            imagesLoadedCount++;
-            if (imagesLoadedCount === 2) resolve(true);
-          };
-          
-          const onError = () => {
-            console.error("Error loading image for assembly");
-            reject(new Error("Failed to load images for assembly"));
-          };
-          
-          // Load front cover
-          frontImage.onload = onLoad;
-          frontImage.onerror = onError;
-          frontImage.src = normalizeUrl(coverState.frontCoverImage) || '';
-          
-          // Load back cover
-          backImage.onload = onLoad;
-          backImage.onerror = onError;
-          backImage.src = normalizeUrl(coverState.backCoverImage) || '';
+      if (response.status !== "succeeded") {
+        throw new Error("Failed to assemble full wrap cover");
+      }
+
+      if (response.output) {
+        updateCoverState({
+          fullWrapImage: response.output
         });
-        
-        // Wait for images to load
-        console.log("Waiting for images to load...");
-        await imagesLoaded;
-        console.log("Images loaded successfully");
-        
-        // Fill background
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Draw back cover (left side)
-        ctx.drawImage(backImage, 0, 0, frontCoverWidth, canvas.height);
-        
-        // Draw spine (middle)
-        ctx.fillStyle = coverState.bookDetails.spineColor || '#000000';
-        ctx.fillRect(frontCoverWidth, 0, spineWidth, canvas.height);
-        
-        // Add spine text if specified
-        if (coverState.bookDetails.spineText) {
-          ctx.save();
-          ctx.translate(frontCoverWidth + spineWidth / 2, canvas.height / 2);
-          ctx.rotate(Math.PI / 2);
-          ctx.fillStyle = '#FFFFFF';
-          ctx.font = `bold ${Math.min(24, spineWidth * 0.8)}px Arial`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(coverState.bookDetails.spineText, 0, 0);
-          ctx.restore();
-        }
-        
-        // Draw front cover (right side)
-        ctx.drawImage(
-          frontImage, 
-          frontCoverWidth + spineWidth, 
-          0, 
-          frontCoverWidth, 
-          canvas.height
-        );
-        
-        // Add labels for front and back
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.fillRect(frontCoverWidth + spineWidth + frontCoverWidth - 60, canvas.height - 25, 50, 20);
-        ctx.fillRect(10, canvas.height - 25, 50, 20);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = '12px Arial';
-        ctx.fillText('Front', frontCoverWidth + spineWidth + frontCoverWidth - 50, canvas.height - 12);
-        ctx.fillText('Back', 20, canvas.height - 12);
-        
-        // Convert canvas to data URL
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-        
-        setCoverState((prevState) => ({
-          ...prevState,
-          fullWrapImage: dataUrl,
-        }));
-        
         toast.success("Full wrap cover assembled successfully");
         setActiveStep("assemble");
-        return;
-      } catch (canvasError) {
-        console.error("Canvas assembly error:", canvasError);
-        // Continue to API fallback
+      } else {
+        throw new Error("No full wrap URL returned");
       }
-
-      // Try the backend API as fallback
-      try {
-        const result = await assembleFullCover({
-          frontCoverUrl: coverState.frontCoverImage,
-          dimensions: coverState.dimensions,
-          spineText: coverState.bookDetails.spineText,
-          spineColor: coverState.bookDetails.spineColor,
-          interiorImagesUrls: coverState.interiorPages
-        });
-
-        if (result.fullCover) {
-          setCoverState((prevState) => ({
-            ...prevState,
-            fullWrapImage: normalizeUrl(result.fullCover),
-          }));
-          
-          toast.success("Full wrap cover assembled successfully");
-          setActiveStep("assemble");
-          return;
-        }
-        throw new Error("Failed to assemble full cover");
-      } catch (apiError) {
-        console.error("API error assembling full cover:", apiError);
-        // Continue to fallback
-      }
-
-      // Fallback: create a simple placeholder
-      const fullWrapWidth = coverState.dimensions.width;
-      const fullWrapHeight = coverState.dimensions.height;
-      const placeholderUrl = `https://placehold.co/${fullWrapWidth}x${fullWrapHeight}/3498DB-2980B9/FFFFFF/png?text=Full+Wrap+Cover`;
-      
-      setCoverState((prevState) => ({
-        ...prevState,
-        fullWrapImage: placeholderUrl,
-      }));
-      
-      toast.warning("Using placeholder for full wrap cover");
-      setActiveStep("assemble");
-    } catch (err) {
-      console.error("Error assembling full cover:", err);
-      setError("Failed to assemble full wrap cover");
-      toast.error("Error assembling full wrap cover");
+    } catch (err: any) {
+      console.error("Error assembling full wrap:", err);
+      setError(err.message || "Failed to assemble full wrap cover");
+      toast.error("Failed to assemble full wrap cover");
     } finally {
       setLoadingState("assembleWrap", false);
+      toast.dismiss();
     }
   };
 
-  // Handle downloading the full wrap cover
-  const handleDownloadFullCover = async () => {
-    console.log("[Button] Download Full Cover clicked");
-    toast.info("Downloading full wrap cover...");
+  // Handle download cover
+  const handleDownloadCover = async () => {
     if (!coverState.fullWrapImage) {
-      setError("No full wrap cover to download");
+      setError("Please assemble the full wrap cover first");
       return;
     }
 
     try {
-      // Try to use the API download function first
-      try {
-        const response = await fetch(`${API_URL}/api/book-cover/download`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            imageUrl: coverState.fullWrapImage,
-            format: 'pdf',
-            filename: 'kdp-full-wrap-cover',
-            width: coverState.dimensions.width,
-            height: coverState.dimensions.height,
-            metadata: {
-              title: 'KDP Full Wrap Cover',
-              author: 'Generated by PuzzleMaker',
-              trimSize: coverState.bookDetails.trimSize,
-              pageCount: coverState.bookDetails.pageCount,
-              paperType: coverState.bookDetails.paperType
-            }
-          })
-        });
-
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'kdp-full-wrap-cover.pdf';
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-          
-          toast.success("Full wrap cover downloaded successfully");
-          return;
-        }
-        throw new Error("Failed to download from API");
-      } catch (apiError) {
-        console.error("API download error, using direct download:", apiError);
-        // Continue to fallback
-      }
-      
-      // Fallback: direct download of the image
-      const a = document.createElement('a');
-      a.href = coverState.fullWrapImage;
-      a.download = 'kdp-full-wrap-cover.jpg';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      await downloadCover({
+        url: coverState.fullWrapImage,
+        format: "pdf",
+        filename: "book-cover-wrap.pdf"
+      });
       
       toast.success("Cover downloaded successfully");
-    } catch (error) {
-      console.error("Error downloading cover:", error);
-      setError("Failed to download cover. Try right-clicking the image and selecting 'Save image as...'");
-      toast.error("Error downloading cover");
-    }
-  };
-
-  // Handle using a prompt from history
-  const handleUseHistoryPrompt = (prompt: string) => {
-    updateCoverState({ prompt });
-  };
-
-  // Calculate dimensions when book details change 
-  useEffect(() => {
-    // Use the local calculation for immediate UI updates
-    const dimensions = localCoverDimensions;
-    
-    // Also trigger the API calculation for more accurate results
-    handleCalculateDimensions().catch(error => {
-      console.error("Failed to calculate dimensions from API:", error);
-    });
-  }, [
-    coverState.bookDetails.trimSize,
-    coverState.bookDetails.pageCount,
-    coverState.bookDetails.paperType,
-    coverState.bookDetails.hasBleed
-  ]);
-
-  // Parse trim size in useEffect for proper dimension calculation
-  useEffect(() => {
-    if (coverState.bookDetails.trimSize) {
-      const [widthStr, heightStr] = coverState.bookDetails.trimSize.split('x');
-      const trimWidth = parseFloat(widthStr);
-      const trimHeight = parseFloat(heightStr);
-      
-      if (!isNaN(trimWidth) && !isNaN(trimHeight)) {
-        setCoverState(prev => ({
-          ...prev,
-          dimensions: {
-            ...prev.dimensions,
-            trimWidthInches: trimWidth,
-            trimHeightInches: trimHeight
-          }
-        }));
-      }
-    }
-  }, [coverState.bookDetails.trimSize]);
-
-  // Ensure trim size dropdown works
-  const handleTrimSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newTrimSize = e.target.value;
-    console.log("Changing trim size to:", newTrimSize);
-    
-    updateBookDetails({ trimSize: newTrimSize });
-    
-    // Parse the new trim size and update dimensions
-    const [widthStr, heightStr] = newTrimSize.split('x');
-    const trimWidth = parseFloat(widthStr);
-    const trimHeight = parseFloat(heightStr);
-    
-    if (!isNaN(trimWidth) && !isNaN(trimHeight)) {
-      setCoverState(prev => ({
-        ...prev,
-        dimensions: {
-          ...prev.dimensions,
-          trimWidthInches: trimWidth,
-          trimHeightInches: trimHeight
-        }
-      }));
-      
-      // Force dimension recalculation
-      setTimeout(() => {
-        handleCalculateDimensions();
-      }, 100);
-    }
-  };
-
-  // Ensure paper type buttons work
-  const handlePaperTypeChange = (paperType: string) => {
-    console.log("Changing paper type to:", paperType);
-    updateBookDetails({ paperType });
-    
-    // Force dimension recalculation
-    setTimeout(() => {
-      handleCalculateDimensions();
-    }, 100);
-  };
-
-  // Ensure page count slider works
-  const handleSliderChange = (values: number[]) => {
-    if (values && values.length > 0) {
-      const newPageCount = values[0];
-      console.log("Changing page count to:", newPageCount);
-      updateBookDetails({ pageCount: newPageCount });
-      
-      // Force dimension recalculation
-      setTimeout(() => {
-        handleCalculateDimensions();
-      }, 100);
-    }
-  };
-
-  // Handle bleed setting change
-  const handleBleedChange = (hasBleed: boolean) => {
-    console.log("Changing bleed setting to:", hasBleed);
-    updateBookDetails({ hasBleed });
-    
-    // Force dimension recalculation
-    setTimeout(() => {
-      handleCalculateDimensions();
-    }, 100);
-  };
-
-  // Image to Prompt Button Component
-  const ImageToPromptButton = () => {
-    const [isUploading, setIsUploading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || e.target.files.length === 0) return;
-      
-      const file = e.target.files[0];
-      setIsUploading(true);
-      
-      try {
-        // Read file as data URL
-        const reader = new FileReader();
-        
-        reader.onload = async (event) => {
-          if (!event.target?.result) {
-            toast.error("Failed to read image file");
-            setIsUploading(false);
-            return;
-          }
-          
-          const imageData = event.target.result as string;
-          
-          toast.info("Analyzing image to generate prompt...");
-          
-          // Call the OpenAI API to extract a prompt from the image
-          console.log("Sending image for prompt extraction");
-          try {
-            const response = await fetch(`${API_URL}/api/openai/extract-prompt`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                imageUrl: imageData,
-                context: "Create a detailed book cover design description based on this image. Focus on capturing the style, mood, colors, and composition that would make a great book cover. Consider elements like typography, imagery, layout, and overall aesthetic."
-              }),
-            });
-            
-            if (!response.ok) {
-              throw new Error(`API error: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data.extractedPrompt) {
-              // Update the prompt field with the extracted prompt
-              updateCoverState({
-                prompt: data.extractedPrompt,
-                enhancedPrompt: data.extractedPrompt,
-              });
-              
-              // Switch to the prompt tab
-              setActiveStep("prompt");
-              
-              // Also set uploaded image
-              setUploadedImage(imageData);
-              setSourceTab("image");
-              
-              toast.success("Prompt generated from image!");
-            } else {
-              toast.error("No prompt was extracted from the image");
-            }
-          } catch (error) {
-            console.error("Error extracting prompt from image:", error);
-            toast.error("Failed to analyze image");
-          }
-          
-          setIsUploading(false);
-        };
-        
-        reader.onerror = () => {
-          toast.error("Failed to read image file");
-          setIsUploading(false);
-        };
-        
-        reader.readAsDataURL(file);
-      } catch (error) {
-        console.error("Error handling image upload:", error);
-        toast.error("Error uploading image");
-        setIsUploading(false);
-      }
-    };
-
-    const handleButtonClick = () => {
-      fileInputRef.current?.click();
-    };
-
-    return (
-      <>
-        <input
-          type="file"
-          accept="image/*"
-          className="hidden"
-          ref={fileInputRef}
-          onChange={handleImageUpload}
-        />
-        <Button
-          onClick={handleButtonClick}
-          className="flex items-center gap-2 bg-gradient-to-r from-violet-900/80 to-indigo-900/80 hover:from-violet-800/80 hover:to-indigo-800/80 text-white border border-violet-600/20 w-full py-4 transition-all"
-          disabled={isUploading}
-        >
-          {isUploading ? (
-            <>
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Processing Image...
-            </>
-          ) : (
-            <>
-              <Upload className="h-5 w-5" />
-              Generate from Image
-            </>
-          )}
-        </Button>
-      </>
-    );
-  };
-
-  // Generate back cover prompt based on front cover theme
-  const handleGenerateBackPrompt = async () => {
-    try {
-      setLoadingState("generateBackPrompt", true);
-      setError("");
-
-      const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: coverState.prompt,
-          context: "Based on this front cover design prompt, create a matching back cover description. The back cover should complement the front cover's style and theme while being more subdued. Include suggestions for layout, text placement, and any imagery that would work well with the front cover design.",
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate back cover prompt");
-      }
-
-      const data = await response.json();
-      
-      updateCoverState({
-        backCoverPrompt: data.enhancedPrompt,
-      });
-
-      toast.success("Back cover prompt generated successfully!");
-    } catch (error) {
-      console.error("Error generating back cover prompt:", error);
-      setError("Failed to generate back cover prompt. Please try again.");
-      toast.error("Failed to generate back cover prompt");
-    } finally {
-      setLoadingState("generateBackPrompt", false);
+    } catch (err: any) {
+      console.error("Error downloading cover:", err);
+      setError(err.message || "Failed to download cover");
+      toast.error("Failed to download cover");
     }
   };
 
   return (
-    <div className="container max-w-6xl mx-auto py-6 px-4">
-      {/* Header Section with new design */}
-      <div className="mb-8">
-        <div className="flex items-center mb-4">
-          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-700 text-white flex items-center justify-center mr-3 shadow-lg shadow-indigo-500/30">
-            <BookOpenCheck className="h-6 w-6" />
-          </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 to-indigo-500 bg-clip-text text-transparent drop-shadow-sm">
-            KDP Cover Generator
-          </h1>
-        </div>
-        <p className="text-zinc-400 max-w-2xl">
-          Create professional book covers optimized for Kindle Direct Publishing. Start by uploading an image for inspiration, and AI will analyze it to generate a prompt for your cover design.
-        </p>
-      </div>
-
-      {/* Steps Tracker - Redesigned with a cleaner look */}
-      <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 mb-8 border border-indigo-500/10 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div
-            className={`flex flex-col items-center ${activeStep === "prompt" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "prompt" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
-            >
-              <PenSquare className="h-5 w-5" />
-            </div>
-            <span className="text-sm">Describe</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "details" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "details" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
-            >
-              <AlignLeft className="h-5 w-5" />
-            </div>
-            <span className="text-sm">Customize</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "generate" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "generate" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
-            >
-              <Wand2 className="h-5 w-5" />
-            </div>
-            <span className="text-sm">Generate</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "enhance" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "enhance" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
-            >
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <span className="text-sm">Enhance</span>
-          </div>
-
-          <div
-            className={`h-0.5 flex-1 mx-2 ${activeStep === "prompt" || activeStep === "details" || activeStep === "generate" || activeStep === "enhance" ? "bg-zinc-800" : "bg-gradient-to-r from-violet-500 to-indigo-500"}`}
-          ></div>
-
-          <div
-            className={`flex flex-col items-center ${activeStep === "assemble" ? "text-indigo-400 font-medium" : "text-zinc-500"}`}
-          >
-            <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-              ${activeStep === "assemble" ? "bg-indigo-500/20 border-2 border-indigo-500" : "bg-zinc-800/80 border border-zinc-700"}`}
-            >
-              <Download className="h-5 w-5" />
-            </div>
-            <span className="text-sm">Download</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Controls */}
-        <div className="lg:col-span-2">
-          <Card className="bg-zinc-900/50 backdrop-blur-sm border border-indigo-500/10 overflow-hidden shadow-lg">
-            <CardHeader className="border-b border-zinc-800 bg-zinc-900/80">
-              <CardTitle className="flex items-center text-zinc-100">
-                {activeStep === "prompt" && (
-                  <>
-                    <PenSquare className="mr-2 h-5 w-5 text-violet-400" />
-                    <span>Step 1: Describe Your Cover</span>
-                  </>
-                )}
-
-                {activeStep === "details" && (
-                  <>
-                    <AlignLeft className="mr-2 h-5 w-5 text-violet-400" />
-                    <span>Step 2: Book Specifications</span>
-                  </>
-                )}
-
-                {activeStep === "generate" && (
-                  <>
-                    <Wand2 className="mr-2 h-5 w-5 text-violet-400" />
-                    <span>Step 3: Generate Cover</span>
-                  </>
-                )}
-
-                {activeStep === "enhance" && (
-                  <>
-                    <Sparkles className="mr-2 h-5 w-5 text-violet-400" />
-                    <span>Step 4: Enhance Cover</span>
-                  </>
-                )}
-
-                {activeStep === "assemble" && (
-                  <>
-                    <Download className="mr-2 h-5 w-5 text-violet-400" />
-                    <span>Step 5: Download Full Cover</span>
-                  </>
-                )}
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className="p-6">
-              {/* Step 1: Prompt Section */}
-              {activeStep === "prompt" && (
-                <div className="space-y-6">
-                  <Tabs value={sourceTab} onValueChange={(value) => setSourceTab(value as "text" | "image")} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-900/50 p-1 rounded-lg border border-zinc-800/30">
-                      <TabsTrigger 
-                        value="text"
-                        className="flex items-center justify-center gap-2 py-4 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400 transition-all"
-                      >
-                        <FileText className="h-4 w-4" />
-                        <div className="flex flex-col items-center">
-                          <span>Describe Your Cover</span>
-                          <span className="text-xs opacity-70">Write a prompt manually</span>
-                        </div>
-                      </TabsTrigger>
-                      <TabsTrigger 
-                        value="image"
-                        className="flex items-center justify-center gap-2 py-4 text-sm data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-zinc-400 transition-all"
-                      >
-                        <Upload className="h-4 w-4" />
-                        <div className="flex flex-col items-center">
-                          <span>Generate from Image</span>
-                          <span className="text-xs opacity-70">Upload a reference image</span>
-                        </div>
-                      </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="text" className="space-y-6">
-                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs mb-4">
-                        <div className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
-                          <p className="text-violet-300">
-                            Describe your ideal book cover in detail. Include style, mood, colors, composition, and any specific elements you want to see in your cover.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <label
-                          htmlFor="prompt"
-                          className="text-sm font-medium text-zinc-300"
-                        >
-                          Describe your book cover in detail
-                        </label>
-                        <div className="relative">
-                          <Textarea
-                            id="prompt"
-                            value={coverState.prompt}
-                            onChange={handlePromptChange}
-                            className="w-full min-h-[180px] rounded-lg border border-zinc-700/50 bg-zinc-900/30 p-4 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-colors resize-y placeholder:text-zinc-600"
-                            placeholder="Describe your ideal book cover in detail. Include style, mood, main elements, colors, etc."
-                          />
-                          <div className="absolute bottom-3 right-3 rounded-full bg-zinc-800/80 px-2 py-1 text-xs text-zinc-400">
-                            {coverState.prompt.length} chars
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between text-sm">
-                          <span className="text-zinc-500">
-                            Min 5 characters
-                          </span>
-                          <span
-                            className={
-                              coverState.prompt.length < 5
-                                ? "text-rose-400"
-                                : "text-violet-400"
-                            }
-                          >
-                            {coverState.prompt.length < 5
-                              ? "Add more details"
-                              : "✓ Ready to generate"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3">
-                        <Button
-                          onClick={handleEnhancePrompt}
-                          disabled={
-                            isLoading.enhancePrompt ||
-                            coverState.prompt.trim().length < 5
-                          }
-                          className="flex-1 bg-zinc-800 text-violet-300 hover:bg-violet-900/50 hover:text-white border border-violet-700/30 hover:border-violet-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          {isLoading.enhancePrompt ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Enhancing...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Enhance with AI
-                            </>
-                          )}
-                        </Button>
-
-                        <Button
-                          onClick={() => setActiveStep("details")}
-                          disabled={coverState.prompt.trim().length < 5}
-                          className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                        >
-                          Continue
-                          <ChevronRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      {/* Prompt History */}
-                      {coverState.promptHistory.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-zinc-300 mb-2 flex items-center">
-                            <RotateCw className="h-3.5 w-3.5 mr-1.5 text-zinc-500" />
-                            Recent Prompts
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {coverState.promptHistory.map(
-                              (historyPrompt, idx) => (
-                                <button
-                                  key={idx}
-                                  onClick={() =>
-                                    handleUseHistoryPrompt(historyPrompt)
-                                  }
-                                  className="text-xs px-2 py-1 rounded-md bg-zinc-800/50 text-zinc-400 hover:bg-violet-900/40 hover:text-violet-200 border border-zinc-700/30 hover:border-violet-700/50 truncate max-w-[180px] transition-colors"
-                                >
-                                  {historyPrompt.slice(0, 30)}
-                                  {historyPrompt.length > 30 ? "..." : ""}
-                                </button>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </TabsContent>
-
-                    <TabsContent value="image" className="space-y-6">
-                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs mb-4">
-                        <div className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
-                          <p className="text-violet-300">
-                            Upload a reference image and our AI will analyze it to create a detailed prompt. You can then edit the prompt before generating your cover.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div 
-                        className="flex flex-col items-center justify-center border-2 border-dashed border-violet-700/30 rounded-lg p-8 bg-zinc-900/20 dropzone hover:border-violet-500/50 transition-colors cursor-pointer"
-                        onClick={(e) => {
-                          console.log("Upload zone clicked");
-                          const fileInput = document.getElementById('image-upload-input');
-                          if (fileInput) {
-                            fileInput.click();
-                          }
-                        }}
-                      >
-                        {uploadedImage ? (
-                          <div className="relative w-full max-w-xs">
-                            <img
-                              src={uploadedImage}
-                              alt="Uploaded cover"
-                              className="w-full h-auto rounded-lg shadow-md"
-                            />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setUploadedImage(null);
-                              }}
-                              className="absolute top-2 right-2 bg-rose-500/80 text-white rounded-full p-1 hover:bg-rose-600"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label htmlFor="image-upload-input" className="flex flex-col items-center justify-center cursor-pointer w-full h-full">
-                            <UploadCloud className="h-16 w-16 text-violet-600/50 mb-4" />
-                            <span className="text-violet-300 mb-2 font-medium">
-                              Upload a reference image
-                            </span>
-                            <span className="text-zinc-400 text-sm mb-6">
-                              Upload any book cover or design you like for inspiration
-                            </span>
-                            <input
-                              id="image-upload-input"
-                              type="file"
-                              className="hidden"
-                              accept="image/jpeg,image/png,image/webp"
-                              onChange={handleExtractorImageUpload}
-                            />
-                            <Button
-                              variant="secondary"
-                              className="bg-violet-800/70 text-white hover:bg-violet-700 active:bg-violet-600 border-violet-600/50 hover:border-violet-500 transition-all transform hover:scale-[1.05] active:scale-[0.98] shadow-md"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const fileInput = document.getElementById('image-upload-input');
-                                if (fileInput) {
-                                  fileInput.click();
-                                }
-                              }}
-                            >
-                              <Upload className="mr-1 h-3.5 w-3.5" />
-                              Select Image
-                            </Button>
-                          </label>
-                        )}
-                      </div>
-
-                      <Button
-                        onClick={() => {
-                          console.log("Extract Prompt button clicked");
-                          console.log("Current uploadedImage state:", !!uploadedImage);
-                          handleExtractPrompt();
-                        }}
-                        disabled={isLoading.extractPrompt || !uploadedImage}
-                        className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg py-4"
-                        data-image-analyze-button="true"
-                      >
-                        {isLoading.extractPrompt ? (
-                          <>
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                            Analyzing Image...
-                          </>
-                        ) : (
-                          <>
-                            <Wand2 className="mr-2 h-5 w-5" />
-                            Generate Prompt from Image
-                          </>
-                        )}
-                      </Button>
-                      
-                      <div className="rounded-md bg-violet-950/20 border border-violet-700/20 p-3 text-xs">
-                        <div className="flex items-start gap-2">
-                          <Info className="h-4 w-4 mt-0.5 text-violet-400 flex-shrink-0" />
-                          <p className="text-violet-300">
-                            Our AI will analyze your image and create a detailed prompt that you can edit before generating your cover. This helps ensure the generated cover matches your vision.
-                          </p>
-                        </div>
-                      </div>
-                    </TabsContent>
-                  </Tabs>
-                </div>
-              )}
-
-              {/* Step 2: Book Details */}
-              {activeStep === "details" && (
-                <div className="space-y-6">
-                  <div className="space-y-6 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
-                    <h3 className="font-medium flex items-center text-zinc-300">
-                      <Ruler className="h-4 w-4 mr-2 text-violet-400" />
-                      Book Size and Pages
-                    </h3>
-
-                    {/* Trim Size Selection */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <span>Trim Size</span>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
-                              <p>The final cut size of your printed book, measured in inches.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </label>
-                      <select
-                        value={coverState.bookDetails.trimSize}
-                        onChange={handleTrimSizeChange}
-                        className="w-full rounded-md border border-zinc-700/50 bg-zinc-900/70 p-2.5 text-sm text-zinc-300 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
-                      >
-                        {trimSizeOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Paper Type */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <span>Paper Type</span>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
-                              <p>White: Bright white paper suitable for most books.<br />
-                              Cream: Warmer tone, often used for fiction.<br />
-                              Color: For interior color printing.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {paperTypeOptions.map((option) => (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => handlePaperTypeChange(option.value)}
-                            className={`px-3 py-2.5 rounded-md text-sm transition-all ${
-                              coverState.bookDetails.paperType === option.value
-                                ? "bg-violet-700 text-white font-medium shadow-sm"
-                                : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
-                            }`}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Page Count */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <span>Page Count</span>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
-                              <p>The total number of pages in your book. This affects spine width.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        
-                        <span className="ml-auto text-violet-400 font-medium">
-                          {coverState.bookDetails.pageCount} pages
-                        </span>
-                      </label>
-                      <div className="flex items-center space-x-3">
-                        <Slider
-                          value={[coverState.bookDetails.pageCount]}
-                          min={24}
-                          max={999}
-                          step={1}
-                          onValueChange={handleSliderChange}
-                          className="flex-1"
-                        />
-                        <Input
-                          type="number"
-                          min={24}
-                          max={999}
-                          value={coverState.bookDetails.pageCount}
-                          onChange={handlePageCountInput}
-                          className="w-20 text-center bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                        />
-                      </div>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Minimum: 24, Maximum: 999
-                      </p>
-                    </div>
-
-                    {/* Bleed Option */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <span>Bleed Setting</span>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
-                              <p>Bleed is the extension of artwork beyond the trim edge. Recommended for covers with elements that reach the edge.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleBleedChange(true)}
-                          className={`px-3 py-2.5 rounded-md text-sm transition-all ${
-                            coverState.bookDetails.hasBleed
-                              ? "bg-violet-700 text-white font-medium shadow-sm"
-                              : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
-                          }`}
-                        >
-                          With Bleed (0.125")
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleBleedChange(false)}
-                          className={`px-3 py-2.5 rounded-md text-sm transition-all ${
-                            !coverState.bookDetails.hasBleed
-                              ? "bg-violet-700 text-white font-medium shadow-sm"
-                              : "bg-zinc-800/70 hover:bg-zinc-800 text-zinc-300 border border-zinc-700/50"
-                          }`}
-                        >
-                          No Bleed
-                        </button>
-                      </div>
-                      <p className="text-xs text-zinc-500 mt-1">
-                        Most KDP books require bleed. Only choose "No Bleed" if
-                        specifically instructed.
-                      </p>
-                    </div>
-
-                    {/* Spine Text Input */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-zinc-300 flex items-center">
-                        <span>Spine Text</span>
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Info className="h-3.5 w-3.5 ml-1.5 text-zinc-500" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs bg-zinc-800 text-zinc-200 border-zinc-700">
-                              <p>Text that will appear on the book's spine. Only applicable for books with 100+ pages.</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </label>
-                      <Input
-                        type="text"
-                        value={coverState.bookDetails.spineText}
-                        onChange={handleSpineTextChange}
-                        placeholder={coverState.bookDetails.pageCount >= 100 ? "Enter spine text (optional)" : "Spine too thin for text"}
-                        className="w-full bg-zinc-900/70 border-zinc-700/50 text-zinc-300 focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                        disabled={coverState.bookDetails.pageCount < 100}
-                      />
-                      {coverState.bookDetails.pageCount < 100 ? (
-                        <p className="text-xs text-amber-500 mt-1">
-                          For books with less than 100 pages, spine text is not recommended
-                        </p>
-                      ) : (
-                        <p className="text-xs text-zinc-500 mt-1">
-                          {coverState.bookDetails.spineText.length}/40 characters
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Auto-Calculated Output Box */}
-                    <div className="rounded-md bg-black/30 p-4 space-y-1 border border-zinc-800/50">
-                      <h4 className="text-sm font-medium text-violet-400 mb-2">
-                        Cover Dimensions Preview
-                      </h4>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">Final size with bleed:</span>
-                          <span className="font-medium text-zinc-300">
-                            {coverState.dimensions.totalWidthInches}" × {coverState.dimensions.totalHeightInches}"
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">Spine width:</span>
-                          <span className="font-medium text-zinc-300">
-                            {coverState.dimensions.spineWidthInches}"
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">Resolution:</span>
-                          <span className="font-medium text-zinc-300">
-                            {coverState.dimensions.width} × {coverState.dimensions.height} px
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-zinc-500">DPI:</span>
-                          <span className="font-medium text-zinc-300">300</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Navigation Buttons */}
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveStep("prompt")}
-                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to Prompt
-                    </Button>
-
-                    <Button
-                      onClick={() => {
-                        console.log("Continue to Generate button clicked!");
-                        // Force dimension calculation before proceeding
-                        handleCalculateDimensions();
-                        
-                        // After a small delay, start the generation process
-                        setTimeout(() => {
-                          handleGenerateFrontCover();
-                        }, 300);
-                      }}
-                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      Generate Covers
-                      <ChevronRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Generate Covers */}
-              {activeStep === "generate" && (
-                <div className="space-y-6">
-                  {/* Front Cover Section */}
-                  <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
-                    <h3 className="font-medium flex items-center text-zinc-300">
-                      <Layout className="h-4 w-4 mr-2 text-indigo-400" />
-                      Front Cover
-                    </h3>
-
-                    {/* Show the front cover prompt */}
-                    {coverState.prompt && (
-                      <div className="rounded-md bg-black/30 p-4 space-y-2">
-                        <h4 className="text-sm font-medium text-indigo-400">Generated Prompt</h4>
-                        <p className="text-sm text-zinc-300">{coverState.prompt}</p>
-                        <div className="flex gap-2 mt-2">
-                          <Button
-                            onClick={() => handleGenerateFrontCover()}
-                            disabled={isLoading.generateFront}
-                            className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
-                          >
-                            {isLoading.generateFront ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Generating...
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Generate Front Cover
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show the generated front cover */}
-                    {coverState.frontCoverImage && (
-                      <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-700/50">
-                        <img
-                          src={normalizeUrl(coverState.frontCoverImage) || ''}
-                          alt="Generated front cover"
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEnhanceImage("front")}
-                              disabled={isLoading.enhanceImage}
-                              className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
-                            >
-                              {isLoading.enhanceImage ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Sparkles className="h-4 w-4" />
-                              )}
-                              <span className="ml-2">Enhance</span>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Back Cover Section */}
-                  {coverState.frontCoverImage && (
-                    <div className="space-y-4 rounded-lg bg-zinc-900/50 p-4 border border-zinc-700/50">
-                      <h3 className="font-medium flex items-center text-zinc-300">
-                        <Layout className="h-4 w-4 mr-2 text-indigo-400" />
-                        Back Cover
-                      </h3>
-
-                      {/* Generate Back Cover Prompt Button */}
-                      {!coverState.backCoverPrompt && (
-                        <Button
-                          onClick={handleGenerateBackPrompt}
-                          disabled={isLoading.generateBackPrompt}
-                          className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
-                        >
-                          {isLoading.generateBackPrompt ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Generating Back Cover Prompt...
-                            </>
-                          ) : (
-                            <>
-                              <Lightbulb className="mr-2 h-4 w-4" />
-                              Generate Back Cover Prompt
-                            </>
-                          )}
-                        </Button>
-                      )}
-
-                      {/* Show the back cover prompt */}
-                      {coverState.backCoverPrompt && (
-                        <div className="rounded-md bg-black/30 p-4 space-y-2">
-                          <h4 className="text-sm font-medium text-indigo-400">Generated Back Cover Prompt</h4>
-                          <p className="text-sm text-zinc-300">{coverState.backCoverPrompt}</p>
-                          <div className="flex gap-2 mt-2">
-                            <Button
-                              onClick={() => handleGenerateBackCover()}
-                              disabled={isLoading.generateBack}
-                              className="bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600"
-                            >
-                              {isLoading.generateBack ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Generating...
-                                </>
-                              ) : (
-                                <>
-                                  <Wand2 className="mr-2 h-4 w-4" />
-                                  Generate Back Cover
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Show the generated back cover */}
-                      {coverState.backCoverImage && (
-                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-700/50">
-                          <img
-                            src={normalizeUrl(coverState.backCoverImage) || ''}
-                            alt="Generated back cover"
-                            className="w-full h-full object-cover"
-                          />
-                          <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/50 backdrop-blur-sm">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEnhanceImage("back")}
-                                disabled={isLoading.enhanceImage}
-                                className="bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
-                              >
-                                {isLoading.enhanceImage ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Sparkles className="h-4 w-4" />
-                                )}
-                                <span className="ml-2">Enhance</span>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Navigation Buttons */}
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveStep("details")}
-                      className="flex-1 bg-zinc-800/70 text-zinc-300 hover:bg-zinc-700 border-zinc-700"
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to Details
-                    </Button>
-
-                    <Button
-                      onClick={() => setActiveStep("enhance")}
-                      disabled={
-                        !coverState.frontCoverImage ||
-                        !coverState.backCoverImage ||
-                        isLoading.generateFront ||
-                        isLoading.generateBack
-                      }
-                      className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white hover:from-indigo-700 hover:to-indigo-600 transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      {isLoading.generateFront || isLoading.generateBack ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          Continue to Enhance
-                          <ChevronRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 4: Enhance & Interior Pages */}
-              {activeStep === "enhance" && (
-                <div className="space-y-6">
-                  {/* Enhance Covers Section */}
-                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
-                    <h3 className="font-medium flex items-center text-zinc-300">
-                      <Sparkles className="h-4 w-4 mr-2 text-violet-400" />
-                      Enhance Cover Quality
-                    </h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-zinc-400">
-                          Front Cover
-                        </h4>
-                        <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
-                          {coverState.frontCoverImage ? (
-                            <img
-                              src={normalizeUrl(coverState.frontCoverImage) || ''}
-                              alt="Front Cover"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEnhanceImage("front")}
-                          disabled={
-                            isLoading.enhanceImage ||
-                            !coverState.frontCoverImage
-                          }
-                          className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
-                        >
-                          {isLoading.enhanceImage ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Enhancing...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Enhance Front Cover
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                      <div className="space-y-3">
-                        <h4 className="text-sm font-medium text-zinc-400">
-                          Back Cover
-                        </h4>
-                        <div className="relative aspect-[2/3] bg-zinc-900/30 rounded-lg overflow-hidden border border-zinc-800/50 shadow-inner">
-                          {coverState.backCoverImage ? (
-                            <img
-                              src={normalizeUrl(coverState.backCoverImage) || ''}
-                              alt="Back Cover"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full">
-                              <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          onClick={() => handleEnhanceImage("back")}
-                          disabled={
-                            isLoading.enhanceImage || !coverState.backCoverImage
-                          }
-                          className="w-full bg-zinc-800/80 text-violet-300 hover:bg-violet-900/40 hover:text-violet-200 border-zinc-700/50 hover:border-violet-500/50 transition-all"
-                        >
-                          {isLoading.enhanceImage ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Enhancing...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Enhance Back Cover
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start space-x-2">
-                      <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <p>
-                        AI enhancement improves the resolution and visual quality of your covers. This step is optional but recommended for professional results.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Interior Page Thumbnails */}
-                  <div className="space-y-4 rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 shadow-inner">
-                    <h3 className="font-medium flex items-center text-zinc-300">
-                      <ImageIcon className="h-4 w-4 mr-2 text-violet-400" />
-                      Interior Page Previews <span className="text-xs ml-2 text-zinc-500">(Optional)</span>
-                    </h3>
-
-                    <p className="text-sm text-zinc-400">
-                      Upload up to 3 sample pages from your book to display on the back cover.
-                    </p>
-
-                    <div className="grid grid-cols-3 gap-3">
-                      {coverState.interiorPages.map((image, index) => (
-                        <div
-                          key={index}
-                          className="relative group aspect-[3/4]"
-                        >
-                          <img
-                            src={image}
-                            alt={`Interior page ${index + 1}`}
-                            className="w-full h-full object-cover rounded-md border border-zinc-800/50 shadow-inner"
-                          />
-                          <button
-                            onClick={() => handleRemoveInteriorImage(index)}
-                            className="absolute top-1 right-1 bg-rose-500/80 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                            aria-label="Remove image"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ))}
-
-                      {coverState.interiorPages.length < 3 && (
-                        <label className="flex flex-col items-center justify-center border-2 border-dashed border-violet-700/20 rounded-md cursor-pointer hover:border-violet-600/30 hover:bg-violet-900/10 transition-colors aspect-[3/4]">
-                          <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={handleInteriorImageUpload}
-                            className="hidden"
-                          />
-                          <PlusCircle className="h-6 w-6 text-violet-700/50 mb-2" />
-                          <span className="text-xs text-zinc-500 text-center px-2">
-                            Add page preview
-                          </span>
-                        </label>
-                      )}
-                    </div>
-
-                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start space-x-2">
-                      <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <p>
-                        Interior page previews help potential readers see samples of your book's content on the back cover.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Navigation Buttons */}
-                  <div className="flex gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveStep("generate")}
-                      className="flex-1 bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all"
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to Covers
-                    </Button>
-
-                    <Button
-                      onClick={handleAssembleFullCover}
-                      disabled={
-                        isLoading.assembleWrap ||
-                        !coverState.frontCoverImage ||
-                        !coverState.backCoverImage
-                      }
-                      className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white hover:from-violet-700 hover:to-indigo-700 transition-all transform hover:scale-[1.01] active:scale-[0.99]"
-                    >
-                      {isLoading.assembleWrap ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating Full Cover...
-                        </>
-                      ) : (
-                        <>
-                          Create Full Wrap Cover
-                          <ChevronRight className="ml-2 h-4 w-4" />
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 5: Download */}
-              {activeStep === "assemble" && (
-                <div className="space-y-6">
-                  <div className="rounded-lg bg-gradient-to-b from-zinc-900/60 to-zinc-900/40 p-5 border border-zinc-800/50 space-y-5 shadow-inner">
-                    <h3 className="font-medium flex items-center text-zinc-300">
-                      <Download className="h-5 w-5 mr-2 text-violet-400" />
-                      Your Cover is Ready
-                    </h3>
-
-                    <p className="text-sm text-zinc-400">
-                      Your full wrap cover is ready to download for Amazon KDP. It includes all specifications based on your book details.
-                    </p>
-
-                    <div className="flex justify-center py-4">
-                      {coverState.fullWrapImage ? (
-                        <div className="relative">
-                          <img
-                            src={normalizeUrl(coverState.fullWrapImage) || ''}
-                            alt="Full Wrap Cover"
-                            className="max-w-full max-h-[400px] rounded-md border border-indigo-700/20 shadow-lg"
-                          />
-
-                          {/* Overlay labels for front, spine, back */}
-                          <div className="absolute inset-0 flex">
-                            <div className="flex-1 border-r border-indigo-500/20 relative">
-                              <span className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded">
-                                Back
-                              </span>
-                            </div>
-                            <div className="w-[3%] border-r border-indigo-500/20 relative">
-                              <span className="absolute top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded whitespace-nowrap rotate-90">
-                                Spine
-                              </span>
-                            </div>
-                            <div className="flex-1 relative">
-                              <span className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-black/70 text-zinc-300 text-xs rounded">
-                                Front
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ) : isLoading.assembleWrap ? (
-                        <div className="flex flex-col items-center justify-center h-48 gap-3">
-                          <Loader2 className="h-10 w-10 text-violet-500 animate-spin" />
-                          <p className="text-zinc-400">
-                            Creating your full wrap cover...
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-48 text-zinc-500">
-                          <AlertCircle className="h-10 w-10 mb-3" />
-                          <p>Failed to generate full wrap cover</p>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        onClick={handleDownloadFullCover}
-                        disabled={!coverState.fullWrapImage}
-                        className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium rounded-md px-6 py-4 flex items-center justify-center text-center hover:from-violet-700 hover:to-indigo-700 active:from-violet-800 active:to-indigo-800 transition-all transform hover:scale-[1.01] active:scale-[0.99] shadow-lg shadow-indigo-700/10" 
-                      >
-                        <Download className="h-5 w-5 mr-2" />
-                        Download Full KDP Cover
-                      </Button>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <a
-                          href={normalizeUrl(coverState.fullWrapImage) || '#'}
-                          download="kdp-full-wrap-cover.jpg"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`bg-zinc-800 text-white font-medium rounded-md px-4 py-2 flex items-center justify-center text-center text-sm ${!coverState.fullWrapImage ? "opacity-50 cursor-not-allowed" : "hover:bg-zinc-700"}`}
-                          onClick={(e) =>
-                            !coverState.fullWrapImage && e.preventDefault()
-                          }
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download as JPEG
-                        </a>
-
-                        <Button
-                          variant="outline"
-                          onClick={() => setActiveStep("enhance")}
-                          className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700/80 border-zinc-700/50 hover:border-zinc-600/80 transition-all text-sm"
-                        >
-                          <Undo className="mr-2 h-4 w-4" />
-                          Back to Edit
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="bg-violet-950/20 border border-violet-800/20 rounded-md p-3 text-xs text-violet-300 flex items-start gap-3">
-                      <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="mb-1">
-                          Your cover is exactly {coverState.dimensions.width} × {coverState.dimensions.height} pixels at 300 DPI, matching your book's specifications.
-                        </p>
-                        <p>Ready to upload directly to Amazon KDP.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Tips Section */}
-                  <div className="rounded-lg bg-zinc-900/30 p-5 border border-zinc-800/50">
-                    <div className="flex items-center mb-3">
-                      <Lightbulb className="h-4 w-4 mr-2 text-amber-400" />
-                      <h3 className="font-medium text-zinc-300">
-                        Tips for KDP Upload
-                      </h3>
-                    </div>
-
-                    <ul className="space-y-2 text-sm text-zinc-400">
-                      <li className="flex items-start">
-                        <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
-                        <span>
-                          Always check your cover in the KDP previewer before publishing.
-                        </span>
-                      </li>
-                      <li className="flex items-start">
-                        <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
-                        <span>
-                          KDP may reject covers with text too close to the trim edges. Keep important elements away from edges.
-                        </span>
-                      </li>
-                      <li className="flex items-start">
-                        <Check className="h-4 w-4 mr-2 text-amber-400 mt-0.5 flex-shrink-0" />
-                        <span>
-                          For best results, upload this cover as PDF. KDP accepts JPEG but PDF maintains higher quality.
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-            </CardContent>
-          </Card>
-        </div>
-          
-        {/* Right Column: Preview */}
-        <div className="space-y-4">
-          {/* Error display */}
-          {error && (
-            <Card className="bg-rose-950/40 border border-rose-700/30 overflow-hidden shadow-lg mb-4">
-              <CardContent className="p-4 flex items-center space-x-3">
-                <AlertCircle className="h-5 w-5 text-rose-400 flex-shrink-0" />
-                <p className="text-rose-300 text-sm">{error}</p>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Preview Card */}
-          <Card className="bg-gradient-to-b from-zinc-900/60 to-black/60 backdrop-blur-sm border border-indigo-500/10 overflow-hidden shadow-lg">
-            <CardHeader className="border-b border-zinc-800 bg-black/40 pb-3">
-              <CardTitle className="text-center text-zinc-300 text-sm font-medium">
-                {coverState.fullWrapImage
-                  ? "Full Wrap Cover Preview"
-                  : coverState.frontCoverImage
-                    ? "Cover Preview"
-                    : "Preview"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-5 flex flex-col items-center justify-center min-h-[450px]">
-              {coverState.fullWrapImage ? (
-                <div className="relative group">
-                  <img 
-                    src={normalizeUrl(coverState.fullWrapImage) || ''} 
-                    alt="Generated Full Wrap Cover"
-                    className="max-w-full max-h-[450px] rounded-md border border-indigo-600/20 shadow-lg"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
-                    <a 
-                      href={normalizeUrl(coverState.fullWrapImage) || '#'} 
-                        download="kdp-full-wrap-cover.jpg"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      className="bg-violet-600 hover:bg-violet-700 text-white font-medium rounded-md px-4 py-2 flex items-center text-sm transition-colors"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download Cover
-                      </a>
-                    </div>
-                </div>
-              ) : coverState.frontCoverImage && coverState.backCoverImage ? (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 bg-zinc-900/30 p-3 rounded-lg">
-                    <div className="relative w-[150px]">
-                      <img
-                        src={normalizeUrl(coverState.frontCoverImage) || ''}
-                        alt="Generated Front Cover"
-                        className="w-full h-auto rounded-md border border-indigo-600/20 shadow-lg"
-                      />
-                      <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
-                        Front
-                      </div>
-                    </div>
-                    <div className="relative w-[150px]">
-                      <img
-                        src={normalizeUrl(coverState.backCoverImage) || ''}
-                        alt="Generated Back Cover"
-                        className="w-full h-auto rounded-md border border-indigo-600/20 shadow-lg"
-                      />
-                      <div className="absolute bottom-2 right-2 bg-violet-600 text-white px-2 py-1 text-xs rounded-full">
-                        Back
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-center text-sm text-zinc-400">
-                    Front and back covers generated. Continue to create the full wrap cover.
-                  </div>
-                </div>
-              ) : coverState.frontCoverImage ? (
-                <div className="relative">
-                  <img
-                    src={normalizeUrl(coverState.frontCoverImage) || ''}
-                    alt="Generated Front Cover"
-                    className="max-w-full max-h-[450px] rounded-md border border-indigo-600/20 shadow-lg"
-                  />
-                </div>
-              ) : (
-                <div className="w-[280px] h-[400px] rounded-md flex items-center justify-center bg-gradient-to-b from-zinc-900/30 to-black/30 border border-dashed border-indigo-500/20 text-zinc-500 p-6 text-center">
-                  <div>
-                    <div className="mb-4 opacity-70">
-                      <BookOpenCheck className="h-16 w-16 mx-auto text-indigo-800/30" />
-                    </div>
-                    <p className="text-sm">
-                      Your generated book cover will appear here
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Download button for completed wrap */}
-              {activeStep === "assemble" && coverState.fullWrapImage && (
-                <Button
-                  onClick={handleDownloadFullCover}
-                  className="mt-4 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-medium rounded-md px-6 py-2.5 flex items-center text-sm hover:from-violet-700 hover:to-indigo-700 transition-all"
-                >
-                  <Download className="h-5 w-5 mr-2" />
-                  Download Full KDP Cover
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Cover Specifications Summary */}
-          <Card className="bg-black/40 backdrop-blur-sm border border-indigo-500/10 shadow-lg">
-            <CardHeader className="pb-2 border-b border-zinc-800 bg-black/20">
-              <CardTitle className="text-sm text-zinc-300 flex items-center">
-                <Ruler className="h-4 w-4 mr-2 text-violet-400" />
-                Cover Specifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm p-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Trim Size:</span>
-                  <span className="text-zinc-300">
-                    {trimSizeOptions.find(
-                      (opt) => opt.value === coverState.bookDetails.trimSize,
-                    )?.label || coverState.bookDetails.trimSize}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Paper Type:</span>
-                  <span className="text-zinc-300">
-                    {paperTypeOptions.find(
-                      (opt) => opt.value === coverState.bookDetails.paperType,
-                    )?.label || coverState.bookDetails.paperType}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Page Count:</span>
-                  <span className="text-zinc-300">
-                    {coverState.bookDetails.pageCount} pages
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Spine Width:</span>
-                  <span className="text-zinc-300">
-                    {coverState.dimensions.spineWidthInches}"
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Has Spine Text:</span>
-                  <span className="text-zinc-300">
-                    {coverState.bookDetails.pageCount >= 100 &&
-                    coverState.bookDetails.spineText
-                      ? "Yes"
-                      : "No"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Bleed:</span>
-                  <span className="text-zinc-300">
-                    {coverState.bookDetails.hasBleed ? 'Yes (0.125")' : "No"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Resolution:</span>
-                  <span className="text-zinc-300">
-                    {coverState.dimensions.width} × {coverState.dimensions.height} px
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-500">Status:</span>
-                  <span
-                    className={`
-                    ${Object.values(isLoading).some((v) => v) ? "text-amber-400" : ""} 
-                    ${activeStep === "assemble" && coverState.fullWrapImage ? "text-violet-400" : ""}
-                    ${error ? "text-rose-400" : ""}
-                    ${!Object.values(isLoading).some((v) => v) && !coverState.frontCoverImage && !error ? "text-zinc-500" : ""}
-                    ${coverState.frontCoverImage && !coverState.fullWrapImage && !Object.values(isLoading).some((v) => v) ? "text-violet-400" : ""}
-                  `}
-                  >
-                    {Object.values(isLoading).some((v) => v)
-                      ? "Processing..."
-                      : activeStep === "assemble" && coverState.fullWrapImage
-                        ? "Complete"
-                        : coverState.frontCoverImage
-                          ? "Cover Generated"
-                          : error
-                            ? "Error"
-                            : "Ready"}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+    <div className="flex flex-col space-y-4">
+      {/* Rest of the component content */}
     </div>
   );
 };
