@@ -585,18 +585,19 @@ const KDPFullWrapGenerator = () => {
       // Try directly with the Ideogram API endpoint
       try {
         // First try with the correct Ideogram API endpoint
-        console.log("Creating FormData for Ideogram request");
-        const formData = new FormData();
-        formData.append('prompt', expandedPrompt);
-        formData.append('width', frontCoverWidth.toString());
-        formData.append('height', frontCoverHeight.toString());
-        formData.append('style', 'REALISTIC');
-        formData.append('negative_prompt', "text overlays, watermark, signature, blurry, low quality, distorted");
-        
-        console.log("Sending request to Ideogram API with FormData");
+        console.log("Using JSON format for Ideogram API request");
         const response = await fetch(`${API_URL}/api/ideogram/generate-custom`, {
           method: "POST",
-          body: formData,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: expandedPrompt,
+            width: frontCoverWidth.toString(),
+            height: frontCoverHeight.toString(),
+            style: "REALISTIC",
+            negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
+          }),
         });
 
         console.log("Ideogram API response status:", response.status);
@@ -629,17 +630,18 @@ const KDPFullWrapGenerator = () => {
         // Try fallback to book-cover endpoint
         try {
           console.log("Trying fallback to book-cover endpoint");
-          
-          const fallbackFormData = new FormData();
-          fallbackFormData.append('prompt', expandedPrompt);
-          fallbackFormData.append('width', frontCoverWidth.toString());
-          fallbackFormData.append('height', frontCoverHeight.toString());
-          fallbackFormData.append('negative_prompt', "text overlays, watermark, signature, blurry, low quality, distorted");
-          
-          console.log("Sending request to fallback API with FormData");
+          console.log("Using JSON format for fallback API request");
           const fallbackResponse = await fetch(`${API_URL}/api/book-cover/generate-front`, {
             method: "POST",
-            body: fallbackFormData,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              prompt: expandedPrompt,
+              width: frontCoverWidth.toString(),
+              height: frontCoverHeight.toString(),
+              negative_prompt: "text overlays, watermark, signature, blurry, low quality, distorted"
+            }),
           });
 
           console.log("Fallback API response status:", fallbackResponse.status);
