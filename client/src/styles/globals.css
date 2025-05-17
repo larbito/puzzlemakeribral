@@ -402,7 +402,7 @@
 
 .grid-cols-9 {
   grid-template-columns: repeat(9, minmax(0, 1fr));
-}
+} 
 
 /* Add grid pattern background for vectorizer */
 .bg-grid-pattern {

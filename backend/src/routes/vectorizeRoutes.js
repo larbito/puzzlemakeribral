@@ -19,7 +19,7 @@ router.get('/check-api', async (req, res) => {
   try {
     // Check API key configuration
     const apiInfo = await checkRapidAPI();
-    
+
     // Return status information
     return res.json({
       status: apiInfo.configured ? 'ready' : 'not_configured',
@@ -30,7 +30,7 @@ router.get('/check-api', async (req, res) => {
     return res.status(500).json({
       error: 'Failed to check API configuration',
       message: error.message
-    });
+  });
   }
 });
 
