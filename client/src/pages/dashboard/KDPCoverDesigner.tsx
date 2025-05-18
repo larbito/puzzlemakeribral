@@ -388,6 +388,8 @@ const KDPCoverDesigner: React.FC = () => {
                           }
                         }}
                         className="w-20"
+                        min={24}
+                        max={900}
                       />
                     </div>
                     <p className="text-xs text-zinc-400">Minimum 24 pages, maximum 900 pages</p>
@@ -487,7 +489,13 @@ const KDPCoverDesigner: React.FC = () => {
                     {/* Dynamic preview based on settings */}
                     <div className="relative h-3/4 flex">
                       {/* Back cover */}
-                      <div className="h-full aspect-[2/3] bg-zinc-100 border border-zinc-300 relative">
+                      <div 
+                        className="h-full bg-zinc-100 border border-zinc-300 relative"
+                        style={{ 
+                          width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
+                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
+                        }}
+                      >
                         <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-xs font-medium">
                           Back Cover
                         </div>
@@ -575,7 +583,7 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.settings && goToStep('frontCover')}
+                onClick={() => state.steps.settings && completeStep('settings', 'frontCover')}
                 disabled={!state.steps.settings}
                 className="bg-emerald-600 hover:bg-emerald-500"
               >
@@ -691,8 +699,8 @@ const KDPCoverDesigner: React.FC = () => {
                 <h3 className="text-md font-medium mb-2">Cover Preview</h3>
                 <div className="flex justify-center bg-zinc-100 rounded-lg p-4 border border-zinc-200">
                   <div className="relative" style={{
-                    width: `${state.bookSettings.dimensions.width * 100}px`,
-                    height: `${state.bookSettings.dimensions.height * 100}px`,
+                    width: `${state.bookSettings.dimensions.width * 50}px`,
+                    height: `${state.bookSettings.dimensions.height * 50}px`,
                     maxWidth: '100%',
                     maxHeight: '400px'
                   }}>
@@ -731,8 +739,9 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.frontCover && goToStep('backCover')}
+                onClick={() => state.steps.frontCover && completeStep('frontCover', 'backCover')}
                 disabled={!state.steps.frontCover}
+                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Continue to Back Cover
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -837,8 +846,10 @@ const KDPCoverDesigner: React.FC = () => {
                 <div 
                   className="rounded-lg border border-zinc-700 bg-zinc-800 flex items-center justify-center"
                   style={{
-                    width: '100%',
-                    height: '400px'
+                    width: `${state.bookSettings.dimensions.width * 50}px`,
+                    height: `${state.bookSettings.dimensions.height * 50}px`,
+                    maxWidth: '100%',
+                    maxHeight: '400px'
                   }}
                 >
                   {state.backCoverImage ? (
@@ -896,8 +907,9 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.backCover && goToStep('spine')}
+                onClick={() => state.steps.backCover && completeStep('backCover', 'spine')}
                 disabled={!state.steps.backCover}
+                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Continue to Spine Design
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -1028,8 +1040,9 @@ const KDPCoverDesigner: React.FC = () => {
                   <div 
                     className="flex items-center justify-center rounded-md shadow-md overflow-hidden"
                     style={{
-                      width: `${Math.max(30, state.bookSettings.dimensions.spineWidth * 100)}px`,
-                      height: '400px',
+                      width: `${Math.max(30, state.bookSettings.dimensions.spineWidth * 50)}px`,
+                      height: `${state.bookSettings.dimensions.height * 50}px`,
+                      maxHeight: '400px',
                       backgroundColor: state.spineColor,
                       color: calculateContrastColor(state.spineColor)
                     }}
@@ -1070,8 +1083,9 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.spine && goToStep('preview')}
+                onClick={() => state.steps.spine && completeStep('spine', 'preview')}
                 disabled={!state.steps.spine}
+                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Continue to Full Preview
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -1266,8 +1280,9 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.preview && goToStep('export')}
+                onClick={() => state.steps.preview && completeStep('preview', 'export')}
                 disabled={!state.steps.preview}
+                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Continue to Export
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -1374,7 +1389,7 @@ const KDPCoverDesigner: React.FC = () => {
                       className="h-full"
                       style={{ 
                         backgroundColor: state.spineColor,
-                        width: `${Math.max(20, state.bookSettings.dimensions.spineWidth * 100)}px`,
+                        width: `${Math.max(20, state.bookSettings.dimensions.spineWidth * 50)}px`,
                       }}
                     >
                       {state.spineText && (
