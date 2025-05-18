@@ -969,15 +969,15 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.uploadedFile ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 60}px`,
-                          height: `${state.bookSettings.dimensions.height * 60}px`,
+                          width: `${state.bookSettings.dimensions.width * 70}px`, // Matched size multiplier
+                          height: `${state.bookSettings.dimensions.height * 70}px`, // Matched size multiplier
                           maxWidth: '100%',
-                          maxHeight: '500px'
+                          maxHeight: '550px' // Increased max height
                         }}>
                           <img 
                             src={state.originalImageUrl || ''}
                             alt="Uploaded Image" 
-                            className="w-full h-full object-contain rounded-md shadow-lg"
+                            className="w-full h-full object-contain rounded-md shadow-lg" // Keep as object-contain
                           />
                         </div>
                       ) : (
@@ -996,15 +996,15 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 60}px`,
-                          height: `${state.bookSettings.dimensions.height * 60}px`,
+                          width: `${state.bookSettings.dimensions.width * 70}px`, // Larger size multiplier
+                          height: `${state.bookSettings.dimensions.height * 70}px`, // Larger size multiplier
                           maxWidth: '100%',
-                          maxHeight: '500px'
+                          maxHeight: '550px' // Increased max height
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
-                            className="w-full h-full object-contain rounded-md shadow-lg"
+                            className="w-full h-full object-cover rounded-md shadow-lg" // Changed to object-cover
                           />
                         </div>
                       ) : (
