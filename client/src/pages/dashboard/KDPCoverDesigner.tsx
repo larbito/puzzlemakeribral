@@ -307,18 +307,28 @@ const KDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, analyzeImage: true});
     
     try {
-      // Create a FormData object to send the file
-      const formData = new FormData();
-      formData.append('image', file);
+      // Convert the file to a base64 data URL
+      const imageUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result);
+          } else {
+            reject(new Error('Failed to convert file to data URL'));
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
       
       toast.info("Analyzing image with OpenAI...");
       
       // Call the actual backend API endpoint to analyze the image
       const response = await fetch('/api/openai/extract-prompt', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({ imageUrl }),
         headers: {
-          // No Content-Type header for FormData as the browser will set it with the boundary
+          'Content-Type': 'application/json'
         }
       });
       
@@ -1075,8 +1085,8 @@ const KDPCoverDesigner: React.FC = () => {
                               setIsLoading({...isLoading, generateFrontCover: true});
                               
                               try {
-                                // Call the real API to generate a cover from the prompt
-                                const response = await fetch('/api/openai/generate-image', {
+                                // Call the book cover generation API
+                                const response = await fetch('/api/book-cover/generate-front', {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
@@ -1084,7 +1094,8 @@ const KDPCoverDesigner: React.FC = () => {
                                   body: JSON.stringify({
                                     prompt: state.frontCoverPrompt,
                                     width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                                    height: Math.round(state.bookSettings.dimensions.height * 300)
+                                    height: Math.round(state.bookSettings.dimensions.height * 300),
+                                    negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed'
                                   })
                                 });
                                 
@@ -1094,7 +1105,7 @@ const KDPCoverDesigner: React.FC = () => {
                                 }
                                 
                                 const data = await response.json();
-                                const imageUrl = data.imageUrl;
+                                const imageUrl = data.url;
                                 
                                 if (!imageUrl) {
                                   throw new Error('No image was generated');
@@ -1146,8 +1157,8 @@ const KDPCoverDesigner: React.FC = () => {
                                     // Add a variation modifier to the prompt
                                     const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style)`;
                                     
-                                    // Call the real API to generate a cover from the modified prompt
-                                    const response = await fetch('/api/openai/generate-image', {
+                                    // Call the book cover generation API for a variation
+                                    const response = await fetch('/api/book-cover/generate-front', {
                                       method: 'POST',
                                       headers: {
                                         'Content-Type': 'application/json',
@@ -1155,7 +1166,9 @@ const KDPCoverDesigner: React.FC = () => {
                                       body: JSON.stringify({
                                         prompt: variationPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                                        height: Math.round(state.bookSettings.dimensions.height * 300)
+                                        height: Math.round(state.bookSettings.dimensions.height * 300),
+                                        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
+                                        seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });
                                     
@@ -1165,7 +1178,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     }
                                     
                                     const data = await response.json();
-                                    const imageUrl = data.imageUrl;
+                                    const imageUrl = data.url;
                                     
                                     if (!imageUrl) {
                                       throw new Error('No variation was generated');
