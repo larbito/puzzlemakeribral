@@ -23,6 +23,7 @@ import { Settings } from '@/pages/dashboard/Settings';
 import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
+import KDPCoverDesigner from '@/pages/dashboard/KDPCoverDesigner';
 import { Toaster } from 'sonner';
 
 function App() {
@@ -70,6 +71,7 @@ function App() {
                       <Route path="t-shirts" element={<TShirtDesigner />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />
+                      <Route path="kdp-covers" element={<KDPCoverDesigner />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                   </DashboardLayout>
