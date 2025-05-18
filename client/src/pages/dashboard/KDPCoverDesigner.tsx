@@ -320,10 +320,7 @@ const KDPCoverDesigner: React.FC = () => {
         setState(prev => ({
           ...prev,
           frontCoverPrompt: generatedPrompt,
-          steps: {
-            ...prev.steps,
-            frontCover: true
-          }
+          // Don't set frontCover to true yet - this allows the prompt to be displayed first
         }));
         
         setIsLoading({...isLoading, analyzeImage: false});
@@ -947,7 +944,7 @@ const KDPCoverDesigner: React.FC = () => {
                       )}
                     </Button>
                   </div>
-                ) : state.frontCoverPrompt && !state.steps.frontCover ? (
+                ) : state.frontCoverPrompt ? (
                   <div className="flex justify-end mt-4">
                     <div className="mr-auto bg-emerald-950/30 p-3 rounded-lg max-w-lg">
                       <h4 className="text-sm font-medium text-emerald-400 mb-1">AI-Generated Prompt:</h4>
@@ -966,7 +963,7 @@ const KDPCoverDesigner: React.FC = () => {
                             frontCoverImage: imageUrl,
                             steps: {
                               ...prev.steps,
-                              frontCover: true
+                              frontCover: true // Now we set frontCover to true when generating the final cover
                             }
                           }));
                           setIsLoading({...isLoading, generateFrontCover: false});
