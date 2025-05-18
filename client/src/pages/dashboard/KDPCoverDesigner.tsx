@@ -1056,7 +1056,7 @@ const KDPCoverDesigner: React.FC = () => {
                                 frontCoverPrompt: e.target.value
                               }))
                             }
-                            className="min-h-[80px] text-sm bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
+                            className="min-h-[200px] text-sm bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
                           />
                         </div>
                       </div>
