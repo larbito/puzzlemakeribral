@@ -1391,7 +1391,7 @@ const KDPCoverDesigner: React.FC = () => {
                     
                     try {
                       // Call OpenAI API to generate back cover description
-                      const response = await fetch(`${API_BASE_URL}/api/openai/enhance-prompt`, {
+                      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/enhance-prompt', {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -1454,17 +1454,69 @@ const KDPCoverDesigner: React.FC = () => {
                   </p>
                   
                   <div className="grid grid-cols-2 gap-2">
-                    {[1, 2, 3, 4].map((idx) => (
-                      <div 
-                        key={idx}
-                        className="aspect-square border border-dashed border-zinc-700 rounded-md flex items-center justify-center p-2"
-                      >
-                        <div className="text-center">
-                          <Upload className="h-6 w-6 text-zinc-400 mx-auto" />
-                          <span className="text-xs text-zinc-500">Image {idx}</span>
+                    {[1, 2, 3, 4].map((idx) => {
+                      const interiorImage = state.interiorImages[idx - 1];
+                      return (
+                        <div 
+                          key={idx}
+                          className={`aspect-square border border-dashed ${interiorImage ? 'border-emerald-600' : 'border-zinc-700'} rounded-md flex items-center justify-center p-2 relative overflow-hidden`}
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/png,image/jpeg';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === 'string') {
+                                    const newInteriorImages = [...state.interiorImages];
+                                    newInteriorImages[idx - 1] = reader.result;
+                                    setState(prev => ({
+                                      ...prev,
+                                      interiorImages: newInteriorImages
+                                    }));
+                                    toast.success(`Interior image ${idx} uploaded`);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            };
+                            input.click();
+                          }}
+                        >
+                          {interiorImage ? (
+                            <>
+                              <img 
+                                src={interiorImage} 
+                                alt={`Interior Preview ${idx}`}
+                                className="w-full h-full object-cover rounded"
+                              />
+                              <div 
+                                className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const newInteriorImages = [...state.interiorImages];
+                                  newInteriorImages[idx - 1] = '';
+                                  setState(prev => ({
+                                    ...prev,
+                                    interiorImages: newInteriorImages
+                                  }));
+                                  toast.info(`Interior image ${idx} removed`);
+                                }}
+                              >
+                                <Button size="sm" variant="destructive">Remove</Button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center cursor-pointer">
+                              <Upload className="h-6 w-6 text-zinc-400 mx-auto" />
+                              <span className="text-xs text-zinc-500">Image {idx}</span>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
                 
@@ -1479,18 +1531,18 @@ const KDPCoverDesigner: React.FC = () => {
                     toast.info("Generating back cover design...");
                     
                     try {
-                      // Call book cover API to generate back cover
-                      const response = await fetch(`${API_BASE_URL}/api/book-cover/generate-back`, {
+                      // Modified approach to use front cover generation API for back cover
+                      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          prompt: state.backCoverPrompt,
+                          prompt: `Professional book back cover design with: ${state.backCoverPrompt}`,
                           width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                           height: Math.round(state.bookSettings.dimensions.height * 300),
                           negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
-                          includeISBN: state.bookSettings.includeISBN
+                          seed: Math.floor(Math.random() * 1000000) // Random seed for variation
                         })
                       });
                       
@@ -1500,7 +1552,11 @@ const KDPCoverDesigner: React.FC = () => {
                       }
                       
                       const data = await response.json();
-                      const imageUrl = data.url || 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover';
+                      const imageUrl = data.url;
+                      
+                      if (!imageUrl) {
+                        throw new Error('No image was generated');
+                      }
                       
                       setState(prev => ({
                         ...prev,
@@ -1516,7 +1572,7 @@ const KDPCoverDesigner: React.FC = () => {
                       console.error('Error generating back cover:', error);
                       toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
                       
-                      // Fallback to placeholder if API fails
+                      // Better fallback that still allows user to proceed
                       setState(prev => ({
                         ...prev,
                         backCoverImage: 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover',
@@ -1525,6 +1581,7 @@ const KDPCoverDesigner: React.FC = () => {
                           backCover: true
                         }
                       }));
+                      toast.info("Using placeholder back cover - you can continue to the next step.");
                     } finally {
                       setIsLoading({...isLoading, generateBackCover: false});
                     }
@@ -1560,10 +1617,24 @@ const KDPCoverDesigner: React.FC = () => {
                         className="w-full h-full object-cover rounded-md"
                       />
                       
+                      {/* Interior Images */}
+                      {state.interiorImages.some(img => img) && (
+                        <div className="absolute inset-x-4 bottom-16 top-1/3 flex flex-wrap gap-2 pointer-events-none">
+                          {state.interiorImages.filter(img => img).map((img, idx) => (
+                            <div key={idx} className="w-1/4 h-1/2 min-w-[60px] shadow-lg rounded overflow-hidden border border-white/30">
+                              <img src={img} alt={`Interior ${idx + 1}`} className="w-full h-full object-cover" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
                       {/* ISBN Placeholder */}
                       {state.bookSettings.includeISBN && (
                         <div className="absolute bottom-4 right-4 w-20 h-10 bg-white/80 rounded-sm flex items-center justify-center text-xs text-gray-800 border border-zinc-700">
-                          ISBN Barcode
+                          <div className="flex flex-col items-center">
+                            <span className="text-[8px] font-bold">ISBN</span>
+                            <div className="bg-black h-4 w-16 mt-1"></div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1577,10 +1648,59 @@ const KDPCoverDesigner: React.FC = () => {
                 
                 {state.backCoverImage && (
                   <div className="flex justify-end space-x-2">
-                    <Button variant="outline">
-                      Regenerate
+                    <Button 
+                      variant="outline"
+                      onClick={async () => {
+                        setIsLoading({...isLoading, generateBackCover: true});
+                        try {
+                          // Generate a variation with the same prompt
+                          const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              prompt: `Professional book back cover design with: ${state.backCoverPrompt}`,
+                              width: Math.round(state.bookSettings.dimensions.width * 300),
+                              height: Math.round(state.bookSettings.dimensions.height * 300),
+                              negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
+                              seed: Math.floor(Math.random() * 1000000) // Different seed for variation
+                            })
+                          });
+                          
+                          if (!response.ok) {
+                            throw new Error('Failed to regenerate back cover');
+                          }
+                          
+                          const data = await response.json();
+                          if (data.url) {
+                            setState(prev => ({
+                              ...prev,
+                              backCoverImage: data.url
+                            }));
+                            toast.success("Back cover regenerated successfully!");
+                          }
+                        } catch (error) {
+                          toast.error("Failed to regenerate back cover");
+                        } finally {
+                          setIsLoading({...isLoading, generateBackCover: false});
+                        }
+                      }}
+                    >
+                      {isLoading.generateBackCover ? 'Regenerating...' : 'Regenerate'}
                     </Button>
-                    <Button>
+                    <Button
+                      onClick={() => {
+                        setState(prev => ({
+                          ...prev,
+                          steps: {
+                            ...prev.steps,
+                            backCover: true
+                          }
+                        }));
+                        toast.success("Back cover design confirmed!");
+                      }}
+                    >
                       Use This Design
                     </Button>
                   </div>
