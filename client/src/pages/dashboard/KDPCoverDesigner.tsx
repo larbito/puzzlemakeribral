@@ -946,12 +946,24 @@ const KDPCoverDesigner: React.FC = () => {
                   </div>
                 ) : state.frontCoverPrompt ? (
                   <div className="flex justify-end mt-4">
-                    <div className="mr-auto bg-emerald-950/30 p-3 rounded-lg max-w-lg">
-                      <h4 className="text-sm font-medium text-emerald-400 mb-1">AI-Generated Prompt:</h4>
-                      <p className="text-xs text-emerald-300">{state.frontCoverPrompt}</p>
+                    <div className="mr-auto bg-emerald-950/30 p-3 rounded-lg max-w-lg w-full">
+                      <div className="flex justify-between items-center mb-1">
+                        <h4 className="text-sm font-medium text-emerald-400">Edit Generated Prompt:</h4>
+                        <div className="text-xs text-emerald-300 italic">Feel free to edit before generating</div>
+                      </div>
+                      <Textarea
+                        value={state.frontCoverPrompt}
+                        onChange={(e) => 
+                          setState(prev => ({
+                            ...prev,
+                            frontCoverPrompt: e.target.value
+                          }))
+                        }
+                        className="min-h-[80px] text-xs bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
+                      />
                     </div>
                     <Button 
-                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 ml-4"
+                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 ml-4 px-6"
                       onClick={() => {
                         setIsLoading({...isLoading, generateFrontCover: true});
                         // Simulate API call to generate front cover
@@ -967,7 +979,7 @@ const KDPCoverDesigner: React.FC = () => {
                             }
                           }));
                           setIsLoading({...isLoading, generateFrontCover: false});
-                          toast.success("Front cover generated from the prompt!");
+                          toast.success("Front cover generated from your edited prompt!");
                         }, 2000);
                       }}
                       disabled={isLoading.generateFrontCover}
@@ -979,7 +991,7 @@ const KDPCoverDesigner: React.FC = () => {
                       ) : (
                         <>
                           <Wand2 className="mr-2 h-4 w-4" />
-                          Generate Cover from Prompt
+                          Generate Cover from Edited Prompt
                         </>
                       )}
                     </Button>
