@@ -85,12 +85,24 @@ export async function generateFrontCover({
     console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt });
     console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
     
+    // Add flat image instructions if not already present
+    let enhancedPrompt = prompt;
+    if (!prompt.toLowerCase().includes('flat image') && !prompt.toLowerCase().includes('flat illustration')) {
+      enhancedPrompt = "Create a flat image design (not a book mockup): " + prompt;
+    }
+    
+    // Add default negative prompt against book mockups if not provided
+    let enhancedNegativePrompt = negative_prompt || '';
+    if (!enhancedNegativePrompt.includes('book mockup')) {
+      enhancedNegativePrompt += ', book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl';
+    }
+    
     // Create JSON payload instead of FormData
     const payload = {
-      prompt,
+      prompt: enhancedPrompt,
       width: width.toString(),
       height: height.toString(),
-      negative_prompt
+      negative_prompt: enhancedNegativePrompt
     };
 
     console.log('Sending request to backend with payload:', payload);

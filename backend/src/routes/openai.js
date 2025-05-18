@@ -110,7 +110,7 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
           { 
             role: 'user', 
             content: [
-              { type: 'text', text: 'Create a detailed description of this book cover image that could be used as a prompt to generate a similar cover.' },
+              { type: 'text', text: 'Create a detailed description of this image that could be used as a prompt to generate a similar flat illustration. Do not mention book covers or mockups in your description.' },
               { type: 'image_url', image_url: { url: imageUrl } }
             ]
           }

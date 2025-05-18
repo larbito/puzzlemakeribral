@@ -332,9 +332,24 @@ const KDPCoverDesigner: React.FC = () => {
       // Call the actual backend API endpoint to analyze the image
       const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
-        body: JSON.stringify({ imageUrl }),
+        body: JSON.stringify({ 
+          imageUrl,
+          context: `You are a prompt engineer for image generation AIs like Midjourney or Ideogram. Your task is to create a COMPLETE and DETAILED prompt describing EVERYTHING in the image. CRITICAL INSTRUCTIONS:
+
+1) Create a flat image design, NOT a book cover mockup.
+2) EXTRACT ALL TEXT: Read and record EVERY word, title, and text element visible. Use EXACT quotes for all text.
+3) Use format: Title: "EXACT TEXT", Subtitle: "EXACT TEXT", Additional Text: "EXACT TEXT" at the beginning of your response.
+4) Describe all characters, their positions, colors, and actions in precise detail.
+5) Describe the background, style, mood, and artistic technique.
+6) NEVER mention 'book cover', 'cover design', 'publishing', 'mockup', or related terms.
+7) Format as a flat illustration prompt for direct use in image generation.
+8) IMPORTANT: Record all text EXACTLY as shown - maintain original case, spacing and spelling.`
+        }),
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       
@@ -344,11 +359,20 @@ const KDPCoverDesigner: React.FC = () => {
       }
       
       const data = await response.json();
-      const generatedPrompt = data.extractedPrompt;
+      let generatedPrompt = data.extractedPrompt;
       
       if (!generatedPrompt) {
         throw new Error('No prompt was generated');
       }
+      
+      // Post-process the prompt to remove any book cover references and add flat image instruction
+      if (!generatedPrompt.toLowerCase().includes('flat image') && !generatedPrompt.toLowerCase().includes('flat illustration')) {
+        generatedPrompt = "Create a flat image design (not a book mockup): " + generatedPrompt;
+      }
+      
+      // Add aspect ratio for the book dimensions
+      const { width, height } = state.bookSettings.dimensions;
+      generatedPrompt += ` --ar ${width}:${height} --high quality --flat illustration --no mockup`;
       
       setState(prev => ({
         ...prev,
@@ -1186,6 +1210,9 @@ const KDPCoverDesigner: React.FC = () => {
                               setIsLoading({...isLoading, generateFrontCover: true});
                               
                               try {
+                                // Take the user's prompt but add instructions to NOT generate text or book mockups
+                                const modifiedPrompt = state.frontCoverPrompt + " IMPORTANT: Create a flat illustration only. Do not include any mockup, book model, or 3D rendering. The image should be a flat design with no perspective or book cover effects.";
+                                
                                 // Call the book cover generation API
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                                   method: 'POST',
@@ -1193,10 +1220,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: `Professional book cover design for a ${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inch ${state.bookSettings.paperType} paper book. The design should be: ${state.frontCoverPrompt}`,
-                                    width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
+                                    prompt: modifiedPrompt,
+                                    width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed, cropped, cut off edges'
+                                    negative_prompt: 'text, words, letters, title, writing, font, caption, label, watermark, signature, blurry, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl'
                                   })
                                 });
                                 
