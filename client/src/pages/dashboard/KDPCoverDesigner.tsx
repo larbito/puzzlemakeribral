@@ -307,29 +307,45 @@ const KDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, analyzeImage: true});
     
     try {
-      // In a real implementation, you would send the file to your backend
-      // and then the backend would call the OpenAI API
+      // Create a FormData object to send the file
+      const formData = new FormData();
+      formData.append('image', file);
       
-      // Simulate a delay for demo purposes
-      toast.info("Analyzing image with AI...");
+      toast.info("Analyzing image with OpenAI...");
       
-      setTimeout(() => {
-        // Simulate a response from OpenAI
-        const generatedPrompt = "A professional book cover with vibrant colors showing a mountain landscape at sunset, dramatic lighting with warm orange and purple tones, minimalist typography suitable for a non-fiction book about personal growth.";
-        
-        setState(prev => ({
-          ...prev,
-          frontCoverPrompt: generatedPrompt,
-          // Don't set frontCover to true yet - this allows the prompt to be displayed first
-        }));
-        
-        setIsLoading({...isLoading, analyzeImage: false});
-        toast.success("Image analyzed! AI has generated a prompt based on your image.");
-      }, 2500);
+      // Call the actual backend API endpoint to analyze the image
+      const response = await fetch('/api/openai/extract-prompt', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          // No Content-Type header for FormData as the browser will set it with the boundary
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to analyze image');
+      }
+      
+      const data = await response.json();
+      const generatedPrompt = data.extractedPrompt;
+      
+      if (!generatedPrompt) {
+        throw new Error('No prompt was generated');
+      }
+      
+      setState(prev => ({
+        ...prev,
+        frontCoverPrompt: generatedPrompt,
+        // Don't set frontCover to true yet - this allows the prompt to be displayed first
+      }));
+      
+      setIsLoading({...isLoading, analyzeImage: false});
+      toast.success("Image analyzed! AI has generated a prompt based on your image.");
       
     } catch (error) {
       console.error('Error analyzing image:', error);
-      toast.error('Failed to analyze image. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to analyze image. Please try again.');
       setIsLoading({...isLoading, analyzeImage: false});
     }
   };
@@ -1055,25 +1071,53 @@ const KDPCoverDesigner: React.FC = () => {
                       <div className="ml-11 flex flex-wrap gap-3">
                         <Button 
                           className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 px-6"
-                          onClick={() => {
-                            setIsLoading({...isLoading, generateFrontCover: true});
-                            // Simulate API call to generate front cover
-                            setTimeout(() => {
-                              // In a real implementation, this would be the URL from the API
-                              const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+From+Prompt';
-                              setState(prev => ({
-                                ...prev,
-                                frontCoverImage: imageUrl,
-                                steps: {
-                                  ...prev.steps,
-                                  frontCover: true // Now we set frontCover to true when generating the final cover
-                                },
-                                // Preserve the uploadedFile reference so we can continue showing both images
-                                uploadedFile: prev.uploadedFile
-                              }));
-                              setIsLoading({...isLoading, generateFrontCover: false});
-                              toast.success("Front cover generated from your edited prompt!");
-                            }, 2000);
+                                                      onClick={async () => {
+                              setIsLoading({...isLoading, generateFrontCover: true});
+                              
+                              try {
+                                // Call the real API to generate a cover from the prompt
+                                const response = await fetch('/api/openai/generate-image', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: JSON.stringify({
+                                    prompt: state.frontCoverPrompt,
+                                    width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
+                                    height: Math.round(state.bookSettings.dimensions.height * 300)
+                                  })
+                                });
+                                
+                                if (!response.ok) {
+                                  const errorData = await response.json();
+                                  throw new Error(errorData.error || 'Failed to generate cover image');
+                                }
+                                
+                                const data = await response.json();
+                                const imageUrl = data.imageUrl;
+                                
+                                if (!imageUrl) {
+                                  throw new Error('No image was generated');
+                                }
+                                
+                                setState(prev => ({
+                                  ...prev,
+                                  frontCoverImage: imageUrl,
+                                  steps: {
+                                    ...prev.steps,
+                                    frontCover: true // Now we set frontCover to true when generating the final cover
+                                  },
+                                  // Preserve the uploadedFile reference so we can continue showing both images
+                                  uploadedFile: prev.uploadedFile
+                                }));
+                                
+                                toast.success("Front cover generated from your edited prompt!");
+                              } catch (error) {
+                                console.error('Error generating cover:', error);
+                                toast.error(error instanceof Error ? error.message : 'Failed to generate cover. Please try again.');
+                              } finally {
+                                setIsLoading({...isLoading, generateFrontCover: false});
+                              }
                           }}
                           disabled={isLoading.generateFrontCover}
                         >
@@ -1094,21 +1138,53 @@ const KDPCoverDesigner: React.FC = () => {
                             <Button 
                               variant="outline" 
                               className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
-                              onClick={() => {
-                                // Generate a variation
-                                setIsLoading({...isLoading, generateFrontCover: true});
-                                setTimeout(() => {
-                                  // In a real implementation, this would be the URL from the API
-                                  const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
-                                  setState(prev => ({
-                                    ...prev,
-                                    frontCoverImage: imageUrl,
-                                    // Preserve the uploadedFile reference so we can continue showing both images
-                                    uploadedFile: prev.uploadedFile
-                                  }));
-                                  setIsLoading({...isLoading, generateFrontCover: false});
-                                  toast.success("Generated a new cover variation!");
-                                }, 2000);
+                                                              onClick={async () => {
+                                  // Generate a variation using the same prompt but with slight modifications
+                                  setIsLoading({...isLoading, generateFrontCover: true});
+                                  
+                                  try {
+                                    // Add a variation modifier to the prompt
+                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style)`;
+                                    
+                                    // Call the real API to generate a cover from the modified prompt
+                                    const response = await fetch('/api/openai/generate-image', {
+                                      method: 'POST',
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
+                                      body: JSON.stringify({
+                                        prompt: variationPrompt,
+                                        width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
+                                        height: Math.round(state.bookSettings.dimensions.height * 300)
+                                      })
+                                    });
+                                    
+                                    if (!response.ok) {
+                                      const errorData = await response.json();
+                                      throw new Error(errorData.error || 'Failed to generate cover variation');
+                                    }
+                                    
+                                    const data = await response.json();
+                                    const imageUrl = data.imageUrl;
+                                    
+                                    if (!imageUrl) {
+                                      throw new Error('No variation was generated');
+                                    }
+                                    
+                                    setState(prev => ({
+                                      ...prev,
+                                      frontCoverImage: imageUrl,
+                                      // Preserve the uploadedFile reference so we can continue showing both images
+                                      uploadedFile: prev.uploadedFile
+                                    }));
+                                    
+                                    toast.success("Generated a new cover variation!");
+                                  } catch (error) {
+                                    console.error('Error generating variation:', error);
+                                    toast.error(error instanceof Error ? error.message : 'Failed to generate variation. Please try again.');
+                                  } finally {
+                                    setIsLoading({...isLoading, generateFrontCover: false});
+                                  }
                               }}
                               disabled={isLoading.generateFrontCover}
                             >
