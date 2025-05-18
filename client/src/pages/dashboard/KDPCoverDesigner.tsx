@@ -11,7 +11,11 @@ import {
   ArrowRight,
   CheckCircle2,
   Lock,
-  Undo2
+  Undo2,
+  Book,
+  FileType,
+  LayoutPanelTop,
+  Check
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -279,7 +283,7 @@ const KDPCoverDesigner: React.FC = () => {
           >
             <div className={`
               w-10 h-10 rounded-full flex items-center justify-center
-              ${isActive ? 'bg-cyan-500 text-white' : 
+              ${isActive ? 'bg-emerald-500 text-white' : 
                 isCompleted ? 'bg-green-500 text-white' : 
                 'bg-zinc-800 text-zinc-500'}
               transition-colors duration-200
@@ -291,7 +295,7 @@ const KDPCoverDesigner: React.FC = () => {
             </div>
             <span className={`
               mt-2 text-xs font-medium
-              ${isActive ? 'text-cyan-500' : 
+              ${isActive ? 'text-emerald-500' : 
                 isCompleted ? 'text-green-500' : 
                 'text-zinc-500'}
             `}>
@@ -460,7 +464,7 @@ const KDPCoverDesigner: React.FC = () => {
                   
                   <Button 
                     onClick={calculateDimensions}
-                    className="w-full mt-6 bg-cyan-600 hover:bg-cyan-500" 
+                    className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500" 
                     disabled={isLoading.calculateDimensions}
                   >
                     {isLoading.calculateDimensions ? 
@@ -555,7 +559,7 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-zinc-700">
-                  <div className="flex items-center space-x-2 text-xs text-cyan-400">
+                  <div className="flex items-center space-x-2 text-xs text-emerald-400">
                     <Info className="w-4 h-4" />
                     <span>These dimensions are based on KDP printing requirements.</span>
                   </div>
@@ -573,7 +577,7 @@ const KDPCoverDesigner: React.FC = () => {
               <Button
                 onClick={() => state.steps.settings && goToStep('frontCover')}
                 disabled={!state.steps.settings}
-                className="bg-cyan-600 hover:bg-cyan-500"
+                className="bg-emerald-600 hover:bg-emerald-500"
               >
                 Continue
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -629,7 +633,7 @@ const KDPCoverDesigner: React.FC = () => {
                         toast.success("Prompt enhanced with AI recommendations");
                       }, 1500);
                     }}
-                    className="flex-1"
+                    className="flex-1 border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
                   >
                     <Wand2 className="mr-2 h-4 w-4" />
                     Enhance Prompt
@@ -654,7 +658,7 @@ const KDPCoverDesigner: React.FC = () => {
                         toast.success("Front cover generated successfully!");
                       }, 2000);
                     }}
-                    className="flex-1"
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-500"
                     disabled={isLoading.generateFrontCover || !state.frontCoverPrompt}
                   >
                     {isLoading.generateFrontCover ? 'Generating...' : 'Generate Cover'}
@@ -774,7 +778,7 @@ const KDPCoverDesigner: React.FC = () => {
                     }));
                     toast.success("Generated prompt based on front cover style");
                   }}
-                  className="w-full"
+                  className="w-full border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
                 >
                   <Wand2 className="mr-2 h-4 w-4" />
                   Generate from Front Cover
@@ -820,7 +824,7 @@ const KDPCoverDesigner: React.FC = () => {
                       toast.success("Back cover generated successfully!");
                     }, 2000);
                   }}
-                  className="w-full mt-4"
+                  className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500"
                   disabled={isLoading.generateBackCover || !state.backCoverPrompt}
                 >
                   {isLoading.generateBackCover ? 'Generating...' : 'Generate Back Cover'}
@@ -871,9 +875,9 @@ const KDPCoverDesigner: React.FC = () => {
                   </div>
                 )}
                 
-                <div className="mt-6 p-4 bg-blue-950/30 rounded-lg border border-blue-900">
-                  <h4 className="text-sm font-medium text-cyan-300 mb-2">Back Cover Tips</h4>
-                  <ul className="text-xs text-cyan-400 space-y-1">
+                <div className="mt-6 p-4 bg-emerald-950/30 rounded-lg border border-emerald-900">
+                  <h4 className="text-sm font-medium text-emerald-300 mb-2">Back Cover Tips</h4>
+                  <ul className="text-xs text-emerald-400 space-y-1">
                     <li>• Include a compelling book description that hooks potential readers</li>
                     <li>• Add author bio and photo if available</li>
                     <li>• Consider including positive reviews or testimonials</li>
@@ -1011,7 +1015,7 @@ const KDPCoverDesigner: React.FC = () => {
                     }));
                     toast.success("Spine design saved successfully!");
                   }}
-                  className="w-full mt-4"
+                  className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500"
                 >
                   Save Spine Design
                 </Button>
@@ -1126,6 +1130,7 @@ const KDPCoverDesigner: React.FC = () => {
                   }}
                   variant="outline"
                   size="sm"
+                  className="border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
                 >
                   <Wand2 className="mr-2 h-4 w-4" />
                   Generate Full Cover
@@ -1433,7 +1438,7 @@ const KDPCoverDesigner: React.FC = () => {
                   </div>
                   
                   <Button 
-                    className="px-8 bg-cyan-600 hover:bg-cyan-500"
+                    className="px-8 bg-emerald-600 hover:bg-emerald-500"
                     onClick={() => {
                       toast.success("Cover downloaded successfully!");
                       setState(prev => ({
@@ -1453,14 +1458,14 @@ const KDPCoverDesigner: React.FC = () => {
             </div>
             
             {/* Print Specifications */}
-            <div className="bg-blue-950/30 rounded-lg border border-blue-900 p-4 mt-6">
-              <h3 className="font-medium text-cyan-300 mb-2">KDP Upload Instructions</h3>
-              <div className="text-sm text-cyan-400 space-y-2">
+            <div className="bg-emerald-950/30 rounded-lg border border-emerald-900 p-4 mt-6">
+              <h3 className="font-medium text-emerald-300 mb-2">KDP Upload Instructions</h3>
+              <div className="text-sm text-emerald-400 space-y-2">
                 <p>1. Save the PDF file to your computer</p>
                 <p>2. On KDP, select "Upload a cover you've already designed"</p>
                 <p>3. Upload the full wrap PDF</p>
                 <p>4. Ensure your cover meets all the requirements:</p>
-                <ul className="list-disc pl-6 text-cyan-600 text-xs space-y-1 mt-1">
+                <ul className="list-disc pl-6 text-emerald-600 text-xs space-y-1 mt-1">
                   <li>RGB color mode</li>
                   <li>300 DPI resolution</li>
                   <li>PDF format preferred</li>
@@ -1505,6 +1510,120 @@ const KDPCoverDesigner: React.FC = () => {
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
+      {/* Header section */}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent mb-4">
+          Book Cover Generator
+        </h1>
+        <p className="text-zinc-400 text-lg">
+          Create professional Amazon KDP-compliant book covers with AI
+        </p>
+      </div>
+
+      {/* Feature overview */}
+      <div className="flex flex-col lg:flex-row mb-12 gap-8">
+        <div className="flex items-start gap-4 rounded-xl bg-zinc-900/50 border border-zinc-800 p-5">
+          <div className="rounded-full bg-emerald-900/30 p-3">
+            <Book className="h-6 w-6 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-white mb-1">Book Cover Generator</h3>
+            <p className="text-zinc-400">AI-powered tool to create professional, KDP-compliant full wrap book covers</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-emerald-900/30 p-2">
+              <Wand2 className="h-5 w-5 text-emerald-400" />
+            </div>
+            <h3 className="font-semibold text-white">AI-Generated</h3>
+          </div>
+          <p className="text-zinc-400 text-sm">Prompt-to-image technology</p>
+        </div>
+        
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-emerald-900/30 p-2">
+              <FileType className="h-5 w-5 text-emerald-400" />
+            </div>
+            <h3 className="font-semibold text-white">KDP Ready</h3>
+          </div>
+          <p className="text-zinc-400 text-sm">Export in PDF or PNG format</p>
+        </div>
+        
+        <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="rounded-full bg-emerald-900/30 p-2">
+              <LayoutPanelTop className="h-5 w-5 text-emerald-400" />
+            </div>
+            <h3 className="font-semibold text-white">Full Wrap</h3>
+          </div>
+          <p className="text-zinc-400 text-sm">Front, back cover and spine</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+        <div>
+          <h2 className="text-2xl font-semibold text-emerald-400 mb-6">Key Features</h2>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Full KDP wrap-ready export (PDF + PNG)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Image-to-Prompt → Prompt-to-Image for front cover</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Back cover prompt generated from front prompt</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Spine color selection via extracted palette</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Interior image integration (optional)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <Check className="h-5 w-5 text-emerald-400 mt-0.5 shrink-0" />
+              <span className="text-zinc-300">Safe zone compliance for KDP requirements</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div>
+          <h2 className="text-2xl font-semibold text-emerald-400 mb-6">KDP Guidelines</h2>
+          <ul className="space-y-3">
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <span className="text-zinc-300">Trim sizes must match Amazon KDP standards</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <span className="text-zinc-300">Spine width is calculated based on page count and paper type</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <span className="text-zinc-300">Covers with less than 100 pages cannot have spine text</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <span className="text-zinc-300">Safe zones ensure no important elements are trimmed</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-400 font-bold">•</span>
+              <span className="text-zinc-300">Resolution must be 300 DPI for high-quality printing</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Main title */}
       <h1 className="text-3xl font-bold mb-2 text-white">KDP Cover Designer</h1>
       <p className="text-zinc-400 mb-8">
         Create professional, print-ready covers for Kindle Direct Publishing with our step-by-step designer.
