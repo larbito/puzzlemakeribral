@@ -894,152 +894,250 @@ const KDPCoverDesigner: React.FC = () => {
             </Tabs>
             
             {/* Preview area */}
-            {state.frontCoverImage && (
+            {(state.uploadedFile || state.frontCoverImage) && (
               <div className="mt-6">
                 <h3 className="text-md font-medium mb-2">Cover Preview</h3>
-                <div className="flex justify-center bg-zinc-100 rounded-lg p-4 border border-zinc-200">
-                  <div className="relative" style={{
-                    width: `${state.bookSettings.dimensions.width * 50}px`,
-                    height: `${state.bookSettings.dimensions.height * 50}px`,
-                    maxWidth: '100%',
-                    maxHeight: '400px'
-                  }}>
-                    <img 
-                      src={state.frontCoverImage} 
-                      alt="Front Cover Preview" 
-                      className="w-full h-full object-cover rounded-md shadow-lg"
-                    />
-                    
-                    {/* Overlay with book title demo */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                      <div className="bg-black/30 backdrop-blur-sm px-4 py-2 rounded-lg">
-                        <h2 className="text-xl font-bold text-white">YOUR BOOK TITLE</h2>
-                        <p className="text-sm text-white/80">Author Name</p>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Original Uploaded Image */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-zinc-300">Uploaded Image</h4>
+                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
+                      {state.uploadedFile ? (
+                        <div className="relative" style={{
+                          width: `${state.bookSettings.dimensions.width * 40}px`,
+                          height: `${state.bookSettings.dimensions.height * 40}px`,
+                          maxWidth: '100%',
+                          maxHeight: '300px'
+                        }}>
+                          <img 
+                            src={state.frontCoverImage || URL.createObjectURL(state.uploadedFile)}
+                            alt="Uploaded Image" 
+                            className="w-full h-full object-cover rounded-md shadow-lg"
+                          />
+                        </div>
+                      ) : (
+                        <div className="text-zinc-500 text-center">
+                          <p>No image uploaded</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* AI Generated Cover */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-zinc-300">
+                      {state.steps.frontCover ? "AI Generated Cover" : "Cover Preview"}
+                    </h4>
+                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
+                      {state.frontCoverImage ? (
+                        <div className="relative" style={{
+                          width: `${state.bookSettings.dimensions.width * 40}px`,
+                          height: `${state.bookSettings.dimensions.height * 40}px`,
+                          maxWidth: '100%',
+                          maxHeight: '300px'
+                        }}>
+                          <img 
+                            src={state.frontCoverImage} 
+                            alt="AI Generated Cover" 
+                            className="w-full h-full object-cover rounded-md shadow-lg"
+                          />
+                          
+                          {/* Overlay with book title demo */}
+                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                            <div className="bg-black/30 backdrop-blur-sm px-4 py-2 rounded-lg">
+                              <h2 className="text-xl font-bold text-white">YOUR BOOK TITLE</h2>
+                              <p className="text-sm text-white/80">Author Name</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-zinc-500 text-center flex flex-col items-center justify-center">
+                          <Wand2 className="h-10 w-10 mb-2 text-zinc-700" />
+                          <p>Generate a cover to see preview</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
                 
-                {/* Show different action buttons based on the current state */}
-                {state.uploadedFile && !state.frontCoverPrompt ? (
-                  <div className="flex justify-end mt-4">
-                    <Button 
-                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
-                      onClick={() => {
-                        if (state.uploadedFile) {
-                          analyzeImageWithOpenAI(state.uploadedFile);
-                        }
-                      }}
-                      disabled={isLoading.analyzeImage}
-                    >
-                      {isLoading.analyzeImage ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⏳</span> Analyzing...
-                        </span>
-                      ) : (
-                        <>
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          Generate Prompt from Image
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                ) : state.frontCoverPrompt ? (
-                  <div className="flex justify-end mt-4">
-                    <div className="mr-auto bg-emerald-950/30 p-3 rounded-lg max-w-lg w-full">
-                      <div className="flex justify-between items-center mb-1">
-                        <h4 className="text-sm font-medium text-emerald-400">Edit Generated Prompt:</h4>
-                        <div className="text-xs text-emerald-300 italic">Feel free to edit before generating</div>
+                {/* Workflow Steps and Actions */}
+                <div className="mt-6 bg-zinc-800/50 rounded-lg border border-zinc-700 p-4">
+                  <h3 className="text-lg font-medium text-white mb-4">Cover Generation Workflow</h3>
+                  
+                  {/* Step 1: Analyze Image */}
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
+                        <span className="text-emerald-400 font-medium">1</span>
                       </div>
-                      <Textarea
-                        value={state.frontCoverPrompt}
-                        onChange={(e) => 
-                          setState(prev => ({
-                            ...prev,
-                            frontCoverPrompt: e.target.value
-                          }))
-                        }
-                        className="min-h-[80px] text-xs bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
-                      />
+                      <h4 className="text-md font-medium text-emerald-400">Analyze Image</h4>
                     </div>
-                    <Button 
-                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 ml-4 px-6"
-                      onClick={() => {
-                        setIsLoading({...isLoading, generateFrontCover: true});
-                        // Simulate API call to generate front cover
-                        setTimeout(() => {
-                          // In a real implementation, this would be the URL from the API
-                          const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+From+Prompt';
-                          setState(prev => ({
-                            ...prev,
-                            frontCoverImage: imageUrl,
-                            steps: {
-                              ...prev.steps,
-                              frontCover: true // Now we set frontCover to true when generating the final cover
+                    
+                    {state.uploadedFile && !state.frontCoverPrompt ? (
+                      <div className="ml-11">
+                        <p className="text-sm text-zinc-400 mb-3">
+                          Your image has been uploaded. Click the button below to analyze it with AI and generate a prompt.
+                        </p>
+                        <Button 
+                          className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
+                          onClick={() => {
+                            if (state.uploadedFile) {
+                              analyzeImageWithOpenAI(state.uploadedFile);
                             }
-                          }));
-                          setIsLoading({...isLoading, generateFrontCover: false});
-                          toast.success("Front cover generated from your edited prompt!");
-                        }, 2000);
-                      }}
-                      disabled={isLoading.generateFrontCover}
-                    >
-                      {isLoading.generateFrontCover ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⏳</span> Generating...
-                        </span>
-                      ) : (
-                        <>
-                          <Wand2 className="mr-2 h-4 w-4" />
-                          Generate Cover from Edited Prompt
-                        </>
-                      )}
-                    </Button>
+                          }}
+                          disabled={isLoading.analyzeImage}
+                        >
+                          {isLoading.analyzeImage ? (
+                            <span className="flex items-center">
+                              <span className="animate-spin mr-2">⏳</span> Analyzing...
+                            </span>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Generate Prompt from Image
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ) : state.frontCoverPrompt && (
+                      <div className="ml-11">
+                        <p className="text-sm text-zinc-400 mb-2">
+                          <span className="text-emerald-400">✓</span> Image analyzed successfully
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex justify-end mt-4">
-                    <Button 
-                      variant="outline" 
-                      className="mr-2 border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
-                      onClick={() => {
-                        // If we have a prompt, regenerate with it
-                        if (state.frontCoverPrompt) {
-                          setIsLoading({...isLoading, generateFrontCover: true});
-                          setTimeout(() => {
-                            // In a real implementation, this would be the URL from the API
-                            const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
-                            setState(prev => ({
-                              ...prev,
-                              frontCoverImage: imageUrl
-                            }));
-                            setIsLoading({...isLoading, generateFrontCover: false});
-                            toast.success("Generated a new cover variation!");
-                          }, 2000);
-                        }
-                      }}
-                      disabled={!state.frontCoverPrompt || isLoading.generateFrontCover}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Generate Variation
-                    </Button>
-                    <Button 
-                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
-                      onClick={() => {
-                        setState(prev => ({
-                          ...prev,
-                          steps: {
-                            ...prev.steps,
-                            frontCover: true
-                          }
-                        }));
-                        toast.success("Front cover design saved!");
-                      }}
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Use This Design
-                    </Button>
-                  </div>
-                )}
+                  
+                  {/* Step 2: Edit Prompt */}
+                  {state.frontCoverPrompt && (
+                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
+                          <span className="text-emerald-400 font-medium">2</span>
+                        </div>
+                        <h4 className="text-md font-medium text-emerald-400">Edit Prompt</h4>
+                      </div>
+                      
+                      <div className="ml-11 space-y-3">
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm text-zinc-400">
+                            Review and edit the AI-generated prompt to get your perfect cover design
+                          </p>
+                          <div className="text-xs text-emerald-300 italic">Feel free to edit before generating</div>
+                        </div>
+                        
+                        <div className="bg-emerald-950/30 p-3 rounded-lg">
+                          <Textarea
+                            value={state.frontCoverPrompt}
+                            onChange={(e) => 
+                              setState(prev => ({
+                                ...prev,
+                                frontCoverPrompt: e.target.value
+                              }))
+                            }
+                            className="min-h-[80px] text-sm bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Step 3: Generate Cover */}
+                  {state.frontCoverPrompt && (
+                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
+                          <span className="text-emerald-400 font-medium">3</span>
+                        </div>
+                        <h4 className="text-md font-medium text-emerald-400">Generate Cover</h4>
+                      </div>
+                      
+                      <div className="ml-11 flex flex-wrap gap-3">
+                        <Button 
+                          className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 px-6"
+                          onClick={() => {
+                            setIsLoading({...isLoading, generateFrontCover: true});
+                            // Simulate API call to generate front cover
+                            setTimeout(() => {
+                              // In a real implementation, this would be the URL from the API
+                              const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+From+Prompt';
+                              setState(prev => ({
+                                ...prev,
+                                frontCoverImage: imageUrl,
+                                steps: {
+                                  ...prev.steps,
+                                  frontCover: true // Now we set frontCover to true when generating the final cover
+                                },
+                                // Preserve the uploadedFile reference so we can continue showing both images
+                                uploadedFile: prev.uploadedFile
+                              }));
+                              setIsLoading({...isLoading, generateFrontCover: false});
+                              toast.success("Front cover generated from your edited prompt!");
+                            }, 2000);
+                          }}
+                          disabled={isLoading.generateFrontCover}
+                        >
+                          {isLoading.generateFrontCover ? (
+                            <span className="flex items-center">
+                              <span className="animate-spin mr-2">⏳</span> Generating...
+                            </span>
+                          ) : (
+                            <>
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Generate Cover from Prompt
+                            </>
+                          )}
+                        </Button>
+                        
+                        {state.frontCoverImage && (
+                          <>
+                            <Button 
+                              variant="outline" 
+                              className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
+                              onClick={() => {
+                                // Generate a variation
+                                setIsLoading({...isLoading, generateFrontCover: true});
+                                setTimeout(() => {
+                                  // In a real implementation, this would be the URL from the API
+                                  const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
+                                  setState(prev => ({
+                                    ...prev,
+                                    frontCoverImage: imageUrl,
+                                    // Preserve the uploadedFile reference so we can continue showing both images
+                                    uploadedFile: prev.uploadedFile
+                                  }));
+                                  setIsLoading({...isLoading, generateFrontCover: false});
+                                  toast.success("Generated a new cover variation!");
+                                }, 2000);
+                              }}
+                              disabled={isLoading.generateFrontCover}
+                            >
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Generate Variation
+                            </Button>
+                            
+                            <Button 
+                              className="bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400"
+                              onClick={() => {
+                                setState(prev => ({
+                                  ...prev,
+                                  steps: {
+                                    ...prev.steps,
+                                    frontCover: true
+                                  }
+                                }));
+                                toast.success("Front cover design saved!");
+                              }}
+                            >
+                              <Check className="mr-2 h-4 w-4" />
+                              Use This Design
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
