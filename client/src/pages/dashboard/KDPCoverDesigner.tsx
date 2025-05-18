@@ -1089,10 +1089,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: state.frontCoverPrompt,
+                                    prompt: `Professional book cover design for a ${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inch ${state.bookSettings.paperType} paper book. The design should be: ${state.frontCoverPrompt}`,
                                     width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed'
+                                    negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed, cropped, cut off edges'
                                   })
                                 });
                                 
