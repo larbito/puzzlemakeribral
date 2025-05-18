@@ -143,7 +143,9 @@ const KDPCoverDesigner: React.FC = () => {
     calculateDimensions: false,
     generateFrontCover: false,
     generateBackCover: false,
-    assembleFullCover: false
+    assembleFullCover: false,
+    uploadImage: false,
+    analyzeImage: false
   });
 
   // Calculate spine width based on page count and paper type
@@ -263,6 +265,76 @@ const KDPCoverDesigner: React.FC = () => {
       setIsLoading({...isLoading, calculateDimensions: false});
       toast.success('Cover dimensions calculated successfully!');
     }, 1500);
+  };
+
+  // Handle file upload
+  const handleFileUpload = (file: File) => {
+    if (!file) return;
+    
+    // Check file type
+    const validTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Please upload a PNG, JPG, or PDF file');
+      return;
+    }
+    
+    // Check file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size exceeds 5MB limit');
+      return;
+    }
+    
+    setIsLoading({...isLoading, uploadImage: true});
+    
+    // Create a URL for the uploaded image
+    const imageUrl = URL.createObjectURL(file);
+    
+    // Update state with the image URL
+    setState(prev => ({
+      ...prev,
+      frontCoverImage: imageUrl
+    }));
+    
+    // After uploading successfully
+    setIsLoading({...isLoading, uploadImage: false});
+    
+    // Now analyze the image with OpenAI
+    analyzeImageWithOpenAI(file);
+  };
+  
+  // Analyze image with OpenAI and get a prompt
+  const analyzeImageWithOpenAI = async (file: File) => {
+    setIsLoading({...isLoading, analyzeImage: true});
+    
+    try {
+      // In a real implementation, you would send the file to your backend
+      // and then the backend would call the OpenAI API
+      
+      // Simulate a delay for demo purposes
+      toast.info("Analyzing image with AI...");
+      
+      setTimeout(() => {
+        // Simulate a response from OpenAI
+        const generatedPrompt = "A professional book cover with vibrant colors showing a mountain landscape at sunset, dramatic lighting with warm orange and purple tones, minimalist typography suitable for a non-fiction book about personal growth.";
+        
+        setState(prev => ({
+          ...prev,
+          frontCoverPrompt: generatedPrompt,
+          steps: {
+            ...prev.steps,
+            frontCover: true
+          }
+        }));
+        
+        setIsLoading({...isLoading, analyzeImage: false});
+        toast.success("Image analyzed! AI has generated a prompt based on your image.");
+      }, 2500);
+      
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      toast.error('Failed to analyze image. Please try again.');
+      setIsLoading({...isLoading, analyzeImage: false});
+    }
   };
 
   // Step indicators component
@@ -721,18 +793,103 @@ const KDPCoverDesigner: React.FC = () => {
               </TabsContent>
               
               <TabsContent value="upload" className="space-y-4">
-                <div className="border-2 border-dashed border-zinc-700 rounded-lg p-6 text-center bg-zinc-800/30">
-                  <div className="flex flex-col items-center justify-center space-y-2">
-                    <Upload className="h-8 w-8 text-zinc-500" />
+                <div
+                  className={`border-2 border-dashed ${isLoading.uploadImage || isLoading.analyzeImage ? 'border-emerald-500' : 'border-zinc-700'} rounded-lg p-6 text-center bg-zinc-800/30 relative overflow-hidden transition-colors`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.classList.add('border-emerald-500');
+                    e.currentTarget.classList.add('bg-emerald-950/20');
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.classList.remove('border-emerald-500');
+                    e.currentTarget.classList.remove('bg-emerald-950/20');
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.currentTarget.classList.remove('border-emerald-500');
+                    e.currentTarget.classList.remove('bg-emerald-950/20');
+                    
+                    const dt = e.dataTransfer;
+                    const files = dt.files;
+                    
+                    if (files && files.length > 0) {
+                      handleFileUpload(files[0]);
+                    }
+                  }}
+                >
+                  <input
+                    type="file"
+                    id="fileUpload"
+                    className="hidden"
+                    accept="image/png,image/jpeg,application/pdf"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        handleFileUpload(e.target.files[0]);
+                      }
+                    }}
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <Upload className={`h-10 w-10 ${isLoading.uploadImage || isLoading.analyzeImage ? 'text-emerald-500 animate-pulse' : 'text-zinc-500'}`} />
                     <div className="space-y-1">
-                      <p className="text-sm font-medium text-zinc-300">Drag and drop file or click to upload</p>
+                      <p className="text-sm font-medium text-zinc-300">
+                        {isLoading.uploadImage ? 'Uploading...' : 
+                         isLoading.analyzeImage ? 'Analyzing with OpenAI...' : 
+                         'Drag and drop file or click to upload'}
+                      </p>
                       <p className="text-xs text-zinc-500">PNG, JPG or PDF (Max 5MB)</p>
                     </div>
-                    <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800">
-                      Browse Files
-                    </Button>
+                    <label htmlFor="fileUpload">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="border-zinc-700 hover:bg-zinc-800"
+                        disabled={isLoading.uploadImage || isLoading.analyzeImage}
+                        onClick={() => document.getElementById('fileUpload')?.click()}
+                      >
+                        {isLoading.uploadImage || isLoading.analyzeImage ? 
+                          <span className="flex items-center">
+                            <span className="animate-spin mr-2">⏳</span> Processing...
+                          </span> :
+                          <span className="flex items-center">
+                            <span className="mr-1">📁</span> Browse Files
+                          </span>
+                        }
+                      </Button>
+                    </label>
                   </div>
+                  
+                  {/* Upload progress overlay */}
+                  {(isLoading.uploadImage || isLoading.analyzeImage) && (
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-900">
+                      <div 
+                        className="h-full bg-emerald-500 transition-all duration-300" 
+                        style={{ 
+                          width: isLoading.analyzeImage ? '70%' : '30%',
+                          transition: 'width 0.5s ease-in-out'
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
+                
+                <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
+                  <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center">
+                    <span className="mr-2">✨</span> AI Analysis
+                  </h4>
+                  <p className="text-xs text-emerald-300">
+                    Upload your image and our AI will analyze it to create a detailed prompt that captures its style and elements.
+                    We'll then use this prompt to generate variations or enhancements.
+                  </p>
+                </div>
+                
                 <p className="text-xs text-zinc-500">
                   Images should be at least 300 DPI and match the dimensions from your book settings.
                 </p>
@@ -767,10 +924,43 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 <div className="flex justify-end mt-4">
-                  <Button variant="outline" className="mr-2">
-                    Regenerate
+                  <Button 
+                    variant="outline" 
+                    className="mr-2 border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
+                    onClick={() => {
+                      // If we have a prompt, regenerate with it
+                      if (state.frontCoverPrompt) {
+                        setIsLoading({...isLoading, generateFrontCover: true});
+                        setTimeout(() => {
+                          // In a real implementation, this would be the URL from the API
+                          const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
+                          setState(prev => ({
+                            ...prev,
+                            frontCoverImage: imageUrl
+                          }));
+                          setIsLoading({...isLoading, generateFrontCover: false});
+                          toast.success("Generated a new cover variation!");
+                        }, 2000);
+                      }
+                    }}
+                  >
+                    <Wand2 className="mr-2 h-4 w-4" />
+                    Generate Variation
                   </Button>
-                  <Button>
+                  <Button 
+                    className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
+                    onClick={() => {
+                      setState(prev => ({
+                        ...prev,
+                        steps: {
+                          ...prev.steps,
+                          frontCover: true
+                        }
+                      }));
+                      toast.success("Front cover design saved!");
+                    }}
+                  >
+                    <Check className="mr-2 h-4 w-4" />
                     Use This Design
                   </Button>
                 </div>
