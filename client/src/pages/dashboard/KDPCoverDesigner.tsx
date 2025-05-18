@@ -73,6 +73,7 @@ interface CoverDesignerState {
   spineColor: string;
   spineFont: string;
   fullCoverImage: string | null;
+  uploadedFile?: File;
 }
 
 // KDP supported trim sizes
@@ -289,17 +290,16 @@ const KDPCoverDesigner: React.FC = () => {
     // Create a URL for the uploaded image
     const imageUrl = URL.createObjectURL(file);
     
-    // Update state with the image URL
+    // Update state with the image URL and file reference
     setState(prev => ({
       ...prev,
-      frontCoverImage: imageUrl
+      frontCoverImage: imageUrl,
+      uploadedFile: file // Save reference to file for later analysis
     }));
     
     // After uploading successfully
     setIsLoading({...isLoading, uploadImage: false});
-    
-    // Now analyze the image with OpenAI
-    analyzeImageWithOpenAI(file);
+    toast.success("Image uploaded successfully! Click 'Generate Prompt' to analyze it with AI.");
   };
   
   // Analyze image with OpenAI and get a prompt
@@ -923,47 +923,114 @@ const KDPCoverDesigner: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="flex justify-end mt-4">
-                  <Button 
-                    variant="outline" 
-                    className="mr-2 border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
-                    onClick={() => {
-                      // If we have a prompt, regenerate with it
-                      if (state.frontCoverPrompt) {
+                {/* Show different action buttons based on the current state */}
+                {state.uploadedFile && !state.frontCoverPrompt ? (
+                  <div className="flex justify-end mt-4">
+                    <Button 
+                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
+                      onClick={() => {
+                        if (state.uploadedFile) {
+                          analyzeImageWithOpenAI(state.uploadedFile);
+                        }
+                      }}
+                      disabled={isLoading.analyzeImage}
+                    >
+                      {isLoading.analyzeImage ? (
+                        <span className="flex items-center">
+                          <span className="animate-spin mr-2">⏳</span> Analyzing...
+                        </span>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Generate Prompt from Image
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : state.frontCoverPrompt && !state.steps.frontCover ? (
+                  <div className="flex justify-end mt-4">
+                    <div className="mr-auto bg-emerald-950/30 p-3 rounded-lg max-w-lg">
+                      <h4 className="text-sm font-medium text-emerald-400 mb-1">AI-Generated Prompt:</h4>
+                      <p className="text-xs text-emerald-300">{state.frontCoverPrompt}</p>
+                    </div>
+                    <Button 
+                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 ml-4"
+                      onClick={() => {
                         setIsLoading({...isLoading, generateFrontCover: true});
+                        // Simulate API call to generate front cover
                         setTimeout(() => {
                           // In a real implementation, this would be the URL from the API
-                          const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
+                          const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+From+Prompt';
                           setState(prev => ({
                             ...prev,
-                            frontCoverImage: imageUrl
+                            frontCoverImage: imageUrl,
+                            steps: {
+                              ...prev.steps,
+                              frontCover: true
+                            }
                           }));
                           setIsLoading({...isLoading, generateFrontCover: false});
-                          toast.success("Generated a new cover variation!");
+                          toast.success("Front cover generated from the prompt!");
                         }, 2000);
-                      }
-                    }}
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Generate Variation
-                  </Button>
-                  <Button 
-                    className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
-                    onClick={() => {
-                      setState(prev => ({
-                        ...prev,
-                        steps: {
-                          ...prev.steps,
-                          frontCover: true
+                      }}
+                      disabled={isLoading.generateFrontCover}
+                    >
+                      {isLoading.generateFrontCover ? (
+                        <span className="flex items-center">
+                          <span className="animate-spin mr-2">⏳</span> Generating...
+                        </span>
+                      ) : (
+                        <>
+                          <Wand2 className="mr-2 h-4 w-4" />
+                          Generate Cover from Prompt
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex justify-end mt-4">
+                    <Button 
+                      variant="outline" 
+                      className="mr-2 border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
+                      onClick={() => {
+                        // If we have a prompt, regenerate with it
+                        if (state.frontCoverPrompt) {
+                          setIsLoading({...isLoading, generateFrontCover: true});
+                          setTimeout(() => {
+                            // In a real implementation, this would be the URL from the API
+                            const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Variation';
+                            setState(prev => ({
+                              ...prev,
+                              frontCoverImage: imageUrl
+                            }));
+                            setIsLoading({...isLoading, generateFrontCover: false});
+                            toast.success("Generated a new cover variation!");
+                          }, 2000);
                         }
-                      }));
-                      toast.success("Front cover design saved!");
-                    }}
-                  >
-                    <Check className="mr-2 h-4 w-4" />
-                    Use This Design
-                  </Button>
-                </div>
+                      }}
+                      disabled={!state.frontCoverPrompt || isLoading.generateFrontCover}
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Variation
+                    </Button>
+                    <Button 
+                      className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
+                      onClick={() => {
+                        setState(prev => ({
+                          ...prev,
+                          steps: {
+                            ...prev.steps,
+                            frontCover: true
+                          }
+                        }));
+                        toast.success("Front cover design saved!");
+                      }}
+                    >
+                      <Check className="mr-2 h-4 w-4" />
+                      Use This Design
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
             
