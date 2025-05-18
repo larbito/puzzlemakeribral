@@ -324,7 +324,7 @@ const KDPCoverDesigner: React.FC = () => {
       toast.info("Analyzing image with OpenAI...");
       
       // Call the actual backend API endpoint to analyze the image
-      const response = await fetch('/api/openai/extract-prompt', {
+      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
         body: JSON.stringify({ imageUrl }),
         headers: {
@@ -1086,7 +1086,7 @@ const KDPCoverDesigner: React.FC = () => {
                               
                               try {
                                 // Call the book cover generation API
-                                const response = await fetch('/api/book-cover/generate-front', {
+                                const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
@@ -1158,7 +1158,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style)`;
                                     
                                     // Call the book cover generation API for a variation
-                                    const response = await fetch('/api/book-cover/generate-front', {
+                                    const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                                       method: 'POST',
                                       headers: {
                                         'Content-Type': 'application/json',
