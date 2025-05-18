@@ -387,6 +387,26 @@ const KDPCoverDesigner: React.FC = () => {
                             }));
                           }
                         }}
+                        onBlur={(e) => {
+                          const value = parseInt(e.target.value);
+                          if (isNaN(value) || value < 24) {
+                            setState(prev => ({
+                              ...prev, 
+                              bookSettings: {
+                                ...prev.bookSettings,
+                                pageCount: 24
+                              }
+                            }));
+                          } else if (value > 900) {
+                            setState(prev => ({
+                              ...prev, 
+                              bookSettings: {
+                                ...prev.bookSettings,
+                                pageCount: 900
+                              }
+                            }));
+                          }
+                        }}
                         className="w-20"
                         min={24}
                         max={900}
@@ -483,11 +503,13 @@ const KDPCoverDesigner: React.FC = () => {
               <div className="w-1/2 border border-zinc-700 rounded-lg p-4 bg-zinc-800/50">
                 <h3 className="text-sm font-medium text-zinc-300 mb-4">Live Dimension Preview</h3>
                 
-                <div className="aspect-[1.4] relative border border-zinc-700 bg-zinc-900 mb-4 overflow-hidden">
+                <div className="relative border border-zinc-700 bg-zinc-900 mb-4 overflow-hidden" style={{ 
+                  aspectRatio: `${Math.max(1.4, state.bookSettings.dimensions.totalWidth / state.bookSettings.dimensions.totalHeight)}`,
+                }}>
                   {/* Preview rendering area */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     {/* Dynamic preview based on settings */}
-                    <div className="relative h-3/4 flex">
+                    <div className="relative flex">
                       {/* Back cover */}
                       <div 
                         className="h-full bg-zinc-100 border border-zinc-300 relative"
@@ -510,7 +532,8 @@ const KDPCoverDesigner: React.FC = () => {
                       <div 
                         className="h-full bg-cyan-100 border-t border-b border-zinc-300 flex items-center justify-center"
                         style={{ 
-                          width: `${Math.max(10, state.bookSettings.dimensions.spineWidth * 40)}px`
+                          width: `${Math.max(10, Math.floor(state.bookSettings.dimensions.spineWidth * 20))}px`,
+                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`
                         }}
                       >
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] text-zinc-600">
@@ -519,7 +542,13 @@ const KDPCoverDesigner: React.FC = () => {
                       </div>
                       
                       {/* Front cover */}
-                      <div className="h-full aspect-[2/3] bg-zinc-100 border border-zinc-300 relative">
+                      <div 
+                        className="h-full bg-zinc-100 border border-zinc-300 relative"
+                        style={{ 
+                          width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
+                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
+                        }}
+                      >
                         <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-xs font-medium">
                           Front Cover
                         </div>
