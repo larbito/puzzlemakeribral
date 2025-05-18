@@ -15,7 +15,8 @@ import {
   Book,
   FileType,
   LayoutPanelTop,
-  Check
+  Check,
+  RefreshCcw
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -994,7 +995,7 @@ const KDPCoverDesigner: React.FC = () => {
                       {state.steps.frontCover ? "AI Generated Cover" : "Cover Preview"}
                     </h4>
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
-                      {state.frontCoverImage ? (
+                      {state.frontCoverImage && state.steps.frontCover ? (
                         <div className="relative" style={{
                           width: `${state.bookSettings.dimensions.width * 70}px`, // Larger size multiplier
                           height: `${state.bookSettings.dimensions.height * 70}px`, // Larger size multiplier
@@ -1008,9 +1009,25 @@ const KDPCoverDesigner: React.FC = () => {
                           />
                         </div>
                       ) : (
-                        <div className="text-zinc-500 text-center flex flex-col items-center justify-center">
+                        <div className="text-zinc-500 text-center flex flex-col items-center justify-center" style={{
+                          width: `${state.bookSettings.dimensions.width * 70}px`,
+                          height: `${state.bookSettings.dimensions.height * 70}px`,
+                          maxWidth: '100%',
+                          maxHeight: '550px'
+                        }}>
                           <Wand2 className="h-10 w-10 mb-2 text-zinc-700" />
-                          <p>Generate a cover to see preview</p>
+                          <p className="text-zinc-500">
+                            {state.frontCoverPrompt 
+                              ? "Click 'Generate Cover' button to create your AI cover" 
+                              : "Generate a cover to see preview"}
+                          </p>
+                          {state.frontCoverPrompt && (
+                            <div className="mt-3 border border-zinc-700 rounded p-3 bg-zinc-800/50 w-full max-w-xs">
+                              <div className="text-xs text-zinc-400 text-center">
+                                Edit your prompt and then click<br/>the "Generate Cover" button below
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1113,8 +1130,32 @@ const KDPCoverDesigner: React.FC = () => {
                           />
                         </div>
                         
-                        {/* Add reset button */}
-                        <div className="flex justify-end">
+                        {/* Add buttons for actions */}
+                        <div className="flex justify-between">
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            className="border-emerald-700 text-emerald-400 hover:bg-emerald-950/30 hover:border-emerald-600"
+                            onClick={() => {
+                              if (state.uploadedFile) {
+                                analyzeImageWithOpenAI(state.uploadedFile);
+                                toast.info("Regenerating prompt from your image...");
+                              }
+                            }}
+                            disabled={isLoading.analyzeImage}
+                          >
+                            {isLoading.analyzeImage ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin mr-2">⏳</span> Regenerating...
+                              </span>
+                            ) : (
+                              <>
+                                <RefreshCcw className="mr-2 h-4 w-4" />
+                                Regenerate Prompt
+                              </>
+                            )}
+                          </Button>
+                          
                           <Button 
                             variant="outline"
                             size="sm"
