@@ -365,6 +365,28 @@ const KDPCoverDesigner: React.FC = () => {
     }
   };
 
+  // Function to reset uploaded image and prompt
+  const resetUpload = () => {
+    // Release any object URLs to prevent memory leaks
+    if (state.originalImageUrl) {
+      URL.revokeObjectURL(state.originalImageUrl);
+    }
+    
+    setState(prev => ({
+      ...prev,
+      frontCoverPrompt: '',
+      frontCoverImage: null,
+      originalImageUrl: null,
+      uploadedFile: undefined,
+      steps: {
+        ...prev.steps,
+        frontCover: false
+      }
+    }));
+    
+    toast.info("Image and prompt have been reset. You can upload a new image.");
+  };
+
   // Step indicators component
   const StepIndicators = () => (
     <div className="flex items-center justify-between mb-8 relative">
@@ -931,8 +953,20 @@ const KDPCoverDesigner: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[550px]">
                   {/* Original Uploaded Image */}
                   <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-zinc-300">Uploaded Image</h4>
-                                        <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-medium text-zinc-300">Uploaded Image</h4>
+                      {state.uploadedFile && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
+                          onClick={resetUpload}
+                        >
+                          <span className="mr-2">🔄</span> Reset & Upload New
+                        </Button>
+                      )}
+                    </div>
+                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.uploadedFile ? (
                         <div className="relative" style={{
                           width: `${state.bookSettings.dimensions.width * 60}px`,
@@ -1001,32 +1035,49 @@ const KDPCoverDesigner: React.FC = () => {
                         <p className="text-sm text-zinc-400 mb-3">
                           Your image has been uploaded. Click the button below to analyze it with AI and generate a prompt.
                         </p>
-                        <Button 
-                          className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
-                          onClick={() => {
-                            if (state.uploadedFile) {
-                              analyzeImageWithOpenAI(state.uploadedFile);
-                            }
-                          }}
-                          disabled={isLoading.analyzeImage}
-                        >
-                          {isLoading.analyzeImage ? (
-                            <span className="flex items-center">
-                              <span className="animate-spin mr-2">⏳</span> Analyzing...
-                            </span>
-                          ) : (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Generate Prompt from Image
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex space-x-2">
+                          <Button 
+                            className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
+                            onClick={() => {
+                              if (state.uploadedFile) {
+                                analyzeImageWithOpenAI(state.uploadedFile);
+                              }
+                            }}
+                            disabled={isLoading.analyzeImage}
+                          >
+                            {isLoading.analyzeImage ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin mr-2">⏳</span> Analyzing...
+                              </span>
+                            ) : (
+                              <>
+                                <Wand2 className="mr-2 h-4 w-4" />
+                                Generate Prompt from Image
+                              </>
+                            )}
+                          </Button>
+                          <Button 
+                            variant="outline"
+                            className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
+                            onClick={resetUpload}
+                          >
+                            Reset & Upload New
+                          </Button>
+                        </div>
                       </div>
                     ) : state.frontCoverPrompt && (
                       <div className="ml-11">
                         <p className="text-sm text-zinc-400 mb-2">
                           <span className="text-emerald-400">✓</span> Image analyzed successfully
                         </p>
+                        <Button 
+                          variant="outline"
+                          size="sm"
+                          className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
+                          onClick={resetUpload}
+                        >
+                          <span className="mr-2">🔄</span> Reset & Upload Different Image
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -1060,6 +1111,18 @@ const KDPCoverDesigner: React.FC = () => {
                             }
                             className="min-h-[200px] text-sm bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
                           />
+                        </div>
+                        
+                        {/* Add reset button */}
+                        <div className="flex justify-end">
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
+                            onClick={resetUpload}
+                          >
+                            <span className="mr-2">🔄</span> Reset & Upload Different Image
+                          </Button>
                         </div>
                       </div>
                     </div>
