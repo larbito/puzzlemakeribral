@@ -33,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { API_BASE_URL } from '@/config';
 
 // Define the main types we'll use
 type Step = 'settings' | 'frontCover' | 'backCover' | 'spine' | 'preview' | 'export';
@@ -146,6 +147,7 @@ const KDPCoverDesigner: React.FC = () => {
     calculateDimensions: false,
     generateFrontCover: false,
     generateBackCover: false,
+    generateBackCoverPrompt: false,
     assembleFullCover: false,
     uploadImage: false,
     analyzeImage: false
@@ -1274,19 +1276,71 @@ const KDPCoverDesigner: React.FC = () => {
                 
                 <Button 
                   variant="outline"
-                  onClick={() => {
-                    // Simulate getting prompt from front cover
-                    setState(prev => ({
-                      ...prev,
-                      backCoverPrompt: "Generated from your front cover style: " + 
-                        "A professional back cover matching the front design, with space for book description text and author bio."
-                    }));
-                    toast.success("Generated prompt based on front cover style");
+                  onClick={async () => {
+                    if (!state.frontCoverPrompt) {
+                      toast.error("Please generate a front cover prompt first");
+                      return;
+                    }
+                    
+                    setIsLoading({...isLoading, generateBackCoverPrompt: true});
+                    toast.info("Generating back cover description from front cover...");
+                    
+                    try {
+                      // Call OpenAI API to generate back cover description
+                      const response = await fetch(`${API_BASE_URL}/api/openai/enhance-prompt`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          prompt: `Based on this front cover design: "${state.frontCoverPrompt}", create a complementary back cover description that would work well with this design.`,
+                          context: "You are a professional book cover designer. Create a back cover description that includes placeholders for book summary, author bio, and complements the front cover style."
+                        })
+                      });
+                      
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to generate back cover description');
+                      }
+                      
+                      const data = await response.json();
+                      const backCoverDesc = data.enhancedPrompt;
+                      
+                      if (!backCoverDesc) {
+                        throw new Error('No back cover description was generated');
+                      }
+                      
+                      setState(prev => ({
+                        ...prev,
+                        backCoverPrompt: backCoverDesc
+                      }));
+                      
+                      toast.success("Back cover description generated!");
+                    } catch (error) {
+                      console.error('Error generating back cover description:', error);
+                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover description');
+                      // Fallback to a default description if API fails
+                      setState(prev => ({
+                        ...prev,
+                        backCoverPrompt: "A professional back cover matching the front design, with space for book description text and author bio."
+                      }));
+                    } finally {
+                      setIsLoading({...isLoading, generateBackCoverPrompt: false});
+                    }
                   }}
                   className="w-full border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
+                  disabled={isLoading.generateBackCoverPrompt || !state.frontCoverPrompt}
                 >
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generate from Front Cover
+                  {isLoading.generateBackCoverPrompt ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin mr-2">⏳</span> Generating...
+                    </span>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate from Front Cover
+                    </>
+                  )}
                 </Button>
                 
                 <div className="space-y-2 mt-4">
@@ -1311,12 +1365,39 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 <Button 
-                  onClick={() => {
+                  onClick={async () => {
+                    if (!state.backCoverPrompt) {
+                      toast.error("Please generate a back cover description first");
+                      return;
+                    }
+                    
                     setIsLoading({...isLoading, generateBackCover: true});
-                    // Simulate API call to generate back cover
-                    setTimeout(() => {
-                      // In a real implementation, this would be the URL from the API
-                      const imageUrl = 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover';
+                    toast.info("Generating back cover design...");
+                    
+                    try {
+                      // Call book cover API to generate back cover
+                      const response = await fetch(`${API_BASE_URL}/api/book-cover/generate-back`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          prompt: state.backCoverPrompt,
+                          width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
+                          height: Math.round(state.bookSettings.dimensions.height * 300),
+                          negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
+                          includeISBN: state.bookSettings.includeISBN
+                        })
+                      });
+                      
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Failed to generate back cover');
+                      }
+                      
+                      const data = await response.json();
+                      const imageUrl = data.url || 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover';
+                      
                       setState(prev => ({
                         ...prev,
                         backCoverImage: imageUrl,
@@ -1325,14 +1406,33 @@ const KDPCoverDesigner: React.FC = () => {
                           backCover: true
                         }
                       }));
-                      setIsLoading({...isLoading, generateBackCover: false});
+                      
                       toast.success("Back cover generated successfully!");
-                    }, 2000);
+                    } catch (error) {
+                      console.error('Error generating back cover:', error);
+                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
+                      
+                      // Fallback to placeholder if API fails
+                      setState(prev => ({
+                        ...prev,
+                        backCoverImage: 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover',
+                        steps: {
+                          ...prev.steps,
+                          backCover: true
+                        }
+                      }));
+                    } finally {
+                      setIsLoading({...isLoading, generateBackCover: false});
+                    }
                   }}
                   className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500"
                   disabled={isLoading.generateBackCover || !state.backCoverPrompt}
                 >
-                  {isLoading.generateBackCover ? 'Generating...' : 'Generate Back Cover'}
+                  {isLoading.generateBackCover ? (
+                    <span className="flex items-center">
+                      <span className="animate-spin mr-2">⏳</span> Generating...
+                    </span>
+                  ) : 'Generate Back Cover'}
                 </Button>
               </div>
               
