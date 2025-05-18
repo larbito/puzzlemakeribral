@@ -926,22 +926,22 @@ const KDPCoverDesigner: React.FC = () => {
             {(state.uploadedFile || state.frontCoverImage) && (
               <div className="mt-6">
                 <h3 className="text-md font-medium mb-2">Cover Preview</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[550px]">
                   {/* Original Uploaded Image */}
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium text-zinc-300">Uploaded Image</h4>
-                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
+                                        <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.uploadedFile ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 40}px`,
-                          height: `${state.bookSettings.dimensions.height * 40}px`,
+                          width: `${state.bookSettings.dimensions.width * 60}px`,
+                          height: `${state.bookSettings.dimensions.height * 60}px`,
                           maxWidth: '100%',
-                          maxHeight: '300px'
+                          maxHeight: '500px'
                         }}>
-                                                      <img 
+                          <img 
                             src={state.originalImageUrl || ''}
                             alt="Uploaded Image" 
-                            className="w-full h-full object-cover rounded-md shadow-lg"
+                            className="w-full h-full object-contain rounded-md shadow-lg"
                           />
                         </div>
                       ) : (
@@ -960,15 +960,15 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 40}px`,
-                          height: `${state.bookSettings.dimensions.height * 40}px`,
+                          width: `${state.bookSettings.dimensions.width * 60}px`,
+                          height: `${state.bookSettings.dimensions.height * 60}px`,
                           maxWidth: '100%',
-                          maxHeight: '300px'
+                          maxHeight: '500px'
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
-                            className="w-full h-full object-cover rounded-md shadow-lg"
+                            className="w-full h-full object-contain rounded-md shadow-lg"
                           />
                         </div>
                       ) : (
