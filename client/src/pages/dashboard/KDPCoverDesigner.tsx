@@ -372,12 +372,28 @@ const KDPCoverDesigner: React.FC = () => {
                           }))
                         }
                       />
-                      <Input
-                        type="number"
+                      <input
+                        type="text"
                         value={state.bookSettings.pageCount}
                         onChange={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (!isNaN(value) && value >= 24 && value <= 900) {
+                          // Allow empty string for easier editing
+                          if (e.target.value === '') {
+                            setState(prev => ({
+                              ...prev,
+                              bookSettings: {
+                                ...prev.bookSettings,
+                                pageCount: '' as any
+                              }
+                            }));
+                            return;
+                          }
+                          
+                          // Only allow numeric input
+                          const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                          if (numericValue !== e.target.value) return;
+                          
+                          const value = parseInt(numericValue);
+                          if (!isNaN(value)) {
                             setState(prev => ({
                               ...prev, 
                               bookSettings: {
@@ -388,28 +404,20 @@ const KDPCoverDesigner: React.FC = () => {
                           }
                         }}
                         onBlur={(e) => {
-                          const value = parseInt(e.target.value);
-                          if (isNaN(value) || value < 24) {
-                            setState(prev => ({
-                              ...prev, 
-                              bookSettings: {
-                                ...prev.bookSettings,
-                                pageCount: 24
-                              }
-                            }));
-                          } else if (value > 900) {
-                            setState(prev => ({
-                              ...prev, 
-                              bookSettings: {
-                                ...prev.bookSettings,
-                                pageCount: 900
-                              }
-                            }));
-                          }
+                          let value = parseInt(e.target.value as string);
+                          if (isNaN(value)) value = 24;
+                          if (value < 24) value = 24;
+                          if (value > 900) value = 900;
+                          
+                          setState(prev => ({
+                            ...prev, 
+                            bookSettings: {
+                              ...prev.bookSettings,
+                              pageCount: value
+                            }
+                          }));
                         }}
-                        className="w-20"
-                        min={24}
-                        max={900}
+                        className="w-20 rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                     <p className="text-xs text-zinc-400">Minimum 24 pages, maximum 900 pages</p>
@@ -432,8 +440,13 @@ const KDPCoverDesigner: React.FC = () => {
                               }
                             }))
                           }
-                          className="flex-1"
+                          className={`flex-1 ${
+                            state.bookSettings.paperType === type.value 
+                              ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
+                              : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
+                          }`}
                         >
+                          {type.value === 'white' ? '⚪ ' : type.value === 'cream' ? '🟡 ' : '🎨 '}
                           {type.label}
                         </Button>
                       ))}
@@ -486,43 +499,45 @@ const KDPCoverDesigner: React.FC = () => {
                   
                   <Button 
                     onClick={calculateDimensions}
-                    className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500" 
+                    className="w-full mt-6 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold text-white shadow-lg" 
                     disabled={isLoading.calculateDimensions}
                   >
                     {isLoading.calculateDimensions ? 
-                      'Calculating...' : 
+                      '⏳ Calculating...' : 
                       state.steps.settings ? 
-                        'Recalculate Dimensions' : 
-                        'Calculate Cover Dimensions'
+                        '🔄 Recalculate Dimensions' : 
+                        '📏 Calculate Cover Dimensions'
                     }
                   </Button>
                 </div>
               </div>
               
               {/* Live Preview Panel */}
-              <div className="w-1/2 border border-zinc-700 rounded-lg p-4 bg-zinc-800/50">
-                <h3 className="text-sm font-medium text-zinc-300 mb-4">Live Dimension Preview</h3>
+              <div className="w-1/2 border border-emerald-800/30 rounded-lg p-5 bg-zinc-800/50 shadow-lg">
+                <h3 className="text-sm font-medium text-emerald-400 mb-4 flex items-center">
+                  <span className="mr-2">📐</span> Live Dimension Preview
+                </h3>
                 
-                <div className="relative border border-zinc-700 bg-zinc-900 mb-4 overflow-hidden" style={{ 
+                <div className="relative border border-zinc-700 bg-gradient-to-br from-zinc-900 to-zinc-800 mb-6 overflow-hidden rounded-lg shadow-inner" style={{ 
                   aspectRatio: `${Math.max(1.4, state.bookSettings.dimensions.totalWidth / state.bookSettings.dimensions.totalHeight)}`,
                 }}>
                   {/* Preview rendering area */}
-                  <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center justify-center p-6">
                     {/* Dynamic preview based on settings */}
-                    <div className="relative flex">
+                    <div className="relative flex shadow-2xl">
                       {/* Back cover */}
                       <div 
-                        className="h-full bg-zinc-100 border border-zinc-300 relative"
+                        className="h-full bg-white border border-zinc-400 relative shadow-md"
                         style={{ 
                           width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
                           height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
                         }}
                       >
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-xs font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs font-medium">
                           Back Cover
                         </div>
                         {state.bookSettings.includeISBN && (
-                          <div className="absolute bottom-3 right-3 w-16 h-8 bg-zinc-300 rounded-sm flex items-center justify-center text-[8px] text-zinc-600">
+                          <div className="absolute bottom-3 right-3 w-16 h-8 bg-zinc-200 rounded-sm flex items-center justify-center text-[8px] text-zinc-600 border border-zinc-300">
                             ISBN
                           </div>
                         )}
@@ -530,26 +545,26 @@ const KDPCoverDesigner: React.FC = () => {
                       
                       {/* Spine */}
                       <div 
-                        className="h-full bg-cyan-100 border-t border-b border-zinc-300 flex items-center justify-center"
+                        className="h-full bg-emerald-100 border-t border-b border-zinc-400 flex items-center justify-center"
                         style={{ 
                           width: `${Math.max(10, Math.floor(state.bookSettings.dimensions.spineWidth * 20))}px`,
                           height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`
                         }}
                       >
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] text-zinc-600">
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] text-emerald-800 font-medium">
                           Spine ({state.bookSettings.dimensions.spineWidth.toFixed(3)}")
                         </div>
                       </div>
                       
                       {/* Front cover */}
                       <div 
-                        className="h-full bg-zinc-100 border border-zinc-300 relative"
+                        className="h-full bg-white border border-zinc-400 relative shadow-md"
                         style={{ 
                           width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
                           height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
                         }}
                       >
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-400 text-xs font-medium">
+                        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs font-medium">
                           Front Cover
                         </div>
                       </div>
@@ -558,46 +573,48 @@ const KDPCoverDesigner: React.FC = () => {
                   
                   {/* Bleed indicator */}
                   {state.bookSettings.includeBleed && (
-                    <div className="absolute inset-0 border-2 border-red-300 border-dashed m-2 pointer-events-none">
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white px-1 text-[8px] text-red-500">
+                    <div className="absolute inset-0 border-2 border-emerald-500/60 border-dashed m-2 pointer-events-none rounded">
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 py-0.5 text-[8px] text-emerald-400 rounded">
                         Bleed Area (0.125")
                       </div>
                     </div>
                   )}
                 </div>
                 
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Trim Size:</span>
-                    <span className="font-medium text-zinc-300">{state.bookSettings.bookSize.replace('x', ' × "')}"</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Page Count:</span>
-                    <span className="font-medium text-zinc-300">{state.bookSettings.pageCount} pages</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Spine Width:</span>
-                    <span className="font-medium text-zinc-300">{state.bookSettings.dimensions.spineWidth.toFixed(3)}"</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Total Cover Size:</span>
-                    <span className="font-medium text-zinc-300">
-                      {state.bookSettings.dimensions.totalWidth.toFixed(2)}" × {state.bookSettings.dimensions.totalHeight.toFixed(2)}"
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Bleed:</span>
-                    <span className="font-medium text-zinc-300">{state.bookSettings.includeBleed ? '0.125" (included)' : 'None'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-zinc-400">Resolution:</span>
-                    <span className="font-medium text-zinc-300">300 DPI</span>
+                <div className="bg-zinc-900/60 rounded-lg p-4 shadow-inner">
+                  <div className="space-y-3 text-sm divide-y divide-zinc-800">
+                    <div className="flex justify-between pb-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📏</span> Trim Size:</span>
+                      <span className="font-semibold text-white">{state.bookSettings.bookSize.replace('x', ' × "')}"</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📄</span> Page Count:</span>
+                      <span className="font-semibold text-white">{state.bookSettings.pageCount} pages</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📚</span> Spine Width:</span>
+                      <span className="font-semibold text-white">{state.bookSettings.dimensions.spineWidth.toFixed(3)}"</span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📐</span> Total Cover Size:</span>
+                      <span className="font-semibold text-white">
+                        {state.bookSettings.dimensions.totalWidth.toFixed(2)}" × {state.bookSettings.dimensions.totalHeight.toFixed(2)}"
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">✂️</span> Bleed:</span>
+                      <span className="font-semibold text-white">{state.bookSettings.includeBleed ? '0.125" (included)' : 'None'}</span>
+                    </div>
+                    <div className="flex justify-between pt-2">
+                      <span className="text-emerald-400 flex items-center"><span className="mr-1">🔍</span> Resolution:</span>
+                      <span className="font-semibold text-white">300 DPI</span>
+                    </div>
                   </div>
                 </div>
                 
-                <div className="mt-4 pt-4 border-t border-zinc-700">
-                  <div className="flex items-center space-x-2 text-xs text-emerald-400">
-                    <Info className="w-4 h-4" />
+                <div className="mt-4 pt-4 border-t border-zinc-700/50">
+                  <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/30 p-3 rounded-lg">
+                    <Info className="w-4 h-4 text-emerald-300" />
                     <span>These dimensions are based on KDP printing requirements.</span>
                   </div>
                 </div>
@@ -608,15 +625,15 @@ const KDPCoverDesigner: React.FC = () => {
             <div className="flex justify-between pt-4 border-t border-zinc-700">
               <Button variant="outline" disabled className="border-zinc-700 text-zinc-400">
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+                ⬅️ Back
               </Button>
               
               <Button
                 onClick={() => state.steps.settings && completeStep('settings', 'frontCover')}
                 disabled={!state.steps.settings}
-                className="bg-emerald-600 hover:bg-emerald-500"
+                className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold shadow-md"
               >
-                Continue
+                Continue ➡️
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
