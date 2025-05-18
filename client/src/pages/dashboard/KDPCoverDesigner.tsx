@@ -66,6 +66,7 @@ interface CoverDesignerState {
   bookSettings: BookSettings;
   frontCoverPrompt: string;
   frontCoverImage: string | null;
+  originalImageUrl: string | null; // URL for the original uploaded image
   backCoverPrompt: string;
   backCoverImage: string | null;
   interiorImages: string[];
@@ -131,6 +132,7 @@ const KDPCoverDesigner: React.FC = () => {
     },
     frontCoverPrompt: '',
     frontCoverImage: null,
+    originalImageUrl: null, // Initialize the original image URL
     backCoverPrompt: '',
     backCoverImage: null,
     interiorImages: [],
@@ -294,6 +296,7 @@ const KDPCoverDesigner: React.FC = () => {
     setState(prev => ({
       ...prev,
       frontCoverImage: imageUrl,
+      originalImageUrl: imageUrl, // Store the original image URL
       uploadedFile: file // Save reference to file for later analysis
     }));
     
@@ -935,8 +938,8 @@ const KDPCoverDesigner: React.FC = () => {
                           maxWidth: '100%',
                           maxHeight: '300px'
                         }}>
-                          <img 
-                            src={state.frontCoverImage || URL.createObjectURL(state.uploadedFile)}
+                                                      <img 
+                            src={state.originalImageUrl || ''}
                             alt="Uploaded Image" 
                             className="w-full h-full object-cover rounded-md shadow-lg"
                           />
@@ -967,14 +970,6 @@ const KDPCoverDesigner: React.FC = () => {
                             alt="AI Generated Cover" 
                             className="w-full h-full object-cover rounded-md shadow-lg"
                           />
-                          
-                          {/* Overlay with book title demo */}
-                          <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                            <div className="bg-black/30 backdrop-blur-sm px-4 py-2 rounded-lg">
-                              <h2 className="text-xl font-bold text-white">YOUR BOOK TITLE</h2>
-                              <p className="text-sm text-white/80">Author Name</p>
-                            </div>
-                          </div>
                         </div>
                       ) : (
                         <div className="text-zinc-500 text-center flex flex-col items-center justify-center">
@@ -1111,16 +1106,17 @@ const KDPCoverDesigner: React.FC = () => {
                                   throw new Error('No image was generated');
                                 }
                                 
-                                setState(prev => ({
-                                  ...prev,
-                                  frontCoverImage: imageUrl,
-                                  steps: {
-                                    ...prev.steps,
-                                    frontCover: true // Now we set frontCover to true when generating the final cover
-                                  },
-                                  // Preserve the uploadedFile reference so we can continue showing both images
-                                  uploadedFile: prev.uploadedFile
-                                }));
+                                                                    setState(prev => ({
+                                      ...prev,
+                                      frontCoverImage: imageUrl,
+                                      steps: {
+                                        ...prev.steps,
+                                        frontCover: true // Now we set frontCover to true when generating the final cover
+                                      },
+                                      // Preserve the original image and uploadedFile reference
+                                      originalImageUrl: prev.originalImageUrl,
+                                      uploadedFile: prev.uploadedFile
+                                    }));
                                 
                                 toast.success("Front cover generated from your edited prompt!");
                               } catch (error) {
@@ -1187,7 +1183,8 @@ const KDPCoverDesigner: React.FC = () => {
                                     setState(prev => ({
                                       ...prev,
                                       frontCoverImage: imageUrl,
-                                      // Preserve the uploadedFile reference so we can continue showing both images
+                                      // Preserve the original image and uploadedFile reference
+                                      originalImageUrl: prev.originalImageUrl,
                                       uploadedFile: prev.uploadedFile
                                     }));
                                     
