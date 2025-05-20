@@ -176,39 +176,70 @@ exports.removeBackground = async (req, res) => {
         const base64Image = processedImageBuffer.toString('base64');
         const dataUri = `data:image/png;base64,${base64Image}`;
         
-        prediction = await replicate.predictions.create({
-          version: modelVersion,
-          input: { 
-            image: dataUri,
-            // Use model-specific parameters
-            ...modelParams
+        try {
+          prediction = await replicate.predictions.create({
+            version: modelVersion,
+            input: { 
+              image: dataUri,
+              // Use model-specific parameters
+              ...modelParams
+            }
+          });
+          
+          console.log('Prediction created with base64 method:', prediction.id);
+        } catch (base64Error) {
+          console.error('Base64 method failed, error:', base64Error);
+          
+          // Check for specific error messages
+          if (base64Error.message && (
+              base64Error.message.includes('Invalid version') || 
+              base64Error.message.includes('not permitted'))) {
+            // Try an alternative model if available
+            console.log('Model version issue detected, trying alternative model...');
+            const fallbackModelId = 'text_specialist'; // Our most reliable model
+            const fallbackModelVersion = BACKGROUND_REMOVAL_MODELS[fallbackModelId];
+            console.log(`Using fallback model: ${fallbackModelId} (${fallbackModelVersion})`);
+            
+            prediction = await replicate.predictions.create({
+              version: fallbackModelVersion,
+              input: { 
+                image: dataUri,
+                // Use minimal parameters for this fallback approach
+                return_mask: false,
+                alpha_matting: false
+              }
+            });
+            
+            console.log('Prediction created with fallback model:', prediction.id);
+          } else {
+            // If not a model error, try the URL approach
+            // Save the uploaded image to a temporary file
+            const tempImagePath = path.join(__dirname, '../../temp-upload.png');
+            fs.writeFileSync(tempImagePath, processedImageBuffer);
+            
+            // Convert the image to URL for Replicate API
+            // In a real implementation, you would upload to S3 or similar
+            // For now, we'll use a simple approach
+            const imageUrl = `file://${tempImagePath}`;
+            
+            prediction = await replicate.predictions.create({
+              version: modelVersion,
+              input: { 
+                image: imageUrl,
+                // Use model-specific parameters
+                ...modelParams
+              }
+            });
+            
+            console.log('Prediction created with URL method:', prediction.id);
           }
+        }
+      } catch (error) {
+        console.error('Error in Replicate background removal process:', error);
+        return res.status(500).json({
+          error: 'Background removal failed',
+          details: error.message || 'Unknown error'
         });
-        
-        console.log('Prediction created with base64 method:', prediction.id);
-      } catch (base64Error) {
-        console.error('Base64 method failed, error:', base64Error);
-        
-        // If that fails, we'll try with direct URL upload as fallback
-        // Save the uploaded image to a temporary file
-        const tempImagePath = path.join(__dirname, '../../temp-upload.png');
-        fs.writeFileSync(tempImagePath, processedImageBuffer);
-        
-        // Convert the image to URL for Replicate API
-        // In a real implementation, you would upload to S3 or similar
-        // For now, we'll use a simple approach
-        const imageUrl = `file://${tempImagePath}`;
-        
-        prediction = await replicate.predictions.create({
-          version: modelVersion,
-          input: { 
-            image: imageUrl,
-            // Use model-specific parameters
-            ...modelParams
-          }
-        });
-        
-        console.log('Prediction created with URL method:', prediction.id);
       }
       
       // Wait for the prediction to complete
