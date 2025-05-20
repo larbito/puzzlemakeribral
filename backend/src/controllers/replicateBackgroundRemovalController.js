@@ -13,10 +13,10 @@ console.log('Replicate API token configured:', REPLICATE_API_TOKEN ? 'Yes' : 'No
 
 // Define available background removal models
 const BACKGROUND_REMOVAL_MODELS = {
-  // Default model - high quality general purpose
-  "default": "clipdrop/remove-background:0601b0e80aa98d810ec261e5bc9a4d32307429e4513aea2b4ef6e3c50e721bb8",
+  // Default model - using the proven working model from logs
+  "default": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
   
-  // Best models for t-shirt designs
+  // Best models for t-shirt designs - models we've verified work
   "text_specialist": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
   "clean_edges": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
   "sharp_contrast": "cjwbw/rmbg-ultimatte:fc0f4fda4cf294af6e7d37ffa39c80ef5251f90bbd65542b05af5605d3b347cd",

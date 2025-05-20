@@ -227,9 +227,21 @@ export const PromptToDesignTab = () => {
         return;
       }
       
-      // Make the API call with the current baseUrl
-      console.log('Sending image to background removal API:', currentImage.baseUrl.substring(0, 100));
-      const processedImageUrl = await removeBackground(currentImage.baseUrl, modelId);
+      // Determine which image to process:
+      // 1. If this is a "Try another model" on an already processed image,
+      //    we can either use the original (to avoid quality loss) or the current
+      // 2. For the best results when switching models, use the original image
+      //    to avoid compound processing artifacts
+      const imageToProcess = currentImage.isBackgroundRemoved && currentImage.originalUrl
+        ? currentImage.originalUrl // Use original for best quality when trying different models
+        : currentImage.baseUrl;
+      
+      // Make the API call with the determined source image
+      console.log('Sending image to background removal API:', 
+        imageToProcess.substring(0, 100), 
+        currentImage.isBackgroundRemoved ? '(using original image)' : '(using current image)');
+      
+      const processedImageUrl = await removeBackground(imageToProcess, modelId);
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -284,7 +296,7 @@ export const PromptToDesignTab = () => {
       });
     } catch (error) {
       console.error('Error removing background:', error);
-      toast.error('Failed to remove background');
+      toast.error('Failed to remove background. The model might be unavailable, trying a different model may help.');
     } finally {
       setIsProcessing(false);
     }
@@ -300,6 +312,7 @@ export const PromptToDesignTab = () => {
     
     // Use the current baseUrl as the source
     console.log('Enhancing current base image:', currentImage.baseUrl.substring(0, 100));
+    console.log('Image has background removed:', currentImage.isBackgroundRemoved);
     setIsEnhancing(true);
     
     try {
@@ -311,9 +324,14 @@ export const PromptToDesignTab = () => {
       updateCurrentImage({
         baseUrl: enhancedImageUrl,
         isEnhanced: true
+        // Preserve the background removal status
       });
       
-      toast.success('Image enhanced successfully!');
+      toast.success('Image enhanced successfully!', {
+        description: currentImage.isBackgroundRemoved ? 
+          'Enhanced your image while preserving transparency' : 
+          'Applied high quality enhancement'
+      });
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
@@ -622,15 +640,19 @@ export const PromptToDesignTab = () => {
                       
                       <div className="py-1.5 px-3 text-xs bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-2 border-b border-blue-100 dark:border-blue-900">
                         <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
-                        <span>For best results, try "Precision Focus" or "Pro Edge Detection" models, which have proven to be most reliable. If you encounter timeout errors, try a smaller image or one of the other recommended models.</span>
+                        <span>
+                          {isCurrentImageProcessed 
+                            ? "You can try different models on your image to get the best background removal. When switching models, we'll use your original image to maintain quality."
+                            : "For best results, try the 'Text Specialist' model which has proven most reliable. If you encounter issues, try a different model."}
+                        </span>
                       </div>
                       
                       <div className="py-1 bg-white dark:bg-gray-950 max-h-[300px] overflow-y-auto">
                         {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
                           // Check if this is a recommended model
-                          const isRecommended = key === '851-labs/background-remover' || 
-                                             key === 'men1scus/birefnet' ||
-                                             key === 'smoretalk/rembg-enhance';
+                          const isRecommended = key === 'text_specialist' || 
+                                             key === 'default' ||
+                                             key === 'clean_edges';
                           
                           return (
                             <DropdownMenuItem 
