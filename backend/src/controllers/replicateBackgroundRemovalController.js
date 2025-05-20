@@ -4,7 +4,12 @@ const path = require('path');
 const axios = require('axios');
 
 // Initialize Replicate with the API token from environment variables
-const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
+// Check for either REPLICATE_API_TOKEN or REPLICATE_API_KEY
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
+
+// Debug log for API token presence (don't log the actual token)
+console.log('Replicate Background Removal Controller initialized');
+console.log('Replicate API token configured:', REPLICATE_API_TOKEN ? 'Yes' : 'No');
 
 // Define available background removal models
 const BACKGROUND_REMOVAL_MODELS = {
@@ -119,6 +124,8 @@ function getModelParameters(modelId) {
 exports.removeBackground = async (req, res) => {
   try {
     console.log('Replicate background removal endpoint called');
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file ? `File received: ${req.file.originalname}` : 'No file received');
     
     // Ensure we have the required data
     if (!req.file) {
@@ -126,9 +133,13 @@ exports.removeBackground = async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
     
+    // Check for either API token name
+    const apiToken = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
+    
     // Validate Replicate API token
-    if (!REPLICATE_API_TOKEN) {
-      console.error('REPLICATE_API_TOKEN is not configured');
+    if (!apiToken) {
+      console.error('Replicate API token is not configured');
+      console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('REPLICATE')).join(', '));
       return res.status(500).json({ 
         error: 'Server configuration error',
         details: 'Replicate API token is not configured'
@@ -151,7 +162,7 @@ exports.removeBackground = async (req, res) => {
       const processedImageBuffer = await processImageForML(imageBuffer);
       
       // Create Replicate instance
-      const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
+      const replicate = new Replicate({ auth: apiToken });
       
       // Get model-specific parameters
       const modelParams = getModelParameters(modelId);

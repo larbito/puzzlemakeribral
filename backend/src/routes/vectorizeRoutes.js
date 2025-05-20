@@ -11,6 +11,11 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
+// Add debug logging
+console.log('Vectorize routes initialized');
+console.log('Background removal endpoint registered at: /api/vectorize/remove-background');
+console.log('Background removal models endpoint registered at: /api/vectorize/background-removal-models');
+
 /**
  * @route POST /api/vectorize
  * @desc Vectorize an image using external API
