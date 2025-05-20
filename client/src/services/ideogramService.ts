@@ -1641,15 +1641,52 @@ export function forceProxyForIdeogramUrl(url: string): string {
 }
 
 /**
- * Enhance image quality using Real-ESRGAN upscaler
+ * Get available image enhancement models
+ * @returns Object with model information
+ */
+export async function getEnhancementModels(): Promise<{ models: Record<string, any>, defaultModel: string }> {
+  try {
+    const response = await fetch(`${API_URL}/api/image-enhancement/models`, {
+      method: 'GET',
+      mode: 'cors'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch enhancement models: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      models: data.models || {},
+      defaultModel: data.defaultModel || 'text-upscaler'
+    };
+  } catch (error) {
+    console.error("Error fetching enhancement models:", error);
+    return {
+      models: {
+        'text-upscaler': {
+          name: 'Text Upscaler',
+          description: 'Specialized for text clarity',
+          model: 'text-upscaler'
+        }
+      },
+      defaultModel: 'text-upscaler'
+    };
+  }
+}
+
+/**
+ * Enhance image quality using selected upscaler model
  * @param imageUrl URL of the image to enhance
+ * @param model Optional model ID to use for enhancement
  * @returns URL to the enhanced image
  */
-export async function enhanceImage(imageUrl: string): Promise<string> {
+export async function enhanceImage(imageUrl: string, model?: string): Promise<string> {
   try {
     console.log("========== IMAGE ENHANCEMENT DEBUG ==========");
     console.log("Starting image enhancement for:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
+    console.log("Selected model:", model || "default");
     
     // Create a toast to indicate processing is in progress
     const toastId = toast.loading("Enhancing image quality...");
@@ -1700,10 +1737,15 @@ export async function enhanceImage(imageUrl: string): Promise<string> {
       // Add optional parameters
       formData.append('scale', '4'); // Default to 4x upscaling for better balance between quality and performance
       
+      // Add model selection if provided
+      if (model) {
+        formData.append('model', model);
+      }
+      
       console.log("Submitting image to enhancement service");
       
-      // Use the enhancement endpoint with correct path
-      const enhancementEndpoint = `${API_URL}/api/vectorize/enhance-image`;
+      // Use the new enhancement endpoint
+      const enhancementEndpoint = `${API_URL}/api/image-enhancement/enhance`;
       
       console.log("Enhancement endpoint URL:", enhancementEndpoint);
       console.log("Form data contents:");

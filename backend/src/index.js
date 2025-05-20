@@ -113,6 +113,22 @@ try {
   });
 }
 
+// Load the image enhancement routes module
+let imageEnhancementRoutes;
+try {
+  console.log('Attempting to require imageEnhancement.js');
+  imageEnhancementRoutes = require('./routes/imageEnhancement');
+  console.log('Successfully loaded imageEnhancement.js');
+} catch (e) {
+  console.error('Failed to load imageEnhancement.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  imageEnhancementRoutes = express.Router();
+  imageEnhancementRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load image enhancement routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -181,6 +197,10 @@ console.log('Registered route: /api/book-cover/*');
 app.use('/api/openai', openaiRoutes);
 console.log('Registered route: /api/openai/*');
 
+// Register image enhancement routes
+app.use('/api/image-enhancement', imageEnhancementRoutes);
+console.log('Registered route: /api/image-enhancement/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -201,7 +221,8 @@ app.get('/', (req, res) => {
       '/api/book-cover/assemble-full',
       '/api/book-cover/download',
       '/api/openai/enhance-prompt',
-      '/api/openai/extract-prompt'
+      '/api/openai/extract-prompt',
+      '/api/image-enhancement/test'
     ]
   });
 });

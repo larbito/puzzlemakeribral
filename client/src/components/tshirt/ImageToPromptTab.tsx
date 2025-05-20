@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,10 +17,11 @@ import {
   Image,
   Zap,
   InfoIcon,
-  ChevronDown
+  ChevronDown,
+  ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels } from '@/services/ideogramService';
+import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels, getEnhancementModels } from '@/services/ideogramService';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -33,7 +34,7 @@ export const ImageToPromptTab = () => {
   // State management
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDesign, setGeneratedDesign] = useState<string | null>(null);
@@ -44,8 +45,30 @@ export const ImageToPromptTab = () => {
   const [enhancedDesign, setEnhancedDesign] = useState<string | null>(null);
   const [activeModel, setActiveModel] = useState<string | null>(null);
   
+  // Enhancement models
+  const [enhancementModels, setEnhancementModels] = useState<Record<string, any>>({});
+  const [defaultEnhancementModel, setDefaultEnhancementModel] = useState<string>('text-upscaler');
+  const [selectedEnhancementModel, setSelectedEnhancementModel] = useState<string>('');
+  const [showEnhancementModels, setShowEnhancementModels] = useState<boolean>(false);
+  
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Fetch enhancement models on component mount
+  useEffect(() => {
+    const fetchEnhancementModels = async () => {
+      try {
+        const { models, defaultModel } = await getEnhancementModels();
+        setEnhancementModels(models);
+        setDefaultEnhancementModel(defaultModel);
+        setSelectedEnhancementModel(defaultModel);
+      } catch (error) {
+        console.error('Error fetching enhancement models:', error);
+      }
+    };
+    
+    fetchEnhancementModels();
+  }, []);
   
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,6 +296,13 @@ export const ImageToPromptTab = () => {
     handleRemoveBackground(model?.id || null);
   };
   
+  // Select an enhancement model
+  const selectEnhancementModel = (modelKey: string) => {
+    console.log('Selected enhancement model:', modelKey);
+    setSelectedEnhancementModel(modelKey);
+    setShowEnhancementModels(false);
+  };
+  
   // Handle enhancing image
   const handleEnhanceImage = async () => {
     // Use processed image if available, otherwise the original
@@ -286,15 +316,15 @@ export const ImageToPromptTab = () => {
     setIsEnhancing(true);
     
     try {
-      // Call the enhancement service
-      const enhancedImageUrl = await enhanceImage(imageToEnhance);
+      // Call the enhancement service with the selected model
+      const enhancedImageUrl = await enhanceImage(imageToEnhance, selectedEnhancementModel);
       
       // Save the enhanced image URL
       setEnhancedDesign(enhancedImageUrl);
       
       toast.success('Image enhanced successfully!', {
         duration: 4000,
-        description: 'Your design quality has been improved'
+        description: `Enhanced using ${enhancementModels[selectedEnhancementModel]?.name || 'selected model'}`
       });
     } catch (error) {
       console.error('Error enhancing image:', error);
@@ -340,6 +370,61 @@ export const ImageToPromptTab = () => {
     setEnhancedDesign(null);
     setActiveModel(null);
     toast.success('Reset to original image');
+  };
+
+  // Replace the enhance button with a popover for model selection
+  const renderEnhanceButton = () => {
+    return (
+      <div className="relative">
+        <div className="flex space-x-1">
+          <Button
+            onClick={() => setShowEnhancementModels(!showEnhancementModels)}
+            variant="secondary"
+            disabled={!generatedDesign || isEnhancing}
+            className="flex-grow"
+          >
+            {isEnhancing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Enhancing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                {isDesignEnhanced ? "Re-Enhance" : "Enhance Image"}
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleEnhanceImage}
+            variant="outline"
+            disabled={!generatedDesign || isEnhancing}
+            className="px-2"
+            title="Apply enhancement with selected model"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {showEnhancementModels && (
+          <div className="absolute z-10 mt-1 w-full bg-card border rounded-md shadow-lg">
+            <div className="p-2 text-sm font-medium border-b">Select enhancement model</div>
+            {Object.entries(enhancementModels).map(([key, model]) => (
+              <div 
+                key={key}
+                className={`p-3 text-sm hover:bg-primary/10 cursor-pointer flex flex-col ${
+                  key === selectedEnhancementModel ? 'bg-primary/10' : ''
+                }`}
+                onClick={() => selectEnhancementModel(key)}
+              >
+                <span className="font-medium">{model.name}</span>
+                <span className="text-xs text-muted-foreground">{model.description}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -467,7 +552,7 @@ export const ImageToPromptTab = () => {
             {getCurrentDisplayImage() ? (
               // Show the best available image
               <img 
-                src={getCurrentDisplayImage()} 
+                src={getCurrentDisplayImage() as string} 
                 alt="T-shirt design" 
                 className="w-full h-full object-contain p-4"
                 style={{ 
@@ -618,24 +703,7 @@ export const ImageToPromptTab = () => {
                 )}
                 
                 {/* Enhance Button */}
-                <Button
-                  variant={isDesignEnhanced ? "outline" : "default"}
-                  className={`${isDesignEnhanced ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-600 hover:bg-blue-700'}`}
-                  onClick={handleEnhanceImage}
-                  disabled={isProcessing || isEnhancing || !generatedDesign}
-                >
-                  {isEnhancing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Enhancing...
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="mr-2 h-4 w-4" />
-                      {isDesignEnhanced ? "Re-Enhance" : "Enhance Image"}
-                    </>
-                  )}
-                </Button>
+                {renderEnhanceButton()}
               </div>
               
               <Button 

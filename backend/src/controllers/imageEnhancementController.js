@@ -6,8 +6,13 @@ const axios = require('axios');
 // Initialize Replicate with the API token from environment variables
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
-// Real-ESRGAN upscaler model - updated to nightmareai/real-esrgan
-const ENHANCEMENT_MODEL = "nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa";
+// Define available enhancement models
+const ENHANCEMENT_MODELS = {
+  // Text-optimized models
+  "text-upscaler": "pints/text-upscaler:30ea976cdaf44748a56265902f26d518461f4f3c3454c584df0b0c70b404c2fc",
+  "controlnet-hq": "ccorcos/controlnet-hq-upscale:b21c1103071be12af12ad9b305c95c7801b0deafd82b274723ec888e9595eeaf",
+  "codeformer": "sczhou/codeformer:7de2ea26c616d5bf2245ad0d5e24f0ff9a6204578a5c876db53142edd9d2cd56"
+};
 
 // In-memory cache to store ongoing enhancements
 const enhancementCache = new Map();
@@ -60,7 +65,7 @@ exports.proxyIdeogramImage = async (req, res) => {
 };
 
 /**
- * Enhance image quality using Real-ESRGAN upscaler via Replicate API
+ * Enhance image quality using selected upscaler model via Replicate API
  */
 exports.enhanceImage = async (req, res) => {
   try {
@@ -101,14 +106,21 @@ exports.enhanceImage = async (req, res) => {
       
       // Get optional parameters with defaults
       const scale = parseInt(req.body.scale) || 4; // Default to 4x upscaling for better balance between quality and performance
-      console.log(`Enhancing image with scale factor: ${scale}x`);
+      
+      // Get selected model or use default
+      const selectedModel = req.body.model || "text-upscaler";
+      if (!ENHANCEMENT_MODELS[selectedModel]) {
+        console.log(`Invalid model ${selectedModel}, using default text-upscaler instead`);
+      }
+      
+      console.log(`Enhancing image with scale factor: ${scale}x using model: ${selectedModel}`);
       
       // Create Replicate instance
       const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
       
       // Make the API call with appropriate parameters
       const prediction = await replicate.predictions.create({
-        version: ENHANCEMENT_MODEL,
+        version: ENHANCEMENT_MODELS[selectedModel] || ENHANCEMENT_MODELS["text-upscaler"],
         input: { 
           image: imageData,
           scale: scale,
@@ -128,6 +140,7 @@ exports.enhanceImage = async (req, res) => {
         message: 'Image enhancement initiated',
         predictionId: prediction.id,
         status: 'processing',
+        model: selectedModel,
         statusEndpoint: `/api/check-enhancement-status/${prediction.id}`
       });
       
@@ -282,4 +295,41 @@ async function pollForCompletion(replicate, predictionId) {
   });
   
   throw new Error(timeoutError);
-} 
+}
+
+/**
+ * Get available enhancement models
+ */
+exports.getAvailableModels = async (req, res) => {
+  try {
+    const modelInfo = {
+      "text-upscaler": {
+        name: "Text Upscaler",
+        description: "Specialized for enhancing text clarity while maintaining colors, ideal for t-shirts with text designs",
+        model: "text-upscaler"
+      },
+      "controlnet-hq": {
+        name: "ControlNet HQ",
+        description: "High quality upscaling with excellent edge preservation, good for detailed designs with sharp lines",
+        model: "controlnet-hq"
+      },
+      "codeformer": {
+        name: "CodeFormer",
+        description: "Balanced upscaler that restores faces and details while preserving text integrity",
+        model: "codeformer"
+      }
+    };
+    
+    return res.status(200).json({
+      success: true,
+      models: modelInfo,
+      defaultModel: "text-upscaler"
+    });
+  } catch (error) {
+    console.error('Error getting available models:', error);
+    return res.status(500).json({
+      error: 'Failed to get available models',
+      details: error.message
+    });
+  }
+}; 
