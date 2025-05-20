@@ -4,7 +4,11 @@ const path = require('path');
 const axios = require('axios');
 
 // Initialize Replicate with the API token from environment variables
-const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
+// Check both possible environment variable names
+const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
+
+// Log token availability for debugging
+console.log('Replicate API Token available:', !!REPLICATE_API_TOKEN);
 
 // Define available enhancement models
 const ENHANCEMENT_MODELS = {
@@ -141,7 +145,7 @@ exports.enhanceImage = async (req, res) => {
         predictionId: prediction.id,
         status: 'processing',
         model: selectedModel,
-        statusEndpoint: `/api/check-enhancement-status/${prediction.id}`
+        statusEndpoint: `/api/image-enhancement/status/${prediction.id}`
       });
       
     } catch (error) {

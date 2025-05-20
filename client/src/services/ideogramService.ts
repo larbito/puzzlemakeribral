@@ -1803,7 +1803,7 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
       
       // Now we need to poll for completion
       const predictionId = initialData.predictionId;
-      const statusEndpoint = initialData.statusEndpoint || `/api/check-enhancement-status/${predictionId}`;
+      const statusEndpoint = initialData.statusEndpoint || `/api/image-enhancement/status/${predictionId}`;
       
       console.log(`Enhancement job initiated with prediction ID: ${predictionId}`);
       console.log(`Will check status at: ${statusEndpoint}`);
@@ -1914,4 +1914,92 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
     console.error("Error in enhanceImage:", error);
     throw error;
   }
+}
+
+/**
+ * Resizes an image for vectorization or enhancement operations
+ * @param imageUrl URL of the image to resize
+ * @param maxWidth Maximum width of the resized image
+ * @returns Blob of the resized image
+ */
+async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 1200): Promise<Blob> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // Create an image element to load the source
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      // Set up a timeout in case image loading takes too long
+      const timeoutId = setTimeout(() => {
+        console.warn('Image loading timed out during resize');
+        reject(new Error('Image loading timed out'));
+      }, 15000);
+
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        
+        try {
+          // Determine new dimensions while maintaining aspect ratio
+          let newWidth = img.width;
+          let newHeight = img.height;
+          
+          if (img.width > maxWidth) {
+            newWidth = maxWidth;
+            newHeight = (img.height * maxWidth) / img.width;
+          }
+          
+          // Create a canvas to resize the image
+          const canvas = document.createElement('canvas');
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+          
+          // Draw the image to the canvas with resizing
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          // Draw the image with high quality settings
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, newWidth, newHeight);
+          
+          // Convert to blob with high quality
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                console.log(`Image resized from ${img.width}x${img.height} to ${newWidth}x${newHeight}`);
+                resolve(blob);
+              } else {
+                reject(new Error('Failed to convert canvas to blob'));
+              }
+            },
+            'image/png',
+            0.95 // High quality
+          );
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      // Handle image loading error
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error('Failed to load image for resizing'));
+      };
+
+      // Set the source to start loading the image
+      if (imageUrl.startsWith('data:')) {
+        // Data URL can be used directly
+        img.src = imageUrl;
+      } else {
+        // Use the proxy to load images from other domains
+        const proxiedUrl = forceProxyForIdeogramUrl(imageUrl);
+        img.src = proxiedUrl;
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
 } 
