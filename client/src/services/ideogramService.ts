@@ -549,7 +549,11 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       const response = await fetch(bgRemovalEndpoint, {
         method: 'POST',
         body: formData,
-        mode: 'cors'
+        mode: 'cors',
+        // Add more detailed error handling
+        headers: {
+          'Accept': 'application/json',
+        }
       });
       
       console.log("Background removal response received. Status code:", response.status);
@@ -558,6 +562,11 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`Background removal API error: ${response.status}`, errorText);
+        console.error("Request details:", {
+          endpoint: bgRemovalEndpoint,
+          modelId: modelId,
+          imageSize: imageBlob.size
+        });
         
         let errorMessage = "Failed to remove background";
         try {
