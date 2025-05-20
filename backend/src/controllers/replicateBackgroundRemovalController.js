@@ -8,18 +8,15 @@ const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || '';
 
 // Define available background removal models
 const BACKGROUND_REMOVAL_MODELS = {
-  // Default model - changed to codeplugtech/background_remover
-  "default": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
+  // Default model - high quality general purpose
+  "default": "clipdrop/remove-background:0601b0e80aa98d810ec261e5bc9a4d32307429e4513aea2b4ef6e3c50e721bb8",
   
-  // Additional models
-  "men1scus/birefnet": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
-  "lucataco/remove-bg": "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
-  "alexgenovese/remove-background-bria-2": "alexgenovese/remove-background-bria-2:8a67c9d842f7c06fef1b6bcf44bfdccb48b6cca3b420843e705d4a64e04f8974",
-  "851-labs/background-remover": "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc",
-  "smoretalk/rembg-enhance": "smoretalk/rembg-enhance:4067ee2a58f6c161d434a9c077cfa012820b8e076efa2772aa171e26557da919",
-  "codeplugtech/background_remover": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
-  // Fast Remove model removed as it's not working properly
-  "pollinations/modnet": "pollinations/modnet:da7d45f3b836795f945f221fc0b01a6d3ab7f5e163f13208948ad436001e2255"
+  // Best models for t-shirt designs
+  "text_specialist": "men1scus/birefnet:f74986db0355b58403ed20963af156525e2891ea3c2d499bfbfb2a28cd87c5d7",
+  "clean_edges": "codeplugtech/background_remover:37ff2aa89897c0de4a140a3d50969dc62b663ea467e1e2bde18008e3d3731b2b",
+  "sharp_contrast": "cjwbw/rmbg-ultimatte:fc0f4fda4cf294af6e7d37ffa39c80ef5251f90bbd65542b05af5605d3b347cd",
+  "complex_designs": "ilharper/rembg:553676f0d161e1ad440f4c620c9df162b38a25e30b0bb3810def8aa63d1ac37c",
+  "precision_cutout": "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1"
 };
 
 /**
@@ -287,26 +284,20 @@ exports.getModels = async (req, res) => {
         case 'default':
           friendlyName = 'Standard Removal (Default)';
           break;
-        case 'men1scus/birefnet':
-          friendlyName = 'Pro Edge Detection';
+        case 'text_specialist':
+          friendlyName = 'Text Specialist - Best for designs with text';
           break;
-        case 'lucataco/remove-bg':
-          friendlyName = 'Perfect Cutout';
+        case 'clean_edges':
+          friendlyName = 'Clean Edges - Sharp, precise boundaries';
           break;
-        case 'alexgenovese/remove-background-bria-2':
-          friendlyName = 'Bria AI Precision';
+        case 'sharp_contrast':
+          friendlyName = 'Sharp Contrast - High definition results';
           break;
-        case '851-labs/background-remover':
-          friendlyName = 'Precision Focus';
+        case 'complex_designs':
+          friendlyName = 'Complex Design Handler - Best for intricate artwork';
           break;
-        case 'smoretalk/rembg-enhance':
-          friendlyName = 'Enhanced Detail';
-          break;
-        case 'codeplugtech/background_remover':
-          friendlyName = 'Clean Edges';
-          break;
-        case 'pollinations/modnet':
-          friendlyName = 'Portrait Specialist';
+        case 'precision_cutout':
+          friendlyName = 'Precision Cutout - Professional quality extraction';
           break;
       }
       
@@ -314,9 +305,9 @@ exports.getModels = async (req, res) => {
         id,
         name: friendlyName,
         version,
-        isRecommended: id === '851-labs/background-remover' || 
-                     id === 'men1scus/birefnet' ||
-                     id === 'smoretalk/rembg-enhance'
+        isRecommended: id === 'default' || 
+                     id === 'text_specialist' ||
+                     id === 'clean_edges'
       };
     });
     
