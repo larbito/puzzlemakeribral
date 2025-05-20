@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { processFormData, vectorizeImage } = require('../controllers/vectorizerController');
 const { checkRapidAPI } = require('../utils/rapidApiCheck');
+const multer = require('multer');
+const { removeBackground, getModels } = require('../controllers/replicateBackgroundRemovalController');
+
+// Configure multer for memory storage
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 /**
  * @route POST /api/vectorize
@@ -9,6 +17,20 @@ const { checkRapidAPI } = require('../utils/rapidApiCheck');
  * @access Public
  */
 router.post('/', processFormData, vectorizeImage);
+
+/**
+ * @route POST /api/vectorize/remove-background
+ * @desc Remove background from an image using Replicate API
+ * @access Public
+ */
+router.post('/remove-background', upload.single('image'), removeBackground);
+
+/**
+ * @route GET /api/vectorize/background-removal-models
+ * @desc Get available background removal models
+ * @access Public
+ */
+router.get('/background-removal-models', getModels);
 
 /**
  * @route GET /api/vectorize/check-api

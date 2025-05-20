@@ -447,7 +447,7 @@ export const backgroundRemovalModels = {
 // Fetch available background removal models from the API
 export async function getBackgroundRemovalModels(): Promise<{id: string, name: string}[]> {
   try {
-    const response = await fetch(`${API_URL}/api/background-removal-models`);
+    const response = await fetch(`${API_URL}/api/vectorize/background-removal-models`);
     
     if (!response.ok) {
       throw new Error(`API error: ${response.status}`);
@@ -537,7 +537,7 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       console.log("Submitting image to background removal service");
       
       // Use the background removal endpoint
-      const bgRemovalEndpoint = 'https://puzzlemakeribral-production.up.railway.app/api/vectorize/remove-background';
+      const bgRemovalEndpoint = `${API_URL}/api/vectorize/remove-background`;
       
       console.log("Background removal endpoint URL:", bgRemovalEndpoint);
       console.log("Form data contents:");
