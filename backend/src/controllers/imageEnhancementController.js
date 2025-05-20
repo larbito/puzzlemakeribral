@@ -13,9 +13,9 @@ console.log('Replicate API Token available:', !!REPLICATE_API_TOKEN);
 // Define available enhancement models
 const ENHANCEMENT_MODELS = {
   // Text-optimized models
-  "text-upscaler": "pints/text-upscaler:30ea976cdaf44748a56265902f26d518461f4f3c3454c584df0b0c70b404c2fc",
-  "controlnet-hq": "ccorcos/controlnet-hq-upscale:b21c1103071be12af12ad9b305c95c7801b0deafd82b274723ec888e9595eeaf",
-  "codeformer": "sczhou/codeformer:7de2ea26c616d5bf2245ad0d5e24f0ff9a6204578a5c876db53142edd9d2cd56"
+  "text-upscaler": "nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
+  "controlnet-hq": "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+  "codeformer": "tencentarc/gfpgan:9283608cc6b7be6b65a8e44983db012355fde4132009bf99d976b2f0896856a3"
 };
 
 // In-memory cache to store ongoing enhancements
@@ -122,14 +122,46 @@ exports.enhanceImage = async (req, res) => {
       // Create Replicate instance
       const replicate = new Replicate({ auth: REPLICATE_API_TOKEN });
       
+      // Prepare the appropriate input parameters based on the model
+      let modelInput = {};
+      
+      // Different models expect different input parameters
+      switch(selectedModel) {
+        case "text-upscaler":
+          // Real-ESRGAN expects image and scale
+          modelInput = {
+            image: imageData,
+            scale: scale
+          };
+          break;
+        case "controlnet-hq":
+          // SDXL has different parameters
+          modelInput = {
+            prompt: "Enhance this image with high quality upscaling, preserve all details",
+            image: imageData,
+            num_inference_steps: 30
+          };
+          break;
+        case "codeformer":
+          // GFPGAN face restoration model
+          modelInput = {
+            img: imageData,
+            version: "v1.4",
+            scale: scale
+          };
+          break;
+        default:
+          // Default Real-ESRGAN parameters
+          modelInput = {
+            image: imageData,
+            scale: scale
+          };
+      }
+      
       // Make the API call with appropriate parameters
       const prediction = await replicate.predictions.create({
         version: ENHANCEMENT_MODELS[selectedModel] || ENHANCEMENT_MODELS["text-upscaler"],
-        input: { 
-          image: imageData,
-          scale: scale,
-          face_enhance: true // Enable face enhancement
-        }
+        input: modelInput
       });
       
       console.log('Enhancement prediction created:', prediction.id);
@@ -308,18 +340,18 @@ exports.getAvailableModels = async (req, res) => {
   try {
     const modelInfo = {
       "text-upscaler": {
-        name: "Text Upscaler",
-        description: "Specialized for enhancing text clarity while maintaining colors, ideal for t-shirts with text designs",
+        name: "Real-ESRGAN",
+        description: "Standard image upscaler that works well with most designs, especially text and line art",
         model: "text-upscaler"
       },
       "controlnet-hq": {
-        name: "ControlNet HQ",
-        description: "High quality upscaling with excellent edge preservation, good for detailed designs with sharp lines",
+        name: "SDXL Enhancer",
+        description: "AI-powered image enhancement that maintains crisp details and vibrant colors",
         model: "controlnet-hq"
       },
       "codeformer": {
-        name: "CodeFormer",
-        description: "Balanced upscaler that restores faces and details while preserving text integrity",
+        name: "GFPGAN",
+        description: "Specialized in enhancing faces and portraits while maintaining natural details",
         model: "codeformer"
       }
     };
