@@ -210,19 +210,6 @@ function getColorForStyle(prompt: string): string {
 
 export async function downloadImage(imageUrl: string, format: string, filename: string = "tshirt-design"): Promise<void> {
   try {
-    if (USE_PLACEHOLDERS) {
-      toast.success(`Design downloaded as ${format.toUpperCase()}`);
-      
-      // Create a link to download the image
-      const link = document.createElement('a');
-      link.href = imageUrl;
-      link.download = `${filename}.${format.toLowerCase()}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    }
-    
     console.log("Starting download of image:", imageUrl.substring(0, 100) + "...");
     
     // For data URLs (which is what our background removal function returns)
@@ -235,42 +222,92 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success(`Design downloaded as ${format}`);
       return;
     }
     
-    // For regular URLs, use our backend proxy to avoid CORS issues
+    // Create a temporary download indicator
+    const toastId = toast.loading("Processing download...");
+    
     try {
-      console.log("Using backend proxy to download image");
+      // If it's from our own server (/images/photoroom-result-{uniqueId}.png)
+      if (imageUrl.includes('/images/photoroom-result-')) {
+        console.log("Processing direct server image download");
+        // We can download directly
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = `${filename}.${format.toLowerCase()}`;
+        
+        // For cross-origin URLs, we need to fetch first
+        try {
+          // Fetch the image to handle potential CORS issues
+          const response = await fetch(imageUrl);
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          // Convert the response to a blob
+          const blob = await response.blob();
+          
+          // Create an object URL from the blob
+          const objectUrl = URL.createObjectURL(blob);
+          link.href = objectUrl;
+          
+          // Trigger the download
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(objectUrl);
+          }, 100);
+          
+          toast.dismiss(toastId);
+          toast.success(`Design downloaded as ${format.toUpperCase()}`);
+          return;
+        } catch (fetchError) {
+          console.error("Error fetching image:", fetchError);
+          // Fall back to proxy method if direct fetch fails
+        }
+      }
       
-      // Create a temporary download indicator
-      const toastId = toast.loading("Processing download...");
+      // For external URLs, use our backend proxy
+      console.log("Using backend proxy to download image");
       
       // Use our own backend proxy endpoint
       const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
       const encodedUrl = encodeURIComponent(imageUrl);
+      const proxyUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
       
-      // Direct download approach - create a link to our backend proxy
-      const downloadUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
+      // Fetch through the proxy to properly handle the binary response
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       
-      // Open the download in a new window to trigger the download
-      window.open(downloadUrl, '_blank');
+      // Convert to blob
+      const blob = await response.blob();
       
-      // Dismiss the toast after a short delay to ensure window.open has processed
+      // Create a download link
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename}.${format.toLowerCase()}`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
       setTimeout(() => {
-        toast.dismiss(toastId);
-        toast.success(`Design download initiated`);
-      }, 1000);
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+      }, 100);
+      
+      toast.dismiss(toastId);
+      toast.success(`Design downloaded as ${format.toUpperCase()}`);
     } catch (error) {
       console.error("Error downloading image:", error);
-      // Dismiss any existing download toasts to prevent stuck notifications
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.error("Failed to download image. Please try again.");
     }
   } catch (error) {
     console.error("Error downloading image:", error);
-    // Dismiss any existing download toasts to prevent stuck notifications
-    toast.dismiss();
     toast.error("Failed to download image. Please try again.");
   }
 }
