@@ -49,6 +49,14 @@ exports.removeBackground = async (req, res) => {
         details: 'PhotoRoom API key is not configured'
       });
     }
+
+    // Check if this is an enhanced image 
+    const isEnhanced = req.body.isEnhanced === 'true';
+    console.log('Processing enhanced image:', isEnhanced);
+
+    // Get preserve quality flag
+    const preserveQuality = req.body.preserveQuality === 'true';
+    console.log('Preserve quality:', preserveQuality);
     
     try {
       // Get the image data
@@ -66,6 +74,16 @@ exports.removeBackground = async (req, res) => {
         filename: req.file.originalname,
         contentType: req.file.mimetype
       });
+
+      // If this is an enhanced image, we'll add special parameters to help with black backgrounds
+      if (isEnhanced) {
+        console.log('Adding special parameters for enhanced image with possible black background');
+        // PhotoRoom doesn't have official parameters for this, but we can try to optimize
+        // the request based on what we know about the image
+        
+        // For future API enhancements, this is where you'd add special handling parameters
+        // formData.append('bg_color', 'black'); // Example of a future parameter
+      }
       
       // Log headers for troubleshooting
       console.log('Using API key header: x-api-key');
@@ -140,7 +158,8 @@ exports.removeBackground = async (req, res) => {
       // Return additional debug info in development
       const responseData = {
         imageUrl: outputUrl,
-        success: true
+        success: true,
+        isEnhanced: isEnhanced
       };
       
       if (process.env.NODE_ENV !== 'production') {

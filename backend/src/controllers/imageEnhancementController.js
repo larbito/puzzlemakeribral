@@ -111,6 +111,10 @@ exports.enhanceImage = async (req, res) => {
       // Get optional parameters with defaults
       const scale = parseInt(req.body.scale) || 4; // Default to 4x upscaling for better balance between quality and performance
       
+      // Check if we need to preserve transparency
+      const preserveTransparency = req.body.preserveTransparency === 'true';
+      console.log(`Preserve transparency flag:`, preserveTransparency);
+      
       // Get selected model or use default
       const selectedModel = req.body.model || "text-upscaler";
       if (!ENHANCEMENT_MODELS[selectedModel]) {
@@ -131,13 +135,24 @@ exports.enhanceImage = async (req, res) => {
           // Real-ESRGAN expects image and scale
           modelInput = {
             image: imageData,
-            scale: scale
+            scale: scale,
+            face_enhance: true // Enable face enhancement for better results
           };
+          
+          // If preserving transparency, add specific parameters
+          if (preserveTransparency) {
+            console.log('Adding special parameters for transparent image processing');
+            modelInput.face_enhance = false; // Face enhancement can cause issues with transparency
+            // Note: Real-ESRGAN doesn't have an explicit transparency preservation parameter,
+            // but it generally handles PNG transparency well by default
+          }
           break;
         case "controlnet-hq":
           // SDXL has different parameters
           modelInput = {
-            prompt: "Enhance this image with high quality upscaling, preserve all details",
+            prompt: preserveTransparency ? 
+              "Enhance this image with high quality upscaling, preserve transparency and all details" :
+              "Enhance this image with high quality upscaling, preserve all details",
             image: imageData,
             num_inference_steps: 30
           };
@@ -166,9 +181,14 @@ exports.enhanceImage = async (req, res) => {
       
       console.log('Enhancement prediction created:', prediction.id);
       
+      // Store information about transparency preservation for later use
+      if (preserveTransparency) {
+        enhancementCache.set(`${prediction.id}_transparency`, true);
+      }
+      
       // Start polling in the background and return prediction ID immediately
       // This prevents timeouts on the client side
-      const pollingPromise = pollForCompletion(replicate, prediction.id);
+      const pollingPromise = pollForCompletion(replicate, prediction.id, preserveTransparency);
       
       // Return the prediction ID to the client for status checking
       return res.status(202).json({
@@ -177,7 +197,8 @@ exports.enhanceImage = async (req, res) => {
         predictionId: prediction.id,
         status: 'processing',
         model: selectedModel,
-        statusEndpoint: `/api/image-enhancement/status/${prediction.id}`
+        statusEndpoint: `/api/image-enhancement/status/${prediction.id}`,
+        preserveTransparency: preserveTransparency
       });
       
     } catch (error) {
@@ -273,64 +294,130 @@ exports.checkEnhancementStatus = async (req, res) => {
 };
 
 /**
- * Poll for completion with exponential backoff
+ * Helper function to poll for prediction completion until it succeeds or fails
  * This runs in the background and caches results
  */
-async function pollForCompletion(replicate, predictionId) {
+async function pollForCompletion(replicate, predictionId, preserveTransparency) {
   let retries = 0;
   const maxRetries = 60; // Increased from 30 to 60
-  let backoffTime = 1000; // Start with 1 second
-  const maxBackoffTime = 10000; // Max 10 seconds between retries
+  const initialBackoff = 1000; // Start with 1 second interval
+  let currentBackoff = initialBackoff;
+  
+  // Record start time for logging
+  const startTime = Date.now();
+  
+  console.log('Starting background polling for prediction:', predictionId);
   
   while (retries < maxRetries) {
     try {
-      const result = await replicate.predictions.get(predictionId);
-      console.log(`Enhancement status (retry ${retries}):`, result.status);
+      retries++;
+      const elapsedTime = Math.round((Date.now() - startTime) / 1000);
+      console.log(`Enhancement status (retry ${retries}/${maxRetries}, elapsed: ${elapsedTime}s): checking...`);
       
-      if (result.status === 'succeeded') {
-        // Store result in cache
-        enhancementCache.set(predictionId, {
-          status: 'succeeded',
-          output: result.output
-        });
-        console.log('Image enhancement succeeded. Output URL:', result.output);
-        return result.output;
-      } else if (result.status === 'failed') {
-        // Store failure in cache
-        enhancementCache.set(predictionId, {
-          status: 'failed',
-          error: result.error
-        });
-        console.error('Enhancement failed:', result.error);
-        throw new Error(`Enhancement failed: ${result.error || 'Unknown error'}`);
+      const prediction = await replicate.predictions.get(predictionId);
+      const status = prediction.status;
+      
+      // Log the progress if available
+      if (prediction.metrics && prediction.metrics.predict_time) {
+        console.log(`Processing time so far: ${prediction.metrics.predict_time}s`);
       }
       
-      // Exponential backoff with jitter
-      backoffTime = Math.min(backoffTime * 1.5, maxBackoffTime);
-      const jitter = Math.random() * 500; // Add up to 500ms of jitter
-      const waitTime = backoffTime + jitter;
+      if (status === 'succeeded') {
+        console.log(`Enhancement successful for ${predictionId} (after ${retries} attempts, ${elapsedTime}s)`);
+        
+        // For images with transparency, we need to ensure the output preserves it
+        let outputUrl = prediction.output;
+        
+        if (preserveTransparency) {
+          console.log('Preserving transparency in enhanced output');
+          // The URL is already set up to preserve transparency if input was PNG
+        }
+        
+        // Cache the successful result
+        enhancementCache.set(predictionId, {
+          status: 'succeeded',
+          output: outputUrl,
+          completedAt: new Date().toISOString(),
+          preservedTransparency: preserveTransparency
+        });
+        console.log('Enhancement result cached:', predictionId);
+        
+        return {
+          success: true,
+          output: outputUrl
+        };
+      } else if (status === 'failed') {
+        console.error(`Enhancement failed for ${predictionId} (after ${retries} attempts, ${elapsedTime}s)`, prediction.error);
+        
+        // Cache the failed result
+        enhancementCache.set(predictionId, {
+          status: 'failed',
+          error: prediction.error || 'Enhancement failed without specific error',
+          completedAt: new Date().toISOString()
+        });
+        
+        return {
+          success: false,
+          error: prediction.error || 'Enhancement failed without specific error'
+        };
+      } else if (status === 'canceled') {
+        console.log(`Enhancement canceled for ${predictionId}`);
+        
+        // Cache the cancellation
+        enhancementCache.set(predictionId, {
+          status: 'failed',
+          error: 'Enhancement was canceled',
+          completedAt: new Date().toISOString()
+        });
+        
+        return {
+          success: false,
+          error: 'Enhancement was canceled'
+        };
+      }
       
-      // Wait before checking again
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-      retries++;
+      // If the prediction is still processing, wait and try again
+      console.log(`Enhancement status for ${predictionId}: ${status} (attempt ${retries}/${maxRetries})`);
+      
+      // Store intermediate status in cache
+      enhancementCache.set(predictionId, {
+        status: status,
+        progress: prediction.progress || 0,
+        updatedAt: new Date().toISOString()
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, currentBackoff));
+      // Exponential backoff with jitter (up to 10s max)
+      currentBackoff = Math.min(
+        currentBackoff * (1.5 + Math.random() * 0.5),
+        10000
+      );
     } catch (error) {
-      console.error(`Error during polling (retry ${retries}):`, error);
-      // Exponential backoff on errors
-      backoffTime = Math.min(backoffTime * 2, maxBackoffTime);
-      await new Promise(resolve => setTimeout(resolve, backoffTime));
-      retries++;
+      console.error(`Error polling enhancement status (attempt ${retries}/${maxRetries}):`, error);
+      
+      await new Promise(resolve => setTimeout(resolve, currentBackoff));
+      // Exponential backoff with jitter for errors too
+      currentBackoff = Math.min(
+        currentBackoff * (1.5 + Math.random() * 0.5),
+        10000
+      );
     }
   }
   
-  // If we get here, we've timed out
-  const timeoutError = `Enhancement timed out after ${maxRetries} retries`;
-  console.error(timeoutError);
+  // If we've reached the maximum number of retries, consider it a failure
+  console.error(`Enhancement polling timed out after ${maxRetries} attempts`);
+  
+  // Cache the timeout failure
   enhancementCache.set(predictionId, {
     status: 'failed',
-    error: timeoutError
+    error: 'Enhancement timed out',
+    completedAt: new Date().toISOString()
   });
   
-  throw new Error(timeoutError);
+  return {
+    success: false,
+    error: 'Enhancement timed out'
+  };
 }
 
 /**

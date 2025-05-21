@@ -1999,6 +1999,16 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
     try {
       let imageBlob: Blob;
       
+      // Determine if the image has a transparent background
+      // (Either it's a PNG with transparency or a data URL with transparency)
+      const hasTransparentBackground = 
+        imageUrl.includes('/images/photoroom-result-') || 
+        (imageUrl.startsWith('data:') && imageUrl.includes('png'));
+      
+      if (hasTransparentBackground) {
+        console.log("Detected image with transparent background - will use special processing");
+      }
+      
       // Resize the image for faster processing if needed
       try {
         console.log("Preparing image for enhancement...");
@@ -2045,6 +2055,11 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
       // Add model selection if provided
       if (model) {
         formData.append('model', model);
+      }
+      
+      // Add flag for transparent background if detected
+      if (hasTransparentBackground) {
+        formData.append('preserveTransparency', 'true');
       }
       
       console.log("Submitting image to enhancement service");
@@ -2117,7 +2132,9 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
       toast.dismiss(toastId);
       let processingToastId = toast.loading("Processing image enhancement...", {
         duration: Infinity,
-        description: "This may take up to 60 seconds for high-quality results."
+        description: hasTransparentBackground ? 
+          "Preserving transparency while enhancing image quality..." :
+          "This may take up to 60 seconds for high-quality results."
       });
       
       // Poll for completion
@@ -2196,7 +2213,9 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
       toast.dismiss(processingToastId);
       toast.success("Image enhanced successfully!", {
         duration: 4000,
-        description: "Image quality has been significantly improved."
+        description: hasTransparentBackground ? 
+          "Enhanced while preserving transparency" : 
+          "Image quality has been significantly improved."
       });
       
       console.log("========== IMAGE ENHANCEMENT COMPLETE ==========");

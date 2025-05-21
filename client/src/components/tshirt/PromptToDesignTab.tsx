@@ -40,6 +40,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Use regular Dialog components instead of AlertDialog
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+// Define type for image
+interface DesignImage {
+  id: string;
+  originalUrl: string;
+  baseUrl: string;
+  prompt: string;
+  isBackgroundRemoved: boolean;
+  isEnhanced: boolean;
+}
+
 export const PromptToDesignTab = () => {
   // Core state variables
   const [prompt, setPrompt] = useState('');
@@ -49,13 +69,7 @@ export const PromptToDesignTab = () => {
   const [isEnhancing, setIsEnhancing] = useState(false);
   
   // Simplified image state management
-  const [images, setImages] = useState<Array<{
-    id: number;
-    originalUrl: string;  // Original Ideogram output (never changes)
-    baseUrl: string;      // Current working version (source of truth)
-    isEnhanced: boolean;  // Whether the image has been enhanced
-    isBackgroundRemoved: boolean; // Whether background has been removed
-  }>>([]);
+  const [images, setImages] = useState<DesignImage[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [activeModel, setActiveModel] = useState<string | null>(null);
 
@@ -88,9 +102,17 @@ export const PromptToDesignTab = () => {
     updatedImages[currentIndex] = {
       ...updatedImages[currentIndex],
       ...updates
-    };
+    } as DesignImage;
     setImages(updatedImages);
   };
+
+  // Add state to control the dialog
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
+  const [infoDialogContent, setInfoDialogContent] = useState({
+    title: '',
+    description: '',
+    action: () => {}
+  });
 
   // Handle generating the design
   const handleGenerateDesign = async () => {
@@ -113,7 +135,7 @@ export const PromptToDesignTab = () => {
       const count = parseInt(variationCount, 10);
       
       // Generate multiple images based on the chosen variation count
-      const generatedImages: typeof images = [];
+      const generatedImages: DesignImage[] = [];
       const toastId = toast.loading(`Generating ${count} design${count > 1 ? 's' : ''}...`);
       
       for (let i = 0; i < count; i++) {
@@ -129,11 +151,12 @@ export const PromptToDesignTab = () => {
           
           // Add to our images array with proper structure
           generatedImages.push({
-            id: i,
+            id: i.toString(),
             originalUrl: imageUrl,
             baseUrl: imageUrl, // Initially, base = original
             isEnhanced: false,
-            isBackgroundRemoved: false
+            isBackgroundRemoved: false,
+            prompt: prompt
           });
           
           // Save to history
@@ -223,6 +246,27 @@ export const PromptToDesignTab = () => {
     console.log('Starting background removal process');
     console.log('Current image state:', currentImage);
     
+    // If the image is enhanced, show an info dialog about special handling
+    if (currentImage.isEnhanced && !currentImage.isBackgroundRemoved) {
+      setInfoDialogContent({
+        title: 'Special Processing Required',
+        description: 'You\'re removing the background from an enhanced image. This may require special handling for best results. Would you like to proceed?',
+        action: async () => {
+          setShowInfoDialog(false);
+          // Continue with background removal after user confirms
+          await processBackgroundRemoval(currentImage);
+        }
+      });
+      setShowInfoDialog(true);
+      return;
+    }
+    
+    // If not enhanced or user confirmed, proceed
+    await processBackgroundRemoval(currentImage);
+  };
+  
+  // Extract the actual background removal process to a separate function
+  const processBackgroundRemoval = async (currentImage: DesignImage) => {
     setIsProcessing(true);
     
     try {
@@ -274,19 +318,58 @@ export const PromptToDesignTab = () => {
       // whether it's enhanced or not
       const imageToProcess = currentImage.baseUrl;
       
+      // Store the current enhanced status to preserve it
+      const wasEnhanced = currentImage.isEnhanced;
+      
       console.log('Sending image to background removal API:', 
         imageToProcess.substring(0, 100), 
-        currentImage.isEnhanced ? '(using enhanced image)' : '(using original image)');
+        wasEnhanced ? '(using enhanced image)' : '(using original image)');
       
       // Log the state of the image we're processing for debugging
       console.log('Processing image state:', {
-        isEnhanced: currentImage.isEnhanced,
+        isEnhanced: wasEnhanced,
         isBackgroundRemoved: currentImage.isBackgroundRemoved,
         baseUrl: currentImage.baseUrl.substring(0, 50) + '...',
         originalUrl: currentImage.originalUrl.substring(0, 50) + '...'
       });
       
-      const processedImageUrl = await removeBackground(imageToProcess);
+      // Special handling for enhanced images with black backgrounds
+      let processedImageUrl: string;
+      
+      // If this is an enhanced image, log that we're using special handling
+      if (wasEnhanced) {
+        console.log('Special handling for enhanced image background removal');
+        
+        try {
+          // Regular background removal first
+          processedImageUrl = await removeBackground(imageToProcess);
+          console.log('Background removal completed for enhanced image:', processedImageUrl.substring(0, 50) + '...');
+        } catch (error) {
+          console.error('Error during background removal of enhanced image:', error);
+          
+          // If background removal fails for the enhanced image, we'll try a different approach
+          // 1. Restore to original
+          // 2. Remove background from original
+          // 3. Re-enhance the image with transparent background
+          
+          console.log('Attempting fallback method: remove background from original, then re-enhance');
+          toast.info('Using alternative processing method for enhanced image', {
+            description: 'For best results with complex images'
+          });
+          
+          // Try background removal on the original image
+          processedImageUrl = await removeBackground(currentImage.originalUrl);
+          
+          // Now re-enhance the background-removed image
+          processedImageUrl = await enhanceImage(processedImageUrl);
+          
+          // Update processedImageUrl with the re-enhanced version
+          console.log('Successfully completed alternative processing pipeline');
+        }
+      } else {
+        // Standard background removal for non-enhanced images
+        processedImageUrl = await removeBackground(imageToProcess);
+      }
       
       // Preview the image immediately before saving it
       // This ensures the user can see the result with transparency
@@ -319,11 +402,29 @@ export const PromptToDesignTab = () => {
       // Update the base image URL with the background-removed version
       updateCurrentImage({
         baseUrl: processedImageUrl,
-        isBackgroundRemoved: true
-        // Keep the isEnhanced status as is
+        isBackgroundRemoved: true,
+        isEnhanced: wasEnhanced // Preserve enhanced status
       });
       
-      toast.success(`Background removed successfully${currentImage.isEnhanced ? ' from enhanced image' : ''}!`);
+      // Store this version in case we need to restore it later
+      if (wasEnhanced && images.length > 0) {
+        // Find the current image in the array
+        const currentIdx = images.findIndex(img => img.id === currentImage.id);
+        if (currentIdx >= 0) {
+          // Create a cached copy for future reference
+          const cachedImages = [...images];
+          cachedImages[currentIdx] = {
+            ...cachedImages[currentIdx],
+            baseUrl: processedImageUrl,
+            isBackgroundRemoved: true,
+            isEnhanced: wasEnhanced
+          };
+          setImages(cachedImages);
+          console.log('Cached the enhanced and background-removed version');
+        }
+      }
+      
+      toast.success(`Background removed successfully${wasEnhanced ? ' from enhanced image' : ''}!`);
     } catch (error) {
       console.error('Error removing background:', error);
       toast.error('Failed to remove background');
@@ -346,19 +447,41 @@ export const PromptToDesignTab = () => {
     setIsEnhancing(true);
     
     try {
+      // Store the current background removed status
+      const wasBackgroundRemoved = currentImage.isBackgroundRemoved;
+      
       // Call the enhancement service
+      // Note: the enhanceImage function should now handle preserving transparency
       const enhancedImageUrl = await enhanceImage(currentImage.baseUrl);
       console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
       // Update the base image with the enhanced version
+      // Make sure to preserve the background removed status
       updateCurrentImage({
         baseUrl: enhancedImageUrl,
-        isEnhanced: true
-        // Preserve the background removal status
+        isEnhanced: true,
+        isBackgroundRemoved: wasBackgroundRemoved // Explicitly preserve background status
       });
       
+      // Save this state in our images array for future reference
+      if (images.length > 0) {
+        const currentIdx = images.findIndex(img => img.id === currentImage.id);
+        if (currentIdx >= 0) {
+          // Create a cached copy for future reference
+          const cachedImages = [...images];
+          cachedImages[currentIdx] = {
+            ...cachedImages[currentIdx],
+            baseUrl: enhancedImageUrl,
+            isEnhanced: true,
+            isBackgroundRemoved: wasBackgroundRemoved
+          };
+          setImages(cachedImages);
+          console.log('Cached the enhanced version with preserved background status');
+        }
+      }
+      
       toast.success('Image enhanced successfully!', {
-        description: currentImage.isBackgroundRemoved ? 
+        description: wasBackgroundRemoved ? 
           'Enhanced your image while preserving transparency' : 
           'Applied high quality enhancement'
       });
@@ -711,6 +834,29 @@ export const PromptToDesignTab = () => {
           )}
         </div>
       </div>
+      
+      {/* Add the info dialog */}
+      <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{infoDialogContent.title}</DialogTitle>
+            <DialogDescription>
+              {infoDialogContent.description}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowInfoDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => {
+              infoDialogContent.action();
+              setShowInfoDialog(false);
+            }}>
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 
