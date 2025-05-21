@@ -130,6 +130,22 @@ try {
   });
 }
 
+// Load the word search puzzle generator routes module
+let wordSearchRoutes;
+try {
+  console.log('Attempting to require wordSearchRoutes.js');
+  wordSearchRoutes = require('./routes/wordSearchRoutes');
+  console.log('Successfully loaded wordSearchRoutes.js');
+} catch (e) {
+  console.error('Failed to load wordSearchRoutes.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  wordSearchRoutes = express.Router();
+  wordSearchRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load word search routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -275,6 +291,10 @@ console.log('Registered route: /api/openai/*');
 app.use('/api/image-enhancement', imageEnhancementRoutes);
 console.log('Registered route: /api/image-enhancement/*');
 
+// Register word search puzzle generator routes
+app.use('/api/word-search', wordSearchRoutes);
+console.log('Registered route: /api/word-search/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -296,7 +316,11 @@ app.get('/', (req, res) => {
       '/api/book-cover/download',
       '/api/openai/enhance-prompt',
       '/api/openai/extract-prompt',
-      '/api/image-enhancement/test'
+      '/api/image-enhancement/test',
+      '/api/word-search/generate',
+      '/api/word-search/generate-words',
+      '/api/word-search/status/:id',
+      '/api/word-search/download/:id'
     ]
   });
 });

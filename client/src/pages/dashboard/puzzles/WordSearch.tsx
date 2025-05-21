@@ -9,43 +9,85 @@ import {
   Loader2,
   ArrowLeft,
   Sparkles,
-  PenLine
+  PenLine,
+  User,
+  Palette,
+  Type
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import wordSearchApi from '@/lib/services/wordSearchApi';
 
 const MotionCard = motion(Card);
 
 export type WordSearchSettings = {
-  // Book settings
+  // Book details
   title: string;
+  subtitle: string;
+  authorName: string;
   pageSize: string;
-  puzzlesPerPage: number;
+  bleed: boolean;
   includePageNumbers: boolean;
-  includeAnswers: boolean;
+  interiorTheme: 'light' | 'dark';
+  fontFamily: string;
   
   // WordSearch specific settings
+  puzzlesPerPage: number;
   theme: string;
   customWords: string;
   difficulty: string;
   quantity: number;
   aiPrompt: string;
+  
+  // Puzzle options
+  gridSize: number;
+  wordsPerPuzzle: number;
+  directions: {
+    horizontal: boolean;
+    vertical: boolean;
+    diagonal: boolean;
+    backward: boolean;
+  };
+  
+  // Output options
+  includeAnswers: boolean;
+  includeThemeFacts: boolean;
+  includeCoverPage: boolean;
 };
 
 export const defaultWordSearchSettings: WordSearchSettings = {
   // Default book settings
   title: '',
-  pageSize: 'letter',
-  puzzlesPerPage: 1,
+  subtitle: '',
+  authorName: '',
+  pageSize: '6x9',
+  bleed: false,
   includePageNumbers: true,
-  includeAnswers: true,
+  interiorTheme: 'light',
+  fontFamily: 'sans',
   
   // Default WordSearch specific settings
+  puzzlesPerPage: 1,
   theme: '',
   customWords: '',
   difficulty: 'medium',
   quantity: 20,
-  aiPrompt: ''
+  aiPrompt: '',
+  
+  // Default puzzle options
+  gridSize: 15,
+  wordsPerPuzzle: 10,
+  directions: {
+    horizontal: true,
+    vertical: true,
+    diagonal: true,
+    backward: false
+  },
+  
+  // Default output options
+  includeAnswers: true,
+  includeThemeFacts: false,
+  includeCoverPage: true
 };
 
 export type WordSearchFormProps = {
@@ -63,29 +105,50 @@ export const WordSearchForm = ({
   onGenerate, 
   generationStatus 
 }: WordSearchFormProps) => {
-  // Handlers for each input
+  // Handlers for book detail inputs
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSettingChange('title', e.target.value);
+  };
+
+  const handleSubtitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('subtitle', e.target.value);
+  };
+
+  const handleAuthorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('authorName', e.target.value);
   };
 
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     onSettingChange('pageSize', e.target.value);
   };
 
-  const handlePuzzlesPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onSettingChange('puzzlesPerPage', parseInt(e.target.value));
+  const handleBleedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('bleed', !settings.bleed);
   };
 
   const handlePageNumbersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSettingChange('includePageNumbers', !settings.includePageNumbers);
   };
 
-  const handleIncludeAnswersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onSettingChange('includeAnswers', !settings.includeAnswers);
+  const handleInteriorThemeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingChange('interiorTheme', e.target.value as 'light' | 'dark');
+  };
+
+  const handleFontFamilyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingChange('fontFamily', e.target.value);
+  };
+
+  // Handlers for puzzle settings
+  const handlePuzzlesPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingChange('puzzlesPerPage', parseInt(e.target.value));
   };
 
   const handleThemeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onSettingChange('theme', e.target.value);
+  };
+
+  const handleCustomWordsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onSettingChange('customWords', e.target.value);
   };
 
   const handleDifficultyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -99,8 +162,32 @@ export const WordSearchForm = ({
     }
   };
 
-  const handleCustomWordsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onSettingChange('customWords', e.target.value);
+  const handleGridSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingChange('gridSize', parseInt(e.target.value));
+  };
+
+  const handleWordsPerPuzzleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSettingChange('wordsPerPuzzle', parseInt(e.target.value));
+  };
+
+  const handleDirectionChange = (direction: keyof typeof settings.directions) => {
+    onSettingChange('directions', {
+      ...settings.directions,
+      [direction]: !settings.directions[direction]
+    });
+  };
+
+  // Handlers for output options
+  const handleIncludeAnswersChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('includeAnswers', !settings.includeAnswers);
+  };
+
+  const handleIncludeThemeFactsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('includeThemeFacts', !settings.includeThemeFacts);
+  };
+
+  const handleIncludeCoverPageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSettingChange('includeCoverPage', !settings.includeCoverPage);
   };
 
   const handleAIPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -132,9 +219,12 @@ export const WordSearchForm = ({
       </CardHeader>
       
       <CardContent className="space-y-6 w-full">
-        {/* Book Settings Section */}
+        {/* Book Information Section */}
         <div className="space-y-4 w-full">
-          <h3 className="text-lg font-medium">Book Information</h3>
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <PenLine className="h-4 w-4 text-primary" />
+            Book Information
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
             <div className="space-y-2 w-full">
               <label htmlFor="book-title" className="text-sm font-medium">Book Title</label>
@@ -150,6 +240,32 @@ export const WordSearchForm = ({
               />
             </div>
             <div className="space-y-2 w-full">
+              <label htmlFor="book-subtitle" className="text-sm font-medium">Subtitle (Optional)</label>
+              <input
+                id="book-subtitle"
+                type="text"
+                value={settings.subtitle}
+                onChange={handleSubtitleChange}
+                placeholder="Add a subtitle"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Book Subtitle"
+              />
+            </div>
+            <div className="space-y-2 w-full">
+              <label htmlFor="author-name" className="text-sm font-medium">Author Name</label>
+              <input
+                id="author-name"
+                type="text"
+                value={settings.authorName}
+                onChange={handleAuthorNameChange}
+                placeholder="Enter author name"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Author Name"
+              />
+            </div>
+            <div className="space-y-2 w-full">
               <label htmlFor="page-size" className="text-sm font-medium">Page Size</label>
               <select 
                 id="page-size"
@@ -159,29 +275,42 @@ export const WordSearchForm = ({
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Page Size"
               >
-                <option value="letter">Letter (8.5 x 11 in)</option>
-                <option value="a4">A4 (210 x 297 mm)</option>
-                <option value="5x8">5 x 8 in</option>
-                <option value="6x9">6 x 9 in</option>
-                <option value="7x10">7 x 10 in</option>
-                <option value="8x10">8 x 10 in</option>
-                <option value="825x825">8.25 x 8.25 in</option>
-                <option value="85x11">8.5 x 11 in</option>
+                <option value="6x9">6 x 9 in (KDP Standard)</option>
+                <option value="8.5x11">8.5 x 11 in (Letter)</option>
+                <option value="5x8">5 x 8 in (Small)</option>
+                <option value="7x10">7 x 10 in (Medium)</option>
+                <option value="8x10">8 x 10 in (Large)</option>
+                <option value="8.25x8.25">8.25 x 8.25 in (Square)</option>
               </select>
             </div>
             <div className="space-y-2 w-full">
-              <label htmlFor="puzzles-per-page" className="text-sm font-medium">Puzzles Per Page</label>
+              <label htmlFor="interior-theme" className="text-sm font-medium">Interior Theme</label>
               <select 
-                id="puzzles-per-page"
+                id="interior-theme"
                 className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
-                value={settings.puzzlesPerPage}
-                onChange={handlePuzzlesPerPageChange}
+                value={settings.interiorTheme}
+                onChange={handleInteriorThemeChange}
                 style={{ width: '100%', boxSizing: 'border-box' }}
-                aria-label="Puzzles Per Page"
+                aria-label="Interior Theme"
               >
-                <option value="1">1 per page</option>
-                <option value="2">2 per page</option>
-                <option value="4">4 per page</option>
+                <option value="light">Light (Black on White)</option>
+                <option value="dark">Dark (White on Black)</option>
+              </select>
+            </div>
+            <div className="space-y-2 w-full">
+              <label htmlFor="font-family" className="text-sm font-medium">Font Style</label>
+              <select 
+                id="font-family"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                value={settings.fontFamily}
+                onChange={handleFontFamilyChange}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Font Style"
+              >
+                <option value="sans">Sans-serif (Modern)</option>
+                <option value="serif">Serif (Traditional)</option>
+                <option value="mono">Monospace (Clear)</option>
+                <option value="handwritten">Handwritten (Casual)</option>
               </select>
             </div>
             <div className="col-span-1 sm:col-span-2 flex flex-wrap gap-6">
@@ -201,23 +330,26 @@ export const WordSearchForm = ({
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
-                  id="include-answers"
-                  checked={settings.includeAnswers}
-                  onChange={handleIncludeAnswersChange}
+                  id="include-bleed"
+                  checked={settings.bleed}
+                  onChange={handleBleedChange}
                   className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
-                  aria-label="Include Answer Key"
+                  aria-label="Include Bleed"
                 />
-                <label htmlFor="include-answers" className="text-sm">
-                  Include answer key
+                <label htmlFor="include-bleed" className="text-sm">
+                  Include bleed (0.125" margin)
                 </label>
               </div>
             </div>
           </div>
         </div>
         
-        {/* Word Search Specific Settings */}
+        {/* Word Search Settings */}
         <div className="space-y-4 w-full">
-          <h3 className="text-lg font-medium">Word Search Settings</h3>
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <BookText className="h-4 w-4 text-primary" />
+            Puzzle Settings
+          </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
             <div className="space-y-2 w-full">
               <label htmlFor="theme" className="text-sm font-medium">Theme</label>
@@ -262,6 +394,111 @@ export const WordSearchForm = ({
                 aria-label="Number of Puzzles"
               />
             </div>
+            <div className="space-y-2 w-full">
+              <label htmlFor="words-per-puzzle" className="text-sm font-medium">Words Per Puzzle</label>
+              <select 
+                id="words-per-puzzle"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                value={settings.wordsPerPuzzle}
+                onChange={handleWordsPerPuzzleChange}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Words Per Puzzle"
+              >
+                <option value="8">8 words</option>
+                <option value="10">10 words</option>
+                <option value="12">12 words</option>
+                <option value="15">15 words</option>
+                <option value="20">20 words</option>
+              </select>
+            </div>
+            <div className="space-y-2 w-full">
+              <label htmlFor="grid-size" className="text-sm font-medium">Grid Size</label>
+              <select 
+                id="grid-size"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                value={settings.gridSize}
+                onChange={handleGridSizeChange}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Grid Size"
+              >
+                <option value="10">10 x 10 (Small)</option>
+                <option value="15">15 x 15 (Medium)</option>
+                <option value="20">20 x 20 (Large)</option>
+                <option value="25">25 x 25 (Extra Large)</option>
+              </select>
+            </div>
+            <div className="space-y-2 w-full">
+              <label htmlFor="puzzles-per-page" className="text-sm font-medium">Puzzles Per Page</label>
+              <select 
+                id="puzzles-per-page"
+                className="w-full px-3 py-2 rounded-md bg-background border border-input hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary text-foreground"
+                value={settings.puzzlesPerPage}
+                onChange={handlePuzzlesPerPageChange}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                aria-label="Puzzles Per Page"
+              >
+                <option value="1">1 per page</option>
+                <option value="2">2 per page</option>
+                <option value="4">4 per page</option>
+              </select>
+            </div>
+            <div className="space-y-2 col-span-1 sm:col-span-2 w-full">
+              <label className="text-sm font-medium">Word Directions</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="direction-horizontal"
+                    checked={settings.directions.horizontal}
+                    onChange={() => handleDirectionChange('horizontal')}
+                    className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                    aria-label="Horizontal Direction"
+                  />
+                  <label htmlFor="direction-horizontal" className="text-sm">
+                    Horizontal →
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="direction-vertical"
+                    checked={settings.directions.vertical}
+                    onChange={() => handleDirectionChange('vertical')}
+                    className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                    aria-label="Vertical Direction"
+                  />
+                  <label htmlFor="direction-vertical" className="text-sm">
+                    Vertical ↓
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="direction-diagonal"
+                    checked={settings.directions.diagonal}
+                    onChange={() => handleDirectionChange('diagonal')}
+                    className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                    aria-label="Diagonal Direction"
+                  />
+                  <label htmlFor="direction-diagonal" className="text-sm">
+                    Diagonal ↘
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="direction-backward"
+                    checked={settings.directions.backward}
+                    onChange={() => handleDirectionChange('backward')}
+                    className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                    aria-label="Backward Direction"
+                  />
+                  <label htmlFor="direction-backward" className="text-sm">
+                    Backward ←
+                  </label>
+                </div>
+              </div>
+            </div>
             <div className="space-y-2 col-span-1 sm:col-span-2 w-full">
               <label htmlFor="custom-words" className="text-sm font-medium">Custom Words (Optional)</label>
               <textarea
@@ -273,6 +510,57 @@ export const WordSearchForm = ({
                 style={{ width: '100%', boxSizing: 'border-box' }}
                 aria-label="Custom Words"
               />
+            </div>
+          </div>
+        </div>
+        
+        {/* Output Options */}
+        <div className="space-y-4 w-full">
+          <h3 className="text-lg font-medium flex items-center gap-2">
+            <FileDown className="h-4 w-4 text-primary" />
+            Output Options
+          </h3>
+          <div className="grid grid-cols-1 gap-4 w-full">
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="include-answers"
+                  checked={settings.includeAnswers}
+                  onChange={handleIncludeAnswersChange}
+                  className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                  aria-label="Include Answer Key"
+                />
+                <label htmlFor="include-answers" className="text-sm">
+                  Include answer key
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="include-theme-facts"
+                  checked={settings.includeThemeFacts}
+                  onChange={handleIncludeThemeFactsChange}
+                  className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                  aria-label="Include Theme Facts"
+                />
+                <label htmlFor="include-theme-facts" className="text-sm">
+                  Add fun facts about themes
+                </label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="include-cover-page"
+                  checked={settings.includeCoverPage}
+                  onChange={handleIncludeCoverPageChange}
+                  className="h-4 w-4 rounded border-input bg-background hover:border-primary focus:border-primary focus:ring-1 focus:ring-primary"
+                  aria-label="Include Cover Page"
+                />
+                <label htmlFor="include-cover-page" className="text-sm">
+                  Generate cover page
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -296,7 +584,7 @@ export const WordSearchForm = ({
             />
             <p className="text-xs text-muted-foreground">
               Provide additional guidance for the AI to generate your word search book. 
-              Example: "Create a word search book with nature themes, including words related to forests, oceans, and mountains."
+              Example: "Create a word search book with nature themes, including words related to forests, oceans, and mountains. Suitable for children aged 8-12."
             </p>
           </div>
         </div>
@@ -331,13 +619,17 @@ export const WordSearchCompletionStatus = ({
   bookFormat = 'PDF', 
   onDownload, 
   onTryAgain,
-  onViewPreview 
+  onViewPreview,
+  progress = 100,
+  error = ''
 }: {
   status: 'complete' | 'error',
   bookFormat?: string,
   onDownload: () => void,
   onTryAgain: () => void,
-  onViewPreview?: () => void
+  onViewPreview?: () => void,
+  progress?: number,
+  error?: string
 }) => {
   return (
     <MotionCard
@@ -356,6 +648,11 @@ export const WordSearchCompletionStatus = ({
               <div className="flex-1">
                 <h3 className="font-medium text-green-600">Book Generation Complete!</h3>
                 <p className="text-sm text-muted-foreground">Your word search book is ready to download</p>
+                {progress < 100 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                    <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${progress}%` }}></div>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 {onViewPreview && (
@@ -385,7 +682,9 @@ export const WordSearchCompletionStatus = ({
               </div>
               <div className="flex-1">
                 <h3 className="font-medium text-red-600">Generation Error</h3>
-                <p className="text-sm text-muted-foreground">There was a problem generating your word search book. Please try again.</p>
+                <p className="text-sm text-muted-foreground">
+                  {error || "There was a problem generating your word search book. Please try again."}
+                </p>
               </div>
               <Button 
                 onClick={onTryAgain}

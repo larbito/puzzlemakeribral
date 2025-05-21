@@ -20,6 +20,7 @@ import {
   defaultWordSearchSettings 
 } from './puzzles/WordSearch';
 import { WordSearchPreview } from './puzzles/WordSearchPreview';
+import wordSearchApi from '@/lib/services/wordSearchApi';
 
 type PuzzleType = {
   id: string;
@@ -80,6 +81,10 @@ export const PuzzleGenerator = () => {
   // Word Search settings
   const [wordSearchSettings, setWordSearchSettings] = useState<WordSearchSettings>(defaultWordSearchSettings);
 
+  // Add state for download URL and error messages
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string>('');
+
   // Handle back to selection
   const handleBackToSelection = () => {
     setSelectedPuzzleType(null);
@@ -96,7 +101,7 @@ export const PuzzleGenerator = () => {
   };
 
   // Handle puzzle generation
-  const handleGeneratePuzzle = () => {
+  const handleGeneratePuzzle = async () => {
     // Validate title
     if (!wordSearchSettings.title.trim()) {
       alert('Please enter a book title');
@@ -105,16 +110,31 @@ export const PuzzleGenerator = () => {
     
     setGenerationStatus('generating');
     
-    // Simulate puzzle generation with a delay
-    setTimeout(() => {
-      const success = Math.random() > 0.1; // 90% success rate for demo
-      if (success) {
+    try {
+      // Call API to generate the puzzle book
+      const jobId = await wordSearchApi.generateWordSearch(wordSearchSettings);
+      
+      // Poll for job status
+      const result = await wordSearchApi.pollGenerationStatus(jobId, (progress) => {
+        // Update progress indicator if needed
+        console.log(`Generation progress: ${progress}%`);
+      });
+      
+      // Check final status
+      if (result.status === 'completed' && result.downloadUrl) {
+        // Store download URL
+        setDownloadUrl(result.downloadUrl);
         setGenerationStatus('complete');
         setShowPreview(true); // Show preview when generation is complete
       } else {
+        setGenerationError(result.error || 'Failed to generate puzzle book');
         setGenerationStatus('error');
       }
-    }, 2000);
+    } catch (error) {
+      console.error('Error generating puzzle book:', error);
+      setGenerationError('An unexpected error occurred. Please try again.');
+      setGenerationStatus('error');
+    }
   };
 
   // Handle preview toggle
@@ -124,14 +144,17 @@ export const PuzzleGenerator = () => {
 
   // Handle download
   const handleDownload = () => {
-    if (generationStatus !== 'complete') return;
+    if (generationStatus !== 'complete' || !downloadUrl) return;
     
-    alert(`Downloading "${wordSearchSettings.title}" word search book with ${wordSearchSettings.quantity} puzzles as PDF`);
+    // Open the download URL in a new tab
+    window.open(downloadUrl, '_blank');
     
-    // Reset after download
-    setGenerationStatus('idle');
-    setSelectedPuzzleType(null);
-    setShowPreview(false);
+    // Reset after a moment so user can see the download started
+    setTimeout(() => {
+      setGenerationStatus('idle');
+      setSelectedPuzzleType(null);
+      setShowPreview(false);
+    }, 3000);
   };
 
   // Handle puzzle type selection
@@ -172,11 +195,12 @@ export const PuzzleGenerator = () => {
     // Show completion status if applicable
     if ((generationStatus === 'complete' || generationStatus === 'error') && !showPreview) {
       return (
-        <WordSearchCompletionStatus 
-          status={generationStatus as 'complete' | 'error'}
+        <WordSearchCompletionStatus
+          status={generationStatus === 'complete' ? 'complete' : 'error'}
           onDownload={handleDownload}
           onTryAgain={() => setGenerationStatus('idle')}
           onViewPreview={handleTogglePreview}
+          error={generationError}
         />
       );
     }
