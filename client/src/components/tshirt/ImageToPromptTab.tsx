@@ -22,7 +22,7 @@ import {
   UploadCloud
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels, getEnhancementModels } from '@/services/ideogramService';
+import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels, getEnhancementModels, API_URL } from '@/services/ideogramService';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -141,6 +141,11 @@ export const ImageToPromptTab = () => {
       if (imageUrl) {
         console.log('Generated design URL:', imageUrl);
         setGeneratedDesign(imageUrl);
+        
+        // IMPORTANT FIX: Also set the processedDesign to display the image
+        setProcessedDesign(imageUrl);
+        // Store as original design for potential reset
+        setOriginalDesign(imageUrl);
         
         // Save to history
         saveToHistory({
@@ -384,6 +389,19 @@ export const ImageToPromptTab = () => {
     );
   };
 
+  // Add this helper function near the top of the component
+  const ensureProxiedUrl = (url: string): string => {
+    if (!url) return url;
+    
+    // Check if it's an Ideogram URL
+    if (url.includes('ideogram.ai')) {
+      console.log('Proxying Ideogram URL through backend');
+      return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
+    }
+    
+    return url;
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-8">
@@ -512,7 +530,7 @@ export const ImageToPromptTab = () => {
               >
                 <img 
                   key={`preview-${processedDesign}-${Date.now()}`}
-                  src={processedDesign} 
+                  src={ensureProxiedUrl(processedDesign)} 
                   alt="Processed design" 
                   className={`w-full h-full object-contain p-4 preview-image ${isBackgroundRemoved ? 'transparent-image' : ''}`}
                   style={{ backgroundColor: 'transparent', borderRadius: '0.5rem' }}
@@ -530,19 +548,35 @@ export const ImageToPromptTab = () => {
                 />
                 
                 {/* Show loading overlay when processing */}
-                {(isLoading || isProcessing) && (
+                {(isLoading || isProcessing || isGenerating || isEnhancing) && (
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
                     <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
                       <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <p className="text-sm">{isProcessing ? "Processing image..." : "Loading..."}</p>
+                      <p className="text-sm">
+                        {isProcessing ? "Processing image..." : 
+                         isGenerating ? "Generating design..." :
+                         isEnhancing ? "Enhancing image..." : "Loading..."}
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
-            ) : isLoading ? (
+            ) : isGenerating ? (
               <div className="h-full flex flex-col items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">Processing your image...</p>
+                <p className="text-muted-foreground">Generating your design...</p>
+                <p className="text-xs text-muted-foreground mt-2">This may take 15-30 seconds</p>
+              </div>
+            ) : imagePreview ? (
+              <div className="h-full flex flex-col items-center justify-center relative">
+                <img 
+                  src={ensureProxiedUrl(imagePreview)} 
+                  alt="Image preview" 
+                  className="w-full h-full object-contain p-4"
+                />
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs text-center">
+                  Click "Generate Prompt from Image" to continue
+                </div>
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-4 text-center">
