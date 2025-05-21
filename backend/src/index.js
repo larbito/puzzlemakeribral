@@ -156,7 +156,21 @@ const staticDir = path.join(__dirname, '..', 'static');
 console.log(`Serving static files from: ${staticDir}`);
 app.use('/static', express.static(staticDir));
 
-// Special route to serve the temporary PhotoRoom result image
+// Serve processed images from the 'images' directory
+const imagesDir = path.join(__dirname, '..', 'images');
+console.log(`Serving images from: ${imagesDir}`);
+// Create images directory if it doesn't exist
+if (!fs.existsSync(imagesDir)) {
+  try {
+    fs.mkdirSync(imagesDir, { recursive: true });
+    console.log('Created images directory at:', imagesDir);
+  } catch (error) {
+    console.error('Failed to create images directory:', error);
+  }
+}
+app.use('/images', express.static(imagesDir));
+
+// Keep the temporary file route for backward compatibility
 app.get('/temp-photoroom-result.png', (req, res) => {
   console.log('Serving temporary PhotoRoom result image');
   const imagePath = path.join(__dirname, '..', 'temp-photoroom-result.png');

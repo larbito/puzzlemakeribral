@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
+const crypto = require('crypto');
 
 // Check for PhotoRoom API key in environment variables
 const PHOTOROOM_API_KEY = process.env.PHOTOROOM_API_KEY || '';
@@ -12,6 +13,17 @@ console.log('PhotoRoom API key configured:', PHOTOROOM_API_KEY ? 'Yes' : 'No');
 // Log just to verify what key is being used (first few characters only for security)
 if (PHOTOROOM_API_KEY) {
   console.log('PhotoRoom API key starts with:', PHOTOROOM_API_KEY.substring(0, 8) + '...');
+}
+
+// Create images directory if it doesn't exist
+const imagesDir = path.join(__dirname, '../../images');
+if (!fs.existsSync(imagesDir)) {
+  try {
+    fs.mkdirSync(imagesDir, { recursive: true });
+    console.log('Created images directory at:', imagesDir);
+  } catch (error) {
+    console.error('Failed to create images directory:', error.message);
+  }
 }
 
 /**
@@ -77,11 +89,14 @@ exports.removeBackground = async (req, res) => {
         });
       }
       
-      // Save the processed image to a temporary file
-      // This is needed to get a public URL for the processed image
-      // In production, you would upload this to S3 or similar cloud storage
-      const tempFilePath = path.join(__dirname, '../../temp-photoroom-result.png');
-      fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+      // Generate a unique filename
+      const uniqueId = crypto.randomBytes(8).toString('hex');
+      const fileName = `photoroom-result-${uniqueId}.png`;
+      const filePath = path.join(imagesDir, fileName);
+      
+      // Save the processed image to a file with unique name
+      console.log('Saving processed image to:', filePath);
+      fs.writeFileSync(filePath, Buffer.from(response.data));
       
       // Create a proper URL based on the environment
       // Get the Railway public URL in production, or use localhost for development
@@ -90,7 +105,7 @@ exports.removeBackground = async (req, res) => {
         : 'http://localhost:3001');
       console.log('Using base URL for image:', baseUrl);
       
-      const outputUrl = `${baseUrl}/temp-photoroom-result.png`;
+      const outputUrl = `${baseUrl}/images/${fileName}`;
       console.log('Generated image URL:', outputUrl);
       
       // Return success response with the image URL
