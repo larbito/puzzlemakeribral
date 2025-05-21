@@ -8,6 +8,10 @@ const PHOTOROOM_API_KEY = process.env.PHOTOROOM_API_KEY || '';
 // Debug log for API token presence (don't log the actual token)
 console.log('PhotoRoom Background Removal Controller initialized');
 console.log('PhotoRoom API key configured:', PHOTOROOM_API_KEY ? 'Yes' : 'No');
+// Log just to verify what key is being used (first few characters only for security)
+if (PHOTOROOM_API_KEY) {
+  console.log('PhotoRoom API key starts with:', PHOTOROOM_API_KEY.substring(0, 8) + '...');
+}
 
 /**
  * Remove background from image using PhotoRoom API
@@ -42,13 +46,19 @@ exports.removeBackground = async (req, res) => {
       const photoRoomUrl = 'https://sdk.photoroom.com/v1/segment';
       
       console.log('Calling PhotoRoom API...');
+      // Log full headers for debug purposes - remove in production
+      const headers = {
+        'Content-Type': 'application/octet-stream',
+        'X-Api-Key': PHOTOROOM_API_KEY
+      };
+      console.log('Request headers:', JSON.stringify(headers));
+      
       const response = await axios.post(photoRoomUrl, imageBuffer, {
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'X-Api-Key': PHOTOROOM_API_KEY
-        },
+        headers,
         responseType: 'arraybuffer'
       });
+      
+      console.log('PhotoRoom API response status:', response.status);
       
       if (response.status !== 200) {
         console.error('PhotoRoom API error:', response.status, response.statusText);
@@ -79,6 +89,12 @@ exports.removeBackground = async (req, res) => {
       });
     } catch (error) {
       console.error('Error in PhotoRoom background removal process:', error);
+      console.error('Error details:', error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      } : 'No response details');
+      
       return res.status(500).json({
         error: 'Background removal failed',
         details: error.message || 'Unknown error'
