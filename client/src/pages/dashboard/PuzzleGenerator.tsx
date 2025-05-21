@@ -21,6 +21,7 @@ import {
 } from './puzzles/WordSearch';
 import { WordSearchPreview } from './puzzles/WordSearchPreview';
 import wordSearchApi from '@/lib/services/wordSearchApi';
+import { WordSearchWizard } from './puzzles/WordSearchWizard';
 
 type PuzzleType = {
   id: string;
@@ -219,13 +220,7 @@ export const PuzzleGenerator = () => {
       switch (selectedPuzzleType) {
         case 'word-search':
           return (
-            <WordSearchForm 
-              settings={wordSearchSettings}
-              onSettingChange={handleWordSearchSettingChange}
-              onBack={handleBackToSelection}
-              onGenerate={handleGeneratePuzzle}
-              generationStatus={generationStatus}
-            />
+            <WordSearchWizard />
           );
         case 'sudoku':
         case 'mazes':
