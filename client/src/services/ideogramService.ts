@@ -610,7 +610,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       const isReplicateUrl = imageUrl.includes('replicate.delivery');
       
       if (isReplicateUrl) {
-        console.log("Detected enhanced image from Replicate");
+        console.log("Detected enhanced image from Replicate, setting isEnhanced flag to true");
       }
       
       // Special handling for Replicate URLs
@@ -687,6 +687,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       // Add flag to indicate this is an enhanced image if applicable
       if (isReplicateUrl) {
+        console.log("Adding isEnhanced=true flag to form data for enhanced image processing");
         formData.append('isEnhanced', 'true');
       }
       
@@ -701,39 +702,37 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         console.log(`- ${pair[0]}: ${pair[1] instanceof File ? `File (${pair[1].size} bytes)` : pair[1]}`);
       }
       
+      // Set a longer timeout for enhanced images
+      const timeout = isReplicateUrl ? 120000 : 60000; // 2 minutes for enhanced images, 1 minute for regular
+      
       console.log("Making fetch request to background removal endpoint...");
-      const response = await fetch(bgRemovalEndpoint, {
-        method: 'POST',
-        body: formData,
-        mode: 'cors',
-        // Add more detailed error handling
-        headers: {
-          'Accept': 'application/json',
-        }
-      });
+      console.log(`Request timeout set to ${timeout}ms`);
       
-      console.log("Background removal response received. Status code:", response.status);
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      // Create an AbortController for the timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      // Special handling for 402 Payment Required error (PhotoRoom API limit reached)
-      if (response.status === 402) {
-        console.log("PhotoRoom API limit reached. Using client-side fallback");
-        toast.dismiss(toastId);
-        toast.error("Background removal API limit reached. Using fallback method.", {
-          duration: 4000
+      try {
+        const response = await fetch(bgRemovalEndpoint, {
+          method: 'POST',
+          body: formData,
+          mode: 'cors',
+          signal: controller.signal,
+          // Add more detailed error handling
+          headers: {
+            'Accept': 'application/json',
+          }
         });
         
-        // We know imageBlob is not null at this point
-        const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
-        return transparentImageUrl;
-      } 
-      
-      // Check if it's a 402 error wrapped in a 500 response
-      if (response.status === 500) {
-        const responseText = await response.text();
+        // Clear the timeout
+        clearTimeout(timeoutId);
         
-        if (responseText.includes("402") || responseText.includes("Payment Required")) {
-          console.log("PhotoRoom API limit reached (wrapped in 500). Using client-side fallback");
+        console.log("Background removal response received. Status code:", response.status);
+        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+        
+        // Special handling for 402 Payment Required error (PhotoRoom API limit reached)
+        if (response.status === 402) {
+          console.log("PhotoRoom API limit reached. Using client-side fallback");
           toast.dismiss(toastId);
           toast.error("Background removal API limit reached. Using fallback method.", {
             duration: 4000
@@ -742,129 +741,155 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           // We know imageBlob is not null at this point
           const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
           return transparentImageUrl;
+        } 
+        
+        // Check if it's a 402 error wrapped in a 500 response
+        if (response.status === 500) {
+          const responseText = await response.text();
+          
+          if (responseText.includes("402") || responseText.includes("Payment Required")) {
+            console.log("PhotoRoom API limit reached (wrapped in 500). Using client-side fallback");
+            toast.dismiss(toastId);
+            toast.error("Background removal API limit reached. Using fallback method.", {
+              duration: 4000
+            });
+            
+            // We know imageBlob is not null at this point
+            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+            return transparentImageUrl;
+          }
+          
+          // If it's another type of 500 error, handle it below
+          throw new Error(`Server error: ${responseText}`);
         }
         
-        // If it's another type of 500 error, handle it below
-        throw new Error(`Server error: ${responseText}`);
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Background removal API error: ${response.status}`, errorText);
-        console.error("Request details:", {
-          endpoint: bgRemovalEndpoint,
-          imageSize: imageBlob.size
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Background removal API error: ${response.status}`, errorText);
+          console.error("Request details:", {
+            endpoint: bgRemovalEndpoint,
+            imageSize: imageBlob.size,
+            isEnhanced: isReplicateUrl
+          });
+          
+          let errorMessage = "Failed to remove background";
+          try {
+            // Try to parse error as JSON
+            const errorData = JSON.parse(errorText);
+            errorMessage = errorData.error || errorMessage;
+            console.error("Parsed error data:", errorData);
+          } catch {
+            // If can't parse JSON, use raw text
+            if (errorText) {
+              errorMessage = errorText;
+              console.error("Raw error text:", errorText);
+            }
+          }
+          
+          if (response.status === 413) {
+            errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+          } else if (response.status === 504 || response.status === 502) {
+            errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
+          }
+          
+          // Before giving up, try the client-side fallback if we have an image
+          if (imageBlob) {
+            try {
+              console.log("API failed, trying client-side fallback");
+              const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+              toast.dismiss(toastId);
+              toast.warning("Server had an issue. Using client-side fallback instead.", {
+                duration: 4000
+              });
+              return transparentImageUrl;
+            } catch (fallbackError) {
+              console.error("Client-side fallback also failed:", fallbackError);
+              // Continue with normal error handling
+            }
+          }
+          
+          toast.dismiss(toastId);
+          toast.error(errorMessage);
+          throw new Error(`${errorMessage} (Status: ${response.status})`);
+        }
+        
+        console.log("Parsing response...");
+        const data = await response.json();
+        console.log("Response data:", data);
+        
+        if (!data.imageUrl) {
+          console.error("No image URL found in response data:", data);
+          
+          // Try client-side fallback as a last resort
+          if (imageBlob) {
+            try {
+              console.log("No image URL in response, trying client-side fallback");
+              const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+              toast.dismiss(toastId);
+              toast.warning("Server issue detected. Using client-side fallback instead.", {
+                duration: 4000
+              });
+              return transparentImageUrl;
+            } catch (fallbackError) {
+              console.error("Client-side fallback also failed:", fallbackError);
+              // Continue with normal error handling
+            }
+          }
+          
+          throw new Error("No image URL found in response");
+        }
+        
+        console.log("Background removal successful");
+        console.log("Image was enhanced:", isReplicateUrl);
+        console.log("Output URL:", data.imageUrl);
+        
+        // Preview the image immediately before saving it
+        // This ensures the user can see the result with transparency
+        const imgPreview = document.createElement('img');
+        imgPreview.src = data.imageUrl;
+        imgPreview.style.display = 'none';
+        document.body.appendChild(imgPreview);
+        console.log("Image preview element created");
+        
+        // Make sure image loads before we show it to ensure transparency is visible
+        await new Promise((resolve) => {
+          imgPreview.onload = () => {
+            console.log("Image loaded successfully");
+            document.body.removeChild(imgPreview);
+            resolve(true);
+          };
+          imgPreview.onerror = (e) => {
+            console.error("Error loading image preview:", e);
+            document.body.removeChild(imgPreview);
+            resolve(false);
+          };
+          
+          // Timeout just in case
+          setTimeout(() => {
+            if (document.body.contains(imgPreview)) {
+              console.warn("Preview load timed out");
+              document.body.removeChild(imgPreview);
+            }
+            resolve(false);
+          }, 3000);
         });
         
-        let errorMessage = "Failed to remove background";
-        try {
-          // Try to parse error as JSON
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.error || errorMessage;
-          console.error("Parsed error data:", errorData);
-        } catch {
-          // If can't parse JSON, use raw text
-          if (errorText) {
-            errorMessage = errorText;
-            console.error("Raw error text:", errorText);
-          }
-        }
-        
-        if (response.status === 413) {
-          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
-        } else if (response.status === 504 || response.status === 502) {
-          errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
-        }
-        
-        // Before giving up, try the client-side fallback if we have an image
-        if (imageBlob) {
-          try {
-            console.log("API failed, trying client-side fallback");
-            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
-            toast.dismiss(toastId);
-            toast.warning("Server had an issue. Using client-side fallback instead.", {
-              duration: 4000
-            });
-            return transparentImageUrl;
-          } catch (fallbackError) {
-            console.error("Client-side fallback also failed:", fallbackError);
-            // Continue with normal error handling
-          }
-        }
-        
+        // Dismiss the toast and show success
         toast.dismiss(toastId);
-        toast.error(errorMessage);
-        throw new Error(`${errorMessage} (Status: ${response.status})`);
+        toast.success("Background removed successfully!", {
+          duration: 4000,
+          description: isReplicateUrl ? 
+            "Using PhotoRoom background removal on enhanced image" : 
+            "Using PhotoRoom background removal"
+        });
+        
+        console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
+        return data.imageUrl;
+      } catch (fetchError) {
+        // Clear the timeout if there was an error
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
-      
-      console.log("Parsing response...");
-      const data = await response.json();
-      console.log("Response data:", data);
-      
-      if (!data.imageUrl) {
-        console.error("No image URL found in response data:", data);
-        
-        // Try client-side fallback as a last resort
-        if (imageBlob) {
-          try {
-            console.log("No image URL in response, trying client-side fallback");
-            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
-            toast.dismiss(toastId);
-            toast.warning("Server issue detected. Using client-side fallback instead.", {
-              duration: 4000
-            });
-            return transparentImageUrl;
-          } catch (fallbackError) {
-            console.error("Client-side fallback also failed:", fallbackError);
-            // Continue with normal error handling
-          }
-        }
-        
-        throw new Error("No image URL found in response");
-      }
-      
-      console.log("Background removal successful");
-      
-      // Preview the image immediately before saving it
-      // This ensures the user can see the result with transparency
-      const imgPreview = document.createElement('img');
-      imgPreview.src = data.imageUrl;
-      imgPreview.style.display = 'none';
-      document.body.appendChild(imgPreview);
-      console.log("Image preview element created");
-      
-      // Make sure image loads before we show it to ensure transparency is visible
-      await new Promise((resolve) => {
-        imgPreview.onload = () => {
-          console.log("Image loaded successfully");
-          document.body.removeChild(imgPreview);
-          resolve(true);
-        };
-        imgPreview.onerror = (e) => {
-          console.error("Error loading image preview:", e);
-          document.body.removeChild(imgPreview);
-          resolve(false);
-        };
-        
-        // Timeout just in case
-        setTimeout(() => {
-          if (document.body.contains(imgPreview)) {
-            console.warn("Preview load timed out");
-            document.body.removeChild(imgPreview);
-          }
-          resolve(false);
-        }, 3000);
-      });
-      
-      // Dismiss the toast and show success
-      toast.dismiss(toastId);
-      toast.success("Background removed successfully!", {
-        duration: 4000,
-        description: "Using PhotoRoom background removal"
-      });
-      
-      console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
-      return data.imageUrl;
     } catch (fetchError: any) {
       // Clean up the toast if there was an error
       console.error("Error in background removal process:", fetchError);
@@ -880,6 +905,18 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
           toast.success("Using client-side background removal as fallback");
           return transparentImageUrl;
+        }
+        
+        // Check if it's a timeout error
+        if (errorMessage.includes("abort") || errorMessage.includes("timeout")) {
+          console.log("Request timed out, using client-side fallback");
+          if (imageBlob) {
+            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+            toast.warning("Request timed out. Using client-side fallback instead.", {
+              duration: 4000
+            });
+            return transparentImageUrl;
+          }
         }
       } catch (fallbackError) {
         console.error("Fallback method also failed:", fallbackError);
