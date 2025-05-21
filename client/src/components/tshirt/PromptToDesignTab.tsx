@@ -407,7 +407,17 @@ export const PromptToDesignTab = () => {
         ? `${processedImageUrl}&t=${cacheBuster}` 
         : `${processedImageUrl}?t=${cacheBuster}`;
       
-      // Update the base image URL with the background-removed version
+      // First, make an immediate state update with a loading state
+      updateCurrentImage({
+        isBackgroundRemoved: true,
+        isEnhanced: wasEnhanced // Preserve enhanced status
+      });
+      
+      // Force a slight delay to ensure DOM updates
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Now update with the new image URL
+      console.log('Updating UI with cache-busted URL:', imageUrlWithCacheBuster.substring(0, 100));
       updateCurrentImage({
         baseUrl: imageUrlWithCacheBuster,
         isBackgroundRemoved: true,
@@ -419,8 +429,8 @@ export const PromptToDesignTab = () => {
         // Find the current image in the array
         const currentIdx = images.findIndex(img => img.id === currentImage.id);
         if (currentIdx >= 0) {
-          // Create a cached copy for future reference
-          const cachedImages = [...images];
+          // Create a deep copy of the images array to ensure React detects the change
+          const cachedImages = JSON.parse(JSON.stringify(images));
           cachedImages[currentIdx] = {
             ...cachedImages[currentIdx],
             baseUrl: imageUrlWithCacheBuster,
@@ -429,8 +439,23 @@ export const PromptToDesignTab = () => {
           };
           setImages(cachedImages);
           console.log('Cached the enhanced and background-removed version');
+          
+          // Force a re-render by resetting the current index and then setting it back
+          setCurrentIndex(prev => {
+            setTimeout(() => setCurrentIndex(currentIdx), 10);
+            return prev === 0 && images.length > 1 ? 1 : 0;
+          });
         }
       }
+      
+      // For a final attempt at forcing UI update, try a direct DOM manipulation
+      setTimeout(() => {
+        const previewImg = document.querySelector('.w-full.h-full.object-contain.p-4') as HTMLImageElement;
+        if (previewImg) {
+          console.log('Found preview image element, manually updating src');
+          previewImg.src = imageUrlWithCacheBuster;
+        }
+      }, 100);
       
       toast.success(`Background removed successfully${wasEnhanced ? ' from enhanced image' : ''}!`);
     } catch (error) {
@@ -656,6 +681,7 @@ export const PromptToDesignTab = () => {
             {images.length > 0 ? (
               <div className="relative w-full h-full">
                 <img 
+                  key={`img-${currentImage?.baseUrl || ''}-${isCurrentImageProcessed ? 'transparent' : 'normal'}-${Date.now()}`}
                   src={currentImage?.baseUrl} 
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
