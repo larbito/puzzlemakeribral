@@ -230,8 +230,8 @@ app.get('/temp-photoroom-result.png', (req, res) => {
 });
 
 // Increase the payload size limit for large images
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Debug middleware to log all requests
 app.use((req, res, next) => {

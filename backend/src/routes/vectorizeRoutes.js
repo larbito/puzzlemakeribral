@@ -8,12 +8,13 @@ const { removeBackground } = require('../controllers/photoRoomBackgroundRemovalC
 // Configure multer for memory storage
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB limit (increased from 10MB to handle enhanced images)
 });
 
 // Add debug logging
 console.log('Vectorize routes initialized');
 console.log('Background removal endpoint registered at: /api/vectorize/remove-background (Using PhotoRoom API)');
+console.log('File size limit for uploads: 25MB');
 
 /**
  * @route POST /api/vectorize
