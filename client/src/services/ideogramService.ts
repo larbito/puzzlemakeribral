@@ -342,30 +342,30 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
           const objectUrl = URL.createObjectURL(blob);
           
           // Create a download link
-          const link = document.createElement('a');
+      const link = document.createElement('a');
           link.href = objectUrl;
-          link.download = `${filename}.${format.toLowerCase()}`;
+      link.download = `${filename}.${format.toLowerCase()}`;
           
           // Trigger the download
-          document.body.appendChild(link);
-          link.click();
+      document.body.appendChild(link);
+      link.click();
           
           // Clean up
           setTimeout(() => {
-            document.body.removeChild(link);
+      document.body.removeChild(link);
             URL.revokeObjectURL(objectUrl);
           }, 100);
           
           console.log("Background-removed image download completed successfully");
           toast.dismiss(toastId);
           toast.success(`Design with transparent background downloaded as ${format.toUpperCase()}`);
-          return;
+      return;
         } catch (fetchError) {
           console.error("Error fetching background-removed image:", fetchError);
           // Fall back to proxy method if direct fetch fails
         }
-      }
-      
+    }
+    
       // For all other external URLs, use our backend proxy
       console.log("Using backend proxy to download image");
       
@@ -413,7 +413,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
         link.click();
         
         // Clean up
-        setTimeout(() => {
+      setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(link.href);
         }, 100);
@@ -603,7 +603,7 @@ export const backgroundRemovalModels = {
 // Simplified getBackgroundRemovalModels function - returns just the PhotoRoom model
 export async function getBackgroundRemovalModels(): Promise<{id: string, name: string}[]> {
   // Return only the PhotoRoom model
-  return Object.values(backgroundRemovalModels);
+    return Object.values(backgroundRemovalModels);
 }
 
 // Updated removeBackground function that doesn't need modelId parameter
@@ -661,31 +661,31 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         }
       } else {
         // Standard processing for non-Replicate images
-        try {
-          console.log("Preparing image for processing...");
-          // Match enhancement scale - use 1200 for standard and 2400 for enhanced images
-          // This is higher than before (800) to preserve enhanced image quality
-          imageBlob = await resizeImageForVectorization(imageUrl, 2400); // Much higher max width to preserve enhanced quality
-          console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
-        } catch (resizeError) {
-          console.error("Error resizing image:", resizeError);
+      try {
+        console.log("Preparing image for processing...");
+        // Match enhancement scale - use 1200 for standard and 2400 for enhanced images
+        // This is higher than before (800) to preserve enhanced image quality
+        imageBlob = await resizeImageForVectorization(imageUrl, 2400); // Much higher max width to preserve enhanced quality
+        console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
+      } catch (resizeError) {
+        console.error("Error resizing image:", resizeError);
+        
+        // Fallback to direct fetch if resizing fails
+        console.log("Falling back to direct image fetch...");
+        if (imageUrl.startsWith('data:')) {
+          // Convert data URL to blob
+          const response = await fetch(imageUrl);
+          imageBlob = await response.blob();
+        } else {
+          // For regular URLs, proxy through our backend to avoid CORS issues
+          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
           
-          // Fallback to direct fetch if resizing fails
-          console.log("Falling back to direct image fetch...");
-          if (imageUrl.startsWith('data:')) {
-            // Convert data URL to blob
-            const response = await fetch(imageUrl);
-            imageBlob = await response.blob();
-          } else {
-            // For regular URLs, proxy through our backend to avoid CORS issues
-            const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-            const response = await fetch(proxyUrl);
-            
-            if (!response.ok) {
-              throw new Error(`Failed to fetch image: ${response.status}`);
-            }
-            
-            imageBlob = await response.blob();
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status}`);
+          }
+          
+          imageBlob = await response.blob();
           }
         }
       }
@@ -750,19 +750,19 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           headers['X-Enhanced-Image'] = 'true';
         }
         
-        const response = await fetch(bgRemovalEndpoint, {
-          method: 'POST',
-          body: formData,
-          mode: 'cors',
+      const response = await fetch(bgRemovalEndpoint, {
+        method: 'POST',
+        body: formData,
+        mode: 'cors',
           signal: controller.signal,
           headers
         });
         
         // Clear the timeout
         clearTimeout(timeoutId);
-        
-        console.log("Background removal response received. Status code:", response.status);
-        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      console.log("Background removal response received. Status code:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
         
         // Special handling for 402 Payment Required error (PhotoRoom API limit reached)
         if (response.status === 402) {
@@ -796,35 +796,35 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           // If it's another type of 500 error, handle it below
           throw new Error(`Server error: ${responseText}`);
         }
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Background removal API error: ${response.status}`, errorText);
-          console.error("Request details:", {
-            endpoint: bgRemovalEndpoint,
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Background removal API error: ${response.status}`, errorText);
+        console.error("Request details:", {
+          endpoint: bgRemovalEndpoint,
             imageSize: imageBlob.size,
             isEnhanced: isReplicateUrl
-          });
-          
-          let errorMessage = "Failed to remove background";
-          try {
-            // Try to parse error as JSON
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorMessage;
-            console.error("Parsed error data:", errorData);
-          } catch {
-            // If can't parse JSON, use raw text
-            if (errorText) {
-              errorMessage = errorText;
-              console.error("Raw error text:", errorText);
-            }
+        });
+        
+        let errorMessage = "Failed to remove background";
+        try {
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error("Parsed error data:", errorData);
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) {
+            errorMessage = errorText;
+            console.error("Raw error text:", errorText);
           }
-          
-          if (response.status === 413) {
-            errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
-          } else if (response.status === 504 || response.status === 502) {
-            errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
-          }
+        }
+        
+        if (response.status === 413) {
+          errorMessage = "Image is too large. Please try a smaller image or reduce the design complexity.";
+        } else if (response.status === 504 || response.status === 502) {
+          errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
+        }
           
           // Before giving up, try the client-side fallback if we have an image
           if (imageBlob) {
@@ -841,18 +841,18 @@ export async function removeBackground(imageUrl: string): Promise<string> {
               // Continue with normal error handling
             }
           }
-          
-          toast.dismiss(toastId);
-          toast.error(errorMessage);
-          throw new Error(`${errorMessage} (Status: ${response.status})`);
-        }
         
-        console.log("Parsing response...");
-        const data = await response.json();
-        console.log("Response data:", data);
-        
-        if (!data.imageUrl) {
-          console.error("No image URL found in response data:", data);
+        toast.dismiss(toastId);
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
+      }
+      
+      console.log("Parsing response...");
+      const data = await response.json();
+      console.log("Response data:", data);
+      
+      if (!data.imageUrl) {
+        console.error("No image URL found in response data:", data);
           
           // Try client-side fallback as a last resort
           if (imageBlob) {
@@ -870,10 +870,10 @@ export async function removeBackground(imageUrl: string): Promise<string> {
             }
           }
           
-          throw new Error("No image URL found in response");
-        }
-        
-        console.log("Background removal successful");
+        throw new Error("No image URL found in response");
+      }
+      
+      console.log("Background removal successful");
         console.log("Image was enhanced:", isReplicateUrl);
         console.log("Output URL:", data.imageUrl);
         
@@ -900,15 +900,15 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           new Promise<void>(resolve => setTimeout(resolve, 5000))
         ]);
         
-        toast.dismiss(toastId);
-        toast.success("Background removed successfully!", {
-          duration: 4000,
+      toast.dismiss(toastId);
+      toast.success("Background removed successfully!", {
+        duration: 4000,
           description: isReplicateUrl ? 
             "Using PhotoRoom background removal on enhanced image" : 
             "Using PhotoRoom background removal"
-        });
-        
-        console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
+      });
+      
+      console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
         return finalImageUrl;
       } catch (fetchError) {
         // Clear the timeout if there was an error
@@ -2124,14 +2124,14 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
             console.log("Direct fetch failed, trying with proxy:", directFetchError);
             
             // Fall back to proxy
-            const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
-            const response = await fetch(proxyUrl);
-            
-            if (!response.ok) {
+          const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          
+          if (!response.ok) {
               throw new Error(`Failed to fetch image via proxy: ${response.status}`);
-            }
-            
-            imageBlob = await response.blob();
+          }
+          
+          imageBlob = await response.blob();
             console.log(`Image fetched via proxy: ${Math.round(imageBlob.size / 1024)} KB`);
           }
         }
@@ -2183,76 +2183,76 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
       let sendingToastId = toast.loading("Sending image for enhancement...");
       
       try {
-        console.log("Making fetch request to enhancement endpoint...");
-        const response = await fetch(enhancementEndpoint, {
-          method: 'POST',
-          body: formData,
-          mode: 'cors'
-        });
+      console.log("Making fetch request to enhancement endpoint...");
+      const response = await fetch(enhancementEndpoint, {
+        method: 'POST',
+        body: formData,
+        mode: 'cors'
+      });
+      
+      console.log("Enhancement request initiated. Status code:", response.status);
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Enhancement API error: ${response.status}`, errorText);
         
-        console.log("Enhancement request initiated. Status code:", response.status);
-        console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Enhancement API error: ${response.status}`, errorText);
-          
-          let errorMessage = "Failed to enhance image";
-          try {
-            // Try to parse error as JSON
-            const errorData = JSON.parse(errorText);
-            errorMessage = errorData.error || errorMessage;
-            console.error("Parsed error data:", errorData);
-          } catch {
-            // If can't parse JSON, use raw text
-            if (errorText) {
-              errorMessage = errorText;
-              console.error("Raw error text:", errorText);
-            }
+        let errorMessage = "Failed to enhance image";
+        try {
+          // Try to parse error as JSON
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error("Parsed error data:", errorData);
+        } catch {
+          // If can't parse JSON, use raw text
+          if (errorText) {
+            errorMessage = errorText;
+            console.error("Raw error text:", errorText);
           }
-          
+        }
+        
           toast.dismiss(sendingToastId);
-          toast.error(errorMessage);
-          throw new Error(`${errorMessage} (Status: ${response.status})`);
-        }
-        
-        console.log("Parsing initial response...");
-        const initialData = await response.json();
-        console.log("Initial response data:", initialData);
-        
-        if (!initialData.predictionId) {
-          console.error("No prediction ID found in response:", initialData);
-          throw new Error("No prediction ID found in response");
-        }
-        
-        // Now we need to poll for completion
-        const predictionId = initialData.predictionId;
-        const statusEndpoint = initialData.statusEndpoint || `/api/image-enhancement/status/${predictionId}`;
-        
-        console.log(`Enhancement job initiated with prediction ID: ${predictionId}`);
-        console.log(`Will check status at: ${statusEndpoint}`);
-        
-        // Update toast to indicate we're now processing
+        toast.error(errorMessage);
+        throw new Error(`${errorMessage} (Status: ${response.status})`);
+      }
+      
+      console.log("Parsing initial response...");
+      const initialData = await response.json();
+      console.log("Initial response data:", initialData);
+      
+      if (!initialData.predictionId) {
+        console.error("No prediction ID found in response:", initialData);
+        throw new Error("No prediction ID found in response");
+      }
+      
+      // Now we need to poll for completion
+      const predictionId = initialData.predictionId;
+      const statusEndpoint = initialData.statusEndpoint || `/api/image-enhancement/status/${predictionId}`;
+      
+      console.log(`Enhancement job initiated with prediction ID: ${predictionId}`);
+      console.log(`Will check status at: ${statusEndpoint}`);
+      
+      // Update toast to indicate we're now processing
         toast.dismiss(sendingToastId);
-        let processingToastId = toast.loading("Processing image enhancement...", {
-          duration: Infinity,
+      let processingToastId = toast.loading("Processing image enhancement...", {
+        duration: Infinity,
           description: hasTransparentBackground ? 
             "Preserving transparency while enhancing image quality..." :
             "This may take up to 60 seconds for high-quality results."
-        });
-        
+      });
+      
         // Start polling for completion
-        let isComplete = false;
-        let enhancedImageUrl = "";
-        let attempts = 0;
+      let isComplete = false;
+      let enhancedImageUrl = "";
+      let attempts = 0;
         const maxAttempts = 40; // Increase max attempts
-        let pollInterval = 2000; // Start with 2 seconds, will increase with backoff
+      let pollInterval = 2000; // Start with 2 seconds, will increase with backoff
+      
+      while (!isComplete && attempts < maxAttempts) {
+        attempts++;
         
-        while (!isComplete && attempts < maxAttempts) {
-          attempts++;
-          
-          try {
-            console.log(`Checking enhancement status (attempt ${attempts}/${maxAttempts})...`);
+        try {
+          console.log(`Checking enhancement status (attempt ${attempts}/${maxAttempts})...`);
             const statusUrl = statusEndpoint.startsWith('/') 
               ? `${API_URL}${statusEndpoint}`
               : statusEndpoint;
@@ -2260,64 +2260,64 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
             console.log("Polling URL:", statusUrl);
             
             const statusResponse = await fetch(statusUrl);
-            
-            if (!statusResponse.ok) {
-              console.error(`Status check failed:`, statusResponse.status);
-              if (attempts >= maxAttempts) {
-                throw new Error(`Failed to check enhancement status: ${statusResponse.status}`);
-              }
-              // Wait before retrying
-              await new Promise(resolve => setTimeout(resolve, pollInterval));
-              // Increase poll interval with backoff
-              pollInterval = Math.min(pollInterval * 1.5, 10000);
-              continue;
-            }
-            
-            const statusData = await statusResponse.json();
-            console.log(`Status check result:`, statusData);
-            
-            if (statusData.status === 'completed') {
-              isComplete = true;
-              enhancedImageUrl = statusData.imageUrl;
-              console.log(`Enhancement completed with URL: ${enhancedImageUrl}`);
-              break;
-            } else if (statusData.status === 'failed') {
-              throw new Error(`Enhancement failed: ${statusData.error || 'Unknown error'}`);
-            }
-            
-            // If still processing, wait before checking again
-            console.log(`Still processing (${statusData.status}), waiting ${pollInterval}ms before next check...`);
-            // Update toast with progress if available
-            if (statusData.progress) {
-              toast.dismiss(processingToastId);
-              const progress = Math.round(statusData.progress * 100);
-              processingToastId = toast.loading(`Enhancing image: ${progress}% complete`, {
-                duration: Infinity,
-                description: "Please wait while we enhance your image."
-              });
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, pollInterval));
-            
-            // Increase poll interval with backoff
-            pollInterval = Math.min(pollInterval * 1.5, 10000);
-          } catch (pollError) {
-            console.error(`Error polling for status:`, pollError);
+          
+          if (!statusResponse.ok) {
+            console.error(`Status check failed:`, statusResponse.status);
             if (attempts >= maxAttempts) {
-              throw pollError;
+              throw new Error(`Failed to check enhancement status: ${statusResponse.status}`);
             }
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, pollInterval));
             // Increase poll interval with backoff
             pollInterval = Math.min(pollInterval * 1.5, 10000);
+            continue;
           }
+          
+          const statusData = await statusResponse.json();
+          console.log(`Status check result:`, statusData);
+          
+          if (statusData.status === 'completed') {
+            isComplete = true;
+            enhancedImageUrl = statusData.imageUrl;
+            console.log(`Enhancement completed with URL: ${enhancedImageUrl}`);
+            break;
+          } else if (statusData.status === 'failed') {
+            throw new Error(`Enhancement failed: ${statusData.error || 'Unknown error'}`);
+          }
+          
+          // If still processing, wait before checking again
+          console.log(`Still processing (${statusData.status}), waiting ${pollInterval}ms before next check...`);
+          // Update toast with progress if available
+          if (statusData.progress) {
+            toast.dismiss(processingToastId);
+            const progress = Math.round(statusData.progress * 100);
+            processingToastId = toast.loading(`Enhancing image: ${progress}% complete`, {
+              duration: Infinity,
+              description: "Please wait while we enhance your image."
+            });
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          
+          // Increase poll interval with backoff
+          pollInterval = Math.min(pollInterval * 1.5, 10000);
+        } catch (pollError) {
+          console.error(`Error polling for status:`, pollError);
+          if (attempts >= maxAttempts) {
+            throw pollError;
+          }
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          // Increase poll interval with backoff
+          pollInterval = Math.min(pollInterval * 1.5, 10000);
         }
-        
-        if (!isComplete || !enhancedImageUrl) {
-          toast.dismiss(processingToastId);
-          toast.error("Enhancement timed out. Please try again with a smaller image.");
-          throw new Error("Enhancement timed out after maximum attempts");
-        }
+      }
+      
+      if (!isComplete || !enhancedImageUrl) {
+        toast.dismiss(processingToastId);
+        toast.error("Enhancement timed out. Please try again with a smaller image.");
+        throw new Error("Enhancement timed out after maximum attempts");
+      }
         
         // Add cache busting parameter to ensure the browser loads the newest version
         const cacheBuster = new Date().getTime();
@@ -2352,17 +2352,17 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
           console.error("Error during preload:", preloadError);
           // Continue despite preload error
         }
-        
-        // Dismiss the toast and show success
-        toast.dismiss(processingToastId);
-        toast.success("Image enhanced successfully!", {
-          duration: 4000,
+      
+      // Dismiss the toast and show success
+      toast.dismiss(processingToastId);
+      toast.success("Image enhanced successfully!", {
+        duration: 4000,
           description: hasTransparentBackground ? 
             "Enhanced while preserving transparency" : 
             "Image quality has been significantly improved."
-        });
-        
-        console.log("========== IMAGE ENHANCEMENT COMPLETE ==========");
+      });
+      
+      console.log("========== IMAGE ENHANCEMENT COMPLETE ==========");
         return enhancedImageWithCacheBuster;
       } catch (fetchError) {
         console.error("Error during enhancement process:", fetchError);
@@ -2500,7 +2500,7 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 
             reject(fallbackError);
           }
         } else {
-          reject(new Error('Failed to load image for resizing'));
+        reject(new Error('Failed to load image for resizing'));
         }
       };
 
