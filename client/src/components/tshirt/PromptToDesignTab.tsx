@@ -376,53 +376,41 @@ export const PromptToDesignTab = () => {
         }
       }
       
-      // Preview the image immediately before saving it
-      // This ensures the user can see the result with transparency
-      const imgPreview = document.createElement('img');
-      imgPreview.src = processedImageUrl;
-      imgPreview.style.display = 'none';
-      document.body.appendChild(imgPreview);
-      
-      // Make sure image loads before we show it to ensure transparency is visible
-      await new Promise((resolve) => {
-        imgPreview.onload = () => {
-          document.body.removeChild(imgPreview);
-          resolve(true);
-        };
-        imgPreview.onerror = () => {
-          document.body.removeChild(imgPreview);
-          resolve(false);
-        };
-        
-        // Timeout just in case
-        setTimeout(() => {
-          if (document.body.contains(imgPreview)) {
-            console.warn("Preview load timed out");
-            document.body.removeChild(imgPreview);
-          }
-          resolve(false);
-        }, 3000);
-      });
-      
-      console.log('Background removal completed. Updating UI with new image:', processedImageUrl.substring(0, 100));
-      
-      // Force a new image instance by adding a cache-busting parameter
+      // Generate a unique cache-busting parameter
       const cacheBuster = new Date().getTime();
       const imageUrlWithCacheBuster = processedImageUrl.includes('?') 
         ? `${processedImageUrl}&t=${cacheBuster}` 
         : `${processedImageUrl}?t=${cacheBuster}`;
       
-      // First, make an immediate state update with a loading state
+      console.log('Background removal completed. Updating UI with new image:', imageUrlWithCacheBuster);
+      
+      // IMPROVED IMAGE PREVIEW: Force image to reload by creating a new Image object first
+      const preloadImage = new Image();
+      preloadImage.src = imageUrlWithCacheBuster;
+      
+      // Wait for image to load before updating UI
+      await new Promise((resolve) => {
+        preloadImage.onload = () => {
+          console.log('Preloaded image loaded successfully');
+          resolve(true);
+        };
+        preloadImage.onerror = () => {
+          console.warn('Failed to preload image');
+          resolve(false);
+        };
+        setTimeout(() => resolve(false), 3000); // Timeout fallback
+      });
+      
+      // First, make an immediate state update with flags
       updateCurrentImage({
         isBackgroundRemoved: true,
         isEnhanced: wasEnhanced // Preserve enhanced status
       });
       
       // Force a slight delay to ensure DOM updates
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Now update with the new image URL
-      console.log('Updating UI with cache-busted URL:', imageUrlWithCacheBuster.substring(0, 100));
       updateCurrentImage({
         baseUrl: imageUrlWithCacheBuster,
         isBackgroundRemoved: true,
@@ -430,12 +418,12 @@ export const PromptToDesignTab = () => {
       });
       
       // Store this version in case we need to restore it later
-      if (wasEnhanced && images.length > 0) {
-        // Find the current image in the array
+      if (images.length > 0) {
+        // Create a deep copy of the images array
+        const cachedImages = JSON.parse(JSON.stringify(images));
         const currentIdx = images.findIndex(img => img.id === currentImage.id);
+        
         if (currentIdx >= 0) {
-          // Create a deep copy of the images array to ensure React detects the change
-          const cachedImages = JSON.parse(JSON.stringify(images));
           cachedImages[currentIdx] = {
             ...cachedImages[currentIdx],
             baseUrl: imageUrlWithCacheBuster,
@@ -443,24 +431,45 @@ export const PromptToDesignTab = () => {
             isEnhanced: wasEnhanced
           };
           setImages(cachedImages);
-          console.log('Cached the enhanced and background-removed version');
+          console.log('Cached the image with updated properties');
           
-          // Force a re-render by resetting the current index and then setting it back
+          // Force a re-render by temporarily changing the current index
           setCurrentIndex(prev => {
-            setTimeout(() => setCurrentIndex(currentIdx), 10);
-            return prev === 0 && images.length > 1 ? 1 : 0;
+            const tempIndex = prev === 0 && images.length > 1 ? 1 : 0;
+            setTimeout(() => setCurrentIndex(currentIdx), 50);
+            return tempIndex;
           });
         }
       }
       
-      // For a final attempt at forcing UI update, try a direct DOM manipulation
+      // For a final attempt at forcing UI update, use direct DOM manipulation
       setTimeout(() => {
-        const previewImg = document.querySelector('.w-full.h-full.object-contain.p-4') as HTMLImageElement;
+        const previewImg = document.querySelector('.transparent-image') as HTMLImageElement;
         if (previewImg) {
           console.log('Found preview image element, manually updating src');
           previewImg.src = imageUrlWithCacheBuster;
         }
-      }, 100);
+        
+        // Also try to find by container
+        const previewContainer = document.querySelector('.transparent-bg-container');
+        if (previewContainer) {
+          const img = previewContainer.querySelector('img');
+          if (img) {
+            console.log('Found image in transparent container, updating');
+            img.src = imageUrlWithCacheBuster;
+            img.classList.add('transparent-image');
+          }
+        }
+        
+        // Update image container to fix issue with transparency
+        const containers = document.querySelectorAll('.transparent-bg-container');
+        containers.forEach(container => {
+          console.log('Found transparent container, ensuring proper styling');
+          container.classList.remove('transparent-bg-container');
+          void (container as HTMLElement).offsetWidth; // Force reflow
+          container.classList.add('transparent-bg-container');
+        });
+      }, 200);
       
       toast.success(`Background removed successfully${wasEnhanced ? ' from enhanced image' : ''}!`);
     } catch (error) {
@@ -686,9 +695,6 @@ export const PromptToDesignTab = () => {
             {images.length > 0 ? (
               <div className={`relative w-full h-full ${isCurrentImageProcessed ? 'transparent-bg-container' : ''}`} 
                    style={{
-                     backgroundImage: isCurrentImageProcessed ? 
-                       'repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%)' : 
-                       'none',
                      backgroundSize: '20px 20px',
                      backgroundPosition: '50%'
                    }}>
@@ -699,7 +705,6 @@ export const PromptToDesignTab = () => {
                   className={`w-full h-full object-contain p-4 ${isCurrentImageProcessed ? 'transparent-image' : ''}`}
                   style={{ 
                     backgroundColor: 'transparent',
-                    mixBlendMode: isCurrentImageProcessed ? 'normal' : 'normal',
                     borderRadius: '0.5rem'
                   }}
                   onError={(e) => {

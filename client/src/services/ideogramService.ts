@@ -608,6 +608,15 @@ export async function removeBackground(imageUrl: string): Promise<string> {
     try {
       // Check if this is an enhanced image from Replicate
       const isReplicateUrl = imageUrl.includes('replicate.delivery');
+      const isPhotoRoomUrl = imageUrl.includes('photoroom-result');
+      
+      // If this URL is already a PhotoRoom result, we don't need to process it again
+      if (isPhotoRoomUrl) {
+        console.log("Image is already a PhotoRoom result, returning as-is");
+        toast.dismiss(toastId);
+        toast.info("Image already has background removed");
+        return imageUrl;
+      }
       
       if (isReplicateUrl) {
         console.log("Detected enhanced image from Replicate, setting isEnhanced flag to true");
@@ -853,38 +862,29 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         console.log("Image was enhanced:", isReplicateUrl);
         console.log("Output URL:", data.imageUrl);
         
-        // Preview the image immediately before saving it
-        // This ensures the user can see the result with transparency
-        const imgPreview = document.createElement('img');
-        imgPreview.src = data.imageUrl;
-        imgPreview.style.display = 'none';
-        document.body.appendChild(imgPreview);
-        console.log("Image preview element created");
-        
-        // Make sure image loads before we show it to ensure transparency is visible
-        await new Promise((resolve) => {
-          imgPreview.onload = () => {
-            console.log("Image loaded successfully");
-            document.body.removeChild(imgPreview);
-            resolve(true);
-          };
-          imgPreview.onerror = (e) => {
-            console.error("Error loading image preview:", e);
-            document.body.removeChild(imgPreview);
-            resolve(false);
-          };
+        // Add a cache busting parameter to ensure the browser loads the latest version
+        const cacheBuster = new Date().getTime();
+        const finalImageUrl = data.imageUrl.includes('?') 
+          ? `${data.imageUrl}&t=${cacheBuster}` 
+          : `${data.imageUrl}?t=${cacheBuster}`;
           
-          // Timeout just in case
-          setTimeout(() => {
-            if (document.body.contains(imgPreview)) {
-              console.warn("Preview load timed out");
-              document.body.removeChild(imgPreview);
-            }
-            resolve(false);
-          }, 3000);
-        });
+        console.log("Final URL with cache busting:", finalImageUrl);
         
-        // Dismiss the toast and show success
+        // Preload the image to ensure it's in the browser cache
+        const preloadImage = new Image();
+        preloadImage.src = finalImageUrl;
+        
+        // Wait for image to load or timeout after 5 seconds
+        await Promise.race([
+          new Promise<void>(resolve => {
+            preloadImage.onload = () => {
+              console.log("Preloaded transparent image successfully");
+              resolve();
+            };
+          }),
+          new Promise<void>(resolve => setTimeout(resolve, 5000))
+        ]);
+        
         toast.dismiss(toastId);
         toast.success("Background removed successfully!", {
           duration: 4000,
@@ -894,7 +894,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         });
         
         console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
-        return data.imageUrl;
+        return finalImageUrl;
       } catch (fetchError) {
         // Clear the timeout if there was an error
         clearTimeout(timeoutId);

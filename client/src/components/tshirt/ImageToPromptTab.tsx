@@ -18,7 +18,8 @@ import {
   Zap,
   InfoIcon,
   ChevronDown,
-  ArrowRight
+  ArrowRight,
+  UploadCloud
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateImage, downloadImage, imageToPrompt, saveToHistory, removeBackground, enhanceImage, backgroundRemovalModels, getEnhancementModels } from '@/services/ideogramService';
@@ -46,6 +47,7 @@ export const ImageToPromptTab = () => {
   const [activeModel, setActiveModel] = useState<string | null>(null);
   const [originalDesign, setOriginalDesign] = useState<string | null>(null);
   const [isBackgroundRemoved, setIsBackgroundRemoved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Enhancement models
   const [enhancementModels, setEnhancementModels] = useState<Record<string, any>>({});
@@ -202,52 +204,47 @@ export const ImageToPromptTab = () => {
 
   // Handle removing background
   const handleRemoveBackground = async () => {
-    const design = processedDesign || generatedDesign;
-    if (!design) {
-      toast.error('No design to process');
+    if (!processedDesign) {
+      toast.error('Please upload an image first');
       return;
     }
-    
-    console.log('Starting background removal process');
-    
+
     setIsProcessing(true);
     
     try {
-      // If this is a restore original action, reset to the original image
-      if (isBackgroundRemoved && originalDesign) {
+      // If the background is already removed, restore the original
+      if (isBackgroundRemoved) {
         setProcessedDesign(originalDesign);
         setIsBackgroundRemoved(false);
-        toast.success('Restored background');
-        setIsProcessing(false);
+        toast.success('Original background restored');
         return;
       }
       
-      // Use the original design if available for better quality when reprocessing
-      const imageToProcess = isBackgroundRemoved && originalDesign
-        ? originalDesign
-        : design;
+      // Remove background from current image
+      const imageUrlWithNoBackground = await removeBackground(processedDesign);
       
-      // Call the background removal service
-      const processedImageUrl = await removeBackground(imageToProcess);
-      
-      // If this is the first time removing background, save the original
-      if (!isBackgroundRemoved) {
-        setOriginalDesign(design);
-      }
-      
-      // Update the design with the background-removed version
-      setProcessedDesign(processedImageUrl);
+      // Update state with transparent image
+      setProcessedDesign(imageUrlWithNoBackground);
       setIsBackgroundRemoved(true);
       
-      // If we previously enhanced, we need to clear the enhanced flag since
-      // the background removal was done on the non-enhanced or already enhanced version
-      if (enhancedDesign && imageToProcess === enhancedDesign) {
-        // We're removing background from an enhanced image 
-        // Set enhanced design to null to reflect that our current image is only background removed
-        setEnhancedDesign(null);
-      }
+      // Force a DOM update by adding a small delay
+      setTimeout(() => {
+        // Find and update the image element directly to ensure transparency shows
+        const previewImg = document.querySelector('.preview-image') as HTMLImageElement;
+        if (previewImg) {
+          console.log('Found preview image, updating src and classes');
+          previewImg.src = imageUrlWithNoBackground;
+          previewImg.classList.add('transparent-image');
+          
+          // Also update the container
+          const container = previewImg.parentElement;
+          if (container) {
+            container.classList.add('transparent-bg-container');
+          }
+        }
+      }, 100);
       
-      toast.success('Background removed successfully!');
+      toast.success('Background removed successfully');
     } catch (error) {
       console.error('Error removing background:', error);
       toast.error('Failed to remove background');
@@ -508,154 +505,137 @@ export const ImageToPromptTab = () => {
             Preview & Download
           </h3>
           
-          <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
-            {getCurrentDisplayImage() ? (
-              // Show the best available image
-              <div className={`relative w-full h-full ${isDesignProcessed ? 'transparent-bg-container' : ''}`} 
-                   style={{
-                     backgroundImage: isDesignProcessed ? 
-                       'repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%)' : 
-                       'none',
-                     backgroundSize: '20px 20px',
-                     backgroundPosition: '50%'
-                   }}>
+          <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm relative">
+            {processedDesign ? (
+              <div 
+                className={`relative w-full h-full ${isBackgroundRemoved ? 'transparent-bg-container' : ''}`}
+              >
                 <img 
-                  key={`img-${getCurrentDisplayImage() || ''}-${isDesignProcessed ? 'transparent' : 'normal'}-${Date.now()}`}
-                  src={getCurrentDisplayImage() as string} 
-                  alt="T-shirt design" 
-                  className={`w-full h-full object-contain p-4 ${isDesignProcessed ? 'transparent-image' : ''}`}
-                  style={{ 
-                    backgroundColor: 'transparent',
-                    mixBlendMode: isDesignProcessed ? 'normal' : 'normal',
-                    borderRadius: '0.5rem'
+                  key={`preview-${processedDesign}-${Date.now()}`}
+                  src={processedDesign} 
+                  alt="Processed design" 
+                  className={`w-full h-full object-contain p-4 preview-image ${isBackgroundRemoved ? 'transparent-image' : ''}`}
+                  style={{ backgroundColor: 'transparent', borderRadius: '0.5rem' }}
+                  onError={(e) => {
+                    console.error('Error loading image in preview:', e);
+                    // Try to reload the image with a cache-buster
+                    const target = e.target as HTMLImageElement;
+                    if (target && target.src && !target.src.includes('t=')) {
+                      const cacheBuster = new Date().getTime();
+                      target.src = target.src.includes('?') 
+                        ? `${target.src}&t=${cacheBuster}` 
+                        : `${target.src}?t=${cacheBuster}`;
+                    }
                   }}
                 />
+                
+                {/* Show loading overlay when processing */}
+                {(isLoading || isProcessing) && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm">{isProcessing ? "Processing image..." : "Loading..."}</p>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : isGenerating ? (
+            ) : isLoading ? (
               <div className="h-full flex flex-col items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">Creating your design...</p>
-                <p className="text-xs text-muted-foreground mt-2">This may take 15-30 seconds</p>
+                <p className="text-muted-foreground">Processing your image...</p>
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-4 text-center">
                 <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <ImageIcon className="h-10 w-10 text-primary/50" />
+                  <UploadCloud className="h-10 w-10 text-primary/50" />
                 </div>
-                <p className="text-muted-foreground font-medium">Your design preview will appear here</p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {imagePreview 
-                    ? "Click 'Generate T-Shirt Design' when ready" 
-                    : "Upload an image to get started"}
-                </p>
-              </div>
-            )}
-            
-            {/* Show loading overlay when processing */}
-            {(isProcessing || isEnhancing) && (
-              <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-sm">{isProcessing ? "Removing background..." : "Enhancing image..."}</p>
-                </div>
+                <p className="text-muted-foreground font-medium">Upload an image to get started</p>
+                <p className="text-xs text-muted-foreground mt-2">PNG, JPG or GIF up to 10MB</p>
               </div>
             )}
           </div>
           
-          {generatedDesign && (
-            <div className="space-y-4">
-              {/* Image Status Indicator */}
-              <div className="flex items-center gap-2 text-xs mb-1">
-                <div className="flex items-center">
-                  <span className="font-medium mr-1">Status:</span>
-                  <div className="flex gap-1">
-                    {isDesignEnhanced && (
-                      <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200 flex items-center">
-                        <Zap className="w-3 h-3 mr-1" /> Enhanced
-                      </span>
-                    )}
-                    {isDesignProcessed && (
-                      <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded border border-green-200 flex items-center">
-                        <Image className="w-3 h-3 mr-1" /> Background Removed
-                      </span>
-                    )}
-                    {!isDesignEnhanced && !isDesignProcessed && (
-                      <span className="px-1.5 py-0.5 bg-gray-50 text-gray-700 rounded border border-gray-200">
-                        Original
-                      </span>
-                    )}
-                  </div>
+          {/* Image Status Indicator */}
+          {processedDesign && (
+            <div className="flex items-center gap-2 text-xs mb-1">
+              <div className="flex items-center">
+                <span className="font-medium mr-1">Status:</span>
+                <div className="flex gap-1">
+                  {isDesignEnhanced && (
+                    <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200 flex items-center">
+                      <Zap className="w-3 h-3 mr-1" /> Enhanced
+                    </span>
+                  )}
+                  {isBackgroundRemoved && (
+                    <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded border border-green-200 flex items-center">
+                      <Image className="w-3 h-3 mr-1" /> Background Removed
+                    </span>
+                  )}
+                  {!isDesignEnhanced && !isBackgroundRemoved && processedDesign && (
+                    <span className="px-1.5 py-0.5 bg-gray-50 text-gray-700 rounded border border-gray-200">
+                      Original
+                    </span>
+                  )}
                 </div>
-                
-                {(isDesignEnhanced || isDesignProcessed) && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-auto h-6 text-xs text-muted-foreground"
-                    onClick={resetToOriginal}
-                  >
-                    Reset to Original
-                  </Button>
-                )}
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                {/* Background Removal Button */}
-                <Button
-                  variant="outline"
-                  className={`border-primary/20 hover:bg-primary/5 w-full ${isDesignProcessed ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
-                  onClick={handleRemoveBackground}
-                >
-                  <div className="flex items-center">
-                    <Image className="mr-2 h-4 w-4" />
-                    <span>{isDesignProcessed ? 'Restore Background' : 'Remove Background'}</span>
-                  </div>
-                </Button>
-                
-                {/* Enhance Button */}
-                {renderEnhanceButton()}
-              </div>
-              
-              <Button 
-                variant="default"
-                className={`w-full ${
-                  isDesignProcessed || isDesignEnhanced
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                } text-white font-medium`}
-                onClick={() => handleDownload('png')}
-                disabled={isDownloading || isProcessing || isEnhancing}
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Image
-                  </>
-                )}
-              </Button>
-              
-              <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
-                <p className="flex items-start gap-1">
-                  <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                  <span>
-                    <strong>All operations</strong> use the current state of your image. For best results, we recommend <strong>removing the background first, then enhancing</strong>. This workflow maintains the highest quality in the final image.
-                  </span>
-                </p>
-              </div>
-              
-              <div className="text-xs text-muted-foreground">
-                <p className="flex items-center gap-1">
-                  <PanelRight className="h-3 w-3" />
-                  Your design will be saved to the history panel below.
-                </p>
               </div>
             </div>
           )}
+          
+          <div className="grid grid-cols-2 gap-3">
+            {/* Background Removal Button */}
+            <Button
+              variant="outline"
+              className={`border-primary/20 hover:bg-primary/5 w-full ${isBackgroundRemoved ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
+              onClick={handleRemoveBackground}
+            >
+              <div className="flex items-center">
+                <Image className="mr-2 h-4 w-4" />
+                <span>{isBackgroundRemoved ? 'Restore Background' : 'Remove Background'}</span>
+              </div>
+            </Button>
+            
+            {/* Enhance Button */}
+            {renderEnhanceButton()}
+          </div>
+          
+          <Button 
+            variant="default"
+            className={`w-full ${
+              isBackgroundRemoved
+                ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+            } text-white font-medium`}
+            onClick={() => handleDownload('png')}
+            disabled={isDownloading || isProcessing}
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Download Image
+              </>
+            )}
+          </Button>
+          
+          <div className="bg-muted/30 p-2 rounded text-xs text-muted-foreground">
+            <p className="flex items-start gap-1">
+              <InfoIcon className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <span>
+                <strong>All operations</strong> use the current state of your image. For best results, we recommend <strong>removing the background first, then enhancing</strong>. This workflow maintains the highest quality in the final image.
+              </span>
+            </p>
+          </div>
+          
+          <div className="text-xs text-muted-foreground">
+            <p className="flex items-center gap-1">
+              <PanelRight className="h-3 w-3" />
+              Your design will be saved to the history panel below.
+            </p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,15 @@
+/* Transparent background styles */
+.transparent-bg-container {
+  background-image: repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%) !important;
+  background-size: 20px 20px !important;
+  background-position: 0 0, 10px 10px !important;
+}
+
+.dark .transparent-bg-container {
+  background-image: repeating-conic-gradient(#1f2937 0% 25%, #111827 0% 50%) !important;
+}
+
+.transparent-image {
+  mix-blend-mode: normal !important;
+  background-color: transparent !important;
+} 
