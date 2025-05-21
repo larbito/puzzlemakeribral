@@ -137,20 +137,25 @@ export const PromptToDesignTab = () => {
   // Add a style state variable
   const [designStyle, setDesignStyle] = useState<string>('any');
 
-  // Define available t-shirt design styles
+  // Define available t-shirt design styles with emojis
   const designStyles = [
-    { value: 'any', label: 'Any Style' },
-    { value: 'retro', label: 'Retro Vintage' },
-    { value: 'minimalist', label: 'Minimalist' },
-    { value: 'nature', label: 'Nature-Inspired' },
-    { value: 'typography', label: 'Typography' },
-    { value: 'psychedelic', label: 'Psychedelic' },
-    { value: 'kawaii', label: 'Kawaii' },
-    { value: 'grunge', label: 'Grunge' },
-    { value: 'tiedye', label: 'Tie-Dye' },
-    { value: 'blackwhite', label: 'Black & White' },
-    { value: 'gradient', label: 'Gradient' },
-    { value: '3dtypo', label: '3D Typography' }
+    { value: 'any', label: 'Any Style', emoji: '🎨' },
+    { value: 'illustrated', label: 'Illustrated', emoji: '🖌️' },
+    { value: 'realistic', label: 'Realistic', emoji: '📷' },
+    { value: 'minimalist', label: 'Minimalist', emoji: '⚪' },
+    { value: 'vintage', label: 'Vintage/Retro', emoji: '🕰️' },
+    { value: 'watercolor', label: 'Watercolor', emoji: '💧' },
+    { value: 'abstract', label: 'Abstract', emoji: '🌀' },
+    { value: 'geometric', label: 'Geometric', emoji: '📐' },
+    { value: 'cartoon', label: 'Cartoon', emoji: '🦄' },
+    { value: 'typography', label: 'Typography', emoji: '🔤' },
+    { value: 'gothic', label: 'Gothic/Dark', emoji: '🖤' },
+    { value: 'popart', label: 'Pop Art', emoji: '💥' },
+    { value: 'cyberpunk', label: 'Cyberpunk', emoji: '🤖' },
+    { value: 'pixelart', label: 'Pixel Art', emoji: '👾' },
+    { value: '3drender', label: '3D Render', emoji: '🧊' },
+    { value: 'handdrawn', label: 'Hand Drawn', emoji: '✏️' },
+    { value: 'psychedelic', label: 'Psychedelic', emoji: '🌈' }
   ];
 
   // Handle generating the design
@@ -388,8 +393,8 @@ export const PromptToDesignTab = () => {
     }
     
     setIsEnhancingPrompt(true);
-    const styleLabel = designStyles.find(s => s.value === designStyle)?.label;
-    const toastId = toast.loading(`Enhancing your prompt with AI${styleLabel !== 'Any Style' ? ` (${styleLabel} style)` : ''}...`);
+    const selectedStyle = designStyles.find(s => s.value === designStyle);
+    const toastId = toast.loading(`Enhancing your prompt with AI${selectedStyle?.label !== 'Any Style' ? ` (${selectedStyle?.emoji} ${selectedStyle?.label} style)` : ''}...`);
     
     try {
       // Only send the style if it's not 'any'
@@ -397,7 +402,7 @@ export const PromptToDesignTab = () => {
       const enhancedPrompt = await enhancePrompt(prompt, styleToSend);
       setPrompt(enhancedPrompt);
       toast.dismiss(toastId);
-      toast.success('Prompt enhanced with AI suggestions!');
+      toast.success(`Prompt enhanced with AI suggestions! ${selectedStyle?.emoji || '🎨'}`);
     } catch (error) {
       console.error('Error enhancing prompt:', error);
       toast.dismiss(toastId);
@@ -435,18 +440,19 @@ export const PromptToDesignTab = () => {
                 </Label>
                 
                 <div className="overflow-x-auto">
-                  <div className="grid grid-cols-6 gap-2 min-w-max pb-1">
+                  <div className="grid grid-cols-3 xs:grid-cols-4 md:grid-cols-6 gap-2 min-w-max pb-2">
                     {designStyles.map((style) => (
                       <button
                         key={style.value}
                         type="button"
                         onClick={() => setDesignStyle(style.value)}
-                        className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                        className={`flex flex-col items-center justify-center p-2 rounded-lg border transition-all ${
                           designStyle === style.value 
                             ? 'border-primary bg-primary/10 text-primary' 
                             : 'border-gray-200 hover:border-primary/30 hover:bg-primary/5'
                         }`}
                       >
+                        <span className="text-2xl mb-1">{style.emoji}</span>
                         <span className="text-xs font-medium">{style.label}</span>
                       </button>
                     ))}
