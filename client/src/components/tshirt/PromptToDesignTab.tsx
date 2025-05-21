@@ -118,6 +118,30 @@ export const PromptToDesignTab = () => {
   // Add a new state variable for prompt enhancement
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
 
+  // Add a style state variable
+  const [designStyle, setDesignStyle] = useState<string>('');
+
+  // Define available t-shirt design styles
+  const designStyles = [
+    { value: '', label: 'Any Style' },
+    { value: 'illustrated', label: 'Illustrated' },
+    { value: 'realistic', label: 'Realistic' },
+    { value: 'minimalist', label: 'Minimalist' },
+    { value: 'vintage', label: 'Vintage/Retro' },
+    { value: 'watercolor', label: 'Watercolor' },
+    { value: 'abstract', label: 'Abstract' },
+    { value: 'geometric', label: 'Geometric' },
+    { value: 'cartoon', label: 'Cartoon' },
+    { value: 'typography', label: 'Typography' },
+    { value: 'gothic', label: 'Gothic/Dark' },
+    { value: 'popart', label: 'Pop Art' },
+    { value: 'cyberpunk', label: 'Cyberpunk' },
+    { value: 'pixelart', label: 'Pixel Art' },
+    { value: '3drender', label: '3D Render' },
+    { value: 'handdrawn', label: 'Hand Drawn' },
+    { value: 'psychedelic', label: 'Psychedelic' }
+  ];
+
   // Handle generating the design
   const handleGenerateDesign = async () => {
     console.log('Generate button clicked with prompt:', prompt);
@@ -345,7 +369,7 @@ export const PromptToDesignTab = () => {
   console.log('Current prompt value:', prompt);
   console.log('Current images state:', images);
   
-  // Add a function to handle prompt enhancement
+  // Update the handleEnhancePrompt function
   const handleEnhancePrompt = async () => {
     if (!prompt.trim()) {
       toast.error('Please enter a prompt first');
@@ -353,10 +377,10 @@ export const PromptToDesignTab = () => {
     }
     
     setIsEnhancingPrompt(true);
-    const toastId = toast.loading('Enhancing your prompt with AI...');
+    const toastId = toast.loading(`Enhancing your prompt with AI${designStyle ? ` (${designStyles.find(s => s.value === designStyle)?.label} style)` : ''}...`);
     
     try {
-      const enhancedPrompt = await enhancePrompt(prompt);
+      const enhancedPrompt = await enhancePrompt(prompt, designStyle || undefined);
       setPrompt(enhancedPrompt);
       toast.dismiss(toastId);
       toast.success('Prompt enhanced with AI suggestions!');
@@ -389,13 +413,35 @@ export const PromptToDesignTab = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
-              <div className="text-xs text-muted-foreground flex justify-between items-center">
-                <span>Be specific about style, colors, and layout for best results.</span>
-                <div className="flex items-center gap-2">
+              
+              {/* Style selector for prompt enhancement */}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1">
+                  <Label htmlFor="designStyle" className="text-xs font-medium text-muted-foreground mb-1 block">
+                    Design Style for Enhancement
+                  </Label>
+                  <Select 
+                    value={designStyle} 
+                    onValueChange={setDesignStyle}
+                  >
+                    <SelectTrigger id="designStyle" className="h-8 text-xs border-primary/20 focus:border-primary">
+                      <SelectValue placeholder="Select style for AI enhancement" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designStyles.map((style) => (
+                        <SelectItem key={style.value} value={style.value}>
+                          {style.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="flex items-center gap-2 self-end">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2 text-xs border-primary/20 text-primary hover:bg-primary/5"
+                    className="h-8 px-2 text-xs border-primary/20 text-primary hover:bg-primary/5"
                     onClick={handleEnhancePrompt}
                     disabled={isEnhancingPrompt || !prompt.trim()}
                   >
@@ -411,7 +457,7 @@ export const PromptToDesignTab = () => {
                       </>
                     )}
                   </Button>
-                  <Badge variant="outline" className="ml-auto">
+                  <Badge variant="outline" className="ml-auto h-7">
                     {prompt.length}/500
                   </Badge>
                 </div>

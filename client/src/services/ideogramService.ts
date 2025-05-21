@@ -2529,14 +2529,73 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 
  * @param prompt The user's initial prompt to enhance
  * @returns Enhanced prompt with more detailed visual descriptions
  */
-export const enhancePrompt = async (prompt: string): Promise<string> => {
+export const enhancePrompt = async (prompt: string, style?: string): Promise<string> => {
   if (!prompt.trim()) {
     throw new Error('Prompt cannot be empty');
   }
   
   console.log('Enhancing prompt:', prompt);
+  console.log('Selected style:', style || 'None specified');
   
   try {
+    // Create a style-specific context message
+    let styleContext = '';
+    
+    if (style) {
+      switch (style) {
+        case 'illustrated':
+          styleContext = 'Use illustrated style with clean lines and artistic illustrations.';
+          break;
+        case 'realistic':
+          styleContext = 'Use photorealistic style with detailed textures and lighting.';
+          break;
+        case 'minimalist':
+          styleContext = 'Use minimalist style with simple, clean designs and limited elements.';
+          break;
+        case 'vintage':
+          styleContext = 'Use vintage/retro style with distressed textures and nostalgic aesthetic.';
+          break;
+        case 'watercolor':
+          styleContext = 'Use watercolor style with soft edges and artistic brushwork effects.';
+          break;
+        case 'abstract':
+          styleContext = 'Use abstract style with non-representational artistic elements.';
+          break;
+        case 'geometric':
+          styleContext = 'Use geometric style with clean shapes and patterns.';
+          break;
+        case 'cartoon':
+          styleContext = 'Use cartoon style with stylized, fun characters and bold outlines.';
+          break;
+        case 'typography':
+          styleContext = 'Use typography-focused style with creative text arrangements.';
+          break;
+        case 'gothic':
+          styleContext = 'Use gothic/dark style with intricate details and moody aesthetics.';
+          break;
+        case 'popart':
+          styleContext = 'Use pop art style with bold colors and comic-like aesthetic.';
+          break;
+        case 'cyberpunk':
+          styleContext = 'Use cyberpunk style with futuristic, neon-colored tech aesthetic.';
+          break;
+        case 'pixelart':
+          styleContext = 'Use pixel art style with retro video game inspired graphics.';
+          break;
+        case '3drender':
+          styleContext = 'Use 3D rendered style with dimensional objects and shading.';
+          break;
+        case 'handdrawn':
+          styleContext = 'Use hand-drawn style with sketchy, illustrative qualities.';
+          break;
+        case 'psychedelic':
+          styleContext = 'Use psychedelic style with vibrant, trippy visuals and patterns.';
+          break;
+        default:
+          styleContext = '';
+      }
+    }
+    
     const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
       method: 'POST',
       headers: {
@@ -2544,7 +2603,7 @@ export const enhancePrompt = async (prompt: string): Promise<string> => {
       },
       body: JSON.stringify({
         prompt,
-        context: 'You are a t-shirt design expert that enhances user prompts specifically for t-shirt printing. Create a prompt that will generate a design that looks good on a t-shirt with: 1) Center-focused composition that works well on the chest area, 2) Bold, clear elements visible from a distance, 3) Limited details that won\'t get lost in fabric printing, 4) Appropriate subject size for t-shirt placement, 5) Clean edges and defined shapes, 6) Visually appealing color combinations that print well. ALWAYS include the phrase "t-shirt design:" at the beginning of your enhanced prompt to ensure proper formatting. Keep the core idea intact while making it optimized for t-shirt printing.'
+        context: `You are a t-shirt design expert that enhances user prompts specifically for t-shirt printing. ${styleContext} Create a prompt that will generate a design that looks good on a t-shirt with: 1) Center-focused composition that works well on the chest area, 2) Bold, clear elements visible from a distance, 3) Limited details that won't get lost in fabric printing, 4) Appropriate subject size for t-shirt placement, 5) Clean edges and defined shapes, 6) Visually appealing color combinations that print well. ALWAYS include the phrase "t-shirt design:" at the beginning of your enhanced prompt to ensure proper formatting. Keep the core idea intact while making it optimized for t-shirt printing.`
       })
     });
     
