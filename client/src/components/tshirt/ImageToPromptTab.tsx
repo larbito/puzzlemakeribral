@@ -511,18 +511,26 @@ export const ImageToPromptTab = () => {
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
             {getCurrentDisplayImage() ? (
               // Show the best available image
-              <img 
-                src={getCurrentDisplayImage() as string} 
-                alt="T-shirt design" 
-                className="w-full h-full object-contain p-4"
-                style={{ 
-                  backgroundColor: isDesignProcessed ? 'transparent' : 'transparent',
-                  backgroundImage: isDesignProcessed ? 'linear-gradient(135deg, #f8f9fa 25%, #f0f2f5 25%, #f0f2f5 50%, #f8f9fa 50%, #f8f9fa 75%, #f0f2f5 75%, #f0f2f5 100%)' : 'none',
-                  backgroundSize: '30px 30px',
-                  backgroundPosition: '0 0',
-                  borderRadius: '0.5rem'
-                }}
-              />
+              <div className={`relative w-full h-full ${isDesignProcessed ? 'transparent-bg-container' : ''}`} 
+                   style={{
+                     backgroundImage: isDesignProcessed ? 
+                       'repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%)' : 
+                       'none',
+                     backgroundSize: '20px 20px',
+                     backgroundPosition: '50%'
+                   }}>
+                <img 
+                  key={`img-${getCurrentDisplayImage() || ''}-${isDesignProcessed ? 'transparent' : 'normal'}-${Date.now()}`}
+                  src={getCurrentDisplayImage() as string} 
+                  alt="T-shirt design" 
+                  className={`w-full h-full object-contain p-4 ${isDesignProcessed ? 'transparent-image' : ''}`}
+                  style={{ 
+                    backgroundColor: 'transparent',
+                    mixBlendMode: isDesignProcessed ? 'normal' : 'normal',
+                    borderRadius: '0.5rem'
+                  }}
+                />
+              </div>
             ) : isGenerating ? (
               <div className="h-full flex flex-col items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />

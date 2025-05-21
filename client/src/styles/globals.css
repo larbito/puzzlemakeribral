@@ -59,6 +59,32 @@
   html {
     @apply transition-colors duration-300;
   }
+  
+  /* Transparent background pattern styles */
+  .transparent-bg-container {
+    position: relative !important;
+    z-index: 0 !important;
+    background-color: #f8fafc !important;
+    background-image: 
+      repeating-linear-gradient(45deg, #f1f5f9 25%, transparent 25%, transparent 75%, #f1f5f9 75%, #f1f5f9),
+      repeating-linear-gradient(45deg, #f1f5f9 25%, #f8fafc 25%, #f8fafc 75%, #f1f5f9 75%, #f1f5f9) !important;
+    background-position: 0 0, 10px 10px !important;
+    background-size: 20px 20px !important;
+  }
+
+  /* Dark mode variant */  
+  .dark .transparent-bg-container {
+    background-color: #1e293b !important;
+    background-image: 
+      repeating-linear-gradient(45deg, #0f172a 25%, transparent 25%, transparent 75%, #0f172a 75%, #0f172a),
+      repeating-linear-gradient(45deg, #0f172a 25%, #1e293b 25%, #1e293b 75%, #0f172a 75%, #0f172a) !important;
+  }
+
+  /* Ensure transparent images blend properly */
+  .transparent-image {
+    background-color: transparent !important;
+    mix-blend-mode: normal !important;
+  }
 }
 
 @keyframes float {

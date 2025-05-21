@@ -679,17 +679,22 @@ export const PromptToDesignTab = () => {
           </h3>
           <div className="border border-primary/20 rounded-xl overflow-hidden bg-white/50 dark:bg-gray-900/50 aspect-square shadow-sm">
             {images.length > 0 ? (
-              <div className="relative w-full h-full">
+              <div className={`relative w-full h-full ${isCurrentImageProcessed ? 'transparent-bg-container' : ''}`} 
+                   style={{
+                     backgroundImage: isCurrentImageProcessed ? 
+                       'repeating-conic-gradient(#f3f4f6 0% 25%, #ffffff 0% 50%)' : 
+                       'none',
+                     backgroundSize: '20px 20px',
+                     backgroundPosition: '50%'
+                   }}>
                 <img 
                   key={`img-${currentImage?.baseUrl || ''}-${isCurrentImageProcessed ? 'transparent' : 'normal'}-${Date.now()}`}
                   src={currentImage?.baseUrl} 
                   alt="Generated T-shirt design" 
-                  className="w-full h-full object-contain p-4"
+                  className={`w-full h-full object-contain p-4 ${isCurrentImageProcessed ? 'transparent-image' : ''}`}
                   style={{ 
-                    backgroundColor: isCurrentImageProcessed ? 'transparent' : 'transparent',
-                    backgroundImage: isCurrentImageProcessed ? 'linear-gradient(135deg, #f8f9fa 25%, #f0f2f5 25%, #f0f2f5 50%, #f8f9fa 50%, #f8f9fa 75%, #f0f2f5 75%, #f0f2f5 100%)' : 'none',
-                    backgroundSize: '30px 30px',
-                    backgroundPosition: '0 0',
+                    backgroundColor: 'transparent',
+                    mixBlendMode: isCurrentImageProcessed ? 'normal' : 'normal',
                     borderRadius: '0.5rem'
                   }}
                   onError={(e) => {
