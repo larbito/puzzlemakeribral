@@ -238,30 +238,30 @@ const BookDetailsForm: React.FC<BookFormProps> = ({ settings, onSettingChange })
         </div>
         
         <div className="flex items-center space-x-2">
-          <Checkbox
-            id="bleed"
-            checked={settings.bleed}
-            onCheckedChange={(checked: boolean | 'indeterminate') => onSettingChange('bleed', checked === 'indeterminate' ? false : checked)}
-          />
-          <Label 
-            htmlFor="bleed" 
-            className="cursor-pointer"
+          <div 
+            className="flex items-center space-x-2 cursor-pointer" 
             onClick={() => onSettingChange('bleed', !settings.bleed)}
           >
-            <div className="flex items-center">
-              Include bleed (0.125" margin)
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 ml-1 text-muted-foreground" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">A bleed extends the printed area beyond the final trim size to ensure no white edges when the book is cut to its final size.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </Label>
+            <Checkbox
+              id="bleed"
+              checked={settings.bleed}
+              onCheckedChange={(checked: boolean | 'indeterminate') => {
+                const newValue = checked === 'indeterminate' ? false : checked;
+                onSettingChange('bleed', newValue);
+              }}
+            />
+            <span>Include bleed (0.125" margin)</span>
+          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="max-w-xs">A bleed extends the printed area beyond the final trim size to ensure no white edges when the book is cut to its final size.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
         <div className="flex items-center space-x-2">
