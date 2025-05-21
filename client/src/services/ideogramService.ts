@@ -213,6 +213,10 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
     console.log("========== DOWNLOAD IMAGE DEBUG ==========");
     console.log("Starting download of image:", imageUrl.substring(0, 100) + "...");
     
+    // Check if this is a background-removed image (from PhotoRoom)
+    const isBackgroundRemoved = imageUrl.includes('photoroom-result') || imageUrl.includes('transparent');
+    console.log("Image has background removed:", isBackgroundRemoved);
+    
     // For data URLs (which is what our background removal function returns)
     if (imageUrl.startsWith('data:')) {
       console.log("Handling data URL download");
@@ -237,7 +241,8 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       console.log("URL type detection:", { 
         isReplicateUrl, 
         isServerImageUrl,
-        url: imageUrl
+        isBackgroundRemoved,
+        url: imageUrl.substring(0, 100)
       });
       
       if (isReplicateUrl) {
@@ -299,10 +304,20 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
         try {
           // Fetch the image to handle potential CORS issues
           console.log("Fetching background-removed image directly:", imageUrl);
-          const response = await fetch(imageUrl, {
+          
+          // Add cache-busting parameter if not already present
+          const urlWithCacheBuster = imageUrl.includes('?') 
+            ? `${imageUrl}&t=${Date.now()}` 
+            : `${imageUrl}?t=${Date.now()}`;
+            
+          console.log("Using cache-busted URL:", urlWithCacheBuster);
+          
+          const response = await fetch(urlWithCacheBuster, {
             method: 'GET',
             headers: {
-              'Cache-Control': 'no-cache',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
             },
           });
           

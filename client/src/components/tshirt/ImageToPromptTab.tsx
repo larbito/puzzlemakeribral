@@ -170,7 +170,7 @@ export const ImageToPromptTab = () => {
   // Handle downloading the design
   const handleDownload = async (format = 'png') => {
     console.log('Download button clicked for format:', format);
-    if (!generatedDesign && !processedDesign && !enhancedDesign) {
+    if (!processedDesign && !generatedDesign) {
       toast.error('No design to download');
       return;
     }
@@ -183,20 +183,26 @@ export const ImageToPromptTab = () => {
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
       const filename = `tshirt-${promptWords}-${Date.now()}`;
       
-      // Use the best available image with priority order:
-      // 1. Image with background removed and enhanced
-      // 2. Image with only background removed
-      // 3. Image with only enhancement 
-      // 4. Original generated image
-      let imageToDownload = enhancedDesign || processedDesign || generatedDesign;
+      // FIXED: Always download the currently displayed image
+      // This will be the processedDesign which reflects the current state
+      // (whether it has background removed or not)
+      let imageToDownload = processedDesign || generatedDesign;
       
-      console.log('Downloading image with filename:', filename);
-      await downloadImage(imageToDownload!, format, filename);
+      console.log('Downloading current image state:', {
+        isBackgroundRemoved,
+        imageUrl: imageToDownload?.substring(0, 50) + '...' || 'No image URL'
+      });
+      
+      if (!imageToDownload) {
+        throw new Error('No image URL found to download');
+      }
+      
+      await downloadImage(imageToDownload, format, filename);
       
       // Dismiss toast after a short delay
       setTimeout(() => {
         toast.dismiss(toastId);
-        toast.success(`Design downloaded as ${format.toUpperCase()}`);
+        toast.success(`Design downloaded as ${format.toUpperCase()}${isBackgroundRemoved ? ' with transparent background' : ''}`);
       }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);
