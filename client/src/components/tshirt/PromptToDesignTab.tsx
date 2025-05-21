@@ -31,7 +31,8 @@ import {
   saveToHistory, 
   removeBackground,
   enhanceImage,
-  backgroundRemovalModels
+  backgroundRemovalModels,
+  enhancePrompt
 } from '@/services/ideogramService';
 import {
   DropdownMenu,
@@ -113,6 +114,9 @@ export const PromptToDesignTab = () => {
     description: '',
     action: () => {}
   });
+
+  // Add a new state variable for prompt enhancement
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
 
   // Handle generating the design
   const handleGenerateDesign = async () => {
@@ -341,6 +345,30 @@ export const PromptToDesignTab = () => {
   console.log('Current prompt value:', prompt);
   console.log('Current images state:', images);
   
+  // Add a function to handle prompt enhancement
+  const handleEnhancePrompt = async () => {
+    if (!prompt.trim()) {
+      toast.error('Please enter a prompt first');
+      return;
+    }
+    
+    setIsEnhancingPrompt(true);
+    const toastId = toast.loading('Enhancing your prompt with AI...');
+    
+    try {
+      const enhancedPrompt = await enhancePrompt(prompt);
+      setPrompt(enhancedPrompt);
+      toast.dismiss(toastId);
+      toast.success('Prompt enhanced with AI suggestions!');
+    } catch (error) {
+      console.error('Error enhancing prompt:', error);
+      toast.dismiss(toastId);
+      toast.error('Failed to enhance prompt. Please try again.');
+    } finally {
+      setIsEnhancingPrompt(false);
+    }
+  };
+
   return (
     <div className="space-y-6 relative z-[103]" style={{ pointerEvents: 'auto' }}>
       <div className="grid lg:grid-cols-2 gap-8">
@@ -361,11 +389,32 @@ export const PromptToDesignTab = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
-              <div className="text-xs text-muted-foreground flex justify-between">
+              <div className="text-xs text-muted-foreground flex justify-between items-center">
                 <span>Be specific about style, colors, and layout for best results.</span>
-                <Badge variant="outline" className="ml-auto">
-                  {prompt.length}/500
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs border-primary/20 text-primary hover:bg-primary/5"
+                    onClick={handleEnhancePrompt}
+                    disabled={isEnhancingPrompt || !prompt.trim()}
+                  >
+                    {isEnhancingPrompt ? (
+                      <>
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        Enhancing...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="mr-1 h-3 w-3" />
+                        Enhance Prompt
+                      </>
+                    )}
+                  </Button>
+                  <Badge variant="outline" className="ml-auto">
+                    {prompt.length}/500
+                  </Badge>
+                </div>
               </div>
             </div>
           </div>

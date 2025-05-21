@@ -2520,3 +2520,41 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 
     }
   });
 } 
+
+/**
+ * Enhance a user prompt using OpenAI to create more detailed and effective design prompts
+ * @param prompt The user's initial prompt to enhance
+ * @returns Enhanced prompt with more detailed visual descriptions
+ */
+export const enhancePrompt = async (prompt: string): Promise<string> => {
+  if (!prompt.trim()) {
+    throw new Error('Prompt cannot be empty');
+  }
+  
+  console.log('Enhancing prompt:', prompt);
+  
+  try {
+    const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        context: 'You are a helpful assistant that enhances user prompts for generating t-shirt designs. Add more visual details, styles, colors, and artistic direction but keep the core idea intact. Focus on creating eye-catching designs suitable for printing on t-shirts. Do not mention "t-shirt" or "design" in your response, just provide the enhanced description.'
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to enhance prompt: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Enhanced prompt:', data.enhancedPrompt);
+    
+    return data.enhancedPrompt;
+  } catch (error) {
+    console.error('Error enhancing prompt:', error);
+    throw error;
+  }
+};
