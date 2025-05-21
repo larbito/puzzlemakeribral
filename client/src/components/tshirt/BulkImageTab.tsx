@@ -55,6 +55,8 @@ export const BulkImageTab = () => {
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
   const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
   const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
+  const [isRemovingAllBackgrounds, setIsRemovingAllBackgrounds] = useState(false);
+  const [isEnhancingAllImages, setIsEnhancingAllImages] = useState(false);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -504,6 +506,119 @@ export const BulkImageTab = () => {
     toast.success(`Item reset to original state`);
   };
 
+  // Handle removing background for all images
+  const handleRemoveAllBackgrounds = async () => {
+    const itemsToProcess = bulkItems.filter(item => 
+      item.status === 'completed' && 
+      item.designUrl && 
+      !item.isBackgroundRemoved
+    );
+    
+    if (itemsToProcess.length === 0) {
+      toast.error('No images to process');
+      return;
+    }
+    
+    setIsRemovingAllBackgrounds(true);
+    const toastId = toast.loading(`Removing backgrounds from ${itemsToProcess.length} images...`);
+    
+    try {
+      for (const item of itemsToProcess) {
+        // Set processing state for visual feedback
+        setProcessingItemId(item.id);
+        
+        // Process this image
+        const processedImageUrl = await removeBackground(item.designUrl as string);
+        
+        // Add cache-busting
+        const cacheBuster = new Date().getTime();
+        const processedImageWithCacheBuster = processedImageUrl.includes('?') 
+          ? `${processedImageUrl}&t=${cacheBuster}` 
+          : `${processedImageUrl}?t=${cacheBuster}`;
+        
+        // Update the item in state
+        setBulkItems(prev => prev.map(i => 
+          i.id === item.id ? { 
+            ...i, 
+            originalDesignUrl: i.isBackgroundRemoved ? i.originalDesignUrl : i.designUrl,
+            designUrl: processedImageWithCacheBuster,
+            isBackgroundRemoved: true,
+            isEnhanced: i.isEnhanced
+          } : i
+        ));
+        
+        // Small delay to prevent API rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      toast.dismiss(toastId);
+      toast.success(`Successfully removed backgrounds from ${itemsToProcess.length} images`);
+    } catch (error) {
+      console.error('Error removing backgrounds:', error);
+      toast.dismiss(toastId);
+      toast.error('Failed to process some images');
+    } finally {
+      setProcessingItemId(null);
+      setIsRemovingAllBackgrounds(false);
+    }
+  };
+
+  // Handle enhancing all images
+  const handleEnhanceAllImages = async () => {
+    const itemsToProcess = bulkItems.filter(item => 
+      item.status === 'completed' && 
+      item.designUrl && 
+      !item.isEnhanced
+    );
+    
+    if (itemsToProcess.length === 0) {
+      toast.error('No images to enhance');
+      return;
+    }
+    
+    setIsEnhancingAllImages(true);
+    const toastId = toast.loading(`Enhancing ${itemsToProcess.length} images...`);
+    
+    try {
+      for (const item of itemsToProcess) {
+        // Set enhancing state for visual feedback
+        setEnhancingItemId(item.id);
+        
+        // Enhance this image
+        const enhancedImageUrl = await enhanceImage(item.designUrl as string);
+        
+        // Add cache-busting
+        const cacheBuster = new Date().getTime();
+        const enhancedImageWithCacheBuster = enhancedImageUrl.includes('?') 
+          ? `${enhancedImageUrl}&t=${cacheBuster}` 
+          : `${enhancedImageUrl}?t=${cacheBuster}`;
+        
+        // Update the item in state
+        setBulkItems(prev => prev.map(i => 
+          i.id === item.id ? { 
+            ...i, 
+            designUrl: enhancedImageWithCacheBuster,
+            isEnhanced: true,
+            isBackgroundRemoved: i.isBackgroundRemoved
+          } : i
+        ));
+        
+        // Small delay to prevent API rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      toast.dismiss(toastId);
+      toast.success(`Successfully enhanced ${itemsToProcess.length} images`);
+    } catch (error) {
+      console.error('Error enhancing images:', error);
+      toast.dismiss(toastId);
+      toast.error('Failed to enhance some images');
+    } finally {
+      setEnhancingItemId(null);
+      setIsEnhancingAllImages(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
@@ -646,6 +761,96 @@ export const BulkImageTab = () => {
                 </p>
               </div>
             </div>
+            
+            {/* Bulk Actions section */}
+            {counts.completed > 0 && (
+              <div className="mt-4 pt-4 border-t border-primary/10">
+                <h3 className="text-sm font-medium mb-3">Bulk Actions</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveAllBackgrounds}
+                    disabled={isRemovingAllBackgrounds || bulkItems.filter(i => i.status === 'completed' && !i.isBackgroundRemoved).length === 0}
+                    className="h-10"
+                  >
+                    {isRemovingAllBackgrounds ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Image className="h-4 w-4 mr-2" />
+                        Remove All Backgrounds
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleEnhanceAllImages}
+                    disabled={isEnhancingAllImages || bulkItems.filter(i => i.status === 'completed' && !i.isEnhanced).length === 0}
+                    className="h-10"
+                  >
+                    {isEnhancingAllImages ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enhancing...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-4 w-4 mr-2" />
+                        Enhance All Images
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    onClick={handleGenerateAll}
+                    disabled={isGeneratingAll || counts.ready === 0}
+                    variant="default"
+                    className="h-10 bg-primary hover:bg-primary/90"
+                  >
+                    {isGeneratingAll ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Generate All
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    onClick={handleDownloadAll}
+                    disabled={isDownloadingAll || counts.completed === 0}
+                    variant="default"
+                    className="h-10 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  >
+                    {isDownloadingAll ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Packaging...
+                      </>
+                    ) : (
+                      <>
+                        <DownloadCloud className="h-4 w-4 mr-2" />
+                        Download All ({counts.completed})
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-muted-foreground mt-2">
+                  Perform actions on all eligible images at once. This can save time when working with multiple designs.
+                </div>
+              </div>
+            )}
             
             {/* Image items */}
             <div className="space-y-4 mt-6">
@@ -819,7 +1024,7 @@ export const BulkImageTab = () => {
                         )}
                       </div>
                       
-                      <div className="flex gap-3 mt-4">
+                      <div className="flex flex-wrap gap-2 mt-2 justify-between">
                         {/* Generate button */}
                         {item.status === 'ready' && (
                           <Button 
@@ -827,7 +1032,7 @@ export const BulkImageTab = () => {
                             size="sm"
                             onClick={() => handleGenerateSingle(item.id)}
                             disabled={isGeneratingAll || generatingItemId === item.id}
-                            className="flex-grow"
+                            className="flex-1 min-w-[120px] h-9"
                           >
                             {generatingItemId === item.id ? (
                               <>
@@ -837,7 +1042,7 @@ export const BulkImageTab = () => {
                             ) : (
                               <>
                                 <Sparkles className="h-4 w-4 mr-2" />
-                                Generate Design
+                                Generate
                               </>
                             )}
                           </Button>
@@ -848,9 +1053,9 @@ export const BulkImageTab = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className={item.isBackgroundRemoved ? "bg-green-50 text-green-700 border-green-200" : ""}
+                            className={`flex-1 min-w-[120px] h-9 ${item.isBackgroundRemoved ? "bg-green-50 text-green-700 border-green-200" : ""}`}
                             onClick={() => handleRemoveBackground(item.id)}
-                            disabled={processingItemId === item.id}
+                            disabled={processingItemId === item.id || isRemovingAllBackgrounds}
                           >
                             {processingItemId === item.id ? (
                               <>
@@ -871,9 +1076,9 @@ export const BulkImageTab = () => {
                           <Button
                             variant={item.isEnhanced ? "outline" : "default"}
                             size="sm"
-                            className={item.isEnhanced ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-blue-600"}
+                            className={`flex-1 min-w-[120px] h-9 ${item.isEnhanced ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-blue-600"}`}
                             onClick={() => handleEnhanceImage(item.id)}
-                            disabled={enhancingItemId === item.id}
+                            disabled={enhancingItemId === item.id || isEnhancingAllImages}
                           >
                             {enhancingItemId === item.id ? (
                               <>
@@ -894,7 +1099,7 @@ export const BulkImageTab = () => {
                           <Button
                             variant="default"
                             size="sm"
-                            className={`${
+                            className={`flex-1 min-w-[120px] h-9 ${
                               item.isBackgroundRemoved || item.isEnhanced
                                 ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
                                 : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
