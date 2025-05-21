@@ -53,6 +53,8 @@ export const BulkImageTab = () => {
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [processingItemId, setProcessingItemId] = useState<string | null>(null);
   const [enhancingItemId, setEnhancingItemId] = useState<string | null>(null);
+  const [downloadingItemId, setDownloadingItemId] = useState<string | null>(null);
+  const [generatingItemId, setGeneratingItemId] = useState<string | null>(null);
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -242,61 +244,59 @@ export const BulkImageTab = () => {
   
   // Generate a single design
   const handleGenerateSingle = async (itemId: string) => {
-    // Find the item to generate
-    const itemToGenerate = bulkItems.find(item => item.id === itemId);
+    const item = bulkItems.find(item => item.id === itemId);
+    if (!item) return;
     
-    if (!itemToGenerate || !itemToGenerate.prompt.trim()) {
-      toast.error('No valid prompt to generate design from.');
+    // Verify that the prompt is not empty
+    if (!item.prompt.trim()) {
+      toast.error('Prompt cannot be empty. Please enter a prompt.');
       return;
     }
     
-    console.log(`Generating single design for item ${itemId}`);
+    // Set status to generating and update UI
+    setBulkItems(prev => prev.map(i => 
+      i.id === itemId ? { ...i, status: 'generating' } : i
+    ));
+    
+    setGeneratingItemId(itemId);
     
     try {
-      // Update status to generating
-      setBulkItems(prev => prev.map(i => 
-        i.id === itemId ? { ...i, status: 'generating' } : i
-      ));
-      
-      // Show toast notification
-      toast.info('Generating design...');
-      
-      console.log(`Generating design with prompt: ${itemToGenerate.prompt.substring(0, 30)}...`);
-      // Call Ideogram API to generate design
-      const imageUrl = await generateImage({
-        prompt: itemToGenerate.prompt,
-        transparentBackground: true,
+      // Call the generateImage function from ideogramService
+      const designUrl = await generateImage({
+        prompt: item.prompt,
         format: 'merch'
       });
       
-      if (imageUrl) {
-        console.log(`Generated design URL: ${imageUrl.substring(0, 50)}...`);
-        // Update with generated design
-        setBulkItems(prev => prev.map(i => 
-          i.id === itemId ? { ...i, designUrl: imageUrl, status: 'completed' } : i
-        ));
+      if (designUrl) {
+        console.log(`Design generated for item ${itemId}`);
         
-        // Save to history
-        saveToHistory({
-          prompt: itemToGenerate.prompt,
-          imageUrl,
-          thumbnail: imageUrl,
-          isFavorite: false
-        });
+        // Update the item with the generated design URL
+        setBulkItems(prev => prev.map(i => 
+          i.id === itemId ? { 
+            ...i, 
+            designUrl, 
+            originalDesignUrl: designUrl, // Save original for background removal toggling
+            status: 'completed',
+            isBackgroundRemoved: false,
+            isEnhanced: false
+          } : i
+        ));
         
         toast.success('Design generated successfully!');
       } else {
         throw new Error('Failed to generate design');
       }
     } catch (error) {
-      console.error(`Error generating design:`, error);
+      console.error(`Error generating design for item ${itemId}:`, error);
       
-      // Update status to failed
+      // Update item status to failed
       setBulkItems(prev => prev.map(i => 
         i.id === itemId ? { ...i, status: 'failed' } : i
       ));
       
-      toast.error(`Failed to generate design.`);
+      toast.error('Failed to generate design. Please try again.');
+    } finally {
+      setGeneratingItemId(null);
     }
   };
   
@@ -318,7 +318,9 @@ export const BulkImageTab = () => {
           i.id === itemId ? { 
             ...i, 
             designUrl: i.originalDesignUrl || i.designUrl,
-            isBackgroundRemoved: false
+            isBackgroundRemoved: false,
+            // Preserve enhancement status
+            isEnhanced: i.isEnhanced
           } : i
         ));
         
@@ -330,19 +332,25 @@ export const BulkImageTab = () => {
       // Call the background removal service
       const processedImageUrl = await removeBackground(item.designUrl);
       
+      // Add cache-busting for consistent behavior
+      const cacheBuster = new Date().getTime();
+      const processedImageWithCacheBuster = processedImageUrl.includes('?') 
+        ? `${processedImageUrl}&t=${cacheBuster}` 
+        : `${processedImageUrl}?t=${cacheBuster}`;
+      
       // Update item with processed design
       setBulkItems(prev => prev.map(i => 
         i.id === itemId ? { 
           ...i, 
           originalDesignUrl: i.isBackgroundRemoved ? i.originalDesignUrl : i.designUrl, // Save original URL if first time
-          designUrl: processedImageUrl,
+          designUrl: processedImageWithCacheBuster,
           isBackgroundRemoved: true,
-          // If it was enhanced before, now it's just background removed
-          isEnhanced: false
+          // Preserve enhancement status
+          isEnhanced: i.isEnhanced
         } : i
       ));
       
-      toast.success(`Background removed successfully for item #${itemId.slice(-4)}!`);
+      toast.success('Background removed successfully!');
     } catch (error) {
       console.error(`Error removing background for item ${itemId}:`, error);
       toast.error('Failed to remove background');
@@ -365,12 +373,20 @@ export const BulkImageTab = () => {
       // Call the enhancement service
       const enhancedImageUrl = await enhanceImage(item.designUrl);
       
+      // Add cache-busting for consistent behavior
+      const cacheBuster = new Date().getTime();
+      const enhancedImageWithCacheBuster = enhancedImageUrl.includes('?') 
+        ? `${enhancedImageUrl}&t=${cacheBuster}` 
+        : `${enhancedImageUrl}?t=${cacheBuster}`;
+      
       // Update item with enhanced design
       setBulkItems(prev => prev.map(i => 
         i.id === itemId ? { 
           ...i, 
-          designUrl: enhancedImageUrl,
-          isEnhanced: true
+          designUrl: enhancedImageWithCacheBuster,
+          isEnhanced: true,
+          // Preserve background removal status
+          isBackgroundRemoved: i.isBackgroundRemoved
         } : i
       ));
       
@@ -413,6 +429,39 @@ export const BulkImageTab = () => {
       toast.error('Failed to download designs.');
     } finally {
       setIsDownloadingAll(false);
+    }
+  };
+  
+  // Download a single design
+  const handleDownloadSingle = async (itemId: string) => {
+    const item = bulkItems.find(item => item.id === itemId);
+    if (!item || !item.designUrl) {
+      toast.error('No design to download');
+      return;
+    }
+    
+    setDownloadingItemId(itemId);
+    const toastId = toast.loading('Processing download...');
+    
+    try {
+      // Format filename using the first few words of the prompt
+      const promptWords = item.prompt.split(' ').slice(0, 4).join('-').toLowerCase();
+      const filename = `tshirt-${promptWords}-${Date.now()}`;
+      
+      // Download the current design
+      await downloadImage(item.designUrl, 'png', filename);
+      
+      // Dismiss toast after a short delay
+      setTimeout(() => {
+        toast.dismiss(toastId);
+        toast.success(`Design downloaded as PNG${item.isBackgroundRemoved ? ' with transparent background' : ''}`);
+      }, 1000);
+    } catch (error) {
+      console.error('Error downloading design:', error);
+      toast.dismiss(toastId);
+      toast.error('Failed to download design');
+    } finally {
+      setDownloadingItemId(null);
     }
   };
   
@@ -770,95 +819,103 @@ export const BulkImageTab = () => {
                         )}
                       </div>
                       
-                      <div className="flex gap-2 mt-2">
-                        {/* Background Removal Button - Simple button instead of dropdown */}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={`h-8 px-2.5 text-xs ${item.isBackgroundRemoved ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
-                          onClick={() => handleRemoveBackground(item.id)}
-                          disabled={!!processingItemId}
-                        >
-                          {processingItemId === item.id ? (
-                            <>
-                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                              <span>Processing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Image className="mr-1 h-3 w-3" />
-                              <span>{item.isBackgroundRemoved ? 'Restore BG' : 'Remove BG'}</span>
-                            </>
-                          )}
-                        </Button>
-                        
-                        {/* Enhance Button */}
-                        <Button
-                          size="sm"
-                          variant={item.isEnhanced ? "outline" : "default"}
-                          disabled={processingItemId !== null || enhancingItemId !== null}
-                          className={`text-xs p-0 h-7 ${item.isEnhanced ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-600 hover:bg-blue-700'}`}
-                          onClick={() => handleEnhanceImage(item.id)}
-                        >
-                          <Zap className="h-3 w-3 mr-1" />
-                          {item.isEnhanced ? 'Enhanced' : 'Enhance'}
-                        </Button>
-                      </div>
-                      
-                      <Button
-                        size="sm"
-                        variant={item.status === 'ready' ? "default" : "outline"}
-                        disabled={
-                          item.status === 'pending' || 
-                          item.status === 'analyzing' || 
-                          item.status === 'generating' || 
-                          !item.prompt.trim() ||
-                          isGeneratingAll
-                        }
-                        className="w-full"
-                        onClick={() => {
-                          // Individual generate handler - use the new function
-                          handleGenerateSingle(item.id);
-                        }}
-                      >
-                        {item.status === 'generating' ? (
-                          <>
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                            Generating...
-                          </>
-                        ) : item.status === 'completed' ? (
-                          <>
-                            <Sparkles className="mr-1 h-3 w-3" />
-                            Regenerate
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="mr-1 h-3 w-3" />
-                            Generate Design
-                          </>
+                      <div className="flex gap-3 mt-4">
+                        {/* Generate button */}
+                        {item.status === 'ready' && (
+                          <Button 
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleGenerateSingle(item.id)}
+                            disabled={isGeneratingAll || generatingItemId === item.id}
+                            className="flex-grow"
+                          >
+                            {generatingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Generate Design
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </Button>
-                      
-                      {item.status === 'completed' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full border-primary/20"
-                          onClick={() => {
-                            if (item.designUrl) {
-                              // Quick download this specific design
-                              downloadImage(
-                                item.designUrl, 
-                                'png', 
-                                `tshirt-${item.id}`
-                              );
-                            }
-                          }}
-                        >
-                          <Download className="mr-1 h-3 w-3" />
-                          Download PNG
-                        </Button>
-                      )}
+                        
+                        {/* Background button */}
+                        {item.status === 'completed' && item.designUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={item.isBackgroundRemoved ? "bg-green-50 text-green-700 border-green-200" : ""}
+                            onClick={() => handleRemoveBackground(item.id)}
+                            disabled={processingItemId === item.id}
+                          >
+                            {processingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <Image className="h-4 w-4 mr-2" />
+                                {item.isBackgroundRemoved ? 'Restore BG' : 'Remove BG'}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* Enhancement button */}
+                        {item.status === 'completed' && item.designUrl && (
+                          <Button
+                            variant={item.isEnhanced ? "outline" : "default"}
+                            size="sm"
+                            className={item.isEnhanced ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-blue-600"}
+                            onClick={() => handleEnhanceImage(item.id)}
+                            disabled={enhancingItemId === item.id}
+                          >
+                            {enhancingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Enhancing...
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="h-4 w-4 mr-2" />
+                                {item.isEnhanced ? 'Re-Enhance' : 'Enhance'}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* Download button */}
+                        {item.status === 'completed' && item.designUrl && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className={`${
+                              item.isBackgroundRemoved || item.isEnhanced
+                                ? "bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                                : "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                            } text-white`}
+                            onClick={() => handleDownloadSingle(item.id)}
+                            disabled={downloadingItemId === item.id}
+                          >
+                            {downloadingItemId === item.id ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Downloading...
+                              </>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

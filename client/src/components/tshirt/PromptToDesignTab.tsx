@@ -193,38 +193,21 @@ export const PromptToDesignTab = () => {
       return;
     }
     
-    console.log('Download button clicked for image:', currentImage.baseUrl.substring(0, 100));
-    console.log('Current image state:', {
-      isEnhanced: currentImage.isEnhanced,
-      isBackgroundRemoved: currentImage.isBackgroundRemoved,
-      originalUrl: currentImage.originalUrl.substring(0, 50) + '...',
-      baseUrl: currentImage.baseUrl.substring(0, 50) + '...'
-    });
-    
     setIsDownloading(true);
-    const toastId = toast.loading(`Processing download...`);
+    const toastId = toast.loading('Processing download...');
     
     try {
       // Format filename using the first few words of the prompt
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
-      let filename = `tshirt-${promptWords}-${Date.now()}`;
+      const filename = `tshirt-${promptWords}-${Date.now()}`;
       
-      // Add suffixes to indicate processing
-      if (currentImage.isEnhanced) {
-        filename += '-enhanced';
-      }
-      if (currentImage.isBackgroundRemoved) {
-        filename += '-nobg';
-      }
-      
-      // Always download the current baseUrl (source of truth)
-      console.log('Downloading image with filename:', filename);
+      // Download the current image state
       await downloadImage(currentImage.baseUrl, 'png', filename);
       
-      // Ensure toast is dismissed before showing success
+      // Dismiss toast after a short delay
       setTimeout(() => {
         toast.dismiss(toastId);
-        toast.success(`Design downloaded as PNG${currentImage.isBackgroundRemoved ? ' with transparent background' : ''}${currentImage.isEnhanced ? ' (enhanced)' : ''}`);
+        toast.success(`Design downloaded as PNG${currentImage.isBackgroundRemoved ? ' with transparent background' : ''}`);
       }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);
@@ -243,235 +226,38 @@ export const PromptToDesignTab = () => {
       return;
     }
     
-    console.log('Starting background removal process');
-    console.log('Current image state:', {
-      isEnhanced: currentImage.isEnhanced,
-      isBackgroundRemoved: currentImage.isBackgroundRemoved,
-      baseUrl: currentImage.baseUrl.substring(0, 50) + '...'
-    });
-    
-    // If the image is enhanced, show an info dialog about special handling
-    if (currentImage.isEnhanced && !currentImage.isBackgroundRemoved) {
-      setInfoDialogContent({
-        title: 'Special Processing Required',
-        description: 'You\'re removing the background from an enhanced image. This may require special handling for best results. Would you like to proceed?',
-        action: async () => {
-          setShowInfoDialog(false);
-          // Continue with background removal after user confirms
-          await processBackgroundRemoval(currentImage);
-        }
-      });
-      setShowInfoDialog(true);
-      return;
-    }
-    
-    // If not enhanced or user confirmed, proceed
-    await processBackgroundRemoval(currentImage);
-  };
-  
-  // Extract the actual background removal process to a separate function
-  const processBackgroundRemoval = async (currentImage: DesignImage) => {
     setIsProcessing(true);
     
     try {
       // If this is a restore original action
-      if (currentImage.isBackgroundRemoved && currentImage.originalUrl) {
-        // When restoring background, maintain enhancement status
-        if (currentImage.isEnhanced) {
-          // If it was enhanced, restore to the enhanced version without background removal
-          const enhancedWithBg = images.find(img => 
-            img.id === currentImage.id && img.isEnhanced && !img.isBackgroundRemoved
-          )?.baseUrl;
-          
-          if (enhancedWithBg) {
-            // We found a previous enhanced version with background
-            updateCurrentImage({
-              baseUrl: enhancedWithBg,
-              isBackgroundRemoved: false,
-              // Keep enhanced status
-              isEnhanced: true
-            });
-          } else {
-            // We don't have a cached enhanced version with background
-            // Default to original but mark it for re-enhancement
-            updateCurrentImage({
-              baseUrl: currentImage.originalUrl,
-              isBackgroundRemoved: false,
-              // Temporarily set isEnhanced to false so we can re-enhance
-              isEnhanced: false
-            });
-            
-            // Re-enhance the image automatically
-            setTimeout(() => handleEnhanceImage(), 500);
-          }
-        } else {
-          // If not enhanced, simply restore to original
-          updateCurrentImage({
-            baseUrl: currentImage.originalUrl,
-            isBackgroundRemoved: false,
-            isEnhanced: false
-          });
-        }
+      if (currentImage.isBackgroundRemoved) {
+        // Restore to original
+        updateCurrentImage({
+          baseUrl: currentImage.originalUrl,
+          isBackgroundRemoved: false,
+          isEnhanced: currentImage.isEnhanced
+        });
         
-        toast.success('Restored background');
+        toast.success('Original background restored');
         setIsProcessing(false);
         return;
       }
       
-      // MAIN FIX: Use the current baseUrl which reflects the actual current state
-      // whether it's enhanced or not
+      // Remove background from current image
       const imageToProcess = currentImage.baseUrl;
+      console.log('Removing background from image:', imageToProcess.substring(0, 100));
       
-      // Store the current enhanced status to preserve it
-      const wasEnhanced = currentImage.isEnhanced;
+      // Call background removal API
+      const imageUrlWithNoBackground = await removeBackground(imageToProcess);
       
-      console.log('Sending image to background removal API:', 
-        imageToProcess.substring(0, 100), 
-        wasEnhanced ? '(using enhanced image)' : '(using original image)');
-      
-      // Always log image URL type to help with debugging
-      console.log('Image URL type check:', {
-        isReplicateUrl: imageToProcess.includes('replicate.delivery'),
-        isDataUrl: imageToProcess.startsWith('data:'),
-        isPhotoRoomResult: imageToProcess.includes('photoroom-result'),
-        fullUrlStart: imageToProcess.substring(0, 100)
-      });
-      
-      // Log the state of the image we're processing for debugging
-      console.log('Processing image state:', {
-        isEnhanced: wasEnhanced,
-        isBackgroundRemoved: currentImage.isBackgroundRemoved,
-        baseUrl: currentImage.baseUrl.substring(0, 50) + '...',
-        originalUrl: currentImage.originalUrl.substring(0, 50) + '...'
-      });
-      
-      // Special handling for enhanced images with black backgrounds
-      let processedImageUrl: string;
-      
-      // ALWAYS make the API call regardless of enhancement status
-      console.log('Calling removeBackground API with URL:', imageToProcess.substring(0, 100));
-      
-      try {
-        // Regular background removal for all images
-        processedImageUrl = await removeBackground(imageToProcess);
-        console.log('Background removal completed successfully, result URL:', processedImageUrl.substring(0, 100));
-      } catch (error) {
-        console.error('Error during background removal:', error);
-        
-        if (wasEnhanced) {
-          // Fallback method for enhanced images
-          console.log('Attempting fallback method: remove background from original, then re-enhance');
-          toast.info('Using alternative processing method for enhanced image', {
-            description: 'For best results with complex images'
-          });
-          
-          // Try background removal on the original image
-          processedImageUrl = await removeBackground(currentImage.originalUrl);
-          
-          // Now re-enhance the background-removed image
-          processedImageUrl = await enhanceImage(processedImageUrl);
-        } else {
-          // For non-enhanced images, just re-throw the error
-          throw error;
-        }
-      }
-      
-      // Generate a unique cache-busting parameter
-      const cacheBuster = new Date().getTime();
-      const imageUrlWithCacheBuster = processedImageUrl.includes('?') 
-        ? `${processedImageUrl}&t=${cacheBuster}` 
-        : `${processedImageUrl}?t=${cacheBuster}`;
-      
-      console.log('Background removal completed. Updating UI with new image:', imageUrlWithCacheBuster);
-      
-      // IMPROVED IMAGE PREVIEW: Force image to reload by creating a new Image object first
-      const preloadImage = new Image();
-      preloadImage.src = imageUrlWithCacheBuster;
-      
-      // Wait for image to load before updating UI
-      await new Promise((resolve) => {
-        preloadImage.onload = () => {
-          console.log('Preloaded image loaded successfully');
-          resolve(true);
-        };
-        preloadImage.onerror = () => {
-          console.warn('Failed to preload image');
-          resolve(false);
-        };
-        setTimeout(() => resolve(false), 3000); // Timeout fallback
-      });
-      
-      // First, make an immediate state update with flags
+      // Update the image state
       updateCurrentImage({
+        baseUrl: imageUrlWithNoBackground,
         isBackgroundRemoved: true,
-        isEnhanced: wasEnhanced // Preserve enhanced status
+        isEnhanced: currentImage.isEnhanced
       });
       
-      // Force a slight delay to ensure DOM updates
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Now update with the new image URL
-      updateCurrentImage({
-        baseUrl: imageUrlWithCacheBuster,
-        isBackgroundRemoved: true,
-        isEnhanced: wasEnhanced // Preserve enhanced status
-      });
-      
-      // Store this version in case we need to restore it later
-      if (images.length > 0) {
-        // Create a deep copy of the images array
-        const cachedImages = JSON.parse(JSON.stringify(images));
-        const currentIdx = images.findIndex(img => img.id === currentImage.id);
-        
-        if (currentIdx >= 0) {
-          cachedImages[currentIdx] = {
-            ...cachedImages[currentIdx],
-            baseUrl: imageUrlWithCacheBuster,
-            isBackgroundRemoved: true,
-            isEnhanced: wasEnhanced
-          };
-          setImages(cachedImages);
-          console.log('Cached the image with updated properties');
-          
-          // Force a re-render by temporarily changing the current index
-          setCurrentIndex(prev => {
-            const tempIndex = prev === 0 && images.length > 1 ? 1 : 0;
-            setTimeout(() => setCurrentIndex(currentIdx), 50);
-            return tempIndex;
-          });
-        }
-      }
-      
-      // For a final attempt at forcing UI update, use direct DOM manipulation
-      setTimeout(() => {
-        const previewImg = document.querySelector('.transparent-image') as HTMLImageElement;
-        if (previewImg) {
-          console.log('Found preview image element, manually updating src');
-          previewImg.src = imageUrlWithCacheBuster;
-        }
-        
-        // Also try to find by container
-        const previewContainer = document.querySelector('.transparent-bg-container');
-        if (previewContainer) {
-          const img = previewContainer.querySelector('img');
-          if (img) {
-            console.log('Found image in transparent container, updating');
-            img.src = imageUrlWithCacheBuster;
-            img.classList.add('transparent-image');
-          }
-        }
-        
-        // Update image container to fix issue with transparency
-        const containers = document.querySelectorAll('.transparent-bg-container');
-        containers.forEach(container => {
-          console.log('Found transparent container, ensuring proper styling');
-          container.classList.remove('transparent-bg-container');
-          void (container as HTMLElement).offsetWidth; // Force reflow
-          container.classList.add('transparent-bg-container');
-        });
-      }, 200);
-      
-      toast.success(`Background removed successfully${wasEnhanced ? ' from enhanced image' : ''}!`);
+      toast.success('Background removed successfully');
     } catch (error) {
       console.error('Error removing background:', error);
       toast.error('Failed to remove background');
@@ -488,56 +274,26 @@ export const PromptToDesignTab = () => {
       return;
     }
     
-    // Use the current baseUrl as the source
-    console.log('Enhancing current base image:', currentImage.baseUrl.substring(0, 100));
-    console.log('Image has background removed:', currentImage.isBackgroundRemoved);
     setIsEnhancing(true);
     
     try {
-      // Store the current background removed status
-      const wasBackgroundRemoved = currentImage.isBackgroundRemoved;
-      
       // Call the enhancement service
-      // Note: the enhanceImage function should now handle preserving transparency
       const enhancedImageUrl = await enhanceImage(currentImage.baseUrl);
-      console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
-      // Add cache-busting for consistent behavior with background removal
+      // Add cache-busting for consistent behavior
       const cacheBuster = new Date().getTime();
       const enhancedImageWithCacheBuster = enhancedImageUrl.includes('?') 
         ? `${enhancedImageUrl}&t=${cacheBuster}` 
         : `${enhancedImageUrl}?t=${cacheBuster}`;
       
-      // Update the base image with the enhanced version
-      // Make sure to preserve the background removed status
+      // Update the image state
       updateCurrentImage({
         baseUrl: enhancedImageWithCacheBuster,
         isEnhanced: true,
-        isBackgroundRemoved: wasBackgroundRemoved // Explicitly preserve background status
+        isBackgroundRemoved: currentImage.isBackgroundRemoved
       });
       
-      // Save this state in our images array for future reference
-      if (images.length > 0) {
-        const currentIdx = images.findIndex(img => img.id === currentImage.id);
-        if (currentIdx >= 0) {
-          // Create a cached copy for future reference
-          const cachedImages = [...images];
-          cachedImages[currentIdx] = {
-            ...cachedImages[currentIdx],
-            baseUrl: enhancedImageWithCacheBuster,
-            isEnhanced: true,
-            isBackgroundRemoved: wasBackgroundRemoved
-          };
-          setImages(cachedImages);
-          console.log('Cached the enhanced version with preserved background status');
-        }
-      }
-      
-      toast.success('Image enhanced successfully!', {
-        description: wasBackgroundRemoved ? 
-          'Enhanced your image while preserving transparency' : 
-          'Applied high quality enhancement'
-      });
+      toast.success('Image enhanced successfully!');
     } catch (error) {
       console.error('Error enhancing image:', error);
       toast.error('Failed to enhance image');
