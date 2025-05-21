@@ -119,11 +119,11 @@ export const PromptToDesignTab = () => {
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
 
   // Add a style state variable
-  const [designStyle, setDesignStyle] = useState<string>('');
+  const [designStyle, setDesignStyle] = useState<string>('any');
 
   // Define available t-shirt design styles
   const designStyles = [
-    { value: '', label: 'Any Style' },
+    { value: 'any', label: 'Any Style' },
     { value: 'illustrated', label: 'Illustrated' },
     { value: 'realistic', label: 'Realistic' },
     { value: 'minimalist', label: 'Minimalist' },
@@ -377,10 +377,13 @@ export const PromptToDesignTab = () => {
     }
     
     setIsEnhancingPrompt(true);
-    const toastId = toast.loading(`Enhancing your prompt with AI${designStyle ? ` (${designStyles.find(s => s.value === designStyle)?.label} style)` : ''}...`);
+    const styleLabel = designStyles.find(s => s.value === designStyle)?.label;
+    const toastId = toast.loading(`Enhancing your prompt with AI${styleLabel !== 'Any Style' ? ` (${styleLabel} style)` : ''}...`);
     
     try {
-      const enhancedPrompt = await enhancePrompt(prompt, designStyle || undefined);
+      // Only send the style if it's not 'any'
+      const styleToSend = designStyle === 'any' ? undefined : designStyle;
+      const enhancedPrompt = await enhancePrompt(prompt, styleToSend);
       setPrompt(enhancedPrompt);
       toast.dismiss(toastId);
       toast.success('Prompt enhanced with AI suggestions!');
