@@ -50,7 +50,10 @@ export async function generateImage({
     }
 
     // Build the prompt with style and color scheme preferences
-    let enhancedPrompt = `t-shirt design: ${prompt}`;
+    // Check if prompt already has t-shirt prefix to avoid duplication
+    let enhancedPrompt = prompt.toLowerCase().includes("t-shirt design:") 
+      ? prompt 
+      : `t-shirt design: ${prompt}`;
     
     if (style && style !== "custom") {
       enhancedPrompt += `, ${style} style`;
@@ -2541,7 +2544,7 @@ export const enhancePrompt = async (prompt: string): Promise<string> => {
       },
       body: JSON.stringify({
         prompt,
-        context: 'You are a helpful assistant that enhances user prompts for generating t-shirt designs. Add more visual details, styles, colors, and artistic direction but keep the core idea intact. Focus on creating eye-catching designs suitable for printing on t-shirts. Do not mention "t-shirt" or "design" in your response, just provide the enhanced description.'
+        context: 'You are a t-shirt design expert that enhances user prompts specifically for t-shirt printing. Create a prompt that will generate a design that looks good on a t-shirt with: 1) Center-focused composition that works well on the chest area, 2) Bold, clear elements visible from a distance, 3) Limited details that won\'t get lost in fabric printing, 4) Appropriate subject size for t-shirt placement, 5) Clean edges and defined shapes, 6) Visually appealing color combinations that print well. ALWAYS include the phrase "t-shirt design:" at the beginning of your enhanced prompt to ensure proper formatting. Keep the core idea intact while making it optimized for t-shirt printing.'
       })
     });
     
