@@ -15,7 +15,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { 
   WordSearchForm, 
-  WordSearchCompletionStatus, 
+  WordSearchStatus, 
   WordSearchSettings, 
   defaultWordSearchSettings 
 } from './puzzles/WordSearch';
@@ -195,7 +195,7 @@ export const PuzzleGenerator = () => {
     // Show completion status if applicable
     if ((generationStatus === 'complete' || generationStatus === 'error') && !showPreview) {
       return (
-        <WordSearchCompletionStatus
+        <WordSearchStatus
           status={generationStatus === 'complete' ? 'complete' : 'error'}
           onDownload={handleDownload}
           onTryAgain={() => setGenerationStatus('idle')}
