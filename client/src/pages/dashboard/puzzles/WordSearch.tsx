@@ -230,7 +230,11 @@ const BookDetailsForm: React.FC<BookFormProps> = ({ settings, onSettingChange })
             checked={settings.includePageNumbers}
             onCheckedChange={(checked: boolean | 'indeterminate') => onSettingChange('includePageNumbers', checked === 'indeterminate' ? false : checked)}
           />
-          <Label htmlFor="includePageNumbers" className="cursor-pointer">Add page numbers</Label>
+          <Label 
+            htmlFor="includePageNumbers" 
+            className="cursor-pointer"
+            onClick={() => onSettingChange('includePageNumbers', !settings.includePageNumbers)}
+          >Add page numbers</Label>
         </div>
         
         <div className="flex items-center space-x-2">
@@ -242,6 +246,7 @@ const BookDetailsForm: React.FC<BookFormProps> = ({ settings, onSettingChange })
           <Label 
             htmlFor="bleed" 
             className="cursor-pointer"
+            onClick={() => onSettingChange('bleed', !settings.bleed)}
           >
             <div className="flex items-center">
               Include bleed (0.125" margin)
@@ -265,7 +270,11 @@ const BookDetailsForm: React.FC<BookFormProps> = ({ settings, onSettingChange })
             checked={settings.includeCoverPage}
             onCheckedChange={(checked: boolean | 'indeterminate') => onSettingChange('includeCoverPage', checked === 'indeterminate' ? false : checked)}
           />
-          <Label htmlFor="includeCoverPage" className="cursor-pointer">Include cover page</Label>
+          <Label 
+            htmlFor="includeCoverPage" 
+            className="cursor-pointer"
+            onClick={() => onSettingChange('includeCoverPage', !settings.includeCoverPage)}
+          >Include cover page</Label>
         </div>
       </div>
     </div>
@@ -434,7 +443,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.directions.horizontal}
               onCheckedChange={() => handleDirectionChange('horizontal')}
             />
-            <Label htmlFor="horizontal" className="cursor-pointer">Horizontal →</Label>
+            <Label 
+              htmlFor="horizontal" 
+              className="cursor-pointer"
+              onClick={() => handleDirectionChange('horizontal')}
+            >Horizontal →</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -442,7 +455,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.directions.vertical}
               onCheckedChange={() => handleDirectionChange('vertical')}
             />
-            <Label htmlFor="vertical" className="cursor-pointer">Vertical ↓</Label>
+            <Label 
+              htmlFor="vertical" 
+              className="cursor-pointer"
+              onClick={() => handleDirectionChange('vertical')}
+            >Vertical ↓</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -450,7 +467,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.directions.diagonal}
               onCheckedChange={() => handleDirectionChange('diagonal')}
             />
-            <Label htmlFor="diagonal" className="cursor-pointer">Diagonal ↘</Label>
+            <Label 
+              htmlFor="diagonal" 
+              className="cursor-pointer"
+              onClick={() => handleDirectionChange('diagonal')}
+            >Diagonal ↘</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -458,7 +479,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.directions.backward}
               onCheckedChange={() => handleDirectionChange('backward')}
             />
-            <Label htmlFor="backward" className="cursor-pointer">Backward ←</Label>
+            <Label 
+              htmlFor="backward" 
+              className="cursor-pointer"
+              onClick={() => handleDirectionChange('backward')}
+            >Backward ←</Label>
           </div>
         </div>
       </div>
@@ -511,7 +536,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.includeAnswers}
               onCheckedChange={(checked: boolean | 'indeterminate') => onSettingChange('includeAnswers', checked === 'indeterminate' ? false : checked)}
             />
-            <Label htmlFor="includeAnswers" className="cursor-pointer">Include answer key</Label>
+            <Label 
+              htmlFor="includeAnswers" 
+              className="cursor-pointer"
+              onClick={() => onSettingChange('includeAnswers', !settings.includeAnswers)}
+            >Include answer key</Label>
           </div>
           
           <div className="flex items-center space-x-2">
@@ -520,7 +549,11 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
               checked={settings.includeThemeFacts}
               onCheckedChange={(checked: boolean | 'indeterminate') => onSettingChange('includeThemeFacts', checked === 'indeterminate' ? false : checked)}
             />
-            <Label htmlFor="includeThemeFacts" className="cursor-pointer">Add fun facts about themes</Label>
+            <Label 
+              htmlFor="includeThemeFacts" 
+              className="cursor-pointer"
+              onClick={() => onSettingChange('includeThemeFacts', !settings.includeThemeFacts)}
+            >Add fun facts about themes</Label>
           </div>
         </div>
       </div>
@@ -619,7 +652,7 @@ export const WordSearchForm = ({
                 type="button"
                 onClick={() => setActiveTab('puzzle-content')}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 relative z-10"
               >
                 Next <ArrowLeft className="h-4 w-4 rotate-180" />
               </Button>
@@ -628,7 +661,7 @@ export const WordSearchForm = ({
                 type="button"
                 onClick={() => setActiveTab('book-details')}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 relative z-10"
               >
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
