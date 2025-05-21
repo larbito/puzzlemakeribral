@@ -516,8 +516,11 @@ export const ImageToPromptTab = () => {
                 alt="T-shirt design" 
                 className="w-full h-full object-contain p-4"
                 style={{ 
-                  backgroundColor: isDesignProcessed ? 'white' : 'transparent',
-                  borderRadius: isDesignProcessed ? '0.5rem' : '0'
+                  backgroundColor: isDesignProcessed ? 'transparent' : 'transparent',
+                  backgroundImage: isDesignProcessed ? 'linear-gradient(135deg, #f8f9fa 25%, #f0f2f5 25%, #f0f2f5 50%, #f8f9fa 50%, #f8f9fa 75%, #f0f2f5 75%, #f0f2f5 100%)' : 'none',
+                  backgroundSize: '30px 30px',
+                  backgroundPosition: '0 0',
+                  borderRadius: '0.5rem'
                 }}
               />
             ) : isGenerating ? (

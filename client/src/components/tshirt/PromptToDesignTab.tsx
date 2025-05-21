@@ -687,9 +687,9 @@ export const PromptToDesignTab = () => {
                   className="w-full h-full object-contain p-4"
                   style={{ 
                     backgroundColor: isCurrentImageProcessed ? 'transparent' : 'transparent',
-                    backgroundImage: isCurrentImageProcessed ? 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0), linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0)' : 'none',
-                    backgroundSize: '20px 20px',
-                    backgroundPosition: '0 0, 10px 10px',
+                    backgroundImage: isCurrentImageProcessed ? 'linear-gradient(135deg, #f8f9fa 25%, #f0f2f5 25%, #f0f2f5 50%, #f8f9fa 50%, #f8f9fa 75%, #f0f2f5 75%, #f0f2f5 100%)' : 'none',
+                    backgroundSize: '30px 30px',
+                    backgroundPosition: '0 0',
                     borderRadius: '0.5rem'
                   }}
                   onError={(e) => {
