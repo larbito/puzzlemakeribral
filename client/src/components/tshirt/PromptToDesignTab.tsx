@@ -244,7 +244,11 @@ export const PromptToDesignTab = () => {
     }
     
     console.log('Starting background removal process');
-    console.log('Current image state:', currentImage);
+    console.log('Current image state:', {
+      isEnhanced: currentImage.isEnhanced,
+      isBackgroundRemoved: currentImage.isBackgroundRemoved,
+      baseUrl: currentImage.baseUrl.substring(0, 50) + '...'
+    });
     
     // If the image is enhanced, show an info dialog about special handling
     if (currentImage.isEnhanced && !currentImage.isBackgroundRemoved) {
@@ -325,6 +329,14 @@ export const PromptToDesignTab = () => {
         imageToProcess.substring(0, 100), 
         wasEnhanced ? '(using enhanced image)' : '(using original image)');
       
+      // Always log image URL type to help with debugging
+      console.log('Image URL type check:', {
+        isReplicateUrl: imageToProcess.includes('replicate.delivery'),
+        isDataUrl: imageToProcess.startsWith('data:'),
+        isPhotoRoomResult: imageToProcess.includes('photoroom-result'),
+        fullUrlStart: imageToProcess.substring(0, 100)
+      });
+      
       // Log the state of the image we're processing for debugging
       console.log('Processing image state:', {
         isEnhanced: wasEnhanced,
@@ -336,22 +348,18 @@ export const PromptToDesignTab = () => {
       // Special handling for enhanced images with black backgrounds
       let processedImageUrl: string;
       
-      // If this is an enhanced image, log that we're using special handling
-      if (wasEnhanced) {
-        console.log('Special handling for enhanced image background removal');
+      // ALWAYS make the API call regardless of enhancement status
+      console.log('Calling removeBackground API with URL:', imageToProcess.substring(0, 100));
+      
+      try {
+        // Regular background removal for all images
+        processedImageUrl = await removeBackground(imageToProcess);
+        console.log('Background removal completed successfully, result URL:', processedImageUrl.substring(0, 100));
+      } catch (error) {
+        console.error('Error during background removal:', error);
         
-        try {
-          // Regular background removal first
-          processedImageUrl = await removeBackground(imageToProcess);
-          console.log('Background removal completed for enhanced image:', processedImageUrl.substring(0, 50) + '...');
-        } catch (error) {
-          console.error('Error during background removal of enhanced image:', error);
-          
-          // If background removal fails for the enhanced image, we'll try a different approach
-          // 1. Restore to original
-          // 2. Remove background from original
-          // 3. Re-enhance the image with transparent background
-          
+        if (wasEnhanced) {
+          // Fallback method for enhanced images
           console.log('Attempting fallback method: remove background from original, then re-enhance');
           toast.info('Using alternative processing method for enhanced image', {
             description: 'For best results with complex images'
@@ -362,13 +370,10 @@ export const PromptToDesignTab = () => {
           
           // Now re-enhance the background-removed image
           processedImageUrl = await enhanceImage(processedImageUrl);
-          
-          // Update processedImageUrl with the re-enhanced version
-          console.log('Successfully completed alternative processing pipeline');
+        } else {
+          // For non-enhanced images, just re-throw the error
+          throw error;
         }
-      } else {
-        // Standard background removal for non-enhanced images
-        processedImageUrl = await removeBackground(imageToProcess);
       }
       
       // Preview the image immediately before saving it

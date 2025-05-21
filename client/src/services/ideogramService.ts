@@ -611,6 +611,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       if (isReplicateUrl) {
         console.log("Detected enhanced image from Replicate, setting isEnhanced flag to true");
+        console.log("Full Replicate URL:", imageUrl);
       }
       
       // Special handling for Replicate URLs
@@ -685,7 +686,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       // Add flag to indicate this is a high-resolution image that should maintain quality
       formData.append('preserveQuality', 'true');
       
-      // Add flag to indicate this is an enhanced image if applicable
+      // Add flag to indicate this is an enhanced image if applicable - ALWAYS add this for Replicate URLs
       if (isReplicateUrl) {
         console.log("Adding isEnhanced=true flag to form data for enhanced image processing");
         formData.append('isEnhanced', 'true');
@@ -710,18 +711,27 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       // Create an AbortController for the timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const timeoutId = setTimeout(() => {
+        console.log("Background removal request timed out, aborting");
+        controller.abort()
+      }, timeout);
       
       try {
+        // Add additional headers for Replicate URLs to ensure proper handling
+        const headers: HeadersInit = {
+          'Accept': 'application/json',
+        };
+        
+        if (isReplicateUrl) {
+          headers['X-Enhanced-Image'] = 'true';
+        }
+        
         const response = await fetch(bgRemovalEndpoint, {
           method: 'POST',
           body: formData,
           mode: 'cors',
           signal: controller.signal,
-          // Add more detailed error handling
-          headers: {
-            'Accept': 'application/json',
-          }
+          headers
         });
         
         // Clear the timeout
