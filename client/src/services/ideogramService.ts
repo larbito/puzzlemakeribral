@@ -229,26 +229,93 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
     const toastId = toast.loading("Processing download...");
     
     try {
-      // If it's from our own server (/images/photoroom-result-{uniqueId}.png)
-      if (imageUrl.includes('/images/photoroom-result-')) {
-        console.log("Processing direct server image download");
-        // We can download directly
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `${filename}.${format.toLowerCase()}`;
+      // Special handling for enhanced images from Replicate
+      const isReplicateUrl = imageUrl.includes('replicate.delivery');
+      const isServerImageUrl = imageUrl.includes('/images/photoroom-result-');
+      
+      console.log("URL type detection:", { 
+        isReplicateUrl, 
+        isServerImageUrl,
+        imageUrl: imageUrl.substring(0, 50) + "..."
+      });
+      
+      if (isReplicateUrl) {
+        console.log("Using specialized handling for Replicate URL");
         
-        // For cross-origin URLs, we need to fetch first
+        // Always use proxy for Replicate URLs as they have restricted CORS
+        const proxyEndpoint = `${API_URL}/api/ideogram/proxy-image`;
+        const encodedUrl = encodeURIComponent(imageUrl);
+        const proxyUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}-enhanced.${format.toLowerCase()}`;
+        
+        console.log("Using proxy URL:", proxyUrl.substring(0, 100) + "...");
+        
+        // Use iframe download technique for reliability with large files
+        const downloadFrame = document.createElement('iframe');
+        downloadFrame.style.display = 'none';
+        document.body.appendChild(downloadFrame);
+        
+        // Set a timeout to ensure iframe is properly cleaned up
+        const cleanupTimeout = setTimeout(() => {
+          if (document.body.contains(downloadFrame)) {
+            console.log("Cleaning up iframe via timeout");
+            document.body.removeChild(downloadFrame);
+          }
+        }, 60000); // 1 minute max
+        
+        // Handle load/error events
+        downloadFrame.onload = () => {
+          console.log("Download iframe loaded");
+          setTimeout(() => {
+            clearTimeout(cleanupTimeout);
+            if (document.body.contains(downloadFrame)) {
+              document.body.removeChild(downloadFrame);
+            }
+          }, 1000);
+        };
+        
+        downloadFrame.onerror = () => {
+          console.error("Download iframe error");
+          clearTimeout(cleanupTimeout);
+          if (document.body.contains(downloadFrame)) {
+            document.body.removeChild(downloadFrame);
+          }
+          
+          // Fall back to window.open as a last resort
+          window.open(proxyUrl, '_blank');
+        };
+        
+        // Start the download
+        downloadFrame.src = proxyUrl;
+        
+        toast.dismiss(toastId);
+        toast.success(`Enhanced image download started`);
+        return;
+      }
+      // If it's from our own server (/images/photoroom-result-...)
+      else if (isServerImageUrl) {
+        console.log("Processing direct server image download");
+        
         try {
           // Fetch the image to handle potential CORS issues
+          console.log("Fetching image directly:", imageUrl.substring(0, 50) + "...");
           const response = await fetch(imageUrl);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          if (!response.ok) {
+            console.error("Direct fetch failed:", response.status, response.statusText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
           
           // Convert the response to a blob
           const blob = await response.blob();
+          console.log("Image fetched successfully, size:", Math.round(blob.size / 1024), "KB");
           
           // Create an object URL from the blob
           const objectUrl = URL.createObjectURL(blob);
+          
+          // Create a download link
+          const link = document.createElement('a');
           link.href = objectUrl;
+          link.download = `${filename}.${format.toLowerCase()}`;
           
           // Trigger the download
           document.body.appendChild(link);
@@ -260,6 +327,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
             URL.revokeObjectURL(objectUrl);
           }, 100);
           
+          console.log("Download completed successfully");
           toast.dismiss(toastId);
           toast.success(`Design downloaded as ${format.toUpperCase()}`);
           return;
@@ -269,7 +337,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
         }
       }
       
-      // For external URLs, use our backend proxy
+      // For all other external URLs, use our backend proxy
       console.log("Using backend proxy to download image");
       
       // Use our own backend proxy endpoint
@@ -277,30 +345,75 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       const encodedUrl = encodeURIComponent(imageUrl);
       const proxyUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
       
-      // Fetch through the proxy to properly handle the binary response
-      const response = await fetch(proxyUrl);
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      // Log the full URL we're calling for debugging
+      console.log("Proxy URL:", proxyUrl.substring(0, 100) + "...");
       
-      // Convert to blob
-      const blob = await response.blob();
+      // Fetch through the proxy with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      // Create a download link
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${filename}.${format.toLowerCase()}`;
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-      }, 100);
-      
-      toast.dismiss(toastId);
-      toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      try {
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          cache: 'no-store' // Prevent caching
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.error("Proxy fetch failed:", response.status, response.statusText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Convert to blob
+        const blob = await response.blob();
+        console.log("Proxy response received, size:", Math.round(blob.size / 1024), "KB");
+        
+        if (blob.size === 0) {
+          console.error("Received empty blob");
+          throw new Error("Received empty image data");
+        }
+        
+        // Create a download link
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${filename}.${format.toLowerCase()}`;
+        
+        // Trigger download
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          URL.revokeObjectURL(link.href);
+        }, 100);
+        
+        console.log("Download completed via proxy");
+        toast.dismiss(toastId);
+        toast.success(`Design downloaded as ${format.toUpperCase()}`);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        
+        if (fetchError.name === 'AbortError') {
+          console.error("Fetch timeout");
+          
+          // Fall back to direct download approach for timeout cases
+          const directLink = document.createElement('a');
+          directLink.href = proxyUrl;
+          directLink.download = `${filename}.${format.toLowerCase()}`;
+          directLink.target = '_blank';
+          document.body.appendChild(directLink);
+          directLink.click();
+          document.body.removeChild(directLink);
+          
+          toast.dismiss(toastId);
+          toast.success(`Download started in new tab`);
+          return;
+        }
+        
+        throw fetchError;
+      }
     } catch (error) {
       console.error("Error downloading image:", error);
       toast.dismiss(toastId);

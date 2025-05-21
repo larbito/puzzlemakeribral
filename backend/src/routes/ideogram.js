@@ -207,13 +207,28 @@ router.get('/proxy-image', async (req, res) => {
   console.log(`Proxying image download for: ${url}`);
   
   try {
-    // Fetch the image from the source URL
-    const imageResponse = await fetch(url, {
+    // Special handling for Replicate URLs
+    const isReplicateUrl = url.includes('replicate.delivery');
+    if (isReplicateUrl) {
+      console.log('Detected Replicate URL, using specialized handling');
+    }
+    
+    // Fetch the image from the source URL with appropriate timeout
+    const fetchOptions = {
       headers: {
         // Use a standard browser user agent
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
-      }
-    });
+      },
+      timeout: 30000 // 30 second timeout
+    };
+    
+    // For Replicate URLs, add specialized headers if needed
+    if (isReplicateUrl) {
+      fetchOptions.headers['Accept'] = 'image/*, */*;q=0.8';
+    }
+    
+    console.log('Fetching image with options:', fetchOptions);
+    const imageResponse = await fetch(url, fetchOptions);
     
     if (!imageResponse.ok) {
       console.error(`Failed to fetch image from source: ${imageResponse.status}`);
@@ -224,25 +239,71 @@ router.get('/proxy-image', async (req, res) => {
     
     // Get the content type of the image
     const contentType = imageResponse.headers.get('content-type') || 'image/png';
+    console.log('Content-Type from source:', contentType);
     
     // Get the image data as a buffer
-    const imageBuffer = await imageResponse.buffer();
+    const imageBuffer = await imageResponse.arrayBuffer().then(Buffer.from);
+    console.log(`Received image data: ${imageBuffer.length} bytes`);
     
-    // Set appropriate headers to force download
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename || 'image.png'}"`);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-cache');
+    // Check if we actually got image data
+    if (!imageBuffer || imageBuffer.length === 0) {
+      console.error('Received empty image data');
+      return res.status(500).json({ error: 'Received empty image data from source' });
+    }
     
-    // Send the image data
-    res.send(imageBuffer);
-    
-    console.log(`Successfully proxied image download for: ${url}`);
+    try {
+      // Try/catch around header setting to identify issues with headers
+      console.log('Setting response headers');
+      
+      // Set Content-Type first to avoid issues with other headers
+      res.setHeader('Content-Type', contentType);
+      console.log('Set Content-Type:', contentType);
+      
+      // Set other headers one by one for debugging
+      const finalFilename = filename || (isReplicateUrl ? 'enhanced-image.png' : 'image.png');
+      res.setHeader('Content-Disposition', `attachment; filename="${finalFilename}"`);
+      console.log('Set Content-Disposition with filename:', finalFilename);
+      
+      res.setHeader('Content-Length', imageBuffer.length);
+      console.log('Set Content-Length:', imageBuffer.length);
+      
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-cache');
+      
+      // Send the image data
+      console.log('Sending image data to client');
+      res.status(200).send(imageBuffer);
+      
+      console.log(`Successfully proxied image download for: ${url}`);
+    } catch (headerError) {
+      console.error('Error setting response headers:', headerError);
+      
+      // Try a simpler approach with minimal headers if we had issues with headers
+      res.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="image.png"`,
+        'Access-Control-Allow-Origin': '*'
+      });
+      
+      res.end(imageBuffer);
+      console.log('Sent image with simplified headers as fallback');
+    }
   } catch (error) {
     console.error('Error proxying image:', error);
+    
+    // Handle specific error types for better debugging
+    if (error.name === 'AbortError') {
+      return res.status(504).json({ error: 'Request timed out while fetching image' });
+    }
+    
+    if (error.code === 'ECONNRESET') {
+      return res.status(502).json({ error: 'Connection reset while fetching image' });
+    }
+    
     res.status(500).json({ 
       error: error.message || 'Failed to download image',
-      type: error.name
+      type: error.name,
+      stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
     });
   }
 });
