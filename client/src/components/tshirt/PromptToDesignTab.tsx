@@ -399,9 +399,17 @@ export const PromptToDesignTab = () => {
         }, 3000);
       });
       
+      console.log('Background removal completed. Updating UI with new image:', processedImageUrl.substring(0, 100));
+      
+      // Force a new image instance by adding a cache-busting parameter
+      const cacheBuster = new Date().getTime();
+      const imageUrlWithCacheBuster = processedImageUrl.includes('?') 
+        ? `${processedImageUrl}&t=${cacheBuster}` 
+        : `${processedImageUrl}?t=${cacheBuster}`;
+      
       // Update the base image URL with the background-removed version
       updateCurrentImage({
-        baseUrl: processedImageUrl,
+        baseUrl: imageUrlWithCacheBuster,
         isBackgroundRemoved: true,
         isEnhanced: wasEnhanced // Preserve enhanced status
       });
@@ -415,7 +423,7 @@ export const PromptToDesignTab = () => {
           const cachedImages = [...images];
           cachedImages[currentIdx] = {
             ...cachedImages[currentIdx],
-            baseUrl: processedImageUrl,
+            baseUrl: imageUrlWithCacheBuster,
             isBackgroundRemoved: true,
             isEnhanced: wasEnhanced
           };
@@ -455,10 +463,16 @@ export const PromptToDesignTab = () => {
       const enhancedImageUrl = await enhanceImage(currentImage.baseUrl);
       console.log('Enhancement successful, new image URL:', enhancedImageUrl.substring(0, 100));
       
+      // Add cache-busting for consistent behavior with background removal
+      const cacheBuster = new Date().getTime();
+      const enhancedImageWithCacheBuster = enhancedImageUrl.includes('?') 
+        ? `${enhancedImageUrl}&t=${cacheBuster}` 
+        : `${enhancedImageUrl}?t=${cacheBuster}`;
+      
       // Update the base image with the enhanced version
       // Make sure to preserve the background removed status
       updateCurrentImage({
-        baseUrl: enhancedImageUrl,
+        baseUrl: enhancedImageWithCacheBuster,
         isEnhanced: true,
         isBackgroundRemoved: wasBackgroundRemoved // Explicitly preserve background status
       });
@@ -471,7 +485,7 @@ export const PromptToDesignTab = () => {
           const cachedImages = [...images];
           cachedImages[currentIdx] = {
             ...cachedImages[currentIdx],
-            baseUrl: enhancedImageUrl,
+            baseUrl: enhancedImageWithCacheBuster,
             isEnhanced: true,
             isBackgroundRemoved: wasBackgroundRemoved
           };
@@ -646,8 +660,22 @@ export const PromptToDesignTab = () => {
                   alt="Generated T-shirt design" 
                   className="w-full h-full object-contain p-4"
                   style={{ 
-                    backgroundColor: isCurrentImageProcessed ? 'white' : 'transparent',
-                    borderRadius: isCurrentImageProcessed ? '0.5rem' : '0'
+                    backgroundColor: isCurrentImageProcessed ? 'transparent' : 'transparent',
+                    backgroundImage: isCurrentImageProcessed ? 'linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0), linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0)' : 'none',
+                    backgroundSize: '20px 20px',
+                    backgroundPosition: '0 0, 10px 10px',
+                    borderRadius: '0.5rem'
+                  }}
+                  onError={(e) => {
+                    console.error('Error loading image in preview:', e);
+                    // Try to reload the image with a cache-buster
+                    const target = e.target as HTMLImageElement;
+                    if (target && target.src && !target.src.includes('t=')) {
+                      const cacheBuster = new Date().getTime();
+                      target.src = target.src.includes('?') 
+                        ? `${target.src}&t=${cacheBuster}` 
+                        : `${target.src}?t=${cacheBuster}`;
+                    }
                   }}
                 />
                 
