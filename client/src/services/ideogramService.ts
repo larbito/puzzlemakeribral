@@ -748,6 +748,7 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         
         if (isReplicateUrl) {
           headers['X-Enhanced-Image'] = 'true';
+          headers['x-enhanced'] = 'true'; // Add lowercase version to match error message
         }
         
       const response = await fetch(bgRemovalEndpoint, {

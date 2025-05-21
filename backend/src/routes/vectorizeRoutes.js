@@ -28,7 +28,24 @@ router.post('/', processFormData, vectorizeImage);
  * @desc Remove background from an image using PhotoRoom API
  * @access Public
  */
-router.post('/remove-background', upload.single('image'), removeBackground);
+router.post('/remove-background', 
+  // Add CORS middleware specifically for this route
+  (req, res, next) => {
+    // Add CORS headers to the response
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, Cache-Control, Pragma, Expires, Origin, X-Enhanced-Image, x-enhanced');
+    
+    // Handle preflight request
+    if (req.method === 'OPTIONS') {
+      return res.status(200).send();
+    }
+    
+    next();
+  },
+  upload.single('image'), 
+  removeBackground
+);
 
 /**
  * @route GET /api/vectorize/check-api
