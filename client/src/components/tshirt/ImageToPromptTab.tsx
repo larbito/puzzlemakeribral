@@ -284,11 +284,36 @@ export const ImageToPromptTab = () => {
     setIsEnhancing(true);
     
     try {
+      console.log('Enhancing image:', imageToEnhance.substring(0, 100) + '...');
+      console.log('Using enhancement model:', selectedEnhancementModel);
+      
       // Call the enhancement service with the selected model
       const enhancedImageUrl = await enhanceImage(imageToEnhance, selectedEnhancementModel);
+      console.log('Enhancement completed, received URL:', enhancedImageUrl.substring(0, 100) + '...');
+      
+      // Add cache-busting for consistency
+      const cacheBuster = new Date().getTime();
+      const cachedEnhancedUrl = enhancedImageUrl.includes('?') 
+        ? `${enhancedImageUrl}&t=${cacheBuster}` 
+        : `${enhancedImageUrl}?t=${cacheBuster}`;
       
       // Save the enhanced image URL
-      setEnhancedDesign(enhancedImageUrl);
+      setEnhancedDesign(cachedEnhancedUrl);
+      
+      // IMPORTANT: Update the processed design to the enhanced version
+      // This way the UI will show the enhanced image
+      setProcessedDesign(cachedEnhancedUrl);
+      
+      // Preserve background removal status
+      if (isBackgroundRemoved) {
+        // If background was already removed, we need to remove it again from the enhanced image
+        toast.info('Re-applying background removal to enhanced image', {
+          duration: 3000
+        });
+        
+        // Wait a bit to let the UI update
+        setTimeout(() => handleRemoveBackground(), 1000);
+      }
       
       toast.success('Image enhanced successfully!', {
         duration: 4000,
@@ -346,9 +371,9 @@ export const ImageToPromptTab = () => {
       <div className="relative">
         <div className="flex space-x-1">
           <Button
-            onClick={() => setShowEnhancementModels(!showEnhancementModels)}
+            onClick={handleEnhanceImage}
             variant="secondary"
-            disabled={!generatedDesign || isEnhancing}
+            disabled={!processedDesign || isEnhancing}
             className="flex-grow"
           >
             {isEnhancing ? (
@@ -364,13 +389,13 @@ export const ImageToPromptTab = () => {
             )}
           </Button>
           <Button
-            onClick={handleEnhanceImage}
+            onClick={() => setShowEnhancementModels(!showEnhancementModels)}
             variant="outline"
-            disabled={!generatedDesign || isEnhancing}
+            disabled={!processedDesign || isEnhancing}
             className="px-2"
-            title="Apply enhancement with selected model"
+            title="Select enhancement model"
           >
-            <ArrowRight className="h-4 w-4" />
+            <ChevronDown className="h-4 w-4" />
           </Button>
         </div>
         
