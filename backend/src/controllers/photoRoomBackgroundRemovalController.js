@@ -96,23 +96,64 @@ exports.removeBackground = async (req, res) => {
       
       // Save the processed image to a file with unique name
       console.log('Saving processed image to:', filePath);
-      fs.writeFileSync(filePath, Buffer.from(response.data));
+      try {
+        // Use writeFile with promises for better error handling
+        await fs.promises.writeFile(filePath, Buffer.from(response.data));
+        
+        // Double-check that the file was saved successfully
+        const fileStats = await fs.promises.stat(filePath);
+        console.log(`File saved successfully. Size: ${fileStats.size} bytes`);
+        
+        if (fileStats.size === 0) {
+          console.error('File was saved but is empty');
+          throw new Error('File was saved but is empty');
+        }
+      } catch (fileError) {
+        console.error('Error saving file:', fileError);
+        
+        // Try an alternative approach if the first method fails
+        try {
+          console.log('Trying alternative file saving method...');
+          fs.writeFileSync(filePath, Buffer.from(response.data));
+          console.log('File saved using synchronous method');
+        } catch (fallbackError) {
+          console.error('Both file saving methods failed:', fallbackError);
+          return res.status(500).json({
+            error: 'Failed to save processed image',
+            details: fallbackError.message
+          });
+        }
+      }
       
       // Create a proper URL based on the environment
       // Get the Railway public URL in production, or use localhost for development
-      const baseUrl = process.env.API_URL || (process.env.RAILWAY_PUBLIC_DOMAIN 
-        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
-        : 'http://localhost:3001');
+      const baseUrl = process.env.API_URL || 
+        (process.env.RAILWAY_PUBLIC_DOMAIN 
+          ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
+          : 'http://localhost:3001');
       console.log('Using base URL for image:', baseUrl);
       
-      const outputUrl = `${baseUrl}/images/${fileName}`;
+      // Ensure URL doesn't have double slashes
+      const outputUrl = `${baseUrl}/images/${fileName}`.replace(/([^:]\/)\/+/g, "$1");
       console.log('Generated image URL:', outputUrl);
       
-      // Return success response with the image URL
-      return res.status(200).json({
+      // Return additional debug info in development
+      const responseData = {
         imageUrl: outputUrl,
         success: true
-      });
+      };
+      
+      if (process.env.NODE_ENV !== 'production') {
+        responseData.debug = {
+          filePath,
+          fileExists: fs.existsSync(filePath),
+          baseUrl,
+          timestamp: Date.now()
+        };
+      }
+      
+      // Return success response with the image URL
+      return res.status(200).json(responseData);
     } catch (error) {
       console.error('Error in PhotoRoom background removal process:', error);
       console.error('Error details:', error.response ? {

@@ -168,7 +168,50 @@ if (!fs.existsSync(imagesDir)) {
     console.error('Failed to create images directory:', error);
   }
 }
-app.use('/images', express.static(imagesDir));
+
+// Enhanced static file serving for images with custom options and CORS headers
+app.use('/images', (req, res, next) => {
+  // Add CORS headers specifically for image files
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  // Log the image request for debugging
+  console.log(`Image request: ${req.path}`);
+  next();
+}, express.static(imagesDir, {
+  maxAge: 0, // Don't cache images
+  etag: false, // Don't use etags to prevent 304 responses
+  lastModified: false, // Don't use last-modified to prevent 304 responses
+  setHeaders: (res) => {
+    // Ensure images are always sent with proper headers
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Content-Type', 'image/png');
+  }
+}));
+
+// Special route to handle direct image access
+app.get('/images/:filename', (req, res, next) => {
+  const filename = req.params.filename;
+  const imagePath = path.join(imagesDir, filename);
+  
+  console.log(`Direct image access request for: ${filename}`);
+  console.log(`Checking if file exists at: ${imagePath}`);
+  
+  // Check if file exists
+  if (fs.existsSync(imagePath)) {
+    console.log(`Image file found, serving: ${filename}`);
+    res.setHeader('Content-Type', 'image/png');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    fs.createReadStream(imagePath).pipe(res);
+  } else {
+    console.error(`Image file not found: ${filename}`);
+    // Pass to next handler which will return 404
+    next();
+  }
+});
 
 // Keep the temporary file route for backward compatibility
 app.get('/temp-photoroom-result.png', (req, res) => {
