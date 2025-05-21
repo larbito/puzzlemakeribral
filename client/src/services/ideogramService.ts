@@ -588,34 +588,64 @@ export async function removeBackground(imageUrl: string): Promise<string> {
     const toastId = toast.loading("Removing background...");
     
     try {
+      // Check if this is an enhanced image from Replicate
+      const isReplicateUrl = imageUrl.includes('replicate.delivery');
+      
+      if (isReplicateUrl) {
+        console.log("Detected enhanced image from Replicate");
+      }
+      
       let imageBlob: Blob;
       
-      // Process the image while preserving as much of the original quality as possible
-      try {
-        console.log("Preparing image for processing...");
-        // Match enhancement scale - use 1200 for standard and 2400 for enhanced images
-        // This is higher than before (800) to preserve enhanced image quality
-        imageBlob = await resizeImageForVectorization(imageUrl, 2400); // Much higher max width to preserve enhanced quality
-        console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
-      } catch (resizeError) {
-        console.error("Error resizing image:", resizeError);
+      // Special handling for Replicate URLs
+      if (isReplicateUrl) {
+        console.log("Using direct proxy method for Replicate images");
         
-        // Fallback to direct fetch if resizing fails
-        console.log("Falling back to direct image fetch...");
-        if (imageUrl.startsWith('data:')) {
-          // Convert data URL to blob
-          const response = await fetch(imageUrl);
-          imageBlob = await response.blob();
-        } else {
-          // For regular URLs, proxy through our backend to avoid CORS issues
+        try {
+          // For Replicate URLs, we'll fetch through our proxy endpoint directly
           const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+          console.log("Fetching enhanced image via proxy:", proxyUrl.substring(0, 100) + "...");
+          
           const response = await fetch(proxyUrl);
           
           if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status}`);
+            throw new Error(`Failed to fetch enhanced image: ${response.status}`);
           }
           
           imageBlob = await response.blob();
+          console.log(`Enhanced image fetched successfully: ${Math.round(imageBlob.size / 1024)} KB`);
+        } catch (replicateError) {
+          console.error("Error fetching Replicate image:", replicateError);
+          throw new Error(`Failed to process enhanced image: ${replicateError instanceof Error ? replicateError.message : 'Unknown error'}`);
+        }
+      } else {
+        // Standard processing for non-Replicate images
+        try {
+          console.log("Preparing image for processing...");
+          // Match enhancement scale - use 1200 for standard and 2400 for enhanced images
+          // This is higher than before (800) to preserve enhanced image quality
+          imageBlob = await resizeImageForVectorization(imageUrl, 2400); // Much higher max width to preserve enhanced quality
+          console.log(`Image prepared for processing, size: ${Math.round(imageBlob.size / 1024)} KB`);
+        } catch (resizeError) {
+          console.error("Error resizing image:", resizeError);
+          
+          // Fallback to direct fetch if resizing fails
+          console.log("Falling back to direct image fetch...");
+          if (imageUrl.startsWith('data:')) {
+            // Convert data URL to blob
+            const response = await fetch(imageUrl);
+            imageBlob = await response.blob();
+          } else {
+            // For regular URLs, proxy through our backend to avoid CORS issues
+            const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+            const response = await fetch(proxyUrl);
+            
+            if (!response.ok) {
+              throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
+            imageBlob = await response.blob();
+          }
         }
       }
       
@@ -633,6 +663,11 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       // Add flag to indicate this is a high-resolution image that should maintain quality
       formData.append('preserveQuality', 'true');
+      
+      // Add flag to indicate this is an enhanced image if applicable
+      if (isReplicateUrl) {
+        formData.append('isEnhanced', 'true');
+      }
       
       console.log("Submitting image to background removal service");
       
@@ -1735,8 +1770,8 @@ export function forceProxyForIdeogramUrl(url: string): string {
       return url;
     }
     
-    // If it's an ideogram.ai URL, proxy it
-    if (url.includes('ideogram.ai')) {
+    // If it's an ideogram.ai URL or a replicate.delivery URL, proxy it
+    if (url.includes('ideogram.ai') || url.includes('replicate.delivery')) {
       return `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(url)}`;
     }
     
@@ -2033,6 +2068,14 @@ export async function enhanceImage(imageUrl: string, model?: string): Promise<st
 async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 1200): Promise<Blob> {
   return new Promise(async (resolve, reject) => {
     try {
+      console.log("Resizing image:", imageUrl.substring(0, 100) + "...");
+      
+      // Detect if this is a replicate.delivery URL from enhancement
+      const isReplicateUrl = imageUrl.includes('replicate.delivery');
+      if (isReplicateUrl) {
+        console.log("Detected Replicate URL, ensuring proper proxy handling");
+      }
+      
       // Create an image element to load the source
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -2092,9 +2135,47 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 
       };
 
       // Handle image loading error
-      img.onerror = () => {
+      img.onerror = (error) => {
         clearTimeout(timeoutId);
-        reject(new Error('Failed to load image for resizing'));
+        console.error("Error loading image for resize:", error);
+        
+        // If it's a Replicate URL, we may need additional proxy handling
+        if (isReplicateUrl) {
+          console.warn("Failed to load Replicate image directly, using fallback proxy method");
+          
+          // Special handling for Replicate URLs that might need direct proxy fetch
+          try {
+            const proxyUrl = `${API_URL}/api/ideogram/proxy-image?url=${encodeURIComponent(imageUrl)}`;
+            console.log("Using backend proxy URL:", proxyUrl);
+            
+            // Fetch the image through our backend proxy
+            fetch(proxyUrl)
+              .then(response => {
+                if (!response.ok) {
+                  reject(new Error(`Failed to fetch image via proxy: ${response.status}`));
+                  return;
+                }
+                return response.blob();
+              })
+              .then(blob => {
+                if (blob) {
+                  console.log(`Image fetched through proxy: ${blob.size} bytes`);
+                  resolve(blob);
+                } else {
+                  reject(new Error('Failed to get blob from proxy'));
+                }
+              })
+              .catch(proxyError => {
+                console.error("Proxy fetch error:", proxyError);
+                reject(proxyError);
+              });
+          } catch (fallbackError) {
+            console.error("Fallback proxy attempt failed:", fallbackError);
+            reject(fallbackError);
+          }
+        } else {
+          reject(new Error('Failed to load image for resizing'));
+        }
       };
 
       // Set the source to start loading the image
@@ -2104,6 +2185,7 @@ async function resizeImageForVectorization(imageUrl: string, maxWidth: number = 
       } else {
         // Use the proxy to load images from other domains
         const proxiedUrl = forceProxyForIdeogramUrl(imageUrl);
+        console.log("Using proxied URL:", proxiedUrl.substring(0, 100) + "...");
         img.src = proxiedUrl;
       }
     } catch (error) {
