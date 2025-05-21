@@ -213,30 +213,63 @@ export const PromptToDesignTab = () => {
     try {
       // If this is a restore original action
       if (currentImage.isBackgroundRemoved && currentImage.originalUrl) {
-        updateCurrentImage({
-          baseUrl: currentImage.originalUrl,
-          isBackgroundRemoved: false,
-          // Keep enhanced status if it was enhanced
-          // We're just restoring the background
-        });
+        // When restoring background, maintain enhancement status
+        if (currentImage.isEnhanced) {
+          // If it was enhanced, restore to the enhanced version without background removal
+          const enhancedWithBg = images.find(img => 
+            img.id === currentImage.id && img.isEnhanced && !img.isBackgroundRemoved
+          )?.baseUrl;
+          
+          if (enhancedWithBg) {
+            // We found a previous enhanced version with background
+            updateCurrentImage({
+              baseUrl: enhancedWithBg,
+              isBackgroundRemoved: false,
+              // Keep enhanced status
+              isEnhanced: true
+            });
+          } else {
+            // We don't have a cached enhanced version with background
+            // Default to original but mark it for re-enhancement
+            updateCurrentImage({
+              baseUrl: currentImage.originalUrl,
+              isBackgroundRemoved: false,
+              // Temporarily set isEnhanced to false so we can re-enhance
+              isEnhanced: false
+            });
+            
+            // Re-enhance the image automatically
+            setTimeout(() => handleEnhanceImage(), 500);
+          }
+        } else {
+          // If not enhanced, simply restore to original
+          updateCurrentImage({
+            baseUrl: currentImage.originalUrl,
+            isBackgroundRemoved: false,
+            isEnhanced: false
+          });
+        }
         
         toast.success('Restored background');
         setIsProcessing(false);
         return;
       }
       
-      // Determine which image to process:
-      // 1. If this is a re-process on an already processed image,
-      //    use the original to avoid quality loss
-      // 2. Otherwise use the current image
-      const imageToProcess = currentImage.isBackgroundRemoved && currentImage.originalUrl
-        ? currentImage.originalUrl // Use original for best quality when reprocessing
-        : currentImage.baseUrl;
+      // MAIN FIX: Use the current baseUrl which reflects the actual current state
+      // whether it's enhanced or not
+      const imageToProcess = currentImage.baseUrl;
       
-      // Make the API call with the determined source image
       console.log('Sending image to background removal API:', 
         imageToProcess.substring(0, 100), 
-        currentImage.isBackgroundRemoved ? '(using original image)' : '(using current image)');
+        currentImage.isEnhanced ? '(using enhanced image)' : '(using original image)');
+      
+      // Log the state of the image we're processing for debugging
+      console.log('Processing image state:', {
+        isEnhanced: currentImage.isEnhanced,
+        isBackgroundRemoved: currentImage.isBackgroundRemoved,
+        baseUrl: currentImage.baseUrl.substring(0, 50) + '...',
+        originalUrl: currentImage.originalUrl.substring(0, 50) + '...'
+      });
       
       const processedImageUrl = await removeBackground(imageToProcess);
       
@@ -272,9 +305,10 @@ export const PromptToDesignTab = () => {
       updateCurrentImage({
         baseUrl: processedImageUrl,
         isBackgroundRemoved: true
+        // Keep the isEnhanced status as is
       });
       
-      toast.success('Background removed successfully!');
+      toast.success(`Background removed successfully${currentImage.isEnhanced ? ' from enhanced image' : ''}!`);
     } catch (error) {
       console.error('Error removing background:', error);
       toast.error('Failed to remove background');
