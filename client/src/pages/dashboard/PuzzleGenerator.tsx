@@ -108,25 +108,34 @@ export const PuzzleGenerator = () => {
       return;
     }
     
+    console.log('Starting puzzle generation...');
+    console.log('Settings:', JSON.stringify(wordSearchSettings, null, 2));
+    
     setGenerationStatus('generating');
     
     try {
       // Call API to generate the puzzle book
+      console.log('Calling wordSearchApi.generateWordSearch...');
       const jobId = await wordSearchApi.generateWordSearch(wordSearchSettings);
+      console.log('Received jobId:', jobId);
       
       // Poll for job status
+      console.log('Starting status polling...');
       const result = await wordSearchApi.pollGenerationStatus(jobId, (progress) => {
         // Update progress indicator if needed
         console.log(`Generation progress: ${progress}%`);
       });
+      console.log('Final result:', JSON.stringify(result, null, 2));
       
       // Check final status
       if (result.status === 'completed' && result.downloadUrl) {
         // Store download URL
+        console.log('Generation completed, setting download URL:', result.downloadUrl);
         setDownloadUrl(result.downloadUrl);
         setGenerationStatus('complete');
         setShowPreview(true); // Show preview when generation is complete
       } else {
+        console.error('Generation failed or no download URL provided:', result);
         setGenerationError(result.error || 'Failed to generate puzzle book');
         setGenerationStatus('error');
       }

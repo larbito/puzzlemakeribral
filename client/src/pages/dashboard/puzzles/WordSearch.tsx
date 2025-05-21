@@ -668,10 +668,15 @@ export const WordSearchForm = ({
             )}
             
             <Button
-              onClick={onGenerate}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log("Generate button clicked, calling onGenerate()");
+                onGenerate();
+              }}
               disabled={!isFormValid || generationStatus === 'generating'}
               className={cn(
-                "bg-gradient-to-r from-primary to-secondary hover:opacity-90",
+                "bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative z-10",
                 !isFormValid && "opacity-70 cursor-not-allowed"
               )}
             >

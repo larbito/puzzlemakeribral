@@ -24,6 +24,8 @@ const generationJobs = {};
  */
 exports.generateWordSearch = async (req, res) => {
   try {
+    console.log('📝 Received word search generation request:', JSON.stringify(req.body, null, 2));
+    
     const {
       title,
       subtitle,
@@ -49,6 +51,7 @@ exports.generateWordSearch = async (req, res) => {
     
     // Create a job ID
     const jobId = uuidv4();
+    console.log(`🆔 Created job ID: ${jobId}`);
     
     // Store job with initial status
     generationJobs[jobId] = {
@@ -63,6 +66,7 @@ exports.generateWordSearch = async (req, res) => {
       jobId,
       message: 'Word search generation started'
     });
+    console.log(`✅ Responded with job ID: ${jobId}`);
     
     // Process generation in background
     (async () => {
