@@ -22,7 +22,21 @@ import {
   Wand2,
   Zap,
   InfoIcon,
-  CheckIcon
+  CheckIcon,
+  Clock,
+  Cat,
+  Leaf,
+  Type,
+  Paintbrush,
+  Palette,
+  Music,
+  Skull,
+  CircleDashed,
+  LayoutGrid,
+  FileCode,
+  PenTool,
+  Dice1,
+  Layers
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
@@ -60,6 +74,8 @@ interface DesignImage {
   isBackgroundRemoved: boolean;
   isEnhanced: boolean;
 }
+
+// We no longer need the DesignStyle interface since we removed icons
 
 export const PromptToDesignTab = () => {
   // Core state variables
@@ -124,22 +140,17 @@ export const PromptToDesignTab = () => {
   // Define available t-shirt design styles
   const designStyles = [
     { value: 'any', label: 'Any Style' },
-    { value: 'illustrated', label: 'Illustrated' },
-    { value: 'realistic', label: 'Realistic' },
+    { value: 'retro', label: 'Retro Vintage' },
     { value: 'minimalist', label: 'Minimalist' },
-    { value: 'vintage', label: 'Vintage/Retro' },
-    { value: 'watercolor', label: 'Watercolor' },
-    { value: 'abstract', label: 'Abstract' },
-    { value: 'geometric', label: 'Geometric' },
-    { value: 'cartoon', label: 'Cartoon' },
+    { value: 'nature', label: 'Nature-Inspired' },
     { value: 'typography', label: 'Typography' },
-    { value: 'gothic', label: 'Gothic/Dark' },
-    { value: 'popart', label: 'Pop Art' },
-    { value: 'cyberpunk', label: 'Cyberpunk' },
-    { value: 'pixelart', label: 'Pixel Art' },
-    { value: '3drender', label: '3D Render' },
-    { value: 'handdrawn', label: 'Hand Drawn' },
-    { value: 'psychedelic', label: 'Psychedelic' }
+    { value: 'psychedelic', label: 'Psychedelic' },
+    { value: 'kawaii', label: 'Kawaii' },
+    { value: 'grunge', label: 'Grunge' },
+    { value: 'tiedye', label: 'Tie-Dye' },
+    { value: 'blackwhite', label: 'Black & White' },
+    { value: 'gradient', label: 'Gradient' },
+    { value: '3dtypo', label: '3D Typography' }
   ];
 
   // Handle generating the design
@@ -416,31 +427,33 @@ export const PromptToDesignTab = () => {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
               />
-              
-              {/* Style selector for prompt enhancement */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1">
-                  <Label htmlFor="designStyle" className="text-xs font-medium text-muted-foreground mb-1 block">
-                    Design Style for Enhancement
-                  </Label>
-                  <Select 
-                    value={designStyle} 
-                    onValueChange={setDesignStyle}
-                  >
-                    <SelectTrigger id="designStyle" className="h-8 text-xs border-primary/20 focus:border-primary">
-                      <SelectValue placeholder="Select style for AI enhancement" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {designStyles.map((style) => (
-                        <SelectItem key={style.value} value={style.value}>
-                          {style.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
+              {/* Style buttons for prompt enhancement */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground block">
+                  Select Design Style for Enhancement
+                </Label>
                 
-                <div className="flex items-center gap-2 self-end">
+                <div className="overflow-x-auto">
+                  <div className="grid grid-cols-6 gap-2 min-w-max pb-1">
+                    {designStyles.map((style) => (
+                      <button
+                        key={style.value}
+                        type="button"
+                        onClick={() => setDesignStyle(style.value)}
+                        className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${
+                          designStyle === style.value 
+                            ? 'border-primary bg-primary/10 text-primary' 
+                            : 'border-gray-200 hover:border-primary/30 hover:bg-primary/5'
+                        }`}
+                      >
+                        <span className="text-xs font-medium">{style.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 mt-2">
                   <Button
                     size="sm"
                     variant="outline"
@@ -460,7 +473,7 @@ export const PromptToDesignTab = () => {
                       </>
                     )}
                   </Button>
-                  <Badge variant="outline" className="ml-auto h-7">
+                  <Badge variant="outline" className="h-7">
                     {prompt.length}/500
                   </Badge>
                 </div>
