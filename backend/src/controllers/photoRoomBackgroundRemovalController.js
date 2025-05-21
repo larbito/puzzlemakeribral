@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const FormData = require('form-data');
 
 // Check for PhotoRoom API key in environment variables
 const PHOTOROOM_API_KEY = process.env.PHOTOROOM_API_KEY || '';
@@ -46,15 +47,23 @@ exports.removeBackground = async (req, res) => {
       const photoRoomUrl = 'https://sdk.photoroom.com/v1/segment';
       
       console.log('Calling PhotoRoom API...');
-      // Log full headers for debug purposes - remove in production
-      const headers = {
-        'Content-Type': 'application/octet-stream',
-        'X-Api-Key': PHOTOROOM_API_KEY
-      };
-      console.log('Request headers:', JSON.stringify(headers));
       
-      const response = await axios.post(photoRoomUrl, imageBuffer, {
-        headers,
+      // Create a FormData object to properly format the multipart/form-data request
+      const formData = new FormData();
+      formData.append('image_file', imageBuffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype
+      });
+      
+      // Log headers for troubleshooting
+      console.log('Using API key header: x-api-key');
+      
+      // Important: Use the correct header name 'x-api-key' (not Authorization or Bearer)
+      const response = await axios.post(photoRoomUrl, formData, {
+        headers: {
+          'x-api-key': PHOTOROOM_API_KEY,
+          ...formData.getHeaders() // Get the headers from FormData including Content-Type
+        },
         responseType: 'arraybuffer'
       });
       
@@ -92,7 +101,7 @@ exports.removeBackground = async (req, res) => {
       console.error('Error details:', error.response ? {
         status: error.response.status,
         statusText: error.response.statusText,
-        data: error.response.data
+        data: error.response.data 
       } : 'No response details');
       
       return res.status(500).json({
