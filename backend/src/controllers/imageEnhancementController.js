@@ -4,10 +4,10 @@ const path = require('path');
 const axios = require('axios');
 
 // Initialize Replicate with the API token from environment variables
-// Check both possible environment variable names
+// NOTE: We're using Replicate for image enhancement and PhotoRoom for background removal
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN || process.env.REPLICATE_API_KEY || '';
 
-// Log token availability for debugging
+// Debug log for API token presence (don't log the actual token)
 console.log('Replicate API Token available:', !!REPLICATE_API_TOKEN);
 
 // Define available enhancement models

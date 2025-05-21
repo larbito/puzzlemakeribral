@@ -412,72 +412,27 @@ export async function imageToPrompt(imageFile: File, type: 'tshirt' | 'coloring'
   }
 }
 
-// Define available background removal models with friendly names
+// Simplified background removal model - just one model now with PhotoRoom
 export const backgroundRemovalModels = {
-  "default": {
-    id: "851-labs/background-remover",
-    name: "Standard Removal (Default)"
-  },
-  "men1scus/birefnet": {
-    id: "men1scus/birefnet",
-    name: "Pro Edge Detection"
-  },
-  "lucataco/remove-bg": {
-    id: "lucataco/remove-bg",
-    name: "Perfect Cutout"
-  },
-  "851-labs/background-remover": {
-    id: "851-labs/background-remover",
-    name: "Precision Focus"
-  },
-  "smoretalk/rembg-enhance": {
-    id: "smoretalk/rembg-enhance",
-    name: "Enhanced Detail"
-  },
-  "codeplugtech/background_remover": {
-    id: "codeplugtech/background_remover", 
-    name: "Clean Edges"
-  },
-  "pollinations/modnet": {
-    id: "pollinations/modnet",
-    name: "Portrait Specialist"
+  "photoroom": {
+    id: "photoroom",
+    name: "PhotoRoom Background Removal"
   }
 };
 
-// Fetch available background removal models from the API
+// Simplified getBackgroundRemovalModels function - returns just the PhotoRoom model
 export async function getBackgroundRemovalModels(): Promise<{id: string, name: string}[]> {
-  try {
-    const response = await fetch(`${API_URL}/api/vectorize/background-removal-models`);
-    
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data.models || !Array.isArray(data.models)) {
-      throw new Error('Invalid response format');
-    }
-    
-    return data.models.map((model: any) => ({
-      id: model.id,
-      name: model.name
-    }));
-  } catch (error) {
-    console.error('Error fetching background removal models:', error);
-    
-    // Return the hardcoded models as fallback
-    return Object.values(backgroundRemovalModels);
-  }
+  // Return only the PhotoRoom model
+  return Object.values(backgroundRemovalModels);
 }
 
-// Replace the existing removeBackground function with this updated version
-export async function removeBackground(imageUrl: string, modelId: string | null = null): Promise<string> {
+// Updated removeBackground function that doesn't need modelId parameter
+export async function removeBackground(imageUrl: string): Promise<string> {
   try {
     console.log("========== BACKGROUND REMOVAL DEBUG ==========");
     console.log("Starting background removal for image:", imageUrl.substring(0, 100) + "...");
     console.log("Current API_URL:", API_URL);
-    console.log("Using model:", modelId || "default (backend choice)");
+    console.log("Using PhotoRoom API for background removal");
     
     // Create a toast to indicate processing is in progress
     const toastId = toast.loading("Removing background...");
@@ -526,11 +481,6 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
       
-      // Add model ID if provided
-      if (modelId) {
-        formData.append('modelId', modelId);
-      }
-      
       // Add flag to indicate this is a high-resolution image that should maintain quality
       formData.append('preserveQuality', 'true');
       
@@ -564,7 +514,6 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
         console.error(`Background removal API error: ${response.status}`, errorText);
         console.error("Request details:", {
           endpoint: bgRemovalEndpoint,
-          modelId: modelId,
           imageSize: imageBlob.size
         });
         
@@ -639,7 +588,7 @@ export async function removeBackground(imageUrl: string, modelId: string | null 
       toast.dismiss(toastId);
       toast.success("Background removed successfully!", {
         duration: 4000,
-        description: `Using model: ${data.modelUsed || modelId || 'default'}`
+        description: "Using PhotoRoom background removal"
       });
       
       console.log("========== BACKGROUND REMOVAL COMPLETE ==========");

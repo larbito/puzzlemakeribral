@@ -3,7 +3,7 @@ const router = express.Router();
 const { processFormData, vectorizeImage } = require('../controllers/vectorizerController');
 const { checkRapidAPI } = require('../utils/rapidApiCheck');
 const multer = require('multer');
-const { removeBackground, getModels } = require('../controllers/replicateBackgroundRemovalController');
+const { removeBackground } = require('../controllers/photoRoomBackgroundRemovalController');
 
 // Configure multer for memory storage
 const upload = multer({ 
@@ -13,8 +13,7 @@ const upload = multer({
 
 // Add debug logging
 console.log('Vectorize routes initialized');
-console.log('Background removal endpoint registered at: /api/vectorize/remove-background');
-console.log('Background removal models endpoint registered at: /api/vectorize/background-removal-models');
+console.log('Background removal endpoint registered at: /api/vectorize/remove-background (Using PhotoRoom API)');
 
 /**
  * @route POST /api/vectorize
@@ -25,17 +24,10 @@ router.post('/', processFormData, vectorizeImage);
 
 /**
  * @route POST /api/vectorize/remove-background
- * @desc Remove background from an image using Replicate API
+ * @desc Remove background from an image using PhotoRoom API
  * @access Public
  */
 router.post('/remove-background', upload.single('image'), removeBackground);
-
-/**
- * @route GET /api/vectorize/background-removal-models
- * @desc Get available background removal models
- * @access Public
- */
-router.get('/background-removal-models', getModels);
 
 /**
  * @route GET /api/vectorize/check-api

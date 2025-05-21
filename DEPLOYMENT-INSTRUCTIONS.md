@@ -9,6 +9,7 @@ We fixed the KDP Covers feature by making the following improvements:
 3. Fixed issues with API URL construction
 4. Ensured all buttons are functional
 5. Added proper debug logging
+6. Replaced multiple background removal models with a single PhotoRoom API for better consistency
 
 ## Required Environment Variables
 
@@ -17,11 +18,13 @@ For the KDP Covers feature to work properly, the following environment variables
 - `OPENAI_API_KEY`: API key for OpenAI (used for prompt enhancement)
 - `IDEOGRAM_API_KEY`: API key for Ideogram (used for image generation)
 - `REPLICATE_API_KEY`: API key for Replicate (used for image enhancement)
+- `PHOTOROOM_API_KEY`: API key for PhotoRoom (used for background removal)
 
 You can obtain these API keys from:
 - OpenAI: https://platform.openai.com/api-keys
 - Ideogram: https://ideogram.ai/api
 - Replicate: https://replicate.com/account/api-tokens
+- PhotoRoom: https://www.photoroom.com/api
 
 ## Testing
 
@@ -36,6 +39,9 @@ curl -X POST https://puzzlemakeribral-production.up.railway.app/api/openai/test
 
 # Test if Ideogram image generation is working
 curl -X POST https://puzzlemakeribral-production.up.railway.app/api/ideogram/test
+
+# Test if PhotoRoom background removal is working
+curl -X POST -F "image=@test-image.png" https://puzzlemakeribral-production.up.railway.app/api/vectorize/remove-background
 ```
 
 ## Troubleshooting

@@ -42,6 +42,7 @@ interface BulkItem {
   isBackgroundRemoved?: boolean;
   isEnhanced?: boolean;
   activeModel?: string | null;
+  originalDesignUrl?: string;
 }
 
 export const BulkImageTab = () => {
@@ -300,7 +301,7 @@ export const BulkImageTab = () => {
   };
   
   // Handle removing background for a single item
-  const handleRemoveBackground = async (itemId: string, modelId: string | null = null) => {
+  const handleRemoveBackground = async (itemId: string) => {
     const item = bulkItems.find(item => item.id === itemId);
     if (!item || !item.designUrl) {
       toast.error('No design to process');
@@ -310,16 +311,14 @@ export const BulkImageTab = () => {
     setProcessingItemId(itemId);
     
     try {
-      // If reverting to original, reset to the original state
-      if (modelId === 'original') {
+      // If this is a restore original action
+      if (item.isBackgroundRemoved && item.originalDesignUrl) {
         // Find the original item and update without background removal
         setBulkItems(prev => prev.map(i => 
           i.id === itemId ? { 
             ...i, 
-            isBackgroundRemoved: false,
-            activeModel: null,
-            // We don't have the original URL stored, so we'd need to regenerate
-            // or store the original URL separately in the data model
+            designUrl: i.originalDesignUrl || i.designUrl,
+            isBackgroundRemoved: false
           } : i
         ));
         
@@ -328,52 +327,27 @@ export const BulkImageTab = () => {
         return;
       }
       
-      // Call the background removal service with the specified model
-      const processedImageUrl = await removeBackground(item.designUrl, modelId);
-      
-      // Get model name for the success message
-      let modelName = "Standard";
-      if (modelId) {
-        // Safely access the model by checking if the key exists
-        const modelKeys = Object.keys(backgroundRemovalModels);
-        for (const key of modelKeys) {
-          if (backgroundRemovalModels[key as keyof typeof backgroundRemovalModels]?.id === modelId) {
-            modelName = backgroundRemovalModels[key as keyof typeof backgroundRemovalModels].name;
-            break;
-          }
-        }
-      }
+      // Call the background removal service
+      const processedImageUrl = await removeBackground(item.designUrl);
       
       // Update item with processed design
       setBulkItems(prev => prev.map(i => 
         i.id === itemId ? { 
           ...i, 
+          originalDesignUrl: i.isBackgroundRemoved ? i.originalDesignUrl : i.designUrl, // Save original URL if first time
           designUrl: processedImageUrl,
           isBackgroundRemoved: true,
-          activeModel: modelId,
           // If it was enhanced before, now it's just background removed
           isEnhanced: false
         } : i
       ));
       
-      toast.success(`Background removed successfully for item #${itemId.slice(-4)}!`, {
-        description: `Using ${modelName} model`
-      });
+      toast.success(`Background removed successfully for item #${itemId.slice(-4)}!`);
     } catch (error) {
       console.error(`Error removing background for item ${itemId}:`, error);
       toast.error('Failed to remove background');
     } finally {
       setProcessingItemId(null);
-    }
-  };
-  
-  // Select a background removal model for an item
-  const selectModelForItem = (itemId: string, modelKey: string) => {
-    console.log(`Selected model ${modelKey} for item ${itemId}`);
-    // Get the model ID and call handleRemoveBackground with it
-    const model = backgroundRemovalModels[modelKey as keyof typeof backgroundRemovalModels];
-    if (model && model.id) {
-      handleRemoveBackground(itemId, model.id);
     }
   };
   
@@ -796,105 +770,39 @@ export const BulkImageTab = () => {
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-1">
-                        {item.status === 'completed' && (
-                          <>
-                            {/* Background removal button/dropdown */}
-                            {processingItemId === item.id ? (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={true}
-                                className="text-xs p-0 h-7"
-                              >
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Processing...
-                              </Button>
-                            ) : (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="sm"
-                                    variant={item.isBackgroundRemoved ? "outline" : "default"}
-                                    className={`text-xs p-0 h-7 ${item.isBackgroundRemoved ? 'bg-green-50 text-green-700 border-green-200' : ''}`}
-                                  >
-                                    <Image className="h-3 w-3 mr-1" />
-                                    {item.isBackgroundRemoved ? 'BG Removed' : 'Remove BG'}
-                                    <ChevronDown className="h-3 w-3 ml-1 opacity-50" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="w-56 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 shadow-xl rounded-md overflow-hidden"
-                                >
-                                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground border-b mb-1 bg-gray-50 dark:bg-gray-900">Background Removal Models</div>
-                                  
-                                  {item.isBackgroundRemoved && (
-                                    <DropdownMenuItem 
-                                      onClick={() => handleRemoveBackground(item.id, 'original')}
-                                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-2 py-1.5 text-xs"
-                                    >
-                                      <Image className="h-3 w-3 mr-1" />
-                                      <span>Restore Background</span>
-                                    </DropdownMenuItem>
-                                  )}
-                                  
-                                  {/* Added reset option */}
-                                  {(item.isBackgroundRemoved || item.isEnhanced) && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleResetItem(item.id)}
-                                      className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 font-medium px-2 py-1.5 text-xs"
-                                    >
-                                      <X className="h-3 w-3 mr-1" />
-                                      <span>Reset to Original</span>
-                                    </DropdownMenuItem>
-                                  )}
-                                  
-                                  <div className="py-1 px-2 text-xs2 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 mb-1 flex items-start gap-1 border-b border-blue-100 dark:border-blue-900">
-                                    <InfoIcon className="h-3 w-3 mt-0.5 flex-shrink-0 text-blue-500" />
-                                    <span>Try different models for best results.</span>
-                                  </div>
-                                  
-                                  <div className="py-1 bg-white dark:bg-gray-950 max-h-[200px] overflow-y-auto">
-                                    {Object.entries(backgroundRemovalModels).map(([key, model]: [string, { id: string, name: string }]) => {
-                                      // Check if this is a recommended model
-                                      const isRecommended = key === '851-labs/background-remover' || 
-                                                        key === 'men1scus/birefnet' ||
-                                                        key === 'smoretalk/rembg-enhance';
-                                      
-                                      return (
-                                        <DropdownMenuItem 
-                                          key={key}
-                                          onClick={() => selectModelForItem(item.id, key)}
-                                          className={`cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 text-xs ${
-                                            item.activeModel === model.id ? 'bg-green-50 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''
-                                          } ${isRecommended ? 'font-medium' : ''}`}
-                                        >
-                                          <Wand2 className={`mr-1 h-3 w-3 ${isRecommended ? 'text-yellow-500' : ''}`} />
-                                          <span>{model.name}</span>
-                                          {item.activeModel === model.id && <span className="ml-1 text-xs">(Current)</span>}
-                                          {isRecommended && <span className="ml-auto text-xs2 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30 px-1 py-0 rounded font-medium">★</span>}
-                                        </DropdownMenuItem>
-                                      );
-                                    })}
-                                  </div>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                            
-                            {/* Enhance button */}
-                            <Button
-                              size="sm"
-                              variant={item.isEnhanced ? "outline" : "default"}
-                              disabled={processingItemId !== null || enhancingItemId !== null}
-                              className={`text-xs p-0 h-7 ${item.isEnhanced ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-600 hover:bg-blue-700'}`}
-                              onClick={() => handleEnhanceImage(item.id)}
-                            >
-                              <Zap className="h-3 w-3 mr-1" />
-                              {item.isEnhanced ? 'Enhanced' : 'Enhance'}
-                            </Button>
-                          </>
-                        )}
+                      <div className="flex gap-2 mt-2">
+                        {/* Background Removal Button - Simple button instead of dropdown */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`h-8 px-2.5 text-xs ${item.isBackgroundRemoved ? 'bg-green-50 hover:bg-green-100 text-green-700' : ''}`}
+                          onClick={() => handleRemoveBackground(item.id)}
+                          disabled={!!processingItemId}
+                        >
+                          {processingItemId === item.id ? (
+                            <>
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              <span>Processing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Image className="mr-1 h-3 w-3" />
+                              <span>{item.isBackgroundRemoved ? 'Restore BG' : 'Remove BG'}</span>
+                            </>
+                          )}
+                        </Button>
+                        
+                        {/* Enhance Button */}
+                        <Button
+                          size="sm"
+                          variant={item.isEnhanced ? "outline" : "default"}
+                          disabled={processingItemId !== null || enhancingItemId !== null}
+                          className={`text-xs p-0 h-7 ${item.isEnhanced ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-600 hover:bg-blue-700'}`}
+                          onClick={() => handleEnhanceImage(item.id)}
+                        >
+                          <Zap className="h-3 w-3 mr-1" />
+                          {item.isEnhanced ? 'Enhanced' : 'Enhance'}
+                        </Button>
                       </div>
                       
                       <Button
