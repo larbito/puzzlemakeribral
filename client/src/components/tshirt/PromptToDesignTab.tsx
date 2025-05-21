@@ -171,13 +171,28 @@ export const PromptToDesignTab = () => {
     }
     
     console.log('Download button clicked for image:', currentImage.baseUrl.substring(0, 100));
+    console.log('Current image state:', {
+      isEnhanced: currentImage.isEnhanced,
+      isBackgroundRemoved: currentImage.isBackgroundRemoved,
+      originalUrl: currentImage.originalUrl.substring(0, 50) + '...',
+      baseUrl: currentImage.baseUrl.substring(0, 50) + '...'
+    });
+    
     setIsDownloading(true);
     const toastId = toast.loading(`Processing download...`);
     
     try {
       // Format filename using the first few words of the prompt
       const promptWords = prompt.split(' ').slice(0, 4).join('-').toLowerCase();
-      const filename = `tshirt-${promptWords}-${Date.now()}`;
+      let filename = `tshirt-${promptWords}-${Date.now()}`;
+      
+      // Add suffixes to indicate processing
+      if (currentImage.isEnhanced) {
+        filename += '-enhanced';
+      }
+      if (currentImage.isBackgroundRemoved) {
+        filename += '-nobg';
+      }
       
       // Always download the current baseUrl (source of truth)
       console.log('Downloading image with filename:', filename);
@@ -186,7 +201,7 @@ export const PromptToDesignTab = () => {
       // Ensure toast is dismissed before showing success
       setTimeout(() => {
         toast.dismiss(toastId);
-        toast.success(`Design downloaded as PNG`);
+        toast.success(`Design downloaded as PNG${currentImage.isBackgroundRemoved ? ' with transparent background' : ''}${currentImage.isEnhanced ? ' (enhanced)' : ''}`);
       }, 1000);
     } catch (error) {
       console.error('Error downloading design:', error);

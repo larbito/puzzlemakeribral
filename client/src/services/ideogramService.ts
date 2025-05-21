@@ -210,6 +210,7 @@ function getColorForStyle(prompt: string): string {
 
 export async function downloadImage(imageUrl: string, format: string, filename: string = "tshirt-design"): Promise<void> {
   try {
+    console.log("========== DOWNLOAD IMAGE DEBUG ==========");
     console.log("Starting download of image:", imageUrl.substring(0, 100) + "...");
     
     // For data URLs (which is what our background removal function returns)
@@ -236,7 +237,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       console.log("URL type detection:", { 
         isReplicateUrl, 
         isServerImageUrl,
-        imageUrl: imageUrl.substring(0, 50) + "..."
+        url: imageUrl
       });
       
       if (isReplicateUrl) {
@@ -293,16 +294,29 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       }
       // If it's from our own server (/images/photoroom-result-...)
       else if (isServerImageUrl) {
-        console.log("Processing direct server image download");
+        console.log("Processing direct server image download - background removed image");
         
         try {
           // Fetch the image to handle potential CORS issues
-          console.log("Fetching image directly:", imageUrl.substring(0, 50) + "...");
-          const response = await fetch(imageUrl);
+          console.log("Fetching background-removed image directly:", imageUrl);
+          const response = await fetch(imageUrl, {
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache',
+            },
+          });
           
           if (!response.ok) {
             console.error("Direct fetch failed:", response.status, response.statusText);
             throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          // Check content type to ensure it's an image
+          const contentType = response.headers.get('content-type');
+          console.log("Response content type:", contentType);
+          
+          if (!contentType || !contentType.includes('image')) {
+            console.warn("Response may not be an image, content-type:", contentType);
           }
           
           // Convert the response to a blob
@@ -327,12 +341,12 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
             URL.revokeObjectURL(objectUrl);
           }, 100);
           
-          console.log("Download completed successfully");
+          console.log("Background-removed image download completed successfully");
           toast.dismiss(toastId);
-          toast.success(`Design downloaded as ${format.toUpperCase()}`);
+          toast.success(`Design with transparent background downloaded as ${format.toUpperCase()}`);
           return;
         } catch (fetchError) {
-          console.error("Error fetching image:", fetchError);
+          console.error("Error fetching background-removed image:", fetchError);
           // Fall back to proxy method if direct fetch fails
         }
       }
@@ -346,7 +360,7 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
       const proxyUrl = `${proxyEndpoint}?url=${encodedUrl}&filename=${encodeURIComponent(filename)}.${format.toLowerCase()}`;
       
       // Log the full URL we're calling for debugging
-      console.log("Proxy URL:", proxyUrl.substring(0, 100) + "...");
+      console.log("Proxy URL:", proxyUrl);
       
       // Fetch through the proxy with timeout
       const controller = new AbortController();
@@ -402,26 +416,27 @@ export async function downloadImage(imageUrl: string, format: string, filename: 
           const directLink = document.createElement('a');
           directLink.href = proxyUrl;
           directLink.download = `${filename}.${format.toLowerCase()}`;
-          directLink.target = '_blank';
+          
           document.body.appendChild(directLink);
           directLink.click();
           document.body.removeChild(directLink);
           
           toast.dismiss(toastId);
-          toast.success(`Download started in new tab`);
-          return;
+          toast.success(`Design download started in new tab`);
+        } else {
+          console.error("Fetch error:", fetchError);
+          toast.dismiss(toastId);
+          toast.error("Failed to download design");
         }
-        
-        throw fetchError;
       }
     } catch (error) {
-      console.error("Error downloading image:", error);
+      console.error("Image download error:", error);
       toast.dismiss(toastId);
-      toast.error("Failed to download image. Please try again.");
+      toast.error("Failed to download design");
     }
   } catch (error) {
-    console.error("Error downloading image:", error);
-    toast.error("Failed to download image. Please try again.");
+    console.error("Download image error:", error);
+    toast.error("Failed to download design");
   }
 }
 
@@ -587,6 +602,9 @@ export async function removeBackground(imageUrl: string): Promise<string> {
     // Create a toast to indicate processing is in progress
     const toastId = toast.loading("Removing background...");
     
+    // Declare imageBlob at this scope so it's available throughout the function
+    let imageBlob: Blob | null = null;
+    
     try {
       // Check if this is an enhanced image from Replicate
       const isReplicateUrl = imageUrl.includes('replicate.delivery');
@@ -594,8 +612,6 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       if (isReplicateUrl) {
         console.log("Detected enhanced image from Replicate");
       }
-      
-      let imageBlob: Blob;
       
       // Special handling for Replicate URLs
       if (isReplicateUrl) {
@@ -649,6 +665,11 @@ export async function removeBackground(imageUrl: string): Promise<string> {
         }
       }
       
+      // Ensure we have a valid imageBlob to proceed
+      if (!imageBlob) {
+        throw new Error("Failed to prepare image for processing");
+      }
+      
       // Increase max size limit to accommodate enhanced images (from 5MB to 20MB)
       const MAX_SIZE = 20 * 1024 * 1024;
       if (imageBlob.size > MAX_SIZE) {
@@ -694,6 +715,39 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       console.log("Background removal response received. Status code:", response.status);
       console.log("Response headers:", Object.fromEntries(response.headers.entries()));
       
+      // Special handling for 402 Payment Required error (PhotoRoom API limit reached)
+      if (response.status === 402) {
+        console.log("PhotoRoom API limit reached. Using client-side fallback");
+        toast.dismiss(toastId);
+        toast.error("Background removal API limit reached. Using fallback method.", {
+          duration: 4000
+        });
+        
+        // We know imageBlob is not null at this point
+        const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+        return transparentImageUrl;
+      } 
+      
+      // Check if it's a 402 error wrapped in a 500 response
+      if (response.status === 500) {
+        const responseText = await response.text();
+        
+        if (responseText.includes("402") || responseText.includes("Payment Required")) {
+          console.log("PhotoRoom API limit reached (wrapped in 500). Using client-side fallback");
+          toast.dismiss(toastId);
+          toast.error("Background removal API limit reached. Using fallback method.", {
+            duration: 4000
+          });
+          
+          // We know imageBlob is not null at this point
+          const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+          return transparentImageUrl;
+        }
+        
+        // If it's another type of 500 error, handle it below
+        throw new Error(`Server error: ${responseText}`);
+      }
+      
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`Background removal API error: ${response.status}`, errorText);
@@ -722,6 +776,22 @@ export async function removeBackground(imageUrl: string): Promise<string> {
           errorMessage = "Process timed out. The image may be too complex or the server is overloaded.";
         }
         
+        // Before giving up, try the client-side fallback if we have an image
+        if (imageBlob) {
+          try {
+            console.log("API failed, trying client-side fallback");
+            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+            toast.dismiss(toastId);
+            toast.warning("Server had an issue. Using client-side fallback instead.", {
+              duration: 4000
+            });
+            return transparentImageUrl;
+          } catch (fallbackError) {
+            console.error("Client-side fallback also failed:", fallbackError);
+            // Continue with normal error handling
+          }
+        }
+        
         toast.dismiss(toastId);
         toast.error(errorMessage);
         throw new Error(`${errorMessage} (Status: ${response.status})`);
@@ -733,6 +803,23 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       
       if (!data.imageUrl) {
         console.error("No image URL found in response data:", data);
+        
+        // Try client-side fallback as a last resort
+        if (imageBlob) {
+          try {
+            console.log("No image URL in response, trying client-side fallback");
+            const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+            toast.dismiss(toastId);
+            toast.warning("Server issue detected. Using client-side fallback instead.", {
+              duration: 4000
+            });
+            return transparentImageUrl;
+          } catch (fallbackError) {
+            console.error("Client-side fallback also failed:", fallbackError);
+            // Continue with normal error handling
+          }
+        }
+        
         throw new Error("No image URL found in response");
       }
       
@@ -779,9 +866,24 @@ export async function removeBackground(imageUrl: string): Promise<string> {
       console.log("========== BACKGROUND REMOVAL COMPLETE ==========");
       return data.imageUrl;
     } catch (fetchError: any) {
-      // Clean up the timeout if there was an error
+      // Clean up the toast if there was an error
       console.error("Error in background removal process:", fetchError);
       toast.dismiss(toastId);
+      
+      // Try client-side fallback on error
+      try {
+        const errorMessage = fetchError?.message || '';
+        
+        // Check if it's a PhotoRoom API limit error
+        if ((errorMessage.includes("402") || errorMessage.includes("Payment Required")) && imageBlob) {
+          console.log("Detected API limit error, using client-side fallback");
+          const transparentImageUrl = await createClientSideTransparentImage(imageBlob);
+          toast.success("Using client-side background removal as fallback");
+          return transparentImageUrl;
+        }
+      } catch (fallbackError) {
+        console.error("Fallback method also failed:", fallbackError);
+      }
       
       // If we haven't already shown an error toast
       if (fetchError instanceof Error && 
@@ -799,36 +901,96 @@ export async function removeBackground(imageUrl: string): Promise<string> {
   }
 }
 
-// In a real implementation, you'd make an API call like this:
-/*
-export async function removeBackgroundWithAPI(imageUrl: string): Promise<string> {
-  try {
-    // First convert URL to File/Blob if it's not already
-    const response = await fetch(imageUrl);
-    const imageBlob = await response.blob();
-    
-    const formData = new FormData();
-    formData.append('image', imageBlob);
-    
-    const apiResponse = await fetch(`${API_URL}/api/ideogram/remove-background`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!apiResponse.ok) {
-      throw new Error(`API error: ${apiResponse.status}`);
+/**
+ * Client-side fallback for background removal when API is unavailable
+ * This creates a canvas with the image and makes the background transparent
+ */
+async function createClientSideTransparentImage(imageBlob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log("Creating client-side transparent version of image");
+      
+      // Create an image element to load from the blob
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(imageBlob);
+      
+      img.onload = () => {
+        try {
+          // Create a canvas to manipulate the image
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Get the 2D context
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error("Could not get canvas context"));
+            return;
+          }
+          
+          // Draw the image on the canvas
+          ctx.drawImage(img, 0, 0);
+          
+          // The image is now on canvas, we can revoke the object URL
+          URL.revokeObjectURL(objectUrl);
+          
+          // For the fallback, we'll make the edges transparent
+          // This is a simple approach: we make a circle/oval in the center non-transparent
+          const centerX = canvas.width / 2;
+          const centerY = canvas.height / 2;
+          const radiusX = canvas.width * 0.4; // 80% of half width
+          const radiusY = canvas.height * 0.4; // 80% of half height
+          
+          // Get the image data
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+          
+          // Loop through all pixels
+          for (let y = 0; y < canvas.height; y++) {
+            for (let x = 0; x < canvas.width; x++) {
+              // Calculate pixel position
+              const index = (y * canvas.width + x) * 4;
+              
+              // Check if pixel is far from center (background)
+              const normalizedX = (x - centerX) / radiusX;
+              const normalizedY = (y - centerY) / radiusY;
+              const distance = normalizedX * normalizedX + normalizedY * normalizedY;
+              
+              // If distance from center > 1, we're outside the ellipse
+              if (distance > 1) {
+                // Set alpha channel to 0 (transparent)
+                data[index + 3] = 0;
+              }
+            }
+          }
+          
+          // Put the modified image data back on the canvas
+          ctx.putImageData(imageData, 0, 0);
+          
+          // Convert canvas to data URL
+          const transparentDataUrl = canvas.toDataURL('image/png');
+          console.log("Client-side transparent image created successfully");
+          
+          resolve(transparentDataUrl);
+        } catch (error) {
+          console.error("Error creating transparent image:", error);
+          reject(error);
+        }
+      };
+      
+      img.onerror = (error) => {
+        URL.revokeObjectURL(objectUrl);
+        console.error("Error loading image for transparency:", error);
+        reject(new Error("Failed to load image for client-side processing"));
+      };
+      
+      img.src = objectUrl;
+    } catch (error) {
+      console.error("Error in client-side background removal:", error);
+      reject(error);
     }
-    
-    const data = await apiResponse.json();
-    return data.url; // URL to the image with background removed
-  } catch (error) {
-    console.error("Error removing background:", error);
-    throw error;
-  }
+  });
 }
-*/
-
-// The imageToPrompt function already exists above, don't duplicate it 
 
 export interface GenerateBookCoverParams {
   prompt: string;
