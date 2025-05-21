@@ -83,13 +83,15 @@ exports.removeBackground = async (req, res) => {
       const tempFilePath = path.join(__dirname, '../../temp-photoroom-result.png');
       fs.writeFileSync(tempFilePath, Buffer.from(response.data));
       
-      // For demonstration purposes, we'll return a URL to this temporary file
-      // In a real production environment, you should upload to a proper storage service
+      // Create a proper URL based on the environment
+      // Get the Railway public URL in production, or use localhost for development
+      const baseUrl = process.env.API_URL || (process.env.RAILWAY_PUBLIC_DOMAIN 
+        ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` 
+        : 'http://localhost:3001');
+      console.log('Using base URL for image:', baseUrl);
       
-      // Create a temporary URL (this is just for demonstration)
-      // In production, this would be an S3 URL or other cloud storage URL
-      const baseUrl = process.env.API_URL || 'http://localhost:3001';
       const outputUrl = `${baseUrl}/temp-photoroom-result.png`;
+      console.log('Generated image URL:', outputUrl);
       
       // Return success response with the image URL
       return res.status(200).json({

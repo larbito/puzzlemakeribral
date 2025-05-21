@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 
 // STARTUP DEBUG - THIS SHOULD APPEAR IN LOGS
 console.log('=====================================');
@@ -12,12 +13,12 @@ console.log('Node version:', process.version);
 console.log('Environment:', process.env.NODE_ENV);
 console.log('Current directory:', process.cwd());
 console.log('Files in current directory:');
-require('fs').readdirSync(process.cwd()).forEach(file => {
+fs.readdirSync(process.cwd()).forEach(file => {
   console.log(' - ' + file);
 });
 console.log('Files in src directory:');
 try {
-  require('fs').readdirSync(require('path').join(process.cwd(), 'src')).forEach(file => {
+  fs.readdirSync(path.join(process.cwd(), 'src')).forEach(file => {
     console.log(' - ' + file);
   });
 } catch (e) {
@@ -25,7 +26,7 @@ try {
 }
 console.log('Files in src/routes directory:');
 try {
-  require('fs').readdirSync(require('path').join(process.cwd(), 'src', 'routes')).forEach(file => {
+  fs.readdirSync(path.join(process.cwd(), 'src', 'routes')).forEach(file => {
     console.log(' - ' + file);
   });
 } catch (e) {
@@ -154,6 +155,22 @@ app.options('*', (req, res) => {
 const staticDir = path.join(__dirname, '..', 'static');
 console.log(`Serving static files from: ${staticDir}`);
 app.use('/static', express.static(staticDir));
+
+// Special route to serve the temporary PhotoRoom result image
+app.get('/temp-photoroom-result.png', (req, res) => {
+  console.log('Serving temporary PhotoRoom result image');
+  const imagePath = path.join(__dirname, '..', 'temp-photoroom-result.png');
+  
+  // Check if file exists
+  if (fs.existsSync(imagePath)) {
+    console.log('Image file found, serving:', imagePath);
+    res.setHeader('Content-Type', 'image/png');
+    fs.createReadStream(imagePath).pipe(res);
+  } else {
+    console.error('Image file not found at path:', imagePath);
+    res.status(404).send('Image not found');
+  }
+});
 
 // Increase the payload size limit for large images
 app.use(express.json({ limit: '10mb' }));
