@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { generateTableOfContents } from '@/api/openai';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { BookGeneratorSettings, Chapter } from '../AIBookGenerator';
@@ -30,7 +30,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
-import { generateTableOfContents } from '@/api/openai';
 
 // Real function for AI TOC generation using the API
 const generateTOCWithAI = async (
@@ -72,94 +71,14 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
-  const [bookSummary, setBookSummary] = useState(settings.bookSummary || '');
-  const [isActive, setIsActive] = useState(true);
-  const textInputRef = useRef<HTMLDivElement>(null);
+  const [summaryText, setSummaryText] = useState(settings.bookSummary || '');
   const { toast } = useToast();
 
+  // Update local state when settings change
   useEffect(() => {
-    setBookSummary(settings.bookSummary || '');
+    console.log('Settings updated, updating local state');
+    setSummaryText(settings.bookSummary || '');
   }, [settings.bookSummary]);
-
-  useEffect(() => {
-    setIsActive(true);
-    return () => setIsActive(false);
-  }, []);
-
-  useEffect(() => {
-    const container = textInputRef.current;
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    // Create a plain textarea
-    const textarea = document.createElement('textarea');
-    textarea.value = bookSummary;
-    textarea.placeholder = "Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure.";
-    textarea.className = "w-full min-h-[120px] p-3 border rounded-md resize-y";
-    textarea.style.backgroundColor = "#1e1e1e";
-    textarea.style.color = "#ffffff";
-    textarea.style.border = "1px solid #4d4d4d";
-    textarea.style.outline = "none";
-    textarea.style.boxShadow = "0 0 0 2px rgba(30, 144, 255, 0.2)";
-    textarea.style.fontSize = "14px";
-    textarea.style.lineHeight = "1.5";
-    
-    // Add hover effect
-    textarea.addEventListener('mouseover', () => {
-      textarea.style.borderColor = "#3a86ff";
-    });
-    
-    textarea.addEventListener('mouseout', () => {
-      textarea.style.borderColor = "#4d4d4d";
-    });
-    
-    // Add focus effect
-    textarea.addEventListener('focus', () => {
-      textarea.style.borderColor = "#3a86ff";
-      textarea.style.boxShadow = "0 0 0 3px rgba(58, 134, 255, 0.3)";
-    });
-    
-    textarea.addEventListener('blur', () => {
-      textarea.style.borderColor = "#4d4d4d";
-      textarea.style.boxShadow = "0 0 0 2px rgba(30, 144, 255, 0.2)";
-    });
-    
-    const handleInput = (e: Event) => {
-      const value = (e.target as HTMLTextAreaElement).value;
-      console.log('Direct input value:', value);
-      setBookSummary(value);
-      onSettingChange('bookSummary', value);
-    };
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      e.stopPropagation();
-      console.log('Key pressed:', e.key);
-    };
-    
-    textarea.addEventListener('input', handleInput);
-    textarea.addEventListener('keydown', handleKeyDown);
-
-    container.appendChild(textarea);
-
-    setTimeout(() => {
-      if (isActive) {
-        textarea.focus();
-      }
-    }, 100);
-
-    const handleContainerClick = () => {
-      textarea.focus();
-    };
-    container.addEventListener('click', handleContainerClick);
-
-    return () => {
-      textarea.removeEventListener('input', handleInput);
-      textarea.removeEventListener('keydown', handleKeyDown);
-      container.removeEventListener('click', handleContainerClick);
-      container.innerHTML = '';
-    };
-  }, [bookSummary, onSettingChange, isActive]);
 
   const toneOptions = [
     { value: 'Serious', label: 'Serious - Professional and formal' },
@@ -174,8 +93,16 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     { value: 'Adults', label: 'Adults (18+)' },
   ];
 
+  // Handle summary text change
+  const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    console.log('Summary changed:', value);
+    setSummaryText(value);
+    onSettingChange('bookSummary', value);
+  };
+
   const handleGenerateTOC = async () => {
-    if (!bookSummary.trim()) {
+    if (!summaryText.trim()) {
       toast({
         title: 'Book summary required',
         description: 'Please enter a summary of your book before generating a table of contents.',
@@ -183,13 +110,13 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       return;
     }
 
-    onSettingChange('bookSummary', bookSummary);
+    onSettingChange('bookSummary', summaryText);
     
     setIsGenerating(true);
     
     try {
       const generatedTOC = await generateTOCWithAI(
-        bookSummary,
+        summaryText,
         settings.tone,
         settings.targetAudience
       );
@@ -272,9 +199,15 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
-              <div 
-                ref={textInputRef} 
-                className="w-full min-h-[120px]"
+              <textarea
+                id="bookSummary"
+                value={summaryText}
+                onChange={handleSummaryChange}
+                onClick={() => console.log('Textarea clicked')}
+                onFocus={() => console.log('Textarea focused')}
+                className="w-full min-h-[120px] p-3 border rounded-md resize-y bg-[#1e1e1e] text-white border-[#4d4d4d] outline-none focus:border-[#3a86ff] focus:ring-2 focus:ring-[#3a86ff] focus:ring-opacity-30 hover:border-[#3a86ff]"
+                placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
+                rows={5}
               />
               <p className="text-xs text-muted-foreground">
                 Be specific about your topic, intended audience, and what you want readers to learn or experience.
@@ -327,7 +260,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
             
             <Button
               onClick={handleGenerateTOC}
-              disabled={isGenerating || !bookSummary.trim()}
+              disabled={isGenerating || !summaryText.trim()}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
             >
               {isGenerating ? (
