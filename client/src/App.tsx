@@ -25,6 +25,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
 import KDPCoverDesigner from '@/pages/dashboard/KDPCoverDesigner';
 import { ToastProvider } from '@/components/ui/toast';
+import { ThemeDebug } from '@/pages/dashboard/puzzles/ThemeDebug';
 
 function App() {
   return (
@@ -76,6 +77,9 @@ function App() {
                   </DashboardLayout>
                 }
               />
+
+              {/* Add the debug route */}
+              <Route path="/debug/modal" element={<ThemeDebug />} />
             </Routes>
           </div>
         </div>
