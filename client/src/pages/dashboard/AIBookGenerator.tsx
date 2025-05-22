@@ -280,6 +280,8 @@ export const AIBookGenerator = () => {
         authorBio: settings.authorBio,
         includeAuthorBio: settings.includeAuthorBio,
         closingThoughts: settings.closingThoughts,
+        includeGlossary: settings.includeGlossary,
+        glossaryContent: settings.glossaryContent
       };
       
       // Try to generate via API endpoint first
@@ -288,9 +290,9 @@ export const AIBookGenerator = () => {
         console.log('Using API base URL:', apiBaseUrl);
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
         
-        const response = await fetch(`${apiBaseUrl}/api/book-generator/generate-pdf`, {
+        const response = await fetch(`${apiBaseUrl}/api/openai/generate-pdf`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -309,7 +311,12 @@ export const AIBookGenerator = () => {
         console.log('PDF generation API response:', data);
         
         if (data.success && data.pdfUrl) {
-          setDownloadUrl(data.pdfUrl);
+          // If the URL is relative, make it absolute
+          const fullPdfUrl = data.pdfUrl.startsWith('http') 
+            ? data.pdfUrl 
+            : `${apiBaseUrl}${data.pdfUrl}`;
+            
+          setDownloadUrl(fullPdfUrl);
           setGenerationStatus('complete');
           setCompletedSteps(prev => ({ ...prev, 'preview-export': true }));
           return;
@@ -349,11 +356,12 @@ export const AIBookGenerator = () => {
       if (settings.subtitle) {
         pdf.text(settings.subtitle, pdf.internal.pageSize.getWidth() / 2, 3.5, { align: 'center' });
       }
-      pdf.text('By [Author Name]', pdf.internal.pageSize.getWidth() / 2, 7, { align: 'center' });
+      pdf.text(settings.titlePage || 'By [Author Name]', pdf.internal.pageSize.getWidth() / 2, 7, { align: 'center' });
+      
+      pdf.addPage();
       
       // Table of Contents
       if (settings.includeTOC) {
-        pdf.addPage();
         pdf.text('Table of Contents', pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
         
         let yPos = 2;
@@ -362,28 +370,44 @@ export const AIBookGenerator = () => {
           pdf.text(`${index + 3}`, pdf.internal.pageSize.getWidth() - 1, yPos, { align: 'right' });
           yPos += 0.3;
         });
+        
+        pdf.addPage();
       }
       
       // Copyright page
       if (settings.includeCopyright) {
+        pdf.text(settings.copyrightPage || 
+          `© ${new Date().getFullYear()} [Author Name]. All rights reserved.\n\nNo part of this publication may be reproduced, distributed, or transmitted in any form or by any means without the prior written permission of the publisher.`, 
+          1, 3, {
+            maxWidth: pdf.internal.pageSize.getWidth() - 2,
+            align: 'center'
+          }
+        );
+        
         pdf.addPage();
-        const copyrightText = settings.copyrightPage || 
-          `© ${new Date().getFullYear()} [Author Name]. All rights reserved.\n\nNo part of this publication may be reproduced, distributed, or transmitted in any form or by any means without the prior written permission of the publisher.`;
-        pdf.text(copyrightText, 1, 3, {
-          maxWidth: pdf.internal.pageSize.getWidth() - 2,
-          align: 'center'
-        });
+      }
+      
+      // Dedication page
+      if (settings.dedicationPage) {
+        pdf.text(settings.dedicationPage, pdf.internal.pageSize.getWidth() / 2, 4, { align: 'center' });
+        pdf.addPage();
       }
       
       // Chapters
       settings.chapters.forEach((chapter) => {
-        pdf.addPage();
         pdf.text(chapter.title, pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
         
         // Split chapter content into chunks that will fit on pages
         const contentText = chapter.content || `Sample content for ${chapter.title}`;
+        
+        // Process markdown formatting
+        const processedText = contentText
+          .replace(/^# (.*?)$/gm, '$1') // Main headings
+          .replace(/^## (.*?)$/gm, '$1') // Subheadings
+          .replace(/- (.*?)$/gm, '• $1'); // Bullet points
+        
         const textLines = pdf.splitTextToSize(
-          contentText, 
+          processedText, 
           pdf.internal.pageSize.getWidth() - 2
         );
         
@@ -406,7 +430,45 @@ export const AIBookGenerator = () => {
             );
           }
         }
+        
+        pdf.addPage();
       });
+      
+      // Author Bio
+      if (settings.includeAuthorBio && settings.authorBio) {
+        pdf.text('About the Author', pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
+        
+        const bioLines = pdf.splitTextToSize(
+          settings.authorBio,
+          pdf.internal.pageSize.getWidth() - 2
+        );
+        
+        pdf.text(bioLines, 1, 1.5);
+        pdf.addPage();
+      }
+      
+      // Closing thoughts
+      if (settings.closingThoughts) {
+        const closingLines = pdf.splitTextToSize(
+          settings.closingThoughts,
+          pdf.internal.pageSize.getWidth() - 2
+        );
+        
+        pdf.text(closingLines, 1, 1);
+        pdf.addPage();
+      }
+      
+      // Glossary
+      if (settings.includeGlossary && settings.glossaryContent) {
+        pdf.text('Glossary', pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
+        
+        const glossaryLines = pdf.splitTextToSize(
+          settings.glossaryContent,
+          pdf.internal.pageSize.getWidth() - 2
+        );
+        
+        pdf.text(glossaryLines, 1, 1.5);
+      }
       
       // Add page numbers if enabled
       if (settings.includePageNumbers) {
