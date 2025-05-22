@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
+const { OpenAI } = require('openai');
 
 // Configure OpenAI API key from environment
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Initialize the OpenAI client
+const openai = new OpenAI({
+  apiKey: OPENAI_API_KEY,
+});
 
 /**
  * Middleware to check if OpenAI API key is configured
@@ -143,6 +149,89 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to extract prompt from image',
       details: error.message
+    });
+  }
+});
+
+// Add the generate-toc endpoint
+router.post('/generate-toc', async (req, res) => {
+  try {
+    const { bookSummary, tone, audience } = req.body;
+    
+    if (!bookSummary || !tone || !audience) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: bookSummary, tone, and audience are required' 
+      });
+    }
+    
+    console.log('Generating TOC with:', { bookSummary, tone, audience });
+    
+    // Call OpenAI to generate the table of contents
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert book editor and writer. Generate a detailed table of contents for a book based on the provided summary, tone, and target audience. The TOC should be logical, comprehensive, and appropriate for the specified audience.`
+        },
+        {
+          role: "user",
+          content: `Create a detailed table of contents for a book with the following details:
+          
+          Summary: ${bookSummary}
+          Tone: ${tone}
+          Target Audience: ${audience}
+          
+          Return ONLY a JSON array of chapter objects with the format:
+          [
+            { 
+              "title": "Chapter Title",
+              "subtopics": ["Subtopic 1", "Subtopic 2"]
+            }
+          ]
+          
+          Create 5-10 chapters depending on the complexity of the topic. Include an introduction and conclusion chapter.`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    // Parse the response
+    const responseContent = completion.choices[0].message.content;
+    let parsedContent;
+    
+    try {
+      parsedContent = JSON.parse(responseContent);
+    } catch (error) {
+      console.error('Error parsing OpenAI response:', error);
+      console.log('Raw response:', responseContent);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to parse AI response' 
+      });
+    }
+    
+    // Map the response to the expected format
+    const chapters = parsedContent.map((chapter, index) => ({
+      id: (index + 1).toString(),
+      title: chapter.title,
+      content: '',
+      wordCount: 0,
+      subtopics: chapter.subtopics || []
+    }));
+    
+    return res.json({ 
+      success: true, 
+      chapters 
+    });
+  } catch (error) {
+    console.error('Error generating TOC:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
     });
   }
 });
