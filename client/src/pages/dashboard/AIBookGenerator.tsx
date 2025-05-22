@@ -7,10 +7,10 @@ import { useToast } from '@/components/ui/use-toast';
 // Import jsPDF type to help with TypeScript
 import type { jsPDF } from 'jspdf';
 
-// Step Components (will create these next)
+// Step Components
 import { BookSettingsStep } from './book-generator/BookSettingsStep';
 import { BookConceptStep } from './book-generator/BookConceptStep';
-import { ContentGenerationStep } from './book-generator/ContentGenerationStep';
+import { ContentGenerationStepNew as ContentGenerationStep } from './book-generator/ContentGenerationStepNew';
 import { FrontMatterStep } from './book-generator/FrontMatterStep';
 import { PreviewExportStep } from './book-generator/PreviewExportStep';
 

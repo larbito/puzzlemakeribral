@@ -500,4 +500,158 @@ router.post('/book-generator/generate-pdf', async (req, res) => {
   }
 });
 
+// Generate chapter content endpoint
+router.post('/generate-chapter-content', async (req, res) => {
+  try {
+    const { 
+      title, 
+      subtitle, 
+      bookSummary, 
+      tone, 
+      targetAudience, 
+      chapterTitle, 
+      chapterNumber, 
+      totalChapters 
+    } = req.body;
+    
+    if (!title || !bookSummary || !chapterTitle) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: title, bookSummary, and chapterTitle are required'
+      });
+    }
+    
+    console.log('Generating chapter content for:', { chapterTitle, chapterNumber });
+    
+    // Use mock response if API key is not available
+    if (req.useLocalMock) {
+      console.log('Using mock chapter content generator');
+      return res.json({
+        success: true,
+        content: generateMockChapterContent(chapterTitle, chapterNumber, totalChapters)
+      });
+    }
+    
+    // Call OpenAI to generate the chapter content
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo-16k",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert book writer and editor specializing in creating high-quality book content that follows Amazon KDP guidelines. 
+          
+You will generate a complete, well-structured chapter for a book based on the provided information. 
+The chapter should be approximately 1500-2500 words, properly formatted with headings, subheadings, and paragraphs.
+
+Follow these guidelines:
+1. Create a cohesive narrative that fits within the overall book context
+2. Use appropriate formatting (markdown headings, bullet points, etc.)
+3. Follow KDP guidelines (no excessive formatting, appropriate content, etc.)
+4. Match the tone and style to the specified audience
+5. Include 5-8 well-developed sections with subheadings
+6. Create engaging, informative content that flows naturally
+7. Ensure proper transitions between sections
+8. Include an introduction and conclusion to the chapter
+9. Use markdown formatting: # for main headings, ## for subheadings
+10. For non-fiction: include practical examples, actionable advice, and key takeaways
+11. For fiction: develop characters, advance the plot, and maintain consistent voice`
+        },
+        {
+          role: "user",
+          content: `Generate a complete chapter for a book with the following details:
+          
+Book Title: ${title}
+${subtitle ? `Book Subtitle: ${subtitle}` : ''}
+Book Summary: ${bookSummary}
+Tone: ${tone || 'Educational'}
+Target Audience: ${targetAudience || 'Adults'}
+Chapter Title: ${chapterTitle}
+Chapter Number: ${chapterNumber} of ${totalChapters}
+
+Create a comprehensive, well-structured chapter that follows KDP guidelines. The chapter should be approximately 2000 words and include:
+- An engaging introduction that sets the context for this chapter
+- 5-8 well-developed sections with clear subheadings
+- Proper transitions between sections
+- A conclusion that summarizes key points and connects to the next chapter
+- Use markdown for formatting (# for headings, ## for subheadings, etc.)
+- For lists, use proper markdown bullet points or numbered lists
+- Ensure the content is substantive, informative, and engaging
+
+The chapter should feel like a professional, published book chapter that's ready for KDP publishing.`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+    });
+    
+    // Extract the generated content
+    const content = completion.choices[0].message.content.trim();
+    
+    // Calculate approximate word count
+    const wordCount = content.split(/\s+/).length;
+    
+    return res.json({
+      success: true,
+      content,
+      wordCount
+    });
+    
+  } catch (error) {
+    console.error('Error generating chapter content:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+});
+
+// Helper function to generate mock chapter content
+function generateMockChapterContent(chapterTitle, chapterNumber, totalChapters) {
+  // Create a sample chapter based on the chapter title
+  let content = `# ${chapterTitle}\n\n`;
+  
+  // Add an introduction
+  content += `As we dive into ${chapterTitle}, it's important to understand how this fits into the overall context of our topic. This chapter will explore key concepts, provide practical examples, and give you actionable insights that you can apply immediately.\n\n`;
+  
+  // Add 5-7 sections with subheadings and content
+  const sectionCount = 5 + Math.floor(Math.random() * 3);
+  const sections = [
+    "Understanding the Fundamentals",
+    "Key Principles to Consider",
+    "Practical Applications",
+    "Common Challenges and Solutions",
+    "Advanced Strategies",
+    "Expert Insights",
+    "Future Developments",
+    "Case Studies and Examples",
+    "Implementation Guide"
+  ];
+  
+  for (let i = 0; i < sectionCount; i++) {
+    const sectionTitle = sections[i % sections.length];
+    content += `## ${sectionTitle}\n\n`;
+    
+    // Add 2-3 paragraphs per section
+    const paragraphCount = 2 + Math.floor(Math.random() * 2);
+    for (let j = 0; j < paragraphCount; j++) {
+      content += `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\n`;
+    }
+    
+    // Add a bullet list to some sections
+    if (i % 2 === 0) {
+      content += `Here are some important points to remember:\n\n`;
+      content += `- Important point related to ${chapterTitle}\n`;
+      content += `- Another crucial element to consider\n`;
+      content += `- Final point to remember\n\n`;
+    }
+  }
+  
+  // Add a conclusion
+  content += `## Conclusion\n\n`;
+  content += `In this chapter, we've explored ${chapterTitle} in depth. We've covered the fundamental concepts, examined practical applications, and provided strategies for implementation. As we move to ${chapterNumber < totalChapters ? 'the next chapter' : 'the conclusion of our book'}, we'll build upon these ideas to further enhance your understanding and capabilities.\n\n`;
+  content += `Remember that mastering these concepts takes practice and patience. By applying what you've learned here consistently, you'll see significant improvements in your results over time.\n\n`;
+  
+  return content;
+}
+
 module.exports = router; 
