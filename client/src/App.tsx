@@ -24,12 +24,11 @@ import { TShirtDesigner } from '@/pages/dashboard/TShirtDesigner';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
 import KDPCoverDesigner from '@/pages/dashboard/KDPCoverDesigner';
-import { Toaster } from 'sonner';
+import { ToastProvider } from '@/components/ui/toast';
 
 function App() {
   return (
-    <>
-      <Toaster position="top-right" />
+    <ToastProvider>
       <Router>
         <div className="min-h-screen bg-background text-foreground">
           {/* Content */}
@@ -81,7 +80,7 @@ function App() {
           </div>
         </div>
       </Router>
-    </>
+    </ToastProvider>
   );
 }
 
