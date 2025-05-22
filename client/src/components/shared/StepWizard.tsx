@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, ReactNode, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Save, Check, AlertCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
 
 export interface Step {
   id: string;
   title: string;
-  description?: string;
-  component: React.ReactNode;
-  isComplete?: boolean;
-  isValid?: boolean;
-  isOptional?: boolean;
+  component: ReactNode;
+  isComplete: boolean;
 }
 
 interface StepWizardProps {
@@ -21,8 +17,6 @@ interface StepWizardProps {
   onSave?: (currentStep: number) => void;
   initialStep?: number;
   showProgress?: boolean;
-  className?: string;
-  disableNavigation?: boolean;
 }
 
 export const StepWizard: React.FC<StepWizardProps> = ({
@@ -30,32 +24,21 @@ export const StepWizard: React.FC<StepWizardProps> = ({
   onComplete,
   onSave,
   initialStep = 0,
-  showProgress = true,
-  className,
-  disableNavigation = false,
+  showProgress = false,
 }) => {
   const [currentStep, setCurrentStep] = useState(initialStep);
-  const [savedState, setSavedState] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
-  // Auto-save whenever step changes
   useEffect(() => {
+    // Reset interaction state when step changes
+    setHasInteracted(false);
+  }, [currentStep]);
+
+  const handleNext = () => {
     if (onSave) {
       onSave(currentStep);
     }
-    // Clear any previous errors when changing steps
-    setError(null);
-  }, [currentStep, onSave]);
 
-  const goToNextStep = () => {
-    const currentStepObj = steps[currentStep];
-    
-    // If validation is required (isValid is defined and false)
-    if (currentStepObj.isValid === false) {
-      setError(`Please complete the required information before proceeding.`);
-      return;
-    }
-    
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -63,157 +46,113 @@ export const StepWizard: React.FC<StepWizardProps> = ({
     }
   };
 
-  const goToPreviousStep = () => {
+  const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const goToStep = (index: number) => {
-    // Allow navigation to a step if:
-    // 1. It's previous to the current step (go back)
-    // 2. The current step is valid or optional
-    const canNavigate = 
-      index < currentStep || 
-      steps[currentStep].isValid !== false || 
-      steps[currentStep].isOptional;
-    
-    if (canNavigate && index >= 0 && index < steps.length && !disableNavigation) {
+  const handleStepClick = (index: number) => {
+    // Can only navigate to previously completed steps or the current step + 1
+    if (index <= currentStep || (index === currentStep + 1 && steps[currentStep].isComplete)) {
       setCurrentStep(index);
-    } else if (!canNavigate) {
-      setError('Please complete the current step before proceeding.');
     }
   };
 
-  const handleSave = () => {
-    if (onSave) {
-      onSave(currentStep);
-      setSavedState(currentStep);
-      setTimeout(() => setSavedState(null), 2000);
-    }
-  };
-
-  const calculateProgress = () => {
-    return ((currentStep + 1) / steps.length) * 100;
-  };
+  const isLastStep = currentStep === steps.length - 1;
+  const isFirstStep = currentStep === 0;
+  const nextIsDisabled = !steps[currentStep].isComplete && hasInteracted;
+  const progressValue = ((currentStep + 1) / steps.length) * 100;
+  
+  // Mark step as interacted with
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHasInteracted(true);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [currentStep]);
 
   return (
-    <div className={cn("flex flex-col space-y-6", className)}>
-      {/* Progress indicator */}
+    <div className="space-y-8">
       {showProgress && (
         <div className="w-full space-y-2">
-          <Progress value={calculateProgress()} className="h-2" />
-          <div className="flex justify-between text-sm text-muted-foreground">
+          <div className="flex justify-between text-xs text-muted-foreground">
             <span>Step {currentStep + 1} of {steps.length}</span>
-            <span>{steps[currentStep].title}</span>
+            <span>{Math.round(progressValue)}% Complete</span>
           </div>
+          <Progress value={progressValue} className="h-2" />
         </div>
       )}
-
-      {/* Step indicator buttons */}
-      <div className="flex justify-center space-x-2 mb-6">
+      
+      <div className="flex overflow-x-auto pb-2 hide-scrollbar">
         {steps.map((step, index) => (
-          <button
-            key={step.id}
-            onClick={() => goToStep(index)}
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200 relative",
-              index === currentStep
-                ? "border-primary bg-primary text-white shadow-md scale-110"
-                : step.isComplete
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-gray-300 bg-white text-gray-500",
-              step.isOptional && "after:content-['*'] after:text-xs after:absolute after:top-0 after:right-0"
+          <React.Fragment key={step.id}>
+            <div 
+              className={`flex flex-col items-center cursor-pointer transition-colors px-2 min-w-[100px] ${
+                index <= currentStep 
+                  ? 'text-primary' 
+                  : index === currentStep + 1 && steps[currentStep].isComplete
+                  ? 'text-muted-foreground hover:text-primary'
+                  : 'text-muted-foreground'
+              }`}
+              onClick={() => handleStepClick(index)}
+            >
+              <div 
+                className={`flex items-center justify-center w-8 h-8 rounded-full mb-2 transition-colors ${
+                  index === currentStep 
+                    ? 'bg-primary text-primary-foreground' 
+                    : index < currentStep && step.isComplete
+                    ? 'bg-primary/20 text-primary'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {index < currentStep && step.isComplete ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <span>{index + 1}</span>
+                )}
+              </div>
+              <span className="text-sm whitespace-nowrap">{step.title}</span>
+            </div>
+            
+            {index < steps.length - 1 && (
+              <div className="flex items-center px-1 pt-4">
+                <div className={`w-12 h-[1px] ${
+                  index < currentStep ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`} />
+              </div>
             )}
-            disabled={disableNavigation}
-          >
-            {step.isComplete ? <Check className="h-4 w-4" /> : index + 1}
-          </button>
+          </React.Fragment>
         ))}
       </div>
       
-      {/* Step title and description */}
-      <div className="text-center mb-2">
-        <h3 className="text-xl font-semibold mb-1">{steps[currentStep].title}</h3>
-        {steps[currentStep].description && (
-          <p className="text-muted-foreground text-sm">{steps[currentStep].description}</p>
-        )}
+      <Separator />
+      
+      <div className="min-h-[400px]">
+        {steps[currentStep].component}
       </div>
-
-      {/* Error message */}
-      <AnimatePresence>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-md flex items-center"
-          >
-            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-            <p className="text-sm">{error}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Current step content */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={steps[currentStep].id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-          className="py-4"
+      
+      <Separator />
+      
+      <div className="flex justify-between pt-4">
+        <Button 
+          variant="outline" 
+          onClick={handlePrevious} 
+          disabled={isFirstStep}
         >
-          {steps[currentStep].component}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Navigation buttons */}
-      <div className="flex justify-between pt-6 border-t mt-8">
-        <Button
-          onClick={goToPreviousStep}
-          variant="outline"
-          disabled={currentStep === 0 || disableNavigation}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Previous
         </Button>
-
-        <div className="flex gap-2">
-          {onSave && (
-            <Button
-              onClick={handleSave}
-              variant="outline"
-              disabled={disableNavigation}
-              className="flex items-center gap-2"
-            >
-              {savedState === currentStep ? (
-                <>
-                  <Check className="h-4 w-4" /> Saved
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" /> Save
-                </>
-              )}
-            </Button>
-          )}
-
-          <Button
-            onClick={goToNextStep}
-            disabled={disableNavigation}
-            className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 flex items-center gap-2"
-          >
-            {currentStep === steps.length - 1 ? (
-              'Complete'
-            ) : (
-              <>
-                Next <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </div>
+        
+        <Button 
+          onClick={handleNext} 
+          disabled={nextIsDisabled}
+          className={isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}
+        >
+          {isLastStep ? 'Complete' : 'Continue'}
+          {!isLastStep && <ArrowRight className="ml-2 h-4 w-4" />}
+        </Button>
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ const navigation = [
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Cover Designer', href: '/dashboard/kdp-covers', icon: BookCopy },
+  { name: 'AI Book Generator', href: '/dashboard/ai-book-generator', icon: BookCopy },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
   
   // Planning & Analytics
