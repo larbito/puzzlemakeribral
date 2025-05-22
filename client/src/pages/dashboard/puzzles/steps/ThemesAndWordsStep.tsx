@@ -16,15 +16,6 @@ import { WordSearchSettings } from '../WordSearch';
 import wordSearchApi from '@/lib/services/wordSearchApi';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +26,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// Import our new Modal component
+import { Modal, ModalHeader, ModalFooter } from '@/components/ui/modal';
 
 interface ThemeData {
   id: string;
@@ -219,6 +213,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
   };
 
   const handleOpenNewThemeDialog = () => {
+    console.log("Opening theme dialog");
     setCurrentThemeId(null);
     setCurrentThemeName('');
     setCurrentThemeWords('');
@@ -255,7 +250,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
                   <h3 className="text-lg font-medium">My Themes</h3>
                   <Button 
                     variant="default"
-                    onClick={handleOpenNewThemeDialog} 
+                    onClick={() => handleOpenNewThemeDialog()}
                     className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -272,7 +267,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
                     </p>
                     <Button 
                       variant="default"
-                      onClick={handleOpenNewThemeDialog}
+                      onClick={() => handleOpenNewThemeDialog()}
                       className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -460,140 +455,136 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
         </Tabs>
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{isEditing ? 'Edit Theme' : 'Add New Theme'}</DialogTitle>
-            <DialogDescription>
-              {isEditing 
-                ? 'Edit your theme and its associated words' 
-                : 'Create a new theme with words for your word search puzzle'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="themeName">Theme Name</Label>
-                <div className="flex gap-1 overflow-x-auto pb-2 max-w-[60%]">
-                  {themeIdeas.slice(0, 4).map(idea => (
-                    <Button 
-                      key={idea} 
-                      variant="outline" 
-                      size="sm" 
-                      className="text-xs h-6 px-2 whitespace-nowrap"
-                      onClick={() => useThemeIdea(idea)}
-                    >
-                      {idea}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <Input
-                id="themeName"
-                value={currentThemeName}
-                onChange={(e) => setCurrentThemeName(e.target.value)}
-                placeholder="e.g., Animals, Space, Countries"
-                className="w-full"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="pageCount">Pages for this theme: {currentThemePageCount}</Label>
-                <Slider
-                  id="pageCount"
-                  min={1}
-                  max={50}
-                  step={1}
-                  value={[currentThemePageCount]}
-                  onValueChange={(value) => setCurrentThemePageCount(value[0])}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground">Number of pages to dedicate to this theme</p>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="themeDifficulty">Difficulty</Label>
-                <Select
-                  value={currentThemeDifficulty}
-                  onValueChange={setCurrentThemeDifficulty}
-                >
-                  <SelectTrigger id="themeDifficulty" className="w-full">
-                    <SelectValue placeholder="Select difficulty" />
-                  </SelectTrigger>
-                  <SelectContent position="popper">
-                    {difficultyOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">Puzzle difficulty for this theme</p>
+      <Modal 
+        isOpen={dialogOpen} 
+        onClose={() => setDialogOpen(false)}
+        title={isEditing ? 'Edit Theme' : 'Add New Theme'}
+        description={isEditing 
+          ? 'Edit your theme and its associated words' 
+          : 'Create a new theme with words for your word search puzzle'}
+      >
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="themeName">Theme Name</Label>
+              <div className="flex gap-1 overflow-x-auto pb-2 max-w-[60%]">
+                {themeIdeas.slice(0, 4).map(idea => (
+                  <Button 
+                    key={idea} 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs h-6 px-2 whitespace-nowrap"
+                    onClick={() => useThemeIdea(idea)}
+                  >
+                    {idea}
+                  </Button>
+                ))}
               </div>
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="themeWords">Theme Words</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleGenerateWords(currentThemeName)}
-                  disabled={isGenerating || !currentThemeName}
-                  className="text-xs"
-                >
-                  {isGenerating ? (
-                    <>
-                      <CloudLightning className="mr-1 h-3 w-3 animate-pulse" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-1 h-3 w-3" />
-                      Generate Words
-                    </>
-                  )}
-                </Button>
-              </div>
-              <Textarea
-                id="themeWords"
-                value={currentThemeWords}
-                onChange={(e) => setCurrentThemeWords(e.target.value)}
-                placeholder="Enter specific words separated by commas..."
-                className="w-full resize-y min-h-[150px]"
-              />
-              <p className="text-xs text-muted-foreground">
-                For best results, use 8-15 words that fit within your chosen grid size
-              </p>
-            </div>
-
-            {themeError && (
-              <div className="bg-red-50 text-red-500 p-3 rounded-md flex items-start">
-                <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
-                <p className="text-sm">{themeError}</p>
-              </div>
-            )}
+            <Input
+              id="themeName"
+              value={currentThemeName}
+              onChange={(e) => setCurrentThemeName(e.target.value)}
+              placeholder="e.g., Animals, Space, Countries"
+              className="w-full"
+            />
           </div>
 
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => setDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button 
-              variant="default"
-              onClick={handleAddTheme}
-              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-            >
-              {isEditing ? 'Update Theme' : 'Add Theme'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="pageCount">Pages for this theme: {currentThemePageCount}</Label>
+              <Slider
+                id="pageCount"
+                min={1}
+                max={50}
+                step={1}
+                value={[currentThemePageCount]}
+                onValueChange={(value) => setCurrentThemePageCount(value[0])}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground">Number of pages to dedicate to this theme</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="themeDifficulty">Difficulty</Label>
+              <Select
+                value={currentThemeDifficulty}
+                onValueChange={setCurrentThemeDifficulty}
+              >
+                <SelectTrigger id="themeDifficulty" className="w-full">
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {difficultyOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Puzzle difficulty for this theme</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="themeWords">Theme Words</Label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleGenerateWords(currentThemeName)}
+                disabled={isGenerating || !currentThemeName}
+                className="text-xs"
+              >
+                {isGenerating ? (
+                  <>
+                    <CloudLightning className="mr-1 h-3 w-3 animate-pulse" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    Generate Words
+                  </>
+                )}
+              </Button>
+            </div>
+            <Textarea
+              id="themeWords"
+              value={currentThemeWords}
+              onChange={(e) => setCurrentThemeWords(e.target.value)}
+              placeholder="Enter specific words separated by commas..."
+              className="w-full resize-y min-h-[150px]"
+            />
+            <p className="text-xs text-muted-foreground">
+              For best results, use 8-15 words that fit within your chosen grid size
+            </p>
+          </div>
+
+          {themeError && (
+            <div className="bg-red-50 text-red-500 p-3 rounded-md flex items-start">
+              <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+              <p className="text-sm">{themeError}</p>
+            </div>
+          )}
+        </div>
+
+        <ModalFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => setDialogOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="default"
+            onClick={handleAddTheme}
+            className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+          >
+            {isEditing ? 'Update Theme' : 'Add Theme'}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }; 
