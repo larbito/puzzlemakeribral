@@ -23,7 +23,10 @@ import {
   Trash, 
   GripVertical,
   BookOpen,
-  Plus
+  Plus,
+  X,
+  Check,
+  Edit
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import { Input } from '@/components/ui/input';
@@ -31,6 +34,14 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Real function for AI TOC generation using the Railway backend API
 const generateTOCWithAI = async (
@@ -130,6 +141,118 @@ const generateMockTOC = (bookSummary: string): Chapter[] => {
   ];
 };
 
+// Generate a full book proposal with AI
+const generateBookProposal = async (
+  bookSummary: string,
+  tone: string,
+  audience: string
+): Promise<{
+  title: string;
+  subtitle: string;
+  description: string;
+}> => {
+  try {
+    console.log('Generating book proposal with:', { bookSummary, tone, audience });
+    
+    // Use the Railway backend API
+    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
+    
+    const response = await fetch(`${apiBaseUrl}/api/openai/generate-book-proposal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bookSummary,
+        tone,
+        audience
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Book proposal API response:', data);
+    
+    if (data.success && data.proposal) {
+      return data.proposal;
+    }
+    
+    // Fallback mock data if API doesn't return expected format
+    return generateMockProposal(bookSummary, tone, audience);
+  } catch (error) {
+    console.error('Error generating book proposal:', error);
+    // Return fallback data on error
+    return generateMockProposal(bookSummary, tone, audience);
+  }
+};
+
+// Generate a mock book proposal based on the input
+const generateMockProposal = (
+  bookSummary: string,
+  tone: string,
+  audience: string
+): { title: string; subtitle: string; description: string } => {
+  // Extract keywords for a more relevant proposal
+  const keywords = bookSummary.split(' ')
+    .filter(word => word.length > 4)
+    .map(word => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ""));
+  
+  const uniqueKeywords = [...new Set(keywords)];
+  const mainKeyword = uniqueKeywords[0] || 'Success';
+  const secondKeyword = uniqueKeywords[1] || 'Journey';
+  
+  // Generate different titles based on tone
+  let title = '';
+  let subtitle = '';
+  let description = '';
+  
+  switch (tone) {
+    case 'Serious':
+      title = `The ${mainKeyword} Method`;
+      subtitle = `A Comprehensive Guide to Understanding ${secondKeyword}`;
+      break;
+    case 'Fun':
+      title = `${mainKeyword} Adventures`;
+      subtitle = `Exploring the Exciting World of ${secondKeyword}`;
+      break;
+    case 'Educational':
+      title = `Understanding ${mainKeyword}`;
+      subtitle = `A Step-by-Step Guide to Mastering ${secondKeyword}`;
+      break;
+    case 'Storytelling':
+      title = `The ${mainKeyword} Chronicles`;
+      subtitle = `A Journey Through ${secondKeyword}`;
+      break;
+    default:
+      title = `The Complete Guide to ${mainKeyword}`;
+      subtitle = `Everything You Need to Know About ${secondKeyword}`;
+  }
+  
+  // Generate description based on audience
+  switch (audience) {
+    case 'Kids':
+      description = `This colorful and engaging book helps young readers discover the fascinating world of ${mainKeyword}. Through fun activities, simple explanations, and delightful illustrations, children will learn about ${secondKeyword} while developing their imagination and critical thinking skills.`;
+      break;
+    case 'Teens':
+      description = `Specifically designed for today's teenagers, this book offers practical insights into ${mainKeyword} with relatable examples and real-world applications. Readers will gain valuable knowledge about ${secondKeyword} that they can apply to their studies and personal development.`;
+      break;
+    case 'Adults':
+      description = `A comprehensive exploration of ${mainKeyword} for adult readers seeking to expand their understanding of ${secondKeyword}. This book combines thorough research with practical wisdom, offering both theoretical knowledge and actionable strategies for real-world application.`;
+      break;
+    default:
+      description = `An accessible guide to ${mainKeyword} for readers of all backgrounds. This book provides a thorough introduction to ${secondKeyword}, combining essential theory with practical applications suitable for beginners and experienced individuals alike.`;
+  }
+  
+  return {
+    title,
+    subtitle,
+    description: `${description}\n\nBased on your summary: "${bookSummary}"`
+  };
+};
+
 interface BookConceptStepProps {
   settings: BookGeneratorSettings;
   onSettingChange: (key: keyof BookGeneratorSettings, value: any) => void;
@@ -142,6 +265,13 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [summaryText, setSummaryText] = useState(settings.bookSummary || '');
+  const [bookProposal, setBookProposal] = useState<{
+    title: string;
+    subtitle: string;
+    description: string;
+  } | null>(null);
+  const [showProposalReview, setShowProposalReview] = useState(false);
+  const [isGeneratingProposal, setIsGeneratingProposal] = useState(false);
   const { toast } = useToast();
 
   // Update local state when settings change
@@ -149,6 +279,18 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     console.log('Settings updated, updating local state');
     setSummaryText(settings.bookSummary || '');
   }, [settings.bookSummary]);
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      if (summaryText.trim()) {
+        console.log('Auto-saving book summary...');
+        onSettingChange('bookSummary', summaryText);
+      }
+    }, 10000); // Auto-save every 10 seconds
+
+    return () => clearInterval(autoSaveInterval);
+  }, [summaryText, onSettingChange]);
 
   const toneOptions = [
     { value: 'Serious', label: 'Serious - Professional and formal' },
@@ -171,6 +313,88 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     onSettingChange('bookSummary', value);
   };
 
+  // Generate book proposal
+  const handleGenerateProposal = async () => {
+    if (!summaryText.trim()) {
+      toast({
+        title: 'Book summary required',
+        description: 'Please enter a summary of your book before generating a proposal.',
+      });
+      return;
+    }
+
+    // Update the parent component with the current summary
+    onSettingChange('bookSummary', summaryText);
+    
+    setIsGeneratingProposal(true);
+    
+    try {
+      const proposal = await generateBookProposal(
+        summaryText,
+        settings.tone,
+        settings.targetAudience
+      );
+      
+      setBookProposal(proposal);
+      
+      // Update settings with the proposal data
+      onSettingChange('title', proposal.title);
+      onSettingChange('subtitle', proposal.subtitle);
+      
+      toast({
+        title: 'Book proposal generated',
+        description: 'Please review the suggested title, subtitle, and description.',
+      });
+      
+      // Show the proposal review UI
+      setShowProposalReview(true);
+    } catch (error) {
+      console.error('Error generating book proposal:', error);
+      toast({
+        title: 'Error generating proposal',
+        description: 'Something went wrong. Please try again.',
+      });
+    } finally {
+      setIsGeneratingProposal(false);
+    }
+  };
+
+  // Accept the proposal and generate table of contents
+  const handleAcceptProposal = () => {
+    if (!bookProposal) return;
+    
+    // Update settings with the accepted proposal
+    onSettingChange('title', bookProposal.title);
+    onSettingChange('subtitle', bookProposal.subtitle);
+    
+    // Proceed to generate table of contents
+    handleGenerateTOC();
+    
+    // Hide the proposal review UI
+    setShowProposalReview(false);
+  };
+
+  // Modify the proposal
+  const handleProposalChange = (field: 'title' | 'subtitle' | 'description', value: string) => {
+    if (!bookProposal) return;
+    
+    setBookProposal({
+      ...bookProposal,
+      [field]: value
+    });
+    
+    // Update settings immediately for title and subtitle
+    if (field === 'title' || field === 'subtitle') {
+      onSettingChange(field, value);
+    }
+  };
+
+  // Cancel proposal review
+  const handleCancelProposal = () => {
+    setShowProposalReview(false);
+    setBookProposal(null);
+  };
+
   const handleGenerateTOC = async () => {
     if (!summaryText.trim()) {
       toast({
@@ -184,6 +408,10 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     onSettingChange('bookSummary', summaryText);
     
     setIsGenerating(true);
+    toast({
+      title: 'Generating table of contents...',
+      description: 'This may take up to 30 seconds as we analyze your book concept.',
+    });
     
     try {
       console.log('Calling generateTOCWithAI with:', {
@@ -214,6 +442,11 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
         title: 'Error generating Table of Contents',
         description: 'Something went wrong. Please try again.',
       });
+      
+      // Even if the API fails, generate a basic TOC with the mock function
+      const mockTOC = generateMockTOC(summaryText);
+      onSettingChange('tableOfContents', mockTOC);
+      onSettingChange('chapters', mockTOC);
     } finally {
       setIsGenerating(false);
     }
@@ -336,20 +569,20 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
             </div>
             
             <Button
-              onClick={handleGenerateTOC}
-              disabled={isGenerating}
+              onClick={handleGenerateProposal}
+              disabled={isGeneratingProposal}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
               type="button"
             >
-              {isGenerating ? (
+              {isGeneratingProposal ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Table of Contents...
+                  Generating Book Proposal...
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Table of Contents
+                  Generate Book Proposal
                 </>
               )}
             </Button>
@@ -369,15 +602,31 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           </div>
           <Separator className="mb-4" />
           
-          <div className="space-y-4">
-            {settings.tableOfContents.length === 0 ? (
-              <div className="text-center p-8 border border-dashed rounded-md">
-                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
-                <p className="text-muted-foreground">
-                  Your table of contents will appear here. Generate it using AI or add chapters manually.
-                </p>
-              </div>
-            ) : (
+          {settings.tableOfContents.length === 0 ? (
+            <div className="text-center p-8 border border-dashed rounded-md">
+              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+              <p className="text-muted-foreground">
+                Your table of contents will appear here after you've generated and accepted a book proposal.
+              </p>
+              {bookProposal && (
+                <Button 
+                  onClick={handleGenerateTOC} 
+                  className="mt-4" 
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>Generate Table of Contents</>
+                  )}
+                </Button>
+              )}
+            </div>
+          ) : (
+            <>
               <ScrollArea className="h-[320px] pr-4">
                 <DragDropContext onDragEnd={handleDragEnd}>
                   <Droppable droppableId="chapters">
@@ -426,22 +675,80 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                   </Droppable>
                 </DragDropContext>
               </ScrollArea>
-            )}
-            
-            <div className="flex gap-2 mt-4">
-              <Input
-                value={newChapterTitle}
-                onChange={(e) => setNewChapterTitle(e.target.value)}
-                placeholder="New chapter title"
-                className="flex-1"
-              />
-              <Button onClick={handleAddChapter} disabled={!newChapterTitle.trim()}>
-                <Plus className="h-4 w-4 mr-1" /> Add
-              </Button>
-            </div>
-          </div>
+              
+              <div className="flex gap-2 mt-4">
+                <Input
+                  value={newChapterTitle}
+                  onChange={(e) => setNewChapterTitle(e.target.value)}
+                  placeholder="New chapter title"
+                  className="flex-1"
+                />
+                <Button onClick={handleAddChapter} disabled={!newChapterTitle.trim()}>
+                  <Plus className="h-4 w-4 mr-1" /> Add
+                </Button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {/* Book Proposal Review Dialog */}
+      <Dialog open={showProposalReview} onOpenChange={setShowProposalReview}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Review Your Book Proposal</DialogTitle>
+            <DialogDescription>
+              We've generated a proposal based on your book concept. Review and edit before proceeding.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Edit className="h-4 w-4" /> Book Title
+              </Label>
+              <Input 
+                value={bookProposal?.title || ''}
+                onChange={(e) => handleProposalChange('title', e.target.value)}
+                className="text-lg font-semibold"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Edit className="h-4 w-4" /> Subtitle
+              </Label>
+              <Input 
+                value={bookProposal?.subtitle || ''}
+                onChange={(e) => handleProposalChange('subtitle', e.target.value)}
+                className="text-base"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Edit className="h-4 w-4" /> Book Description
+              </Label>
+              <Textarea 
+                value={bookProposal?.description || ''}
+                onChange={(e) => handleProposalChange('description', e.target.value)}
+                className="min-h-[150px]"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={handleCancelProposal}>
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
+            <Button onClick={handleAcceptProposal} className="flex-1">
+              <Check className="mr-2 h-4 w-4" />
+              Accept and Generate Table of Contents
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 

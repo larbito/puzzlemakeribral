@@ -236,4 +236,91 @@ router.post('/generate-toc', async (req, res) => {
   }
 });
 
+// Add the generate-book-proposal endpoint
+router.post('/generate-book-proposal', async (req, res) => {
+  try {
+    const { bookSummary, tone, audience } = req.body;
+    
+    if (!bookSummary || !tone || !audience) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: bookSummary, tone, and audience are required' 
+      });
+    }
+    
+    console.log('Generating book proposal with:', { bookSummary, tone, audience });
+    
+    // Call OpenAI to generate the book proposal
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert book editor and writer. Generate a book proposal based on the provided summary, tone, and target audience. The proposal should include a compelling title, subtitle, and detailed description.`
+        },
+        {
+          role: "user",
+          content: `Create a book proposal with the following details:
+          
+          Summary: ${bookSummary}
+          Tone: ${tone}
+          Target Audience: ${audience}
+          
+          Return ONLY a JSON object with the format:
+          {
+            "title": "The title of the book",
+            "subtitle": "A compelling subtitle that supports the title",
+            "description": "A detailed 2-3 paragraph description of what the book will contain"
+          }
+          
+          Make the title catchy and appropriate for the tone and audience. The subtitle should complement the title and give more context. The description should convince readers why they should read this book.`
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.7,
+      max_tokens: 1000,
+    });
+    
+    // Parse the response
+    const responseContent = completion.choices[0].message.content;
+    let parsedContent;
+    
+    try {
+      parsedContent = JSON.parse(responseContent);
+      console.log('Parsed proposal:', parsedContent);
+    } catch (error) {
+      console.error('Error parsing OpenAI response:', error);
+      console.log('Raw response:', responseContent);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to parse AI response' 
+      });
+    }
+    
+    // Ensure the response has the expected format
+    if (!parsedContent.title || !parsedContent.subtitle || !parsedContent.description) {
+      console.error('Invalid proposal format:', parsedContent);
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid proposal format returned by AI'
+      });
+    }
+    
+    return res.json({ 
+      success: true, 
+      proposal: {
+        title: parsedContent.title,
+        subtitle: parsedContent.subtitle,
+        description: parsedContent.description
+      }
+    });
+  } catch (error) {
+    console.error('Error generating book proposal:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
 module.exports = router; 

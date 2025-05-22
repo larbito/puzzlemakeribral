@@ -100,16 +100,76 @@ export const AIBookGenerator = () => {
 
   // Load saved settings from localStorage if available
   useEffect(() => {
-    const savedSettings = localStorage.getItem('bookGeneratorSettings');
-    if (savedSettings) {
+    const loadSavedSettings = () => {
       try {
-        const parsedSettings = JSON.parse(savedSettings);
-        setSettings(parsedSettings);
+        // Load settings
+        const savedSettings = localStorage.getItem('bookGeneratorSettings');
+        if (savedSettings) {
+          const parsedSettings = JSON.parse(savedSettings);
+          setSettings(parsedSettings);
+          
+          // Load completion status
+          const savedCompletedSteps = localStorage.getItem('bookGeneratorCompletedSteps');
+          if (savedCompletedSteps) {
+            const parsedCompletedSteps = JSON.parse(savedCompletedSteps);
+            setCompletedSteps(parsedCompletedSteps);
+          } else {
+            // If no saved completion status, calculate based on settings
+            const newCompletedSteps = { ...completedSteps };
+            
+            // Mark book-settings as complete if title exists
+            if (parsedSettings.title && parsedSettings.title.length > 0) {
+              newCompletedSteps['book-settings'] = true;
+            }
+            
+            // Mark book-concept as complete if summary and TOC exist
+            if (parsedSettings.bookSummary && 
+                parsedSettings.bookSummary.trim() && 
+                parsedSettings.tableOfContents && 
+                parsedSettings.tableOfContents.length > 0) {
+              newCompletedSteps['book-concept'] = true;
+            }
+            
+            // Mark content-generation as complete if chapters have content
+            if (parsedSettings.chapters && 
+                parsedSettings.chapters.length > 0 && 
+                parsedSettings.chapters.every((chapter: Chapter) => chapter.content)) {
+              newCompletedSteps['content-generation'] = true;
+            }
+            
+            // Mark front-matter as complete if title page and copyright exist
+            if (parsedSettings.titlePage && parsedSettings.copyrightPage) {
+              newCompletedSteps['front-matter'] = true;
+            }
+            
+            setCompletedSteps(newCompletedSteps);
+          }
+        }
       } catch (error) {
-        console.error('Error parsing saved settings:', error);
+        console.error('Error loading saved settings:', error);
       }
-    }
+    };
+    
+    loadSavedSettings();
+    
+    // Add event listener for storage changes (for multi-tab support)
+    window.addEventListener('storage', loadSavedSettings);
+    
+    return () => {
+      window.removeEventListener('storage', loadSavedSettings);
+    };
   }, []);
+
+  // Setup periodic auto-save
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      console.log('Auto-saving book generator state...');
+      localStorage.setItem('bookGeneratorSettings', JSON.stringify(settings));
+      localStorage.setItem('bookGeneratorCompletedSteps', JSON.stringify(completedSteps));
+    }, 30000); // Auto-save every 30 seconds
+    
+    return () => clearInterval(autoSaveInterval);
+  }, [settings, completedSteps]);
 
   // Handle setting changes
   const handleSettingChange = (key: keyof BookGeneratorSettings, value: any) => {
@@ -118,11 +178,27 @@ export const AIBookGenerator = () => {
     // Special handling for bookSummary to ensure it updates properly
     if (key === 'bookSummary') {
       console.log('Updating bookSummary from:', settings.bookSummary, 'to:', value);
+    }
+    
+    // Update step completion status based on the setting being changed
+    const newCompletedSteps = { ...completedSteps };
+    
+    // Mark book-settings as complete if title is updated and not empty
+    if (key === 'title' && value && value.length > 0) {
+      newCompletedSteps['book-settings'] = true;
+    }
+    
+    // Mark book-concept as complete if TOC is updated and not empty
+    if (key === 'tableOfContents' && value && value.length > 0) {
+      newCompletedSteps['book-concept'] = true;
+    }
+    
+    // If anything changed in the completed steps, update the state
+    if (JSON.stringify(newCompletedSteps) !== JSON.stringify(completedSteps)) {
+      setCompletedSteps(newCompletedSteps);
       
-      // Force step completion for book-settings if a title exists
-      if (settings.title.length > 0 && key === 'bookSummary') {
-        setCompletedSteps(prev => ({ ...prev, 'book-settings': true }));
-      }
+      // Save completed steps to localStorage
+      localStorage.setItem('bookGeneratorCompletedSteps', JSON.stringify(newCompletedSteps));
     }
     
     // Immediately update the settings
