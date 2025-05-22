@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 
-// Real function for AI TOC generation using direct OpenAI API
+// Real function for AI TOC generation using the Railway backend API
 const generateTOCWithAI = async (
   bookSummary: string, 
   tone: string, 
@@ -40,124 +40,67 @@ const generateTOCWithAI = async (
   try {
     console.log('generateTOCWithAI called with:', { bookSummary, tone, audience });
     
-    // Create a prompt for the OpenAI API that will generate a table of contents
-    const prompt = `
-You are a professional book outline creator. Based on the following book concept, create a detailed table of contents.
-
-Book Summary: ${bookSummary}
-Tone: ${tone}
-Target Audience: ${audience}
-
-The table of contents should include:
-1. An introduction
-2. 5-7 logical chapters that build on each other
-3. A conclusion
-
-For each chapter, generate a title that is specific, descriptive, and intriguing.
-Format your response as a JSON array of chapter objects with only a "title" property.
-For example: [{"title":"Introduction"},{"title":"Chapter 1: Example Title"}]
-`;
-
-    console.log('Using prompt:', prompt);
-    
-    try {
-      // Direct API call to OpenAI
-      const openaiKey = 'REMOVED_API_KEY'; // Add your OpenAI API key here
-      
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a professional book outline creator. Return only valid JSON.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.7,
-          max_tokens: 1000
-        })
-      });
-
-      console.log('OpenAI API response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API error:', errorText);
-        throw new Error(`OpenAI API request failed: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      console.log('OpenAI API response:', data);
-      
-      if (data.choices && data.choices.length > 0) {
-        const content = data.choices[0].message.content;
-        console.log('Generated content:', content);
-        
-        try {
-          // Parse the JSON from the response
-          const chapters = JSON.parse(content);
-          console.log('Parsed chapters:', chapters);
-          
-          if (Array.isArray(chapters)) {
-            return chapters.map((chapter, index) => ({
-              id: (index + 1).toString(),
-              title: chapter.title,
-              content: '',
-              wordCount: 0
-            }));
-          }
-        } catch (parseError) {
-          console.error('Error parsing JSON from OpenAI response:', parseError);
-        }
-      }
-    } catch (apiError) {
-      console.error('Error calling OpenAI API:', apiError);
-    }
-    
-    // If we get here, something went wrong, use the Railway API as fallback
-    console.log('Trying Railway API as fallback');
+    // Use the Railway backend API which has the OpenAI integration
     const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
+    console.log('Using Railway API URL:', apiBaseUrl);
     
-    const railwayResponse = await fetch(`${apiBaseUrl}/api/generate-toc`, {
+    // Enhanced debugging for the request
+    const requestBody = {
+      bookSummary,
+      tone,
+      audience
+    };
+    console.log('Sending request to Railway API:', requestBody);
+    
+    const response = await fetch(`${apiBaseUrl}/api/generate-toc`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        bookSummary,
-        tone,
-        audience,
-      }),
+      body: JSON.stringify(requestBody)
     });
 
-    if (railwayResponse.ok) {
-      const railwayData = await railwayResponse.json();
-      console.log('Railway API response:', railwayData);
-      
-      if (railwayData.chapters && Array.isArray(railwayData.chapters)) {
-        return railwayData.chapters.map((chapter: any, index: number) => ({
-          id: (index + 1).toString(),
-          title: chapter.title || `Chapter ${index + 1}`,
-          content: '',
-          wordCount: 0,
-        }));
+    console.log('Railway API response status:', response.status);
+    
+    // Handle non-ok responses
+    if (!response.ok) {
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        errorText = 'Could not extract error text';
       }
+      console.error('Railway API error response:', errorText);
+      throw new Error(`Railway API request failed: ${response.status} ${errorText}`);
+    }
+
+    // Parse the response
+    let data;
+    try {
+      data = await response.json();
+      console.log('Railway API response data:', data);
+    } catch (jsonError) {
+      console.error('Error parsing JSON from Railway API:', jsonError);
+      throw new Error('Could not parse API response as JSON');
     }
     
-    // Fallback to mock data if both API approaches fail
-    console.warn('All API methods failed, using fallback data');
+    // Check if data.chapters exists
+    if (data && data.chapters && Array.isArray(data.chapters)) {
+      return data.chapters.map((chapter: any, index: number) => ({
+        id: (index + 1).toString(),
+        title: chapter.title || `Chapter ${index + 1}`,
+        content: '',
+        wordCount: 0,
+      }));
+    }
+    
+    // Fallback to mock data if API doesn't return expected format
+    console.warn('Railway API did not return expected format, using fallback data');
     return generateMockTOC(bookSummary);
   } catch (error) {
     console.error('Error generating TOC:', error);
+    // Always return fallback data on error for a better user experience
+    console.log('Returning fallback data due to error');
     return generateMockTOC(bookSummary);
   }
 };
@@ -264,6 +207,10 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     onSettingChange('bookSummary', summaryText);
     
     setIsGenerating(true);
+    toast({
+      title: 'Generating table of contents...',
+      description: 'This may take up to 30 seconds as we analyze your book concept.',
+    });
     
     try {
       console.log('Calling generateTOCWithAI with:', {
@@ -286,14 +233,19 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       
       toast({
         title: 'Table of Contents generated',
-        description: `Generated ${generatedTOC.length} chapters based on your book concept.`,
+        description: `Generated ${generatedTOC.length} chapters based on your book concept about "${summaryText.substring(0, 30)}...".`,
       });
     } catch (error) {
       console.error('Error generating TOC:', error);
       toast({
         title: 'Error generating Table of Contents',
-        description: 'Something went wrong. Please try again.',
+        description: 'An error occurred communicating with the API. Using fallback chapter structure instead.',
       });
+      
+      // Even if the API fails, generate a basic TOC with the mock function
+      const mockTOC = generateMockTOC(summaryText);
+      onSettingChange('tableOfContents', mockTOC);
+      onSettingChange('chapters', mockTOC);
     } finally {
       setIsGenerating(false);
     }
