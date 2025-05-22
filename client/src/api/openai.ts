@@ -102,9 +102,9 @@ export const generateCompleteBook = async (
   chapters: Chapter[];
   estimatedPageCount: number;
 }> => {
-  // Create a controller for the fetch request with a much longer timeout (120 seconds)
+  // Create a controller for the fetch request with a much longer timeout (180 seconds)
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for large books
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minute timeout for large books
   
   try {
     console.log('Generating complete book with settings:', {
@@ -114,13 +114,17 @@ export const generateCompleteBook = async (
       summaryLength: settings.bookSummary.length
     });
     
+    // Check if this is a large book request and add optimization flag
+    const isLargeBook = settings.pageCount > 100;
+    
     const response = await fetch(`${API_BASE_URL}/api/openai/generate-complete-book`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...settings
+        ...settings,
+        optimizeForLargeBook: isLargeBook // Tell the backend to use faster settings for large books
       }),
       signal: controller.signal
     });
@@ -160,8 +164,8 @@ export const generateCompleteBook = async (
   } catch (error: any) {
     // Check if it's a timeout error
     if (error.name === 'AbortError') {
-      console.error('Book generation request timed out after 120 seconds');
-      throw new Error('Book generation request timed out. Please try again or use a smaller page count.');
+      console.error('Book generation request timed out after 3 minutes');
+      throw new Error('Book generation request timed out. Please try again with a smaller page count.');
     }
     
     console.error('Error generating complete book:', error);

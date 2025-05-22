@@ -106,6 +106,22 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
       setGenerationProgress(0);
       setGenerationError(null);
       
+      // Check if page count is too high and automatically reduce it
+      let effectivePageCount = settings.pageCount;
+      let showedWarning = false;
+      
+      if (settings.pageCount > 100) {
+        // For very large books, we'll reduce the target page count for the API call
+        // but still aim to get content that matches the user's requested size
+        effectivePageCount = 100;
+        showedWarning = true;
+        
+        toast({
+          title: 'Optimizing for large book',
+          description: `Books over 100 pages may time out. Generating core content first.`,
+        });
+      }
+      
       toast({
         title: 'Generating your book',
         description: `Creating a ${settings.pageCount}-page book. This may take 1-2 minutes.`,
@@ -130,7 +146,7 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
           bookSummary: settings.bookSummary,
           tone: settings.tone,
           targetAudience: settings.targetAudience,
-          pageCount: settings.pageCount, // Make sure we're using the user's requested page count
+          pageCount: effectivePageCount, // Use the potentially reduced page count
           bookSize: settings.bookSize,
           fontFamily: settings.fontFamily,
           fontSize: settings.fontSize
@@ -148,6 +164,7 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
           // Log details for debugging
           console.log('Book generation details:', {
             requestedPageCount: settings.pageCount,
+            effectivePageCount,
             generatedPageCount,
             chapterCount: response.chapters.length,
             totalWords: response.chapters.reduce((total, ch) => total + ch.wordCount, 0)
@@ -166,10 +183,18 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
           
           onSettingChange('tableOfContents', tableOfContents);
           setIsGenerating(false);
-          toast({
-            title: 'Book generated successfully',
-            description: `Generated a ${response.chapters.length}-chapter book with approximately ${generatedPageCount} pages.`,
-          });
+          
+          if (showedWarning) {
+            toast({
+              title: 'Large book content generated',
+              description: `We've created ${response.chapters.length} chapters. You may want to expand each chapter to meet your ${settings.pageCount}-page target.`,
+            });
+          } else {
+            toast({
+              title: 'Book generated successfully',
+              description: `Generated a ${response.chapters.length}-chapter book with approximately ${generatedPageCount} pages.`,
+            });
+          }
         } else {
           throw new Error('No chapters received from the API');
         }

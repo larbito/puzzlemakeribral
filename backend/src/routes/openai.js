@@ -833,8 +833,8 @@ Follow these guidelines:
 Book Title: ${title}
 ${subtitle ? `Book Subtitle: ${subtitle}` : ''}
 Book Summary: ${bookSummary}
-Tone: ${tone || 'Educational'}
-Target Audience: ${targetAudience || 'Adults'}
+Tone: ${tone}
+Target Audience: ${targetAudience}
 Chapter Title: ${chapterTitle}
 Chapter Number: ${chapterNumber} of ${totalChapters}
 
@@ -939,7 +939,8 @@ router.post('/generate-complete-book', async (req, res) => {
       pageCount, 
       bookSize, 
       fontFamily, 
-      fontSize 
+      fontSize,
+      optimizeForLargeBook = false // New flag for large books
     } = req.body;
     
     if (!bookSummary || !tone || !targetAudience || !pageCount) {
@@ -952,7 +953,8 @@ router.post('/generate-complete-book', async (req, res) => {
     console.log('Generating complete book with:', { 
       title: title || 'Untitled', 
       pageCount, 
-      bookSummary: bookSummary.substring(0, 100) + '...' 
+      bookSummary: bookSummary.substring(0, 100) + '...',
+      optimizeForLargeBook
     });
     
     // Use mock response if API key is not available
@@ -969,12 +971,21 @@ router.post('/generate-complete-book', async (req, res) => {
     }
     
     // Calculate estimated number of chapters based on page count
-    // Typically, books have about 10-15 pages per chapter on average
-    const estimatedChapters = Math.max(5, Math.ceil(pageCount / 15));
+    // For large books, use fewer, larger chapters to optimize generation
+    const pagesPerChapter = optimizeForLargeBook ? 25 : 15;
+    const estimatedChapters = Math.max(5, Math.ceil(pageCount / pagesPerChapter));
     
     // Step 1: Generate appropriate chapter breakdown for the book
+    // For large books, use a more concise system prompt
+    const systemPrompt = optimizeForLargeBook 
+      ? `You are an expert book editor who creates concise chapter breakdowns for books.`
+      : `You are an expert book editor and author who creates detailed chapter breakdowns for books.
+          
+You MUST respond with a valid JSON object containing an array of chapter objects under the "chapters" key. 
+Each chapter must have a "title" and "summary" field.`;
+
     const chapterBreakdownPrompt = `
-      You are an expert book editor and author. Create a chapter breakdown for a ${pageCount}-page book with the following details:
+      Create a chapter breakdown for a ${pageCount}-page book with the following details:
       
       Title: ${title || 'Untitled'}
       Subtitle: ${subtitle || ''}
@@ -1001,24 +1012,15 @@ router.post('/generate-complete-book', async (req, res) => {
     console.log('Generating chapter breakdown...');
     
     // Call OpenAI to generate the chapter breakdown
+    // Use a faster model for large books
+    const breakdownModel = optimizeForLargeBook ? "gpt-3.5-turbo" : "gpt-4o";
+    
     const breakdownCompletion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: breakdownModel,
       messages: [
         {
           role: "system",
-          content: `You are an expert book editor and author who creates detailed chapter breakdowns for books.
-          
-You MUST respond with a valid JSON object containing an array of chapter objects under the "chapters" key. 
-Each chapter must have a "title" and "summary" field.
-
-The format must be:
-{
-  "chapters": [
-    { "title": "Introduction", "summary": "Brief description" },
-    { "title": "Chapter 1: Example", "summary": "Brief description" },
-    ...
-  ]
-}`
+          content: systemPrompt
         },
         {
           role: "user",
@@ -1026,7 +1028,7 @@ The format must be:
         }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.7
+      temperature: optimizeForLargeBook ? 0.5 : 0.7
     });
     
     // Parse the chapter breakdown
@@ -1121,30 +1123,42 @@ The format must be:
     const totalWords = pageCount * 250;
     const wordsPerChapter = Math.floor(totalWords / chapterBreakdown.length);
     
+    // For large books, use a faster model with more concise instructions
+    const contentModel = optimizeForLargeBook ? "gpt-3.5-turbo-16k" : "gpt-4o";
+    const temperature = optimizeForLargeBook ? 0.6 : 0.7;
+    
     for (let i = 0; i < chapterBreakdown.length; i++) {
       const chapter = chapterBreakdown[i];
       console.log(`Generating content for chapter ${i+1}: ${chapter.title}`);
       
-      const chapterPrompt = `
-        You are writing the "${chapter.title}" chapter of a book titled "${title || 'Untitled'}".
-        
-        Book summary: ${bookSummary}
-        Chapter summary: ${chapter.summary}
-        Tone: ${tone}
-        Target audience: ${targetAudience}
-        
-        This is chapter ${i+1} of ${chapterBreakdown.length}.
-        
-        Write the complete content for this chapter. It should be approximately ${wordsPerChapter} words.
-        Use appropriate headings, subheadings, and paragraphs to organize the content.
-        The content should be engaging, informative, and match the specified tone.
-        
-        Return ONLY the chapter content, starting with the chapter title as a heading.
-      `;
+      const chapterPrompt = optimizeForLargeBook
+        ? `
+          Write chapter "${chapter.title}" (${i+1}/${chapterBreakdown.length}) for a book about ${bookSummary}.
+          Chapter summary: ${chapter.summary}
+          Style: ${tone} tone for ${targetAudience} audience
+          Length: ~${wordsPerChapter} words
+          Start with the chapter title as a heading.
+        `
+        : `
+          You are writing the "${chapter.title}" chapter of a book titled "${title || 'Untitled'}".
+          
+          Book summary: ${bookSummary}
+          Chapter summary: ${chapter.summary}
+          Tone: ${tone}
+          Target audience: ${targetAudience}
+          
+          This is chapter ${i+1} of ${chapterBreakdown.length}.
+          
+          Write the complete content for this chapter. It should be approximately ${wordsPerChapter} words.
+          Use appropriate headings, subheadings, and paragraphs to organize the content.
+          The content should be engaging, informative, and match the specified tone.
+          
+          Return ONLY the chapter content, starting with the chapter title as a heading.
+        `;
       
       try {
         const contentCompletion = await openai.chat.completions.create({
-          model: "gpt-4o",
+          model: contentModel,
           messages: [
             {
               role: "system",
@@ -1156,7 +1170,7 @@ The format must be:
             }
           ],
           max_tokens: 4000,
-          temperature: 0.7
+          temperature: temperature
         });
         
         const chapterContent = contentCompletion.choices[0].message.content;
