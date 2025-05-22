@@ -66,7 +66,7 @@ export const StepWizard: React.FC<StepWizardProps> = ({
 
   const isLastStep = currentStep === steps.length - 1;
   const isFirstStep = currentStep === 0;
-  const nextIsDisabled = !steps[currentStep].isComplete && hasInteracted;
+  const nextIsDisabled = false; // Always enable the Next button
   const progressValue = ((currentStep + 1) / steps.length) * 100;
   
   // Mark step as interacted with

@@ -247,8 +247,10 @@ export const AIBookGenerator = () => {
       
       console.log('Step completed?', isValid);
     } else if (currentStepId === 'book-concept') {
-      const isValid = !!(settings.bookSummary && settings.bookSummary.trim() && settings.tableOfContents.length > 0);
+      // Only require a book summary, no longer need tableOfContents
+      const isValid = !!(settings.bookSummary && settings.bookSummary.trim());
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: isValid }));
+      console.log('Book concept step completed?', isValid);
     } else if (currentStepId === 'content-generation') {
       const hasContent = settings.chapters.length > 0 && settings.chapters.every(chapter => chapter.content);
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: hasContent }));
