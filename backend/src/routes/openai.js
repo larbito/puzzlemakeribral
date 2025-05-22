@@ -186,8 +186,16 @@ router.post('/generate-toc', async (req, res) => {
           Return ONLY a JSON array of chapter objects with the format:
           [
             { 
-              "title": "Chapter Title",
-              "subtopics": ["Subtopic 1", "Subtopic 2"]
+              "id": "1",
+              "title": "Introduction",
+              "content": "",
+              "wordCount": 0
+            },
+            {
+              "id": "2", 
+              "title": "Chapter 1: Example Title",
+              "content": "",
+              "wordCount": 0
             }
           ]
           
@@ -239,7 +247,7 @@ router.post('/generate-toc', async (req, res) => {
 // Add the generate-book-proposal endpoint
 router.post('/generate-book-proposal', async (req, res) => {
   try {
-    const { bookSummary, tone, audience } = req.body;
+    const { bookSummary, tone, audience, includeTableOfContents } = req.body;
     
     if (!bookSummary || !tone || !audience) {
       return res.status(400).json({ 
@@ -248,7 +256,7 @@ router.post('/generate-book-proposal', async (req, res) => {
       });
     }
     
-    console.log('Generating book proposal with:', { bookSummary, tone, audience });
+    console.log('Generating book proposal with:', { bookSummary, tone, audience, includeTableOfContents });
     
     // Call OpenAI to generate the book proposal
     const completion = await openai.chat.completions.create({
@@ -256,7 +264,7 @@ router.post('/generate-book-proposal', async (req, res) => {
       messages: [
         {
           role: "system",
-          content: `You are an expert book editor and writer. Generate a book proposal based on the provided summary, tone, and target audience. The proposal should include a compelling title, subtitle, and detailed description.`
+          content: `You are an expert book editor and writer. Generate a comprehensive book proposal based on the provided summary, tone, and target audience. The proposal should include a compelling title, subtitle, detailed description, and a detailed table of contents with 5-10 chapters.`
         },
         {
           role: "user",
@@ -270,15 +278,30 @@ router.post('/generate-book-proposal', async (req, res) => {
           {
             "title": "The title of the book",
             "subtitle": "A compelling subtitle that supports the title",
-            "description": "A detailed 2-3 paragraph description of what the book will contain"
+            "description": "A detailed 2-3 paragraph description of what the book will contain",
+            "tableOfContents": [
+              {
+                "id": "1",
+                "title": "Introduction",
+                "content": "",
+                "wordCount": 0
+              },
+              {
+                "id": "2",
+                "title": "Chapter 1: First Chapter Title",
+                "content": "",
+                "wordCount": 0
+              }
+              // Additional chapters here
+            ]
           }
           
-          Make the title catchy and appropriate for the tone and audience. The subtitle should complement the title and give more context. The description should convince readers why they should read this book.`
+          Make the title catchy and appropriate for the tone and audience. The subtitle should complement the title and give more context. The description should convince readers why they should read this book. The table of contents should include an introduction, 5-10 logical chapters, and a conclusion.`
         }
       ],
       response_format: { type: "json_object" },
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 1500,
     });
     
     // Parse the response
@@ -306,12 +329,75 @@ router.post('/generate-book-proposal', async (req, res) => {
       });
     }
     
+    // If the AI didn't generate a table of contents, create one separately
+    if (!parsedContent.tableOfContents || !Array.isArray(parsedContent.tableOfContents) || parsedContent.tableOfContents.length === 0) {
+      // Call the generate-toc endpoint internally
+      try {
+        const tocCompletion = await openai.chat.completions.create({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: `You are an expert book editor and writer. Generate a detailed table of contents for a book based on the provided summary, tone, and target audience. The TOC should be logical, comprehensive, and appropriate for the specified audience.`
+            },
+            {
+              role: "user",
+              content: `Create a detailed table of contents for a book with the following details:
+              
+              Title: ${parsedContent.title}
+              Subtitle: ${parsedContent.subtitle}
+              Summary: ${bookSummary}
+              Tone: ${tone}
+              Target Audience: ${audience}
+              
+              Return ONLY a JSON array of chapter objects with the format:
+              [
+                { 
+                  "id": "1",
+                  "title": "Introduction",
+                  "content": "",
+                  "wordCount": 0
+                },
+                {
+                  "id": "2", 
+                  "title": "Chapter 1: Example Title",
+                  "content": "",
+                  "wordCount": 0
+                }
+              ]
+              
+              Create 5-10 chapters depending on the complexity of the topic. Include an introduction and conclusion chapter.`
+            }
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.7,
+          max_tokens: 1000,
+        });
+        
+        const tocContent = tocCompletion.choices[0].message.content;
+        let tocData = JSON.parse(tocContent);
+        parsedContent.tableOfContents = tocData;
+      } catch (tocError) {
+        console.error('Error generating TOC:', tocError);
+        // Generate a basic TOC if AI fails
+        parsedContent.tableOfContents = [
+          { id: '1', title: 'Introduction', content: '', wordCount: 0 },
+          { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
+          { id: '3', title: 'Chapter 2: Key Concepts', content: '', wordCount: 0 },
+          { id: '4', title: 'Chapter 3: Advanced Topics', content: '', wordCount: 0 },
+          { id: '5', title: 'Chapter 4: Practical Applications', content: '', wordCount: 0 },
+          { id: '6', title: 'Conclusion', content: '', wordCount: 0 }
+        ];
+      }
+    }
+    
     return res.json({ 
       success: true, 
       proposal: {
         title: parsedContent.title,
         subtitle: parsedContent.subtitle,
-        description: parsedContent.description
+        description: parsedContent.description,
+        tableOfContents: parsedContent.tableOfContents || []
       }
     });
   } catch (error) {
