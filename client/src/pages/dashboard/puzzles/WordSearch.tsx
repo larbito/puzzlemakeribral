@@ -86,6 +86,7 @@ export interface WordSearchSettings {
   customWords: string;
   aiPrompt: string;
   includeThemeFacts: boolean;
+  theme?: string;
   
   // Word directions
   directions: {
@@ -97,7 +98,7 @@ export interface WordSearchSettings {
 }
 
 // Default settings
-const defaultSettings: WordSearchSettings = {
+export const defaultWordSearchSettings: WordSearchSettings = {
   title: 'My Word Search Book',
   subtitle: 'Fun Puzzles for Everyone',
   authorName: '',
@@ -567,7 +568,7 @@ export const WordSearch: React.FC = () => {
   const { toast } = useToast();
   const [savedSettings, setSavedSettings] = useLocalStorage<WordSearchSettings>(
     'word-search-settings',
-    defaultSettings
+    defaultWordSearchSettings
   );
   
   const [settings, setSettings] = useState<WordSearchSettings>(savedSettings);
@@ -686,8 +687,8 @@ export const WordSearch: React.FC = () => {
   
   // Reset settings to default
   function handleReset() {
-    setSettings(defaultSettings);
-    setSavedSettings(defaultSettings);
+    setSettings(defaultWordSearchSettings);
+    setSavedSettings(defaultWordSearchSettings);
     toast({
       title: 'Settings Reset',
       description: 'All settings have been reset to default values.',

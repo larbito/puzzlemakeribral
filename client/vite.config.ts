@@ -34,10 +34,17 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           ui: ['framer-motion', 'styled-components'],
+          radix: [
+            '@radix-ui/react-radio-group',
+            '@radix-ui/react-checkbox',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-select',
+            '@radix-ui/react-slider'
+          ],
           utils: ['@react-pdf/renderer']
         }
       },
-      external: [] // Leave external empty to properly bundle styled-components
+      external: [] // Leave external empty to properly bundle all dependencies
     },
     minify: true,
     target: 'es2015',
