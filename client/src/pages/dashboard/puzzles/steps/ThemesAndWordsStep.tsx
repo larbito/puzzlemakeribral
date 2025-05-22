@@ -46,7 +46,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
   const [currentThemeId, setCurrentThemeId] = useState<string | null>(null);
   const [currentThemeName, setCurrentThemeName] = useState('');
   const [currentThemeWords, setCurrentThemeWords] = useState('');
-  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [themeError, setThemeError] = useState('');
   const [themes, setThemes] = useState<ThemeData[]>([]);
@@ -75,7 +75,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     if (themes.length > 0) {
       onSettingChange('customWords', JSON.stringify(themes));
     }
-  }, [themes]);
+  }, [themes, onSettingChange]);
 
   const handleGenerateWords = async (themePrompt: string) => {
     if (!themePrompt) {
@@ -148,7 +148,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     setCurrentThemeWords('');
     setCurrentThemeId(null);
     setIsEditing(false);
-    setThemeDialogOpen(false);
+    setDialogOpen(false);
     setThemeError('');
   };
 
@@ -157,7 +157,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     setCurrentThemeName(theme.name);
     setCurrentThemeWords(theme.words.join(', '));
     setIsEditing(true);
-    setThemeDialogOpen(true);
+    setDialogOpen(true);
   };
 
   const handleDeleteTheme = (themeId: string) => {
@@ -174,7 +174,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     setCurrentThemeWords('');
     setIsEditing(false);
     setThemeError('');
-    setThemeDialogOpen(true);
+    setDialogOpen(true);
   };
 
   const useThemeIdea = (theme: string) => {
@@ -197,6 +197,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">My Themes</h3>
             <Button 
+              variant="default"
               onClick={handleOpenNewThemeDialog} 
               className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
             >
@@ -213,6 +214,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
                 Add themes to create puzzles with different word categories
               </p>
               <Button 
+                variant="default"
                 onClick={handleOpenNewThemeDialog}
                 className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
               >
@@ -268,7 +270,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
           )}
         </div>
 
-        <Dialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{isEditing ? 'Edit Theme' : 'Add New Theme'}</DialogTitle>
@@ -352,11 +354,12 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
             <DialogFooter>
               <Button 
                 variant="outline" 
-                onClick={() => setThemeDialogOpen(false)}
+                onClick={() => setDialogOpen(false)}
               >
                 Cancel
               </Button>
               <Button 
+                variant="default"
                 onClick={handleAddTheme}
                 className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
               >
