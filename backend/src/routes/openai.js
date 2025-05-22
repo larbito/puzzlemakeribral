@@ -1013,7 +1013,7 @@ Each chapter must have a "title" and "summary" field.`;
     
     // Call OpenAI to generate the chapter breakdown
     // Use a faster model for large books
-    const breakdownModel = optimizeForLargeBook ? "gpt-3.5-turbo" : "gpt-4o";
+    const breakdownModel = optimizeForLargeBook || pageCount > 300 ? "gpt-3.5-turbo" : "gpt-4o";
     
     const breakdownCompletion = await openai.chat.completions.create({
       model: breakdownModel,
@@ -1028,7 +1028,8 @@ Each chapter must have a "title" and "summary" field.`;
         }
       ],
       response_format: { type: "json_object" },
-      temperature: optimizeForLargeBook ? 0.5 : 0.7
+      temperature: optimizeForLargeBook ? 0.5 : 0.7,
+      max_tokens: Math.min(4000, 500 + (pageCount / 10)) // Scale tokens based on book size
     });
     
     // Parse the chapter breakdown

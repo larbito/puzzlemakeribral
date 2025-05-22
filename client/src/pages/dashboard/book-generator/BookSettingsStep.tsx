@@ -19,11 +19,9 @@ import {
   Type, 
   Layers, 
   Maximize,
-  Info,
   BookText,
   PenSquare
 } from 'lucide-react';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 interface BookSettingsStepProps {
   settings: BookGeneratorSettings;
@@ -34,12 +32,6 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
   settings,
   onSettingChange,
 }) => {
-  const handlePageCountChange = (value: number) => {
-    // Enforce a maximum page count of 80 to ensure generation completes successfully
-    const pageCount = Math.min(value, 80);
-    onSettingChange('pageCount', pageCount);
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
@@ -48,15 +40,6 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
           <p className="text-muted-foreground">Configure the physical aspects of your book</p>
         </div>
       </div>
-      
-      <Alert variant="info" className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-        <Info className="h-4 w-4" />
-        <AlertTitle>Important Information</AlertTitle>
-        <AlertDescription className="text-sm">
-          We recommend a maximum of 80 pages for AI generation to ensure successful completion.
-          For larger books, start with 80 pages and then manually expand your content after generation.
-        </AlertDescription>
-      </Alert>
 
       <Tabs defaultValue="dimensions">
         <TabsList className="grid grid-cols-3 mb-6">
@@ -94,9 +77,9 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                         <SelectValue placeholder="Select book size" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="5x8">5" x 8" (Small Paperback)</SelectItem>
+                        <SelectItem value="5x8">5" x 8" (Digest)</SelectItem>
                         <SelectItem value="6x9">6" x 9" (Standard)</SelectItem>
-                        <SelectItem value="7x10">7" x 10" (Workbook)</SelectItem>
+                        <SelectItem value="7x10">7" x 10" (Textbook)</SelectItem>
                         <SelectItem value="8.5x11">8.5" x 11" (Letter)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -110,27 +93,22 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                     <div className="flex gap-4 items-center">
                       <Slider
                         id="pageCount"
-                        min={20}
-                        max={80}
-                        step={5}
+                        min={30}
+                        max={500}
+                        step={10}
                         value={[settings.pageCount]}
-                        onValueChange={([value]) => handlePageCountChange(value)}
+                        onValueChange={([value]) => onSettingChange('pageCount', value)}
                         className="flex-1"
                       />
                       <Input
                         type="number"
-                        min={20}
-                        max={80}
+                        min={30}
+                        max={500}
                         value={settings.pageCount}
-                        onChange={(e) => handlePageCountChange(parseInt(e.target.value, 10) || 20)}
+                        onChange={(e) => onSettingChange('pageCount', parseInt(e.target.value, 10) || 30)}
                         className="w-20"
                       />
                     </div>
-                    {settings.pageCount >= 80 && (
-                      <p className="text-xs text-amber-500">
-                        Maximum recommended page count reached. Generation may be slower.
-                      </p>
-                    )}
                   </div>
                 </div>
                 
@@ -329,11 +307,11 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                         <SelectValue placeholder="Select font family" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Times New Roman">Times New Roman (Serif)</SelectItem>
-                        <SelectItem value="Georgia">Georgia (Serif)</SelectItem>
-                        <SelectItem value="Arial">Arial (Sans-serif)</SelectItem>
-                        <SelectItem value="Helvetica">Helvetica (Sans-serif)</SelectItem>
-                        <SelectItem value="Courier New">Courier New (Monospace)</SelectItem>
+                        <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                        <SelectItem value="Georgia">Georgia</SelectItem>
+                        <SelectItem value="Arial">Arial</SelectItem>
+                        <SelectItem value="Helvetica">Helvetica</SelectItem>
+                        <SelectItem value="Garamond">Garamond</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -345,7 +323,7 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                     <Label htmlFor="fontSize">Font Size: {settings.fontSize}pt</Label>
                     <Slider
                       id="fontSize"
-                      min={8}
+                      min={10}
                       max={14}
                       step={0.5}
                       value={[settings.fontSize]}
@@ -383,11 +361,11 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                         <SelectValue placeholder="Select font family for headings" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Times New Roman">Times New Roman (Serif)</SelectItem>
-                        <SelectItem value="Georgia">Georgia (Serif)</SelectItem>
-                        <SelectItem value="Arial">Arial (Sans-serif)</SelectItem>
-                        <SelectItem value="Helvetica">Helvetica (Sans-serif)</SelectItem>
-                        <SelectItem value="Courier New">Courier New (Monospace)</SelectItem>
+                        <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                        <SelectItem value="Georgia">Georgia</SelectItem>
+                        <SelectItem value="Arial">Arial</SelectItem>
+                        <SelectItem value="Helvetica">Helvetica</SelectItem>
+                        <SelectItem value="Garamond">Garamond</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
