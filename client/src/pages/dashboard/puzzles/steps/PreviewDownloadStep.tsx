@@ -42,6 +42,12 @@ interface ThemeData {
 interface PreviewDownloadStepProps {
   settings: WordSearchSettings;
   onSettingChange: (key: keyof WordSearchSettings, value: any) => void;
+  onGeneratePuzzle?: () => Promise<void>;
+  generationStatus?: 'idle' | 'generating' | 'complete' | 'error';
+  downloadUrl?: string | null;
+  generationError?: string;
+  onTryAgain?: () => void;
+  onDownload?: () => void;
 }
 
 // Simulated preview data for page navigation
@@ -172,16 +178,27 @@ const BookPreview: React.FC<{
 export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
   settings,
   onSettingChange,
+  onGeneratePuzzle,
+  generationStatus: injectedStatus,
+  downloadUrl: injectedUrl,
+  generationError: injectedError,
+  onTryAgain,
+  onDownload,
 }) => {
-  const [generationStatus, setGenerationStatus] = useState<'idle' | 'generating' | 'complete' | 'error'>('idle');
+  const [localGenerationStatus, setLocalGenerationStatus] = useState<'idle' | 'generating' | 'complete' | 'error'>('idle');
   const [progress, setProgress] = useState(0);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [localDownloadUrl, setLocalDownloadUrl] = useState<string | null>(null);
+  const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [email, setEmail] = useState('');
   const [sendEmail, setSendEmail] = useState(false);
   const [showThanks, setShowThanks] = useState(false);
+  
+  // Use injected props if available, otherwise use local state
+  const effectiveStatus = injectedStatus || localGenerationStatus;
+  const effectiveDownloadUrl = injectedUrl || localDownloadUrl;
+  const effectiveError = injectedError || localErrorMessage;
   
   // Parse themes from settings
   const [themes, setThemes] = useState<ThemeData[]>([]);
@@ -266,35 +283,41 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
   };
   
   const handleGenerate = async () => {
-    setGenerationStatus('generating');
+    if (onGeneratePuzzle) {
+      // Use the injected method if available
+      onGeneratePuzzle();
+      return;
+    }
+    
+    setLocalGenerationStatus('generating');
     setProgress(0);
-    setErrorMessage(null);
-    setDownloadUrl(null);
+    setLocalErrorMessage(null);
+    setLocalDownloadUrl(null);
     
     try {
       // Start the generation process
-      const response = await wordSearchApi.generatePuzzleBook(settings);
+      const jobId = await wordSearchApi.generateWordSearch(settings);
       
       // Set up progress polling
       const pollInterval = setInterval(async () => {
         try {
-          const status = await wordSearchApi.checkGenerationStatus(response.jobId);
+          const status = await wordSearchApi.checkGenerationStatus(jobId);
           setProgress(status.progress);
           
           if (status.status === 'completed') {
             clearInterval(pollInterval);
-            setGenerationStatus('complete');
-            setDownloadUrl(status.downloadUrl);
+            setLocalGenerationStatus('complete');
+            setLocalDownloadUrl(status.downloadUrl);
           } else if (status.status === 'failed') {
             clearInterval(pollInterval);
-            setGenerationStatus('error');
-            setErrorMessage(status.error || 'Generation failed for unknown reasons');
+            setLocalGenerationStatus('error');
+            setLocalErrorMessage(status.error || 'Generation failed for unknown reasons');
           }
         } catch (error) {
           console.error('Error checking generation status:', error);
           clearInterval(pollInterval);
-          setGenerationStatus('error');
-          setErrorMessage('Error checking generation status');
+          setLocalGenerationStatus('error');
+          setLocalErrorMessage('Error checking generation status');
         }
       }, 2000);
       
@@ -317,14 +340,14 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
         clearInterval(progressSimulator);
         clearInterval(pollInterval);
         setProgress(100);
-        setGenerationStatus('complete');
-        setDownloadUrl('/sample-wordsearch-book.pdf'); // Demo URL
+        setLocalGenerationStatus('complete');
+        setLocalDownloadUrl('/sample-wordsearch-book.pdf'); // Demo URL
       }, 8000);
       
     } catch (error) {
       console.error('Error starting generation:', error);
-      setGenerationStatus('error');
-      setErrorMessage('Failed to start puzzle book generation');
+      setLocalGenerationStatus('error');
+      setLocalErrorMessage('Failed to start puzzle book generation');
     }
   };
   
@@ -440,7 +463,7 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
               {/* Book Summary */}
-              {(generationStatus === 'idle' || generationStatus === 'error') && (
+              {(effectiveStatus === 'idle' || effectiveStatus === 'error') && (
                 <div className="space-y-6">
                   <Card>
                     <CardContent className="pt-6">
@@ -499,18 +522,18 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                     </CardContent>
                   </Card>
                   
-                  {generationStatus === 'error' && (
+                  {effectiveStatus === 'error' && (
                     <Card className="border-red-200 bg-red-50">
                       <CardContent className="pt-6">
                         <div className="flex items-start gap-3">
                           <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
                           <div>
                             <h3 className="font-medium text-red-700">Generation Error</h3>
-                            <p className="text-sm text-red-600">{errorMessage || 'An error occurred during puzzle book generation.'}</p>
+                            <p className="text-sm text-red-600">{effectiveError || 'An error occurred during puzzle book generation.'}</p>
                             <Button 
                               variant="outline" 
                               className="mt-3 border-red-200 text-red-700 hover:bg-red-100 hover:text-red-800"
-                              onClick={() => setGenerationStatus('idle')}
+                              onClick={onTryAgain}
                             >
                               <RefreshCw className="mr-2 h-4 w-4" />
                               Try Again
@@ -549,7 +572,7 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                     
                     <Button 
                       className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-                      onClick={handleGenerate}
+                      onClick={onGeneratePuzzle}
                       disabled={themes.length === 0}
                     >
                       <Sparkles className="mr-2 h-4 w-4" />
@@ -560,7 +583,7 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
               )}
 
               {/* Generation in Progress */}
-              {generationStatus === 'generating' && (
+              {effectiveStatus === 'generating' && (
                 <MotionCard
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -632,7 +655,7 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
               )}
 
               {/* Generation Complete */}
-              {generationStatus === 'complete' && (
+              {effectiveStatus === 'complete' && (
                 <MotionCard
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -654,8 +677,8 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                       <div className="flex flex-col gap-3">
                         <Button 
                           className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                          disabled={!downloadUrl}
-                          onClick={() => downloadUrl && window.open(downloadUrl, '_blank')}
+                          disabled={!effectiveDownloadUrl}
+                          onClick={onDownload}
                         >
                           <FileDown className="h-5 w-5" />
                           Download PDF
@@ -682,7 +705,7 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                         <Button
                           variant="outline"
                           className="w-full"
-                          onClick={() => setGenerationStatus('idle')}
+                          onClick={() => setLocalGenerationStatus('idle')}
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Create Another Book

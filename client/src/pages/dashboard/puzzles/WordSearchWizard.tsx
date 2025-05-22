@@ -57,11 +57,13 @@ export const WordSearchWizard = () => {
     
     // Step-specific validation
     if (currentStepId === 'book-settings') {
-      const isValid = !!settings.title.trim();
+      const isValid = !!(settings.title && settings.title.trim());
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: isValid }));
     } else if (currentStepId === 'themes-words') {
-      const hasWords = settings.customWords.trim().length > 0 || !!settings.theme.trim();
-      setCompletedSteps(prev => ({ ...prev, [currentStepId]: hasWords }));
+      // Check if we have words from customWords or theme
+      const hasCustomWords = !!(settings.customWords && settings.customWords.trim().length > 0);
+      const hasTheme = !!(settings.theme && settings.theme.trim());
+      setCompletedSteps(prev => ({ ...prev, [currentStepId]: hasCustomWords || hasTheme }));
     } else if (currentStepId === 'puzzle-config') {
       const hasDirections = Object.values(settings.directions).some(v => v);
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: hasDirections }));
@@ -156,6 +158,7 @@ export const WordSearchWizard = () => {
       component: (
         <PreviewDownloadStep 
           settings={settings}
+          onSettingChange={handleSettingChange}
           onGeneratePuzzle={handleGeneratePuzzle}
           generationStatus={generationStatus}
           downloadUrl={downloadUrl}
