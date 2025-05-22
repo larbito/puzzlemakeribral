@@ -102,7 +102,18 @@ export const generateCompleteBook = async (
   chapters: Chapter[];
   estimatedPageCount: number;
 }> => {
+  // Create a controller for the fetch request with a much longer timeout (120 seconds)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout for large books
+  
   try {
+    console.log('Generating complete book with settings:', {
+      title: settings.title,
+      pageCount: settings.pageCount,
+      bookSize: settings.bookSize,
+      summaryLength: settings.bookSummary.length
+    });
+    
     const response = await fetch(`${API_BASE_URL}/api/openai/generate-complete-book`, {
       method: 'POST',
       headers: {
@@ -111,13 +122,26 @@ export const generateCompleteBook = async (
       body: JSON.stringify({
         ...settings
       }),
+      signal: controller.signal
     });
-
+    
+    // Clear the timeout since we got a response
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('API error response:', errorText);
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+      console.log('Book generation response successful, chapters:', data.chapters?.length || 0);
+    } catch (parseError) {
+      console.error('Error parsing API response:', parseError);
+      throw new Error('Invalid JSON response from API');
+    }
     
     if (data.success && data.chapters) {
       return {
@@ -130,10 +154,19 @@ export const generateCompleteBook = async (
         estimatedPageCount: data.estimatedPageCount || settings.pageCount
       };
     } else {
-      throw new Error('Invalid response from API');
+      console.error('API returned success: false or no chapters', data);
+      throw new Error(data.error || 'Invalid response from API');
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Check if it's a timeout error
+    if (error.name === 'AbortError') {
+      console.error('Book generation request timed out after 120 seconds');
+      throw new Error('Book generation request timed out. Please try again or use a smaller page count.');
+    }
+    
     console.error('Error generating complete book:', error);
     throw error;
+  } finally {
+    clearTimeout(timeoutId); // Ensure timeout is cleared in all cases
   }
 }; 

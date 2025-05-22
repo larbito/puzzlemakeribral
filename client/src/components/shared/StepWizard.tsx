@@ -140,11 +140,12 @@ export const StepWizard: React.FC<StepWizardProps> = ({
       
       <Separator />
       
-      <div className="flex justify-between pt-4">
+      <div className="flex justify-between pt-4 relative z-50">
         <Button 
           variant="outline" 
           onClick={handlePrevious} 
           disabled={isFirstStep}
+          className="pointer-events-auto"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Previous
@@ -153,7 +154,7 @@ export const StepWizard: React.FC<StepWizardProps> = ({
         <Button 
           onClick={handleNext} 
           disabled={false} // Remove the disabled state to allow navigation
-          className={isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}
+          className={`pointer-events-auto relative z-50 ${isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}`}
         >
           {isLastStep ? 'Complete' : 'Continue'}
           {!isLastStep && <ArrowRight className="ml-2 h-4 w-4" />}
