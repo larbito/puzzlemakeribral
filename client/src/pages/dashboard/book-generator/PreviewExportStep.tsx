@@ -582,14 +582,12 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
       <Dialog open={showFullPreview} onOpenChange={setShowFullPreview}>
         <DialogContent 
           className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" 
-          style={{ zIndex: 50, position: 'relative', pointerEvents: 'auto' }}
         >
           <DialogHeader>
             <DialogTitle className="flex justify-between items-center">
               <span>Full Book Preview</span>
               <DialogClose 
                 className="p-1" 
-                style={{ zIndex: 60, position: 'relative', pointerEvents: 'auto' }}
               >
                 <X className="h-4 w-4" />
               </DialogClose>
@@ -600,27 +598,22 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             value={selectedTab} 
             onValueChange={setSelectedTab} 
             className="flex-1 overflow-hidden flex flex-col"
-            style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
           >
             <TabsList 
               className="mb-4"
-              style={{ zIndex: 45, position: 'relative', pointerEvents: 'auto' }}
             >
               <TabsTrigger 
                 value="preview" 
-                style={{ zIndex: 45, position: 'relative', pointerEvents: 'auto' }}
               >
                 Page Preview
               </TabsTrigger>
               <TabsTrigger 
                 value="chapters"
-                style={{ zIndex: 45, position: 'relative', pointerEvents: 'auto' }}
               >
                 Chapters
               </TabsTrigger>
               <TabsTrigger 
                 value="frontmatter"
-                style={{ zIndex: 45, position: 'relative', pointerEvents: 'auto' }}
               >
                 Front Matter
               </TabsTrigger>
@@ -629,11 +622,9 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             <TabsContent 
               value="preview" 
               className="flex-1 overflow-hidden flex flex-col"
-              style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
             >
               <ScrollArea 
                 className="flex-1"
-                style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
               >
                 <div className="p-4">
                   {renderBookPreview()}
@@ -644,18 +635,15 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             <TabsContent 
               value="chapters" 
               className="flex-1 overflow-hidden flex flex-col"
-              style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
             >
               <ScrollArea 
                 className="flex-1"
-                style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
               >
                 <div className="grid grid-cols-1 gap-4 p-4">
                   {settings.chapters.map((chapter, index) => (
                     <Card 
                       key={chapter.id} 
                       className="overflow-hidden"
-                      style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}
                     >
                       <CardContent className="p-4">
                         <h3 className="text-lg font-medium mb-2">{chapter.title}</h3>
@@ -672,7 +660,6 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                           variant="outline" 
                           size="sm" 
                           className="mt-2"
-                          style={{ zIndex: 42, position: 'relative', pointerEvents: 'auto' }}
                           onClick={() => {
                             // Calculate the page number for this chapter
                             let pageNum = 3; // Start after title, TOC, copyright
@@ -695,21 +682,18 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             <TabsContent 
               value="frontmatter" 
               className="flex-1 overflow-hidden flex flex-col"
-              style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
             >
               <ScrollArea 
                 className="flex-1"
-                style={{ zIndex: 40, position: 'relative', pointerEvents: 'auto' }}
               >
                 <div className="grid grid-cols-1 gap-4 p-4">
-                  <Card style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}>
+                  <Card>
                     <CardContent className="p-4">
                       <h3 className="text-lg font-medium mb-2">Title Page</h3>
                       <Button 
                         variant="outline" 
                         size="sm" 
                         className="mt-2"
-                        style={{ zIndex: 42, position: 'relative', pointerEvents: 'auto' }}
                         onClick={() => {
                           setCurrentPage(0);
                           setSelectedTab("preview");
@@ -721,14 +705,13 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                   </Card>
                   
                   {settings.includeTOC && (
-                    <Card style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}>
+                    <Card>
                       <CardContent className="p-4">
                         <h3 className="text-lg font-medium mb-2">Table of Contents</h3>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="mt-2"
-                          style={{ zIndex: 42, position: 'relative', pointerEvents: 'auto' }}
                           onClick={() => {
                             setCurrentPage(1);
                             setSelectedTab("preview");
@@ -741,14 +724,13 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                   )}
                   
                   {settings.includeCopyright && (
-                    <Card style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}>
+                    <Card>
                       <CardContent className="p-4">
                         <h3 className="text-lg font-medium mb-2">Copyright Page</h3>
                         <Button 
                           variant="outline" 
                           size="sm" 
                           className="mt-2"
-                          style={{ zIndex: 42, position: 'relative', pointerEvents: 'auto' }}
                           onClick={() => {
                             setCurrentPage(2);
                             setSelectedTab("preview");
@@ -761,7 +743,7 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                   )}
                   
                   {settings.dedicationPage && (
-                    <Card style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}>
+                    <Card>
                       <CardContent className="p-4">
                         <h3 className="text-lg font-medium mb-2">Dedication</h3>
                         <p className="text-sm whitespace-pre-wrap">{settings.dedicationPage}</p>
@@ -770,7 +752,7 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                   )}
                   
                   {settings.includeAuthorBio && settings.authorBio && (
-                    <Card style={{ zIndex: 41, position: 'relative', pointerEvents: 'auto' }}>
+                    <Card>
                       <CardContent className="p-4">
                         <h3 className="text-lg font-medium mb-2">Author Bio</h3>
                         <p className="text-sm whitespace-pre-wrap">{settings.authorBio}</p>
@@ -782,17 +764,15 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             </TabsContent>
           </Tabs>
           
-          <DialogFooter style={{ zIndex: 50, position: 'relative', pointerEvents: 'auto' }}>
+          <DialogFooter>
             <Button 
               variant="outline" 
               onClick={handlePrint}
-              style={{ zIndex: 51, position: 'relative', pointerEvents: 'auto' }}
             >
               <Printer className="h-4 w-4 mr-1" /> Print Book
             </Button>
             <Button 
               onClick={() => setShowFullPreview(false)}
-              style={{ zIndex: 51, position: 'relative', pointerEvents: 'auto' }}
             >
               Close Preview
             </Button>

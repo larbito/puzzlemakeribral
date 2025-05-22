@@ -79,9 +79,9 @@ export const StepWizard: React.FC<StepWizardProps> = ({
   }, [currentStep]);
 
   return (
-    <div className="space-y-8" style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}>
+    <div className="space-y-8">
       {showProgress && (
-        <div className="w-full space-y-2" style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}>
+        <div className="w-full space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Step {currentStep + 1} of {steps.length}</span>
             <span>{Math.round(progressValue)}% Complete</span>
@@ -90,7 +90,7 @@ export const StepWizard: React.FC<StepWizardProps> = ({
         </div>
       )}
       
-      <div className="flex overflow-x-auto pb-2 hide-scrollbar" style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}>
+      <div className="flex overflow-x-auto pb-2 hide-scrollbar">
         {steps.map((step, index) => (
           <React.Fragment key={step.id}>
             <div 
@@ -102,7 +102,6 @@ export const StepWizard: React.FC<StepWizardProps> = ({
                   : 'text-muted-foreground'
               }`}
               onClick={() => handleStepClick(index)}
-              style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}
             >
               <div 
                 className={`flex items-center justify-center w-8 h-8 rounded-full mb-2 transition-colors ${
@@ -112,7 +111,6 @@ export const StepWizard: React.FC<StepWizardProps> = ({
                     ? 'bg-primary/20 text-primary'
                     : 'bg-muted text-muted-foreground'
                 }`}
-                style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}
               >
                 {index < currentStep && step.isComplete ? (
                   <Check className="h-4 w-4" />
@@ -136,18 +134,17 @@ export const StepWizard: React.FC<StepWizardProps> = ({
       
       <Separator />
       
-      <div className="min-h-[400px]" style={{ position: 'relative', pointerEvents: 'auto', zIndex: 20 }}>
+      <div className="min-h-[400px]">
         {steps[currentStep].component}
       </div>
       
       <Separator />
       
-      <div className="flex justify-between pt-4" style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}>
+      <div className="flex justify-between pt-4">
         <Button 
           variant="outline" 
           onClick={handlePrevious} 
           disabled={isFirstStep}
-          style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Previous
@@ -157,7 +154,6 @@ export const StepWizard: React.FC<StepWizardProps> = ({
           onClick={handleNext} 
           disabled={false} // Remove the disabled state to allow navigation
           className={isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}
-          style={{ position: 'relative', pointerEvents: 'auto', zIndex: 10 }}
         >
           {isLastStep ? 'Complete' : 'Continue'}
           {!isLastStep && <ArrowRight className="ml-2 h-4 w-4" />}

@@ -604,27 +604,25 @@ export const AIBookGenerator = () => {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto p-6" style={{ position: 'relative', zIndex: 1, pointerEvents: 'auto' }}>
-      <div className="flex items-center justify-between mb-8" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10 }}>
-        <div className="flex items-center" style={{ pointerEvents: 'auto' }}>
+    <div className="max-w-5xl mx-auto p-6">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate('/dashboard')}
             className="mr-4"
-            style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="text-3xl font-bold">AI-Powered KDP Book Generator</h1>
         </div>
-        <div className="flex items-center gap-2" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }}>
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={handleResetProject}
             className="flex items-center gap-1"
-            style={{ pointerEvents: 'auto' }}
           >
             <RotateCcw className="h-4 w-4" />
             Reset
@@ -634,7 +632,6 @@ export const AIBookGenerator = () => {
             size="sm"
             onClick={handleSaveProject}
             className="flex items-center gap-1"
-            style={{ pointerEvents: 'auto' }}
           >
             <Save className="h-4 w-4" />
             Save Project
@@ -649,7 +646,7 @@ export const AIBookGenerator = () => {
         </div>
       )}
       
-      <div className="book-generator-container relative" style={{ position: 'relative', zIndex: 5, pointerEvents: 'auto' }}>
+      <div className="book-generator-container">
         <StepWizard 
           steps={steps} 
           onComplete={() => navigate('/dashboard')}

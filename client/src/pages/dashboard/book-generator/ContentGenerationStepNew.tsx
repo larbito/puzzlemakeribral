@@ -100,63 +100,80 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
   };
 
   // Function to generate the entire book at once
-  const generateBook = async () => {
+  const fullBookGeneration = async () => {
     try {
       setIsGenerating(true);
       setGenerationProgress(0);
       setGenerationError(null);
       
-      // Fake initial progress to show user something is happening
-      const progressInterval = setInterval(() => {
-        setGenerationProgress(prev => {
-          // Don't go past 90% with the fake progress
-          const newProgress = prev + Math.random() * 3;
-          return newProgress > 90 ? 90 : newProgress;
-        });
-      }, 2000);
-      
-      // Call the API to generate the complete book
-      const result = await generateCompleteBook({
+      // Call the API to generate a complete book
+      const response = await generateCompleteBook({
         title: settings.title,
         subtitle: settings.subtitle,
         bookSummary: settings.bookSummary,
         tone: settings.tone,
         targetAudience: settings.targetAudience,
-        pageCount: settings.pageCount,
+        pageCount: settings.pageCount, // Make sure we're using the user's requested page count
         bookSize: settings.bookSize,
         fontFamily: settings.fontFamily,
         fontSize: settings.fontSize
       });
       
-      // Clear the fake progress interval
-      clearInterval(progressInterval);
-      
-      // Set real progress to 100%
-      setGenerationProgress(100);
-      
-      // Update the chapters with the generated content
-      onSettingChange('chapters', result.chapters);
-      
-      // Also update the table of contents to match
-      onSettingChange('tableOfContents', result.chapters);
-      
-      toast({
-        title: 'Book generated successfully',
-        description: `Generated a ${settings.pageCount}-page book with ${result.chapters.length} chapters.`,
-      });
+      // Check if we have chapters and process them
+      if (response.chapters && response.chapters.length > 0) {
+        // Check if the estimated page count matches the requested page count
+        const generatedPageCount = Math.ceil(response.chapters.reduce((total, ch) => total + ch.wordCount, 0) / 250);
+        
+        // Log details for debugging
+        console.log('Book generation details:', {
+          requestedPageCount: settings.pageCount,
+          generatedPageCount,
+          chapterCount: response.chapters.length,
+          totalWords: response.chapters.reduce((total, ch) => total + ch.wordCount, 0)
+        });
+        
+        // Only accept the generation if it's within 10% of the requested page count
+        if (Math.abs(generatedPageCount - settings.pageCount) > settings.pageCount * 0.1) {
+          console.log('Generated page count is too different from requested page count, retrying...');
+          // Retry once
+          setIsGenerating(false);
+          setTimeout(() => fullBookGeneration(), 500);
+          return;
+        }
+        
+        // Save the generated chapters
+        onSettingChange('chapters', response.chapters);
+        
+        // Create a table of contents from the chapters
+        const tableOfContents = response.chapters.map((chapter, index) => ({
+          id: (index + 1).toString(),
+          title: chapter.title,
+          content: '',
+          wordCount: 0
+        }));
+        
+        onSettingChange('tableOfContents', tableOfContents);
+        setIsGenerating(false);
+        toast({
+          title: 'Book generated successfully',
+          description: `Generated a ${settings.pageCount}-page book with ${response.chapters.length} chapters.`,
+        });
+      } else {
+        setIsGenerating(false);
+        setGenerationError('Unable to generate your book. Please try again.');
+        toast({
+          title: 'Book generation failed',
+          description: 'Unable to generate your book. Please try again.',
+        });
+      }
     } catch (error) {
       console.error('Error generating book:', error);
+      setIsGenerating(false);
       setGenerationError(error instanceof Error ? error.message : 'Unknown error occurred');
-      
       toast({
         title: 'Book generation failed',
         description: 'Unable to generate your book. Please try again.',
       });
-      
-      // Generate fallback content with empty chapters
-      generateFallbackBook();
-    } finally {
-      setIsGenerating(false);
     }
   };
   
@@ -301,7 +318,7 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
             No content yet. Click the "Generate Book" button to create your book content.
           </p>
           <Button 
-            onClick={generateBook} 
+            onClick={fullBookGeneration} 
             disabled={isGenerating}
             className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
           >
@@ -383,7 +400,7 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
           {settings.chapters && settings.chapters.length > 0 && (
             <Button 
               variant="outline" 
-              onClick={generateBook}
+              onClick={fullBookGeneration}
               disabled={isGenerating}
             >
               {isGenerating ? (
