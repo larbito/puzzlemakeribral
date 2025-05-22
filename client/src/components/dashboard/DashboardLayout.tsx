@@ -9,12 +9,9 @@ import {
   Settings,
   Menu,
   Palette,
-  FolderKanban,
-  PencilRuler,
   Sparkles,
   Shirt,
   Puzzle,
-  Scissors,
   BookCopy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,13 +21,10 @@ const navigation = [
   { name: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   
   // Creation tools
-  { name: 'All Projects', href: '/dashboard/projects', icon: FolderKanban },
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Cover Designer', href: '/dashboard/kdp-covers', icon: BookCopy },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
-  { name: 'Puzzle Books', href: '/dashboard/puzzles', icon: PencilRuler },
-  { name: 'Vectorizer', href: '/dashboard/vectorizer', icon: Scissors },
   
   // Planning & Analytics
   { name: 'Content Planner', href: '/dashboard/content', icon: Calendar },
