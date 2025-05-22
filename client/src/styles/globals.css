@@ -60,6 +60,33 @@
     @apply transition-colors duration-300;
   }
   
+  /* Fix for pointer events to ensure all interactive elements are clickable */
+  button, a, input, textarea, select, [role="button"], 
+  .button, .interactive, [tabindex]:not([tabindex="-1"]) {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 5;
+  }
+
+  /* Ensure no invisible overlays blocking interaction */
+  [data-overlay], .overlay, *::before, *::after {
+    pointer-events: none;
+  }
+
+  /* Ensure form elements can be interacted with */
+  input, textarea, select {
+    z-index: 10;
+  }
+
+  /* Special fix for the Book Generator component */
+  [id^="book"], [id*="book"], [id*="generator"], 
+  [class*="book"], [class*="generator"], 
+  .card, .card-content {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: auto;
+  }
+  
   /* Transparent background pattern styles */
   .transparent-bg-container {
     position: relative !important;

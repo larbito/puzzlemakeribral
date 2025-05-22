@@ -496,25 +496,26 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative" style={{ pointerEvents: 'auto' }}>
       {/* Step 1: Enter Book Concept */}
       {!showProposal && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardContent className="pt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 relative" style={{ zIndex: 10 }}>
+          <Card className="relative" style={{ pointerEvents: 'auto', zIndex: 10 }}>
+            <CardContent className="pt-6 relative" style={{ pointerEvents: 'auto' }}>
               <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
                 <BookText className="h-5 w-5 text-primary" /> Book Concept
               </h3>
               <Separator className="mb-4" />
               
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="bookSummary">Book Summary / Idea</Label>
+              <div className="space-y-6 relative" style={{ pointerEvents: 'auto' }}>
+                <div className="space-y-2 relative" style={{ pointerEvents: 'auto' }}>
+                  <Label htmlFor="bookSummary" className="relative" style={{ pointerEvents: 'auto' }}>Book Summary / Idea</Label>
                   <Textarea
                     id="bookSummary"
                     value={summaryText}
                     onChange={handleSummaryChange}
-                    className="min-h-[200px] resize-y"
+                    className="min-h-[200px] resize-y relative"
+                    style={{ pointerEvents: 'auto', zIndex: 10 }}
                     placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
                   />
                   <p className="text-xs text-muted-foreground">
@@ -522,8 +523,8 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative" style={{ pointerEvents: 'auto', zIndex: 10 }}>
+                  <div className="space-y-2 relative" style={{ pointerEvents: 'auto' }}>
                     <Label htmlFor="tone" className="flex items-center gap-1">
                       <MessageSquare className="h-3.5 w-3.5" /> Preferred Tone
                     </Label>
@@ -531,7 +532,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                       value={settings.tone}
                       onValueChange={(value) => onSettingChange('tone', value)}
                     >
-                      <SelectTrigger id="tone">
+                      <SelectTrigger id="tone" className="relative" style={{ pointerEvents: 'auto', zIndex: 20 }}>
                         <SelectValue placeholder="Select tone" />
                       </SelectTrigger>
                       <SelectContent>
@@ -544,7 +545,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                     </Select>
                   </div>
                   
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative" style={{ pointerEvents: 'auto' }}>
                     <Label htmlFor="targetAudience" className="flex items-center gap-1">
                       <Target className="h-3.5 w-3.5" /> Target Audience
                     </Label>
@@ -552,7 +553,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                       value={settings.targetAudience}
                       onValueChange={(value) => onSettingChange('targetAudience', value)}
                     >
-                      <SelectTrigger id="targetAudience">
+                      <SelectTrigger id="targetAudience" className="relative" style={{ pointerEvents: 'auto', zIndex: 20 }}>
                         <SelectValue placeholder="Select audience" />
                       </SelectTrigger>
                       <SelectContent>
@@ -568,7 +569,8 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                 
                 <Button
                   onClick={handleGenerateProposal}
-                  className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                  className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative"
+                  style={{ pointerEvents: 'auto', zIndex: 20, position: 'relative' }}
                   type="button"
                 >
                   {isGeneratingProposal ? (
