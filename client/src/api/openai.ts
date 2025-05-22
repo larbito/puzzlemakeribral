@@ -84,6 +84,126 @@ export const generateChapterContent = async (
 };
 
 /**
+ * Generate only the chapter titles/outline for a book (faster than full generation)
+ */
+export const generateBookOutline = async (
+  settings: {
+    title: string;
+    subtitle: string;
+    bookSummary: string;
+    tone: string;
+    targetAudience: string;
+    chapterCount: number;
+  }
+): Promise<string[]> => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for outline only
+    
+    // Make a simplified request just for chapter titles
+    const requestBody = {
+      prompt: `Create an outline for a book titled "${settings.title || 'Untitled'}" about ${settings.bookSummary}. 
+      The book should have exactly ${settings.chapterCount} chapters (including introduction and conclusion).
+      The tone is ${settings.tone} and the target audience is ${settings.targetAudience}.
+      Return ONLY an array of chapter titles in JSON format.`,
+      outlineOnly: true
+    };
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/openai/generate-book-outline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.chapters && Array.isArray(data.chapters)) {
+        return data.chapters;
+      }
+      
+      // Fallback if API doesn't return expected format
+      return generateFallbackOutline(settings.chapterCount);
+    } catch (error) {
+      console.error('Error generating book outline:', error);
+      clearTimeout(timeoutId);
+      
+      // Generate a fallback outline locally
+      return generateFallbackOutline(settings.chapterCount);
+    }
+  } catch (error) {
+    console.error('Error in generateBookOutline:', error);
+    return generateFallbackOutline(settings.chapterCount);
+  }
+};
+
+/**
+ * Generate content for a single chapter (for chunked generation)
+ */
+export const generateSingleChapter = async (
+  params: {
+    bookTitle: string;
+    bookSummary: string;
+    chapterTitle: string;
+    chapterIndex: number;
+    totalChapters: number;
+    tone: string;
+    targetAudience: string;
+    targetWordCount: number;
+  }
+): Promise<string> => {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout per chapter
+    
+    const response = await fetch(`${API_BASE_URL}/api/openai/generate-chapter-content`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: params.bookTitle,
+        bookSummary: params.bookSummary,
+        chapterTitle: params.chapterTitle,
+        chapterNumber: params.chapterIndex + 1,
+        totalChapters: params.totalChapters,
+        tone: params.tone,
+        targetAudience: params.targetAudience,
+        targetWordCount: params.targetWordCount
+      }),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.success && data.content) {
+      return data.content;
+    } else {
+      throw new Error('Invalid response format');
+    }
+  } catch (error) {
+    console.error(`Error generating content for chapter "${params.chapterTitle}":`, error);
+    // Return placeholder content if generation fails
+    return `# ${params.chapterTitle}\n\nContent generation failed. Please edit this chapter manually.\n\nThis chapter is part of your book about: ${params.bookSummary.substring(0, 100)}...`;
+  }
+};
+
+/**
  * Generate a complete book with content, automatically determining chapters to match target page count
  */
 export const generateCompleteBook = async (
@@ -115,7 +235,7 @@ export const generateCompleteBook = async (
     });
     
     // Check if this is a large book request and add optimization flag
-    const isLargeBook = settings.pageCount > 100;
+    const isLargeBook = settings.pageCount > 80;
     
     const response = await fetch(`${API_BASE_URL}/api/openai/generate-complete-book`, {
       method: 'POST',
@@ -173,4 +293,22 @@ export const generateCompleteBook = async (
   } finally {
     clearTimeout(timeoutId); // Ensure timeout is cleared in all cases
   }
-}; 
+};
+
+// Helper function to generate a fallback outline when API calls fail
+function generateFallbackOutline(chapterCount: number): string[] {
+  const outline = [];
+  
+  // Add introduction
+  outline.push('Introduction');
+  
+  // Add main chapters
+  for (let i = 1; i <= chapterCount - 2; i++) {
+    outline.push(`Chapter ${i}: Key Topic ${i}`);
+  }
+  
+  // Add conclusion
+  outline.push('Conclusion');
+  
+  return outline;
+} 

@@ -110,21 +110,21 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
       let effectivePageCount = settings.pageCount;
       let showedWarning = false;
       
-      if (settings.pageCount > 100) {
+      if (settings.pageCount > 80) {
         // For very large books, we'll reduce the target page count for the API call
         // but still aim to get content that matches the user's requested size
-        effectivePageCount = 100;
+        effectivePageCount = 80;
         showedWarning = true;
         
         toast({
           title: 'Optimizing for large book',
-          description: `Books over 100 pages may time out. Generating core content first.`,
+          description: `Books over 80 pages are generated in smaller batches to prevent timeouts.`,
         });
       }
       
       toast({
         title: 'Generating your book',
-        description: `Creating a ${settings.pageCount}-page book. This may take 1-2 minutes.`,
+        description: `Creating a ${effectivePageCount}-page book. This may take 1-2 minutes.`,
       });
       
       // Start progress animation
@@ -203,7 +203,120 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
         clearInterval(progressInterval);
         console.error('Error in book generation API call:', apiError);
         
-        // Create fallback content
+        // Try chunked generation approach for large books
+        if (settings.pageCount > 50) {
+          try {
+            setGenerationProgress(10);
+            toast({
+              title: 'Trying alternative generation approach',
+              description: 'Generating book chapter by chapter to avoid timeouts...',
+            });
+            
+            // Generate book outline with just chapter titles
+            const outlineResponse = await generateBookOutline({
+              title: settings.title,
+              subtitle: settings.subtitle,
+              bookSummary: settings.bookSummary,
+              tone: settings.tone,
+              targetAudience: settings.targetAudience,
+              chapterCount: Math.max(5, Math.ceil(settings.pageCount / 20)),
+            });
+            
+            if (outlineResponse && outlineResponse.length > 0) {
+              // Start with empty content chapters
+              const chapterOutlines = outlineResponse.map((title, index) => ({
+                id: (index + 1).toString(),
+                title,
+                content: '',
+                wordCount: 0
+              }));
+              
+              // First, update the TOC so the user sees progress
+              onSettingChange('tableOfContents', chapterOutlines);
+              onSettingChange('chapters', chapterOutlines);
+              
+              setGenerationProgress(20);
+              
+              // Then generate content for each chapter sequentially
+              const completedChapters = [];
+              const totalChapters = chapterOutlines.length;
+              
+              for (let i = 0; i < totalChapters; i++) {
+                const chapter = chapterOutlines[i];
+                const progressPerChapter = 70 / totalChapters;
+                
+                try {
+                  // Update progress for each chapter
+                  setGenerationProgress(20 + (i * progressPerChapter));
+                  
+                  toast({
+                    title: `Generating chapter ${i+1} of ${totalChapters}`,
+                    description: chapter.title,
+                  });
+                  
+                  // Calculate words per chapter based on requested page count
+                  const wordsPerChapter = Math.floor((settings.pageCount * 250) / totalChapters);
+                  
+                  // Generate content for this chapter
+                  const chapterContent = await generateSingleChapter({
+                    bookTitle: settings.title,
+                    bookSummary: settings.bookSummary,
+                    chapterTitle: chapter.title,
+                    chapterIndex: i,
+                    totalChapters,
+                    tone: settings.tone,
+                    targetAudience: settings.targetAudience,
+                    targetWordCount: wordsPerChapter
+                  });
+                  
+                  // Add the chapter with content
+                  completedChapters.push({
+                    ...chapter,
+                    content: chapterContent,
+                    wordCount: chapterContent.split(/\s+/).filter(word => word.length > 0).length
+                  });
+                  
+                  // Update the chapters as we go so the user sees progress
+                  onSettingChange('chapters', [
+                    ...completedChapters,
+                    ...chapterOutlines.slice(i+1)
+                  ]);
+                  
+                } catch (chapterError) {
+                  console.error(`Error generating chapter ${i+1}:`, chapterError);
+                  // Add placeholder content if a chapter fails
+                  completedChapters.push({
+                    ...chapter,
+                    content: `# ${chapter.title}\n\nContent generation failed. Please edit this chapter manually.\n\nThis chapter is part of your book about: ${settings.bookSummary.substring(0, 100)}...`,
+                    wordCount: 30
+                  });
+                }
+              }
+              
+              setGenerationProgress(100);
+              setIsGenerating(false);
+              
+              // Final update with all completed chapters
+              onSettingChange('chapters', completedChapters);
+              
+              // Calculate final page count
+              const generatedWordCount = completedChapters.reduce((total, ch) => total + ch.wordCount, 0);
+              const generatedPageCount = Math.ceil(generatedWordCount / 250);
+              
+              toast({
+                title: 'Book generated successfully',
+                description: `Generated a ${completedChapters.length}-chapter book with approximately ${generatedPageCount} pages using chunked generation.`,
+              });
+              
+              return;
+            }
+          } catch (chunkError) {
+            console.error('Chunked generation also failed:', chunkError);
+            // Fall back to placeholder content if chunked generation also fails
+          }
+        }
+        
+        // Create fallback content if all generation approaches fail
         generateFallbackBook();
         
         setIsGenerating(false);

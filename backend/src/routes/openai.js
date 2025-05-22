@@ -1258,4 +1258,120 @@ function generateMockCompleteBook(params) {
   };
 }
 
+// Add a new endpoint for quick book outline generation (just chapter titles)
+router.post('/generate-book-outline', async (req, res) => {
+  try {
+    const { prompt, outlineOnly = false } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required field: prompt' 
+      });
+    }
+    
+    console.log('Generating book outline from prompt');
+    
+    // Use mock response if API key is not available
+    if (req.useLocalMock) {
+      console.log('Using mock outline generator');
+      return res.json({
+        success: true,
+        chapters: [
+          "Introduction",
+          "Chapter 1: Getting Started",
+          "Chapter 2: Core Concepts",
+          "Chapter 3: Advanced Techniques",
+          "Chapter 4: Practical Applications",
+          "Conclusion"
+        ]
+      });
+    }
+    
+    // Call OpenAI to generate just the chapter titles
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // Use the faster model for outlines
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert book editor who creates chapter outlines for books. 
+          Respond with a JSON array of chapter titles only.
+          Keep your response compact and focused on just the chapter titles.`
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
+      max_tokens: 500, // Keep token usage low for speed
+    });
+    
+    let chapters = [];
+    
+    try {
+      const responseContent = completion.choices[0].message.content;
+      const parsedContent = JSON.parse(responseContent);
+      
+      // Handle different possible response formats
+      if (Array.isArray(parsedContent)) {
+        chapters = parsedContent;
+      } else if (parsedContent.chapters && Array.isArray(parsedContent.chapters)) {
+        chapters = parsedContent.chapters;
+      } else if (parsedContent.titles && Array.isArray(parsedContent.titles)) {
+        chapters = parsedContent.titles;
+      } else {
+        // Try to find any array property in the response
+        const arrayProps = Object.entries(parsedContent)
+          .find(([_, value]) => Array.isArray(value) && value.length > 0);
+        
+        if (arrayProps) {
+          chapters = arrayProps[1];
+        } else {
+          throw new Error('Could not find chapter array in API response');
+        }
+      }
+      
+      // Clean up chapter titles if they're objects
+      chapters = chapters.map(chapter => {
+        if (typeof chapter === 'string') {
+          return chapter;
+        } else if (chapter.title) {
+          return chapter.title;
+        } else if (chapter.name) {
+          return chapter.name;
+        } else {
+          return JSON.stringify(chapter);
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error parsing outline response:', error);
+      // Fallback to a simple outline
+      chapters = [
+        "Introduction",
+        "Chapter 1: Getting Started",
+        "Chapter 2: Core Concepts", 
+        "Chapter 3: Advanced Techniques",
+        "Chapter 4: Practical Applications",
+        "Conclusion"
+      ];
+    }
+    
+    return res.json({
+      success: true,
+      chapters
+    });
+    
+  } catch (error) {
+    console.error('Error generating book outline:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to generate book outline',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router; 
