@@ -130,10 +130,20 @@ export const AIBookGenerator = () => {
     const stepIds = ['book-settings', 'book-concept', 'content-generation', 'front-matter', 'preview-export'];
     const currentStepId = stepIds[currentStep];
     
+    console.log('Saving step:', currentStepId, 'Title:', settings.title, 'Title length:', settings.title.length);
+    
     // Step-specific validation
     if (currentStepId === 'book-settings') {
-      const isValid = !!(settings.title && settings.title.trim());
+      // Always mark as valid if there's any title, even just a few characters
+      const isValid = settings.title.length > 0;
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: isValid }));
+      
+      // Force a state update to trigger re-render
+      if (isValid) {
+        setSettings(prev => ({ ...prev }));
+      }
+      
+      console.log('Step completed?', isValid);
     } else if (currentStepId === 'book-concept') {
       const isValid = !!(settings.bookSummary && settings.bookSummary.trim() && settings.tableOfContents.length > 0);
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: isValid }));

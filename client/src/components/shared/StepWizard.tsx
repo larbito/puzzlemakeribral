@@ -36,13 +36,18 @@ export const StepWizard: React.FC<StepWizardProps> = ({
 
   const handleNext = () => {
     if (onSave) {
+      // Call onSave first to update the completion state
       onSave(currentStep);
     }
 
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      onComplete();
+    // Force immediate step advance if the current step is already marked complete
+    // This will skip the disabled check for better UX
+    if (steps[currentStep].isComplete) {
+      if (currentStep < steps.length - 1) {
+        setCurrentStep(currentStep + 1);
+      } else {
+        onComplete();
+      }
     }
   };
 
@@ -147,7 +152,7 @@ export const StepWizard: React.FC<StepWizardProps> = ({
         
         <Button 
           onClick={handleNext} 
-          disabled={nextIsDisabled}
+          disabled={false} // Remove the disabled state to allow navigation
           className={isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}
         >
           {isLastStep ? 'Complete' : 'Continue'}
