@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+// Import jsPDF type to help with TypeScript
+import type { jsPDF } from 'jspdf';
 
 // Step Components (will create these next)
 import { BookSettingsStep } from './book-generator/BookSettingsStep';
@@ -261,26 +263,215 @@ export const AIBookGenerator = () => {
     setGenerationStatus('generating');
     
     try {
-      // Implementation for PDF generation will go here
-      // This is just a placeholder that simulates success after 3 seconds
-      setTimeout(() => {
-        setDownloadUrl('/sample-book.pdf'); // This will be a real URL in the actual implementation
-        setGenerationStatus('complete');
-        setCompletedSteps(prev => ({ ...prev, 'preview-export': true }));
-      }, 3000);
+      // Create a payload with the book data
+      const bookData = {
+        title: settings.title,
+        subtitle: settings.subtitle,
+        bookSize: settings.bookSize,
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize,
+        lineSpacing: settings.lineSpacing,
+        includePageNumbers: settings.includePageNumbers,
+        includeTOC: settings.includeTOC,
+        chapters: settings.chapters,
+        titlePage: settings.titlePage,
+        copyrightPage: settings.copyrightPage,
+        dedicationPage: settings.dedicationPage,
+        authorBio: settings.authorBio,
+        includeAuthorBio: settings.includeAuthorBio,
+        closingThoughts: settings.closingThoughts,
+      };
+      
+      // Try to generate via API endpoint first
+      try {
+        const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
+        console.log('Using API base URL:', apiBaseUrl);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
+        const response = await fetch(`${apiBaseUrl}/api/book-generator/generate-pdf`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(bookData),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('PDF generation API response:', data);
+        
+        if (data.success && data.pdfUrl) {
+          setDownloadUrl(data.pdfUrl);
+          setGenerationStatus('complete');
+          setCompletedSteps(prev => ({ ...prev, 'preview-export': true }));
+          return;
+        } else {
+          throw new Error('API response missing success or pdfUrl');
+        }
+      } catch (error: any) {
+        // Check if it's an abort error (timeout)
+        if (error.name === 'AbortError') {
+          console.error('API request timed out, using fallback:', error);
+        } else {
+          console.error('API error, using fallback:', error);
+        }
+      }
+      
+      // Fallback: Use client-side PDF generation
+      console.log('Using fallback PDF generation');
+      
+      // Dynamically import the PDF generation library
+      const { jsPDF } = await import('jspdf');
+      
+      // Create a new PDF document
+      const pdf = new jsPDF({
+        orientation: settings.bookSize === '6x9' || settings.bookSize === '5x8' ? 'portrait' : 'landscape',
+        unit: 'in',
+        format: settings.bookSize === '6x9' ? [6, 9] : 
+                settings.bookSize === '5x8' ? [5, 8] : 
+                settings.bookSize === '7x10' ? [7, 10] : [8.5, 11]
+      });
+      
+      // Set font
+      pdf.setFont(settings.fontFamily === 'Times New Roman' ? 'times' : 'helvetica');
+      pdf.setFontSize(settings.fontSize * 2.83); // Convert pt to PDF units
+      
+      // Title page
+      pdf.text(settings.title, pdf.internal.pageSize.getWidth() / 2, 3, { align: 'center' });
+      if (settings.subtitle) {
+        pdf.text(settings.subtitle, pdf.internal.pageSize.getWidth() / 2, 3.5, { align: 'center' });
+      }
+      pdf.text('By [Author Name]', pdf.internal.pageSize.getWidth() / 2, 7, { align: 'center' });
+      
+      // Table of Contents
+      if (settings.includeTOC) {
+        pdf.addPage();
+        pdf.text('Table of Contents', pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
+        
+        let yPos = 2;
+        settings.chapters.forEach((chapter, index) => {
+          pdf.text(`${chapter.title}`, 1, yPos);
+          pdf.text(`${index + 3}`, pdf.internal.pageSize.getWidth() - 1, yPos, { align: 'right' });
+          yPos += 0.3;
+        });
+      }
+      
+      // Copyright page
+      if (settings.includeCopyright) {
+        pdf.addPage();
+        const copyrightText = settings.copyrightPage || 
+          `© ${new Date().getFullYear()} [Author Name]. All rights reserved.\n\nNo part of this publication may be reproduced, distributed, or transmitted in any form or by any means without the prior written permission of the publisher.`;
+        pdf.text(copyrightText, 1, 3, {
+          maxWidth: pdf.internal.pageSize.getWidth() - 2,
+          align: 'center'
+        });
+      }
+      
+      // Chapters
+      settings.chapters.forEach((chapter) => {
+        pdf.addPage();
+        pdf.text(chapter.title, pdf.internal.pageSize.getWidth() / 2, 1, { align: 'center' });
+        
+        // Split chapter content into chunks that will fit on pages
+        const contentText = chapter.content || `Sample content for ${chapter.title}`;
+        const textLines = pdf.splitTextToSize(
+          contentText, 
+          pdf.internal.pageSize.getWidth() - 2
+        );
+        
+        const linesPerPage = Math.floor((pdf.internal.pageSize.getHeight() - 2) / (settings.lineSpacing * 0.2));
+        
+        // Add first page of chapter content
+        pdf.text(textLines.slice(0, linesPerPage), 1, 1.5);
+        
+        // Add additional pages if needed
+        for (let i = linesPerPage; i < textLines.length; i += linesPerPage) {
+          pdf.addPage();
+          pdf.text(textLines.slice(i, i + linesPerPage), 1, 1);
+          
+          if (settings.includePageNumbers) {
+            pdf.text(
+              String(pdf.internal.pages.length - 1), 
+              pdf.internal.pageSize.getWidth() / 2, 
+              pdf.internal.pageSize.getHeight() - 0.5,
+              { align: 'center' }
+            );
+          }
+        }
+      });
+      
+      // Add page numbers if enabled
+      if (settings.includePageNumbers) {
+        // Use internal pages array length instead of getNumberOfPages method
+        const totalPages = pdf.internal.pages.length - 1; // -1 because jsPDF has an empty first page
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i);
+          pdf.text(
+            String(i), 
+            pdf.internal.pageSize.getWidth() / 2, 
+            pdf.internal.pageSize.getHeight() - 0.5,
+            { align: 'center' }
+          );
+        }
+      }
+      
+      // Generate PDF data URL
+      const pdfDataUrl = pdf.output('dataurlstring');
+      setDownloadUrl(pdfDataUrl);
+      setGenerationStatus('complete');
+      setCompletedSteps(prev => ({ ...prev, 'preview-export': true }));
+      
     } catch (error) {
       console.error('Error generating book:', error);
-      setGenerationError('An unexpected error occurred. Please try again.');
+      setGenerationError('An unexpected error occurred during PDF generation. Please try again.');
       setGenerationStatus('error');
     }
   };
 
   // Handle download
   const handleDownload = () => {
-    if (generationStatus !== 'complete' || !downloadUrl) return;
+    if (generationStatus !== 'complete' || !downloadUrl) {
+      toast({
+        title: 'Error',
+        description: 'No download available. Please generate the book first.',
+      });
+      return;
+    }
     
-    // Open the download URL in a new tab
-    window.open(downloadUrl, '_blank');
+    try {
+      // Check if it's a data URL or a server URL
+      if (downloadUrl.startsWith('data:')) {
+        // Create an anchor element
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${settings.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // Open the URL in a new tab for server-hosted files
+        window.open(downloadUrl, '_blank');
+      }
+      
+      toast({
+        title: 'Download started',
+        description: 'Your book PDF is being downloaded.',
+      });
+    } catch (error) {
+      console.error('Download error:', error);
+      toast({
+        title: 'Download failed',
+        description: 'There was a problem downloading your book. Please try again.',
+      });
+    }
   };
 
   // Build steps array for the wizard

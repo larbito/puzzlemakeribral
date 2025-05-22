@@ -467,4 +467,37 @@ router.post('/generate-book-proposal', async (req, res) => {
   }
 });
 
+// Book Generator PDF endpoint
+router.post('/book-generator/generate-pdf', async (req, res) => {
+  try {
+    // Extract book data from request
+    const bookData = req.body;
+    
+    if (!bookData || !bookData.title || !bookData.chapters) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required book data'
+      });
+    }
+    
+    // For simplicity, we'll return a mock PDF URL
+    // In a real implementation, this would generate a PDF and store it
+    // You could use libraries like PDFKit on the server or use a PDF generation service
+    
+    const pdfUrl = `https://puzzlemakeribral-production.up.railway.app/api/static/sample-book.pdf`;
+    
+    return res.json({
+      success: true,
+      pdfUrl
+    });
+    
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to generate PDF'
+    });
+  }
+});
+
 module.exports = router; 
