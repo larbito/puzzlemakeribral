@@ -73,47 +73,93 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [bookSummary, setBookSummary] = useState(settings.bookSummary || '');
+  const [isActive, setIsActive] = useState(true);
   const textInputRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Setup direct DOM access for the input field
+  useEffect(() => {
+    setBookSummary(settings.bookSummary || '');
+  }, [settings.bookSummary]);
+
+  useEffect(() => {
+    setIsActive(true);
+    return () => setIsActive(false);
+  }, []);
+
   useEffect(() => {
     const container = textInputRef.current;
     if (!container) return;
 
-    // Clear existing content
     container.innerHTML = '';
 
     // Create a plain textarea
     const textarea = document.createElement('textarea');
     textarea.value = bookSummary;
     textarea.placeholder = "Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure.";
-    textarea.className = "w-full min-h-[120px] p-2 border rounded-md resize-y";
-    textarea.style.backgroundColor = "#1e1e1e"; // Dark mode background
-    textarea.style.color = "#ffffff"; // Light text for dark mode
-    textarea.style.border = "1px solid #333";
+    textarea.className = "w-full min-h-[120px] p-3 border rounded-md resize-y";
+    textarea.style.backgroundColor = "#1e1e1e";
+    textarea.style.color = "#ffffff";
+    textarea.style.border = "1px solid #4d4d4d";
+    textarea.style.outline = "none";
+    textarea.style.boxShadow = "0 0 0 2px rgba(30, 144, 255, 0.2)";
+    textarea.style.fontSize = "14px";
+    textarea.style.lineHeight = "1.5";
     
-    // Add event listeners
-    textarea.addEventListener('input', (e) => {
+    // Add hover effect
+    textarea.addEventListener('mouseover', () => {
+      textarea.style.borderColor = "#3a86ff";
+    });
+    
+    textarea.addEventListener('mouseout', () => {
+      textarea.style.borderColor = "#4d4d4d";
+    });
+    
+    // Add focus effect
+    textarea.addEventListener('focus', () => {
+      textarea.style.borderColor = "#3a86ff";
+      textarea.style.boxShadow = "0 0 0 3px rgba(58, 134, 255, 0.3)";
+    });
+    
+    textarea.addEventListener('blur', () => {
+      textarea.style.borderColor = "#4d4d4d";
+      textarea.style.boxShadow = "0 0 0 2px rgba(30, 144, 255, 0.2)";
+    });
+    
+    const handleInput = (e: Event) => {
       const value = (e.target as HTMLTextAreaElement).value;
       console.log('Direct input value:', value);
       setBookSummary(value);
       onSettingChange('bookSummary', value);
-    });
+    };
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      console.log('Key pressed:', e.key);
+    };
+    
+    textarea.addEventListener('input', handleInput);
+    textarea.addEventListener('keydown', handleKeyDown);
 
-    // Append to container
     container.appendChild(textarea);
 
-    // Focus the textarea
     setTimeout(() => {
-      textarea.focus();
+      if (isActive) {
+        textarea.focus();
+      }
     }, 100);
 
+    const handleContainerClick = () => {
+      textarea.focus();
+    };
+    container.addEventListener('click', handleContainerClick);
+
     return () => {
-      // Cleanup
+      textarea.removeEventListener('input', handleInput);
+      textarea.removeEventListener('keydown', handleKeyDown);
+      container.removeEventListener('click', handleContainerClick);
       container.innerHTML = '';
     };
-  }, [bookSummary, onSettingChange]);
+  }, [bookSummary, onSettingChange, isActive]);
 
   const toneOptions = [
     { value: 'Serious', label: 'Serious - Professional and formal' },
@@ -137,7 +183,6 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       return;
     }
 
-    // Save current summary to parent component
     onSettingChange('bookSummary', bookSummary);
     
     setIsGenerating(true);
@@ -227,7 +272,6 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
-              {/* Direct DOM container */}
               <div 
                 ref={textInputRef} 
                 className="w-full min-h-[120px]"
