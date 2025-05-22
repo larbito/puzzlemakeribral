@@ -31,7 +31,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 
-// Real function for AI TOC generation using the API
+// Real function for AI TOC generation using direct OpenAI API
 const generateTOCWithAI = async (
   bookSummary: string, 
   tone: string, 
@@ -40,12 +40,94 @@ const generateTOCWithAI = async (
   try {
     console.log('generateTOCWithAI called with:', { bookSummary, tone, audience });
     
-    // Check if API URL is correct
-    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
-    console.log('Using API URL:', apiBaseUrl);
+    // Create a prompt for the OpenAI API that will generate a table of contents
+    const prompt = `
+You are a professional book outline creator. Based on the following book concept, create a detailed table of contents.
+
+Book Summary: ${bookSummary}
+Tone: ${tone}
+Target Audience: ${audience}
+
+The table of contents should include:
+1. An introduction
+2. 5-7 logical chapters that build on each other
+3. A conclusion
+
+For each chapter, generate a title that is specific, descriptive, and intriguing.
+Format your response as a JSON array of chapter objects with only a "title" property.
+For example: [{"title":"Introduction"},{"title":"Chapter 1: Example Title"}]
+`;
+
+    console.log('Using prompt:', prompt);
     
-    // Make direct fetch call for debugging
-    const response = await fetch(`${apiBaseUrl}/api/generate-toc`, {
+    try {
+      // Direct API call to OpenAI
+      const openaiKey = 'REMOVED_API_KEY'; // Add your OpenAI API key here
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openaiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional book outline creator. Return only valid JSON.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.7,
+          max_tokens: 1000
+        })
+      });
+
+      console.log('OpenAI API response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', errorText);
+        throw new Error(`OpenAI API request failed: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('OpenAI API response:', data);
+      
+      if (data.choices && data.choices.length > 0) {
+        const content = data.choices[0].message.content;
+        console.log('Generated content:', content);
+        
+        try {
+          // Parse the JSON from the response
+          const chapters = JSON.parse(content);
+          console.log('Parsed chapters:', chapters);
+          
+          if (Array.isArray(chapters)) {
+            return chapters.map((chapter, index) => ({
+              id: (index + 1).toString(),
+              title: chapter.title,
+              content: '',
+              wordCount: 0
+            }));
+          }
+        } catch (parseError) {
+          console.error('Error parsing JSON from OpenAI response:', parseError);
+        }
+      }
+    } catch (apiError) {
+      console.error('Error calling OpenAI API:', apiError);
+    }
+    
+    // If we get here, something went wrong, use the Railway API as fallback
+    console.log('Trying Railway API as fallback');
+    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
+    
+    const railwayResponse = await fetch(`${apiBaseUrl}/api/generate-toc`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,55 +139,51 @@ const generateTOCWithAI = async (
       }),
     });
 
-    console.log('API response status:', response.status);
-    
-    // Handle non-ok responses
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API error response:', errorText);
-      throw new Error(`API request failed: ${response.status} ${errorText}`);
-    }
-
-    // Parse the response
-    const data = await response.json();
-    console.log('API response data:', data);
-    
-    // Check if data.chapters exists
-    if (data.chapters && Array.isArray(data.chapters)) {
-      return data.chapters.map((chapter: any, index: number) => ({
-        id: (index + 1).toString(),
-        title: chapter.title || `Chapter ${index + 1}`,
-        content: '',
-        wordCount: 0,
-      }));
+    if (railwayResponse.ok) {
+      const railwayData = await railwayResponse.json();
+      console.log('Railway API response:', railwayData);
+      
+      if (railwayData.chapters && Array.isArray(railwayData.chapters)) {
+        return railwayData.chapters.map((chapter: any, index: number) => ({
+          id: (index + 1).toString(),
+          title: chapter.title || `Chapter ${index + 1}`,
+          content: '',
+          wordCount: 0,
+        }));
+      }
     }
     
-    // Fallback to mock data if API doesn't return expected format
-    console.warn('API did not return expected format, using fallback data');
-    return [
-      { id: '1', title: 'Introduction', content: '', wordCount: 0 },
-      { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
-      { id: '3', title: 'Chapter 2: Key Concepts', content: '', wordCount: 0 },
-      { id: '4', title: 'Chapter 3: Practical Applications', content: '', wordCount: 0 },
-      { id: '5', title: 'Chapter 4: Case Studies', content: '', wordCount: 0 },
-      { id: '6', title: 'Chapter 5: Advanced Techniques', content: '', wordCount: 0 },
-      { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
-    ];
+    // Fallback to mock data if both API approaches fail
+    console.warn('All API methods failed, using fallback data');
+    return generateMockTOC(bookSummary);
   } catch (error) {
     console.error('Error generating TOC:', error);
-    
-    // Always return fallback data on error
-    console.log('Returning fallback data due to error');
-    return [
-      { id: '1', title: 'Introduction', content: '', wordCount: 0 },
-      { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
-      { id: '3', title: 'Chapter 2: Key Concepts', content: '', wordCount: 0 },
-      { id: '4', title: 'Chapter 3: Practical Applications', content: '', wordCount: 0 },
-      { id: '5', title: 'Chapter 4: Case Studies', content: '', wordCount: 0 },
-      { id: '6', title: 'Chapter 5: Advanced Techniques', content: '', wordCount: 0 },
-      { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
-    ];
+    return generateMockTOC(bookSummary);
   }
+};
+
+// Generate a mock TOC based on the book summary
+const generateMockTOC = (bookSummary: string): Chapter[] => {
+  // Extract some keywords from the summary to make the mock TOC more relevant
+  const keywords = bookSummary.split(' ')
+    .filter(word => word.length > 4)
+    .map(word => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ""));
+  
+  const uniqueKeywords = [...new Set(keywords)];
+  const relevantKeywords = uniqueKeywords.slice(0, 5);
+  
+  console.log('Using keywords for mock TOC:', relevantKeywords);
+  
+  // Create a basic structure with some of the keywords
+  return [
+    { id: '1', title: 'Introduction', content: '', wordCount: 0 },
+    { id: '2', title: `Chapter 1: Understanding ${relevantKeywords[0] || 'the Basics'}`, content: '', wordCount: 0 },
+    { id: '3', title: `Chapter 2: Exploring ${relevantKeywords[1] || 'Key Concepts'}`, content: '', wordCount: 0 },
+    { id: '4', title: `Chapter 3: ${relevantKeywords[2] || 'Practical'} Applications`, content: '', wordCount: 0 },
+    { id: '5', title: `Chapter 4: Case Studies in ${relevantKeywords[3] || 'the Field'}`, content: '', wordCount: 0 },
+    { id: '6', title: `Chapter 5: Advanced ${relevantKeywords[4] || 'Techniques'}`, content: '', wordCount: 0 },
+    { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
+  ];
 };
 
 interface BookConceptStepProps {
