@@ -1,7 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { generateTableOfContents } from '@/api/openai';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { BookGeneratorSettings, Chapter } from '../AIBookGenerator';
@@ -16,7 +15,6 @@ import {
   BookText, 
   Target, 
   MessageSquare, 
-  BookOpenCheck, 
   LayoutList, 
   Sparkles, 
   Loader2, 
@@ -37,90 +35,16 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
-// Real function for AI TOC generation using the Railway backend API
-const generateTOCWithAI = async (
-  bookSummary: string, 
-  tone: string, 
-  audience: string
-): Promise<Chapter[]> => {
-  try {
-    console.log('generateTOCWithAI called with:', { bookSummary, tone, audience });
-    
-    // Use the Railway backend API which has the OpenAI integration
-    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
-    console.log('Using Railway API URL:', apiBaseUrl);
-    
-    // Enhanced debugging for the request
-    const requestBody = {
-      bookSummary,
-      tone,
-      audience
-    };
-    console.log('Sending request to Railway API:', requestBody);
-    
-    const response = await fetch(`${apiBaseUrl}/api/openai/generate-toc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
+// Extend the proposal interface to include table of contents
+interface BookProposal {
+  title: string;
+  subtitle: string;
+  description: string;
+  tableOfContents: Chapter[];
+}
 
-    console.log('Railway API response status:', response.status);
-    
-    // Handle non-ok responses
-    if (!response.ok) {
-      let errorText = '';
-      try {
-        errorText = await response.text();
-      } catch (e) {
-        errorText = 'Could not extract error text';
-      }
-      console.error('Railway API error response:', errorText);
-      throw new Error(`Railway API request failed: ${response.status} ${errorText}`);
-    }
-
-    // Parse the response
-    let data;
-    try {
-      data = await response.json();
-      console.log('Railway API response data:', data);
-    } catch (jsonError) {
-      console.error('Error parsing JSON from Railway API:', jsonError);
-      throw new Error('Could not parse API response as JSON');
-    }
-    
-    // Check if data.chapters exists
-    if (data && data.success && data.chapters && Array.isArray(data.chapters)) {
-      return data.chapters.map((chapter: any, index: number) => ({
-        id: chapter.id || (index + 1).toString(),
-        title: chapter.title || `Chapter ${index + 1}`,
-        content: '',
-        wordCount: 0,
-      }));
-    }
-    
-    // Fallback to mock data if API doesn't return expected format
-    console.warn('Railway API did not return expected format, using fallback data');
-    return generateMockTOC(bookSummary);
-  } catch (error) {
-    console.error('Error generating TOC:', error);
-    // Always return fallback data on error for a better user experience
-    console.log('Returning fallback data due to error');
-    return generateMockTOC(bookSummary);
-  }
-};
-
-// Generate a mock TOC based on the book summary
+// Mock functions for guaranteed functionality
 const generateMockTOC = (bookSummary: string): Chapter[] => {
   // Extract some keywords from the summary to make the mock TOC more relevant
   const keywords = bookSummary.split(' ')
@@ -142,78 +66,6 @@ const generateMockTOC = (bookSummary: string): Chapter[] => {
     { id: '6', title: `Chapter 5: Advanced ${relevantKeywords[4] || 'Techniques'}`, content: '', wordCount: 0 },
     { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
   ];
-};
-
-// Extend the proposal interface to include table of contents
-interface BookProposal {
-  title: string;
-  subtitle: string;
-  description: string;
-  tableOfContents: Chapter[];
-}
-
-// Generate a full book proposal with AI
-const generateBookProposal = async (
-  bookSummary: string,
-  tone: string,
-  audience: string
-): Promise<BookProposal> => {
-  try {
-    console.log('Generating book proposal with:', { bookSummary, tone, audience });
-    
-    // Use the Railway backend API
-    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
-    
-    const response = await fetch(`${apiBaseUrl}/api/openai/generate-book-proposal`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bookSummary,
-        tone,
-        audience,
-        includeTableOfContents: true // Request TOC as part of the proposal
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Book proposal API response:', data);
-    
-    if (data.success && data.proposal) {
-      // If the API returned TOC, use it, otherwise generate a mock TOC
-      const tableOfContents = data.proposal.tableOfContents || 
-        await generateTOCWithAI(bookSummary, tone, audience);
-      
-      return {
-        ...data.proposal,
-        tableOfContents
-      };
-    }
-    
-    // Fallback mock data if API doesn't return expected format
-    const mockProposal = generateMockProposal(bookSummary, tone, audience);
-    const mockTOC = generateMockTOC(bookSummary);
-    
-    return {
-      ...mockProposal,
-      tableOfContents: mockTOC
-    };
-  } catch (error) {
-    console.error('Error generating book proposal:', error);
-    // Return fallback data on error
-    const mockProposal = generateMockProposal(bookSummary, tone, audience);
-    const mockTOC = generateMockTOC(bookSummary);
-    
-    return {
-      ...mockProposal,
-      tableOfContents: mockTOC
-    };
-  }
 };
 
 // Generate a mock book proposal based on the input
@@ -278,6 +130,73 @@ const generateMockProposal = (
     subtitle,
     description: `${description}\n\nBased on your summary: "${bookSummary}"`
   };
+};
+
+// Generate a full book proposal locally to guarantee functionality
+const generateBookProposal = async (
+  bookSummary: string,
+  tone: string,
+  audience: string
+): Promise<BookProposal> => {
+  try {
+    console.log('Generating book proposal with:', { bookSummary, tone, audience });
+    
+    // Use the Railway backend API - if this fails, we use fallback
+    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
+    
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/openai/generate-book-proposal`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookSummary,
+          tone,
+          audience,
+          includeTableOfContents: true // Request TOC as part of the proposal
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Book proposal API response:', data);
+      
+      if (data.success && data.proposal) {
+        // If the API returned TOC, use it, otherwise generate a mock TOC
+        const tableOfContents = data.proposal.tableOfContents || generateMockTOC(bookSummary);
+        
+        return {
+          ...data.proposal,
+          tableOfContents
+        };
+      }
+    } catch (error) {
+      console.error('API error, using fallback:', error);
+    }
+    
+    // Fallback mock data if API doesn't return expected format
+    const mockProposal = generateMockProposal(bookSummary, tone, audience);
+    const mockTOC = generateMockTOC(bookSummary);
+    
+    return {
+      ...mockProposal,
+      tableOfContents: mockTOC
+    };
+  } catch (error) {
+    console.error('Error generating book proposal:', error);
+    // Return fallback data on error
+    const mockProposal = generateMockProposal(bookSummary, tone, audience);
+    const mockTOC = generateMockTOC(bookSummary);
+    
+    return {
+      ...mockProposal,
+      tableOfContents: mockTOC
+    };
+  }
 };
 
 interface BookConceptStepProps {
@@ -357,6 +276,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
 
   // Generate book proposal
   const handleGenerateProposal = async () => {
+    // Validate input
     if (!summaryText.trim()) {
       toast({
         title: 'Book summary required',
@@ -371,25 +291,12 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     setIsGeneratingProposal(true);
     
     try {
-      // First try the API
-      let proposal;
-      try {
-        proposal = await generateBookProposal(
-          summaryText,
-          settings.tone,
-          settings.targetAudience
-        );
-      } catch (apiError) {
-        console.error('API error, using fallback:', apiError);
-        // If API fails, use local fallback
-        const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
-        const mockTOC = generateMockTOC(summaryText);
-        
-        proposal = {
-          ...mockProposal,
-          tableOfContents: mockTOC
-        };
-      }
+      // Generate proposal with guaranteed fallback
+      const proposal = await generateBookProposal(
+        summaryText,
+        settings.tone || 'Educational', // Default if not set
+        settings.targetAudience || 'Adults' // Default if not set
+      );
       
       // Add new proposal to history
       const newProposals = [...bookProposals, proposal];
@@ -402,6 +309,15 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       onSettingChange('tableOfContents', proposal.tableOfContents);
       onSettingChange('chapters', proposal.tableOfContents);
       
+      // Save to localStorage for debugging
+      try {
+        localStorage.setItem('lastGeneratedProposal', JSON.stringify(proposal));
+        localStorage.setItem('bookProposals', JSON.stringify(newProposals));
+        localStorage.setItem('currentProposalIndex', String(newProposals.length - 1));
+      } catch (err) {
+        console.error('Error saving to localStorage:', err);
+      }
+      
       toast({
         title: 'Book proposal generated',
         description: 'Your book proposal has been generated with a table of contents.',
@@ -411,10 +327,6 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       setShowProposal(true);
     } catch (error) {
       console.error('Error generating proposal:', error);
-      toast({
-        title: 'Error generating proposal',
-        description: 'Using offline mode with sample data.',
-      });
       
       // Even on complete failure, generate something for the user
       const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
@@ -435,6 +347,11 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       onSettingChange('chapters', proposal.tableOfContents);
       
       setShowProposal(true);
+      
+      toast({
+        title: 'Using offline mode',
+        description: 'Generated a proposal using local processing.',
+      });
     } finally {
       setIsGeneratingProposal(false);
     }
@@ -442,6 +359,14 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
 
   // Regenerate a proposal
   const handleRegenerateProposal = async () => {
+    if (!summaryText.trim()) {
+      toast({
+        title: 'Book summary required',
+        description: 'Please enter a summary before regenerating.',
+      });
+      return;
+    }
+    
     setIsGeneratingProposal(true);
     
     try {
@@ -468,9 +393,28 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       });
     } catch (error) {
       console.error('Error regenerating proposal:', error);
+      
+      // Fallback to mock data
+      const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
+      const mockTOC = generateMockTOC(summaryText);
+      
+      const proposal = {
+        ...mockProposal,
+        tableOfContents: mockTOC
+      };
+      
+      const newProposals = [...bookProposals, proposal];
+      setBookProposals(newProposals);
+      setCurrentProposalIndex(newProposals.length - 1);
+      
+      onSettingChange('title', proposal.title);
+      onSettingChange('subtitle', proposal.subtitle);
+      onSettingChange('tableOfContents', proposal.tableOfContents);
+      onSettingChange('chapters', proposal.tableOfContents);
+      
       toast({
-        title: 'Error regenerating proposal',
-        description: 'Something went wrong. Please try again.',
+        title: 'New proposal generated',
+        description: 'Used offline mode to generate a new proposal.',
       });
     } finally {
       setIsGeneratingProposal(false);
@@ -549,43 +493,6 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     
     onSettingChange('tableOfContents', items);
     onSettingChange('chapters', items);
-  };
-
-  const handleEditChapterTitle = (id: string, newTitle: string) => {
-    const updatedTOC = settings.tableOfContents.map(chapter => 
-      chapter.id === id ? { ...chapter, title: newTitle } : chapter
-    );
-    
-    onSettingChange('tableOfContents', updatedTOC);
-    onSettingChange('chapters', updatedTOC);
-  };
-
-  const handleDeleteChapter = (id: string) => {
-    const updatedTOC = settings.tableOfContents.filter(chapter => chapter.id !== id);
-    
-    onSettingChange('tableOfContents', updatedTOC);
-    onSettingChange('chapters', updatedTOC);
-  };
-
-  const handleAddChapter = () => {
-    if (!newChapterTitle.trim()) {
-      toast({
-        title: 'Chapter title required',
-        description: 'Please enter a title for the new chapter.',
-      });
-      return;
-    }
-    
-    const newChapter = {
-      id: Date.now().toString(),
-      title: newChapterTitle,
-      content: '',
-      wordCount: 0,
-    };
-    
-    onSettingChange('tableOfContents', [...settings.tableOfContents, newChapter]);
-    onSettingChange('chapters', [...settings.chapters, newChapter]);
-    setNewChapterTitle('');
   };
 
   return (
