@@ -214,6 +214,8 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
 
   const handleOpenNewThemeDialog = () => {
     console.log("Opening theme dialog");
+    // Alert to confirm button was clicked
+    alert("Opening theme dialog");
     setCurrentThemeId(null);
     setCurrentThemeName('');
     setCurrentThemeWords('');
@@ -229,6 +231,28 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     // Auto-generate words when selecting a theme idea
     handleGenerateWords(theme);
   };
+
+  // Update the debugButtonClick function to directly set dialogOpen
+  const debugButtonClick = () => {
+    console.log("Button clicked");
+    alert("Button clicked - now trying to open dialog");
+    // Directly set dialog state to true without going through handleOpenNewThemeDialog
+    setDialogOpen(true);
+    
+    // Reset the form afterwards
+    setCurrentThemeId(null);
+    setCurrentThemeName('');
+    setCurrentThemeWords('');
+    setCurrentThemePageCount(5);
+    setCurrentThemeDifficulty('medium');
+    setIsEditing(false);
+    setThemeError('');
+  };
+
+  // Add useEffect to monitor dialogOpen state
+  useEffect(() => {
+    console.log("Dialog state changed:", dialogOpen);
+  }, [dialogOpen]);
 
   return (
     <div>
@@ -250,7 +274,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
                   <h3 className="text-lg font-medium">My Themes</h3>
                   <Button 
                     variant="default"
-                    onClick={() => handleOpenNewThemeDialog()}
+                    onClick={debugButtonClick}
                     className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -267,7 +291,7 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
                     </p>
                     <Button 
                       variant="default"
-                      onClick={() => handleOpenNewThemeDialog()}
+                      onClick={debugButtonClick}
                       className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
                     >
                       <Plus className="mr-2 h-4 w-4" />
@@ -585,6 +609,11 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
           </Button>
         </ModalFooter>
       </Modal>
+
+      {/* Debug display */}
+      <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded-md z-[10001] text-xs">
+        Dialog state: {dialogOpen ? 'OPEN' : 'CLOSED'}
+      </div>
     </div>
   );
 }; 

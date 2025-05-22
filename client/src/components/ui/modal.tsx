@@ -23,6 +23,11 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // Add console logging when modal state changes
+  useEffect(() => {
+    console.log("Modal isOpen state changed:", isOpen);
+  }, [isOpen]);
+
   // Close on escape key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -62,12 +67,12 @@ export const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/70" // Darker background for better visibility
             onClick={onClose}
           />
           <motion.div
@@ -77,10 +82,14 @@ export const Modal: React.FC<ModalProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
             className={cn(
-              "relative bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto z-50",
+              "relative bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto z-[10000] border-4 border-red-500", // Added border for debugging
               className
             )}
           >
+            <div className="absolute top-0 left-0 bg-red-500 text-white px-2 py-1 text-xs">
+              Modal is open
+            </div>
+            
             <Button
               variant="ghost"
               size="icon"
