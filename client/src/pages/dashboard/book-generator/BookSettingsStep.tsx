@@ -1,27 +1,25 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookGeneratorSettings } from '../AIBookGenerator';
-import {
+import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
+import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Book, Type, Languages, Hash, Rows3 } from 'lucide-react';
-
-// Fix for the book size aspect ratio calculation
-const getAspectRatio = (bookSize: string) => {
-  const [width, height] = bookSize.split('x').map(parseFloat);
-  if (!width || !height) return 0.66; // Default aspect ratio if parsing fails
-  return width / height;
-};
+import { Separator } from '@/components/ui/separator';
+import { BookGeneratorSettings } from '../AIBookGenerator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  BookDashed, 
+  Type, 
+  Layers, 
+  Maximize
+} from 'lucide-react';
 
 interface BookSettingsStepProps {
   settings: BookGeneratorSettings;
@@ -32,71 +30,41 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
   settings,
   onSettingChange,
 }) => {
-  const bookSizes = [
-    { value: '6x9', label: '6 × 9 inches (Standard)' },
-    { value: '5x8', label: '5 × 8 inches (Compact)' },
-    { value: '7x10', label: '7 × 10 inches (Large)' },
-    { value: '8.5x11', label: '8.5 × 11 inches (Letter)' },
-  ];
-
-  const fontOptions = [
-    { value: 'Times New Roman', label: 'Times New Roman' },
-    { value: 'Garamond', label: 'Garamond' },
-    { value: 'Arial', label: 'Arial' },
-    { value: 'Georgia', label: 'Georgia' },
-    { value: 'Helvetica', label: 'Helvetica' },
-    { value: 'Calibri', label: 'Calibri' },
-  ];
-
-  const languageOptions = [
-    { value: 'English', label: 'English' },
-    { value: 'Spanish', label: 'Spanish' },
-    { value: 'French', label: 'French' },
-    { value: 'German', label: 'German' },
-    { value: 'Italian', label: 'Italian' },
-    { value: 'Portuguese', label: 'Portuguese' },
-  ];
-
   return (
-    <div className="space-y-8">
-      <Tabs defaultValue="layout" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="layout" className="flex items-center gap-1">
-            <Book className="h-4 w-4" /> Book Layout
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Book Physical Settings</h2>
+          <p className="text-muted-foreground">Configure the physical aspects of your book</p>
+        </div>
+      </div>
+      
+      <Tabs defaultValue="dimensions">
+        <TabsList className="grid grid-cols-3 mb-6">
+          <TabsTrigger value="dimensions">
+            <BookDashed className="h-4 w-4 mr-2" />
+            <span>Dimensions</span>
           </TabsTrigger>
-          <TabsTrigger value="formatting" className="flex items-center gap-1">
-            <Type className="h-4 w-4" /> Text Formatting
+          <TabsTrigger value="page-setup">
+            <Layers className="h-4 w-4 mr-2" />
+            <span>Page Setup</span>
+          </TabsTrigger>
+          <TabsTrigger value="typography">
+            <Type className="h-4 w-4 mr-2" />
+            <span>Typography</span>
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="layout">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-medium mb-4">Book Information</h3>
-                <Separator className="mb-4" />
-                
+        
+        <TabsContent value="dimensions">
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <BookDashed className="h-5 w-5 text-primary" /> Book Dimensions
+              </h3>
+              <Separator className="mb-6" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="title">Book Title</Label>
-                    <Input
-                      id="title"
-                      value={settings.title}
-                      onChange={(e) => onSettingChange('title', e.target.value)}
-                      placeholder="Enter your book title"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="subtitle">Subtitle (optional)</Label>
-                    <Input
-                      id="subtitle"
-                      value={settings.subtitle}
-                      onChange={(e) => onSettingChange('subtitle', e.target.value)}
-                      placeholder="Enter a subtitle"
-                    />
-                  </div>
-                  
                   <div className="space-y-2">
                     <Label htmlFor="bookSize">Book Size</Label>
                     <Select
@@ -107,15 +75,14 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                         <SelectValue placeholder="Select book size" />
                       </SelectTrigger>
                       <SelectContent>
-                        {bookSizes.map((size) => (
-                          <SelectItem key={size.value} value={size.value}>
-                            {size.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="5x8">5" x 8" (Small Paperback)</SelectItem>
+                        <SelectItem value="6x9">6" x 9" (Standard)</SelectItem>
+                        <SelectItem value="7x10">7" x 10" (Workbook)</SelectItem>
+                        <SelectItem value="8.5x11">8.5" x 11" (Letter)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground mt-1">
-                      6 × 9 is the most common size for paperback books on Amazon KDP
+                      Standard sizes for most book publishing platforms
                     </p>
                   </div>
                   
@@ -134,130 +101,233 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-medium mb-4">Book Structure</h3>
-                <Separator className="mb-4" />
                 
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="includePageNumbers">Page Numbers</Label>
-                      <p className="text-xs text-muted-foreground">Add page numbers to your book</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="trimSize">Trim Size</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="trimWidth" className="text-xs">Width (inches)</Label>
+                        <Input
+                          id="trimWidth"
+                          type="number"
+                          step="0.125"
+                          value={settings.trimWidth || 6}
+                          onChange={(e) => onSettingChange('trimWidth', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="trimHeight" className="text-xs">Height (inches)</Label>
+                        <Input
+                          id="trimHeight"
+                          type="number"
+                          step="0.125"
+                          value={settings.trimHeight || 9}
+                          onChange={(e) => onSettingChange('trimHeight', parseFloat(e.target.value))}
+                        />
+                      </div>
                     </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Final cut size of your book
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bleed">Bleed (inches)</Label>
+                    <Input
+                      id="bleed"
+                      type="number"
+                      step="0.025"
+                      value={settings.bleed || 0.125}
+                      onChange={(e) => onSettingChange('bleed', parseFloat(e.target.value))}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Extra margin for cutting during printing (typically 0.125")
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="page-setup">
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <Layers className="h-5 w-5 text-primary" /> Page Setup
+              </h3>
+              <Separator className="mb-6" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Margins (inches)</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="marginInside" className="text-xs">Inside/Gutter</Label>
+                        <Input
+                          id="marginInside"
+                          type="number"
+                          step="0.05"
+                          value={settings.marginInside || 0.75}
+                          onChange={(e) => onSettingChange('marginInside', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="marginOutside" className="text-xs">Outside</Label>
+                        <Input
+                          id="marginOutside"
+                          type="number"
+                          step="0.05"
+                          value={settings.marginOutside || 0.5}
+                          onChange={(e) => onSettingChange('marginOutside', parseFloat(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <Label htmlFor="marginTop" className="text-xs">Top</Label>
+                        <Input
+                          id="marginTop"
+                          type="number"
+                          step="0.05"
+                          value={settings.marginTop || 0.5}
+                          onChange={(e) => onSettingChange('marginTop', parseFloat(e.target.value))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="marginBottom" className="text-xs">Bottom</Label>
+                        <Input
+                          id="marginBottom"
+                          type="number"
+                          step="0.05"
+                          value={settings.marginBottom || 0.5}
+                          onChange={(e) => onSettingChange('marginBottom', parseFloat(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Recommended: 0.75" inside, 0.5" outside/top/bottom for most books
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
                     <Switch
                       id="includePageNumbers"
                       checked={settings.includePageNumbers}
                       onCheckedChange={(checked) => onSettingChange('includePageNumbers', checked)}
                     />
+                    <Label htmlFor="includePageNumbers">Include page numbers</Label>
                   </div>
                   
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="includeTOC">Table of Contents</Label>
-                      <p className="text-xs text-muted-foreground">Include an automatic table of contents</p>
-                    </div>
+                  <div className="flex items-center space-x-2">
                     <Switch
                       id="includeTOC"
                       checked={settings.includeTOC}
                       onCheckedChange={(checked) => onSettingChange('includeTOC', checked)}
                     />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="includeCopyright">Copyright Page</Label>
-                      <p className="text-xs text-muted-foreground">Include standard copyright information</p>
-                    </div>
-                    <Switch
-                      id="includeCopyright"
-                      checked={settings.includeCopyright}
-                      onCheckedChange={(checked) => onSettingChange('includeCopyright', checked)}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="includeAuthorBio">Author Bio</Label>
-                      <p className="text-xs text-muted-foreground">Include an about the author section</p>
-                    </div>
-                    <Switch
-                      id="includeAuthorBio"
-                      checked={settings.includeAuthorBio}
-                      onCheckedChange={(checked) => onSettingChange('includeAuthorBio', checked)}
-                    />
-                  </div>
-                  
-                  <div className="pt-2">
-                    <Label htmlFor="language">Book Language</Label>
-                    <Select
-                      value={settings.language}
-                      onValueChange={(value) => onSettingChange('language', value)}
-                    >
-                      <SelectTrigger id="language" className="mt-1">
-                        <SelectValue placeholder="Select language" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {languageOptions.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value}>
-                            {lang.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="includeTOC">Include table of contents</Label>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="formatting">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="md:col-span-2">
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-medium mb-4">Text Formatting</h3>
-                <Separator className="mb-4" />
                 
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fontFamily">Font Family</Label>
-                      <Select
-                        value={settings.fontFamily}
-                        onValueChange={(value) => onSettingChange('fontFamily', value)}
-                      >
-                        <SelectTrigger id="fontFamily">
-                          <SelectValue placeholder="Select font" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fontOptions.map((font) => (
-                            <SelectItem key={font.value} value={font.value}>
-                              {font.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="fontSize">Font Size: {settings.fontSize}pt</Label>
-                      <Slider
-                        id="fontSize"
-                        min={10}
-                        max={14}
-                        step={0.5}
-                        value={[settings.fontSize]}
-                        onValueChange={(value) => onSettingChange('fontSize', value[0])}
-                      />
-                    </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="binding">Binding Type</Label>
+                    <Select
+                      value={settings.binding || 'perfect'}
+                      onValueChange={(value) => onSettingChange('binding', value)}
+                    >
+                      <SelectTrigger id="binding">
+                        <SelectValue placeholder="Select binding type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="perfect">Perfect Bound (Paperback)</SelectItem>
+                        <SelectItem value="hardcover">Hardcover</SelectItem>
+                        <SelectItem value="spiral">Spiral Bound</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Affects gutter margin requirements
+                    </p>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="lineSpacing">Line Spacing: {settings.lineSpacing}</Label>
+                    <Label htmlFor="paperType">Paper Type</Label>
+                    <Select
+                      value={settings.paperType || 'white'}
+                      onValueChange={(value) => onSettingChange('paperType', value)}
+                    >
+                      <SelectTrigger id="paperType">
+                        <SelectValue placeholder="Select paper type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="white">White (Standard)</SelectItem>
+                        <SelectItem value="cream">Cream (Fiction/Literature)</SelectItem>
+                        <SelectItem value="premium">Premium Color</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Paper color and quality
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="typography">
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+                <Type className="h-5 w-5 text-primary" /> Typography
+              </h3>
+              <Separator className="mb-6" />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="fontFamily">Font Family</Label>
+                    <Select
+                      value={settings.fontFamily}
+                      onValueChange={(value) => onSettingChange('fontFamily', value)}
+                    >
+                      <SelectTrigger id="fontFamily">
+                        <SelectValue placeholder="Select font family" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Times New Roman">Times New Roman (Serif)</SelectItem>
+                        <SelectItem value="Georgia">Georgia (Serif)</SelectItem>
+                        <SelectItem value="Arial">Arial (Sans-serif)</SelectItem>
+                        <SelectItem value="Helvetica">Helvetica (Sans-serif)</SelectItem>
+                        <SelectItem value="Courier New">Courier New (Monospace)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Serif fonts are traditional for print books
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="fontSize">Font Size: {settings.fontSize}pt</Label>
+                    <Slider
+                      id="fontSize"
+                      min={8}
+                      max={14}
+                      step={0.5}
+                      value={[settings.fontSize]}
+                      onValueChange={(value) => onSettingChange('fontSize', value[0])}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      10-12pt is standard for most books
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="lineSpacing">Line Spacing: {settings.lineSpacing.toFixed(2)}</Label>
                     <Slider
                       id="lineSpacing"
                       min={1}
@@ -267,54 +337,35 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                       onValueChange={(value) => onSettingChange('lineSpacing', value[0])}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Standard spacing is 1.15, higher values improve readability
+                      1.15-1.5 is typical for most books
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="headingFontFamily">Heading Font</Label>
+                    <Select
+                      value={settings.headingFontFamily || settings.fontFamily}
+                      onValueChange={(value) => onSettingChange('headingFontFamily', value)}
+                    >
+                      <SelectTrigger id="headingFontFamily">
+                        <SelectValue placeholder="Select font family for headings" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Times New Roman">Times New Roman (Serif)</SelectItem>
+                        <SelectItem value="Georgia">Georgia (Serif)</SelectItem>
+                        <SelectItem value="Arial">Arial (Sans-serif)</SelectItem>
+                        <SelectItem value="Helvetica">Helvetica (Sans-serif)</SelectItem>
+                        <SelectItem value="Courier New">Courier New (Monospace)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Optional: use a different font for headings
                     </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="pt-6">
-                <h3 className="text-lg font-medium mb-4">Preview</h3>
-                <Separator className="mb-4" />
-                
-                <div
-                  className="p-4 border rounded-md bg-white overflow-hidden relative"
-                  style={{
-                    fontFamily: settings.fontFamily,
-                    fontSize: `${settings.fontSize}pt`,
-                    lineHeight: settings.lineSpacing,
-                    aspectRatio: getAspectRatio(settings.bookSize),
-                  }}
-                >
-                  <div className="border-b pb-2 mb-2 text-center">
-                    <p className="font-bold">{settings.title || 'Book Title'}</p>
-                    {settings.subtitle && <p className="text-sm italic">{settings.subtitle}</p>}
-                  </div>
-                  
-                  <p>
-                    This is an example of how your text will appear in your book. The current settings are:
-                  </p>
-                  <ul className="list-disc pl-5 mt-2 space-y-1">
-                    <li>Font: {settings.fontFamily}</li>
-                    <li>Size: {settings.fontSize}pt</li>
-                    <li>Line spacing: {settings.lineSpacing}</li>
-                    <li>Book dimensions: {settings.bookSize} inches</li>
-                  </ul>
-                  
-                  <p className="mt-3">
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. 
-                    Sed cursus ante dapibus diam. Sed nisi.
-                  </p>
-                  
-                  {settings.includePageNumbers && (
-                    <div className="absolute bottom-2 right-2 text-xs">1</div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

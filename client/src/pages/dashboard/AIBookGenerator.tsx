@@ -30,6 +30,18 @@ export interface BookGeneratorSettings {
   includeCopyright: boolean;
   includeAuthorBio: boolean;
   
+  // Physical book specifications
+  trimWidth?: number;
+  trimHeight?: number;
+  bleed?: number;
+  marginInside?: number;
+  marginOutside?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  binding?: 'perfect' | 'hardcover' | 'spiral';
+  paperType?: 'white' | 'cream' | 'premium';
+  headingFontFamily?: string;
+  
   // Book Concept
   bookSummary: string;
   tone: 'Serious' | 'Fun' | 'Educational' | 'Storytelling';

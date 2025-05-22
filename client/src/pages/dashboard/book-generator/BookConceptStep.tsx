@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { BookGeneratorSettings } from '../AIBookGenerator';
-import {
+import { 
   Select,
   SelectContent,
   SelectItem,
@@ -19,134 +20,22 @@ import {
   Loader2,
   BookOpen,
   CheckCircle,
+  RefreshCw,
+  Wand,
+  LightbulbIcon,
+  PencilLine
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
-import { Textarea } from '@/components/ui/textarea';
-
-// Simplified book proposal interface
-interface BookProposal {
-  title: string;
-  subtitle: string;
-  description: string;
-}
-
-// Generate a mock book proposal based on the input
-const generateMockProposal = (
-  bookSummary: string,
-  tone: string,
-  audience: string
-): BookProposal => {
-  // Extract keywords for a more relevant proposal
-  const keywords = bookSummary.split(' ')
-    .filter(word => word.length > 4)
-    .map(word => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ""));
-  
-  const uniqueKeywords = [...new Set(keywords)];
-  const mainKeyword = uniqueKeywords[0] || 'Success';
-  const secondKeyword = uniqueKeywords[1] || 'Journey';
-  
-  // Generate different titles based on tone
-  let title = '';
-  let subtitle = '';
-  let description = '';
-  
-  switch (tone) {
-    case 'Serious':
-      title = `The ${mainKeyword} Method`;
-      subtitle = `A Comprehensive Guide to Understanding ${secondKeyword}`;
-      break;
-    case 'Fun':
-      title = `${mainKeyword} Adventures`;
-      subtitle = `Exploring the Exciting World of ${secondKeyword}`;
-      break;
-    case 'Educational':
-      title = `Understanding ${mainKeyword}`;
-      subtitle = `A Step-by-Step Guide to Mastering ${secondKeyword}`;
-      break;
-    case 'Storytelling':
-      title = `The ${mainKeyword} Chronicles`;
-      subtitle = `A Journey Through ${secondKeyword}`;
-      break;
-    default:
-      title = `The Complete Guide to ${mainKeyword}`;
-      subtitle = `Everything You Need to Know About ${secondKeyword}`;
-  }
-  
-  // Generate description based on audience
-  switch (audience) {
-    case 'Kids':
-      description = `This colorful and engaging book helps young readers discover the fascinating world of ${mainKeyword}. Through fun activities, simple explanations, and delightful illustrations, children will learn about ${secondKeyword} while developing their imagination and critical thinking skills.`;
-      break;
-    case 'Teens':
-      description = `Specifically designed for today's teenagers, this book offers practical insights into ${mainKeyword} with relatable examples and real-world applications. Readers will gain valuable knowledge about ${secondKeyword} that they can apply to their studies and personal development.`;
-      break;
-    case 'Adults':
-      description = `A comprehensive exploration of ${mainKeyword} for adult readers seeking to expand their understanding of ${secondKeyword}. This book combines thorough research with practical wisdom, offering both theoretical knowledge and actionable strategies for real-world application.`;
-      break;
-    default:
-      description = `An accessible guide to ${mainKeyword} for readers of all backgrounds. This book provides a thorough introduction to ${secondKeyword}, combining essential theory with practical applications suitable for beginners and experienced individuals alike.`;
-  }
-  
-  return {
-    title,
-    subtitle,
-    description: `${description}\n\nBased on your summary: "${bookSummary}"`
-  };
-};
-
-// Generate a full book proposal with API call or fallback
-const generateBookProposal = async (
-  bookSummary: string,
-  tone: string,
-  audience: string
-): Promise<BookProposal> => {
-  try {
-    console.log('Generating book proposal with:', { bookSummary, tone, audience });
-    
-    // Use the Railway backend API - if this fails, we use fallback
-    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
-    
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/openai/generate-book-proposal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          bookSummary,
-          tone,
-          audience,
-          includeTableOfContents: false // We don't need TOC generation anymore
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Book proposal API response:', data);
-      
-      if (data.success && data.proposal) {
-        return {
-          title: data.proposal.title,
-          subtitle: data.proposal.subtitle,
-          description: data.proposal.description
-        };
-      }
-    } catch (error) {
-      console.error('API error, using fallback:', error);
-    }
-    
-    // Fallback mock data if API doesn't return expected format
-    return generateMockProposal(bookSummary, tone, audience);
-  } catch (error) {
-    console.error('Error generating book proposal:', error);
-    // Return fallback data on error
-    return generateMockProposal(bookSummary, tone, audience);
-  }
-};
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface BookConceptStepProps {
   settings: BookGeneratorSettings;
@@ -157,224 +46,237 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   settings,
   onSettingChange,
 }) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [summaryText, setSummaryText] = useState(settings.bookSummary || '');
-  const [bookProposals, setBookProposals] = useState<BookProposal[]>([]);
-  const [currentProposalIndex, setCurrentProposalIndex] = useState(0);
+  const [generating, setGenerating] = useState(false);
+  const [bookIdea, setBookIdea] = useState(settings.bookSummary);
+  const [generatedConcept, setGeneratedConcept] = useState('');
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editText, setEditText] = useState('');
   const { toast } = useToast();
-  const [conceptGenerated, setConceptGenerated] = useState(false);
 
-  // Get current proposal
-  const currentProposal = bookProposals[currentProposalIndex];
-
-  // Update local state when settings change
-  useEffect(() => {
-    console.log('Settings updated, updating local state');
-    setSummaryText(settings.bookSummary || '');
-  }, [settings.bookSummary]);
-
-  // Check if there are saved proposals but only load them if the user has explicitly saved their work
-  useEffect(() => {
-    // Only load saved proposals if they exist and bookGeneratorSaved flag is set
-    const savedFlag = localStorage.getItem('bookGeneratorSaved');
-    if (savedFlag === 'true') {
-      const savedProposals = localStorage.getItem('bookProposals');
-      const savedIndex = localStorage.getItem('currentProposalIndex');
-      
-      if (savedProposals) {
-        try {
-          const parsedProposals = JSON.parse(savedProposals);
-          if (Array.isArray(parsedProposals) && parsedProposals.length > 0) {
-            setBookProposals(parsedProposals);
-            setConceptGenerated(true);
-            
-            if (savedIndex) {
-              const index = parseInt(savedIndex, 10);
-              setCurrentProposalIndex(isNaN(index) ? 0 : index);
-            }
-          }
-        } catch (error) {
-          console.error('Error loading saved proposals:', error);
-        }
-      }
-    }
-  }, []);
-
-  const toneOptions = [
-    { value: 'Serious', label: 'Serious - Professional and formal' },
-    { value: 'Fun', label: 'Fun - Light-hearted and entertaining' },
-    { value: 'Educational', label: 'Educational - Informative and instructional' },
-    { value: 'Storytelling', label: 'Storytelling - Narrative and engaging' },
-  ];
-
-  const audienceOptions = [
-    { value: 'Kids', label: 'Kids (Ages 6-12)' },
-    { value: 'Teens', label: 'Teens (Ages 13-17)' },
-    { value: 'Adults', label: 'Adults (18+)' },
-  ];
-
-  // Update summary text
-  const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    console.log('Summary changed:', value);
-    setSummaryText(value);
-    onSettingChange('bookSummary', value);
-  };
-
-  // Generate book proposal
-  const handleGenerateProposal = async () => {
-    // Validate input
-    if (!summaryText.trim()) {
+  // Generate a book concept based on the user's idea
+  const generateBookConcept = async () => {
+    if (!bookIdea.trim()) {
       toast({
-        title: 'Book summary required',
-        description: 'Please enter a summary of your book before generating a proposal.',
+        title: "Book idea required",
+        description: "Please describe your book idea first.",
       });
       return;
     }
 
-    // Update the parent component with the current summary
-    onSettingChange('bookSummary', summaryText);
-    
-    setIsGenerating(true);
-    
     try {
-      // Generate proposal with guaranteed fallback
-      const proposal = await generateBookProposal(
-        summaryText,
-        settings.tone || 'Educational', // Default if not set
-        settings.targetAudience || 'Adults' // Default if not set
-      );
+      setGenerating(true);
       
-      // Add new proposal to history
-      const newProposals = [...bookProposals, proposal];
-      setBookProposals(newProposals);
-      setCurrentProposalIndex(newProposals.length - 1);
+      // Simulate API call for now - replace with actual API call
+      setTimeout(() => {
+        // Example generated concept format
+        const concept = `# ${bookIdea.includes('crypto') ? 'Crypto Revolution' : 'The Ultimate Guide'}: ${bookIdea.split(' ').slice(0, 3).join(' ')}...
+
+## Book Subtitle
+${bookIdea.includes('crypto') ? 'Understanding Bitcoin and AI in the New Digital Economy' : 'A Comprehensive Approach to ' + bookIdea.split(' ').slice(0, 2).join(' ')}
+
+## Book Description
+This comprehensive guide explores ${bookIdea} in detail, providing readers with both theoretical understanding and practical applications. The book is designed for ${settings.targetAudience.toLowerCase()} who want to learn about this topic in a ${settings.tone.toLowerCase()} manner.
+
+## Book Concept
+The book will take readers on a journey through the world of ${bookIdea.split(' ').slice(0, 3).join(' ')}, starting with fundamental concepts and progressively exploring more advanced topics. Each chapter builds upon the previous, ensuring a logical learning progression.
+
+## Table of Contents
+1. Introduction to ${bookIdea.split(' ').slice(0, 2).join(' ')}
+2. The History and Evolution of ${bookIdea.split(' ').slice(0, 1).join(' ')}
+3. Core Principles and Concepts
+4. ${bookIdea.includes('crypto') ? 'Blockchain Technology Fundamentals' : 'Essential Techniques and Methods'}
+5. ${bookIdea.includes('crypto') ? 'Understanding Cryptocurrencies' : 'Practical Applications'}
+6. ${bookIdea.includes('crypto') ? 'The Role of AI in Digital Finance' : 'Advanced Strategies'}
+7. ${bookIdea.includes('crypto') ? 'Investment Strategies and Risk Management' : 'Troubleshooting and Problem Solving'}
+8. Future Trends and Developments
+9. Case Studies and Real-World Examples
+10. Conclusion: The Future of ${bookIdea.split(' ').slice(0, 2).join(' ')}`;
+
+        setGeneratedConcept(concept);
+        
+        // Also update the settings with the generated concept data
+        // In a real implementation, you would parse the response and update these fields separately
+        if (bookIdea.includes('crypto')) {
+          onSettingChange('title', 'Crypto Revolution: Understanding Bitcoin and AI');
+          onSettingChange('subtitle', 'Exploring the Intersection of Cryptocurrency and Artificial Intelligence');
+          onSettingChange('tableOfContents', [
+            { id: '1', title: 'Introduction to Cryptocurrency', content: '', wordCount: 0 },
+            { id: '2', title: 'The History and Evolution of Bitcoin', content: '', wordCount: 0 },
+            { id: '3', title: 'Core Principles and Concepts', content: '', wordCount: 0 },
+            { id: '4', title: 'Blockchain Technology Fundamentals', content: '', wordCount: 0 },
+            { id: '5', title: 'Understanding Cryptocurrencies', content: '', wordCount: 0 },
+            { id: '6', title: 'The Role of AI in Digital Finance', content: '', wordCount: 0 },
+            { id: '7', title: 'Investment Strategies and Risk Management', content: '', wordCount: 0 },
+            { id: '8', title: 'Future Trends and Developments', content: '', wordCount: 0 },
+            { id: '9', title: 'Case Studies and Real-World Examples', content: '', wordCount: 0 },
+            { id: '10', title: 'Conclusion: The Future of Crypto', content: '', wordCount: 0 },
+          ]);
+        } else {
+          onSettingChange('title', `The Ultimate Guide to ${bookIdea.split(' ').slice(0, 3).join(' ')}`);
+          onSettingChange('subtitle', `A Comprehensive Approach to ${bookIdea.split(' ').slice(0, 2).join(' ')}`);
+          // Generate a generic table of contents based on the book idea
+          onSettingChange('tableOfContents', [
+            { id: '1', title: `Introduction to ${bookIdea.split(' ').slice(0, 2).join(' ')}`, content: '', wordCount: 0 },
+            { id: '2', title: `The Fundamentals of ${bookIdea.split(' ').slice(0, 1).join(' ')}`, content: '', wordCount: 0 },
+            { id: '3', title: 'Core Principles and Concepts', content: '', wordCount: 0 },
+            { id: '4', title: 'Essential Techniques and Methods', content: '', wordCount: 0 },
+            { id: '5', title: 'Practical Applications', content: '', wordCount: 0 },
+            { id: '6', title: 'Advanced Strategies', content: '', wordCount: 0 },
+            { id: '7', title: 'Troubleshooting and Problem Solving', content: '', wordCount: 0 },
+            { id: '8', title: 'Future Trends and Developments', content: '', wordCount: 0 },
+            { id: '9', title: 'Case Studies and Real-World Examples', content: '', wordCount: 0 },
+            { id: '10', title: `Conclusion: Mastering ${bookIdea.split(' ').slice(0, 2).join(' ')}`, content: '', wordCount: 0 },
+          ]);
+        }
+        
+        setGenerating(false);
+      }, 2000);
       
-      // Update settings with the proposal data
-      onSettingChange('title', proposal.title);
-      onSettingChange('subtitle', proposal.subtitle);
-      
-      // Save to localStorage for debugging
-      try {
-        localStorage.setItem('lastGeneratedProposal', JSON.stringify(proposal));
-        localStorage.setItem('bookProposals', JSON.stringify(newProposals));
-        localStorage.setItem('currentProposalIndex', String(newProposals.length - 1));
-      } catch (err) {
-        console.error('Error saving to localStorage:', err);
-      }
-      
-      toast({
-        title: 'Book concept generated',
-        description: 'Your book concept has been created based on your summary.',
-      });
-      
-      // Show the proposal UI
-      setConceptGenerated(true);
     } catch (error) {
-      console.error('Error generating proposal:', error);
-      
-      // Even on complete failure, generate something for the user
-      const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
-      
-      const newProposals = [...bookProposals, mockProposal];
-      setBookProposals(newProposals);
-      setCurrentProposalIndex(newProposals.length - 1);
-      
-      onSettingChange('title', mockProposal.title);
-      onSettingChange('subtitle', mockProposal.subtitle);
-      
-      setConceptGenerated(true);
-      
+      console.error('Error generating book concept:', error);
+      setGenerating(false);
       toast({
-        title: 'Using offline mode',
-        description: 'Generated a book concept using local processing.',
+        title: "Generation failed",
+        description: "Failed to generate book concept. Please try again.",
       });
-    } finally {
-      setIsGenerating(false);
     }
   };
 
+  // Handle enhancing the book concept (improving it while keeping the same idea)
+  const enhanceBookConcept = async () => {
+    try {
+      setGenerating(true);
+      
+      // Simulate API call - replace with actual API call
+      setTimeout(() => {
+        // Just make some small improvements to the existing concept
+        const enhancedConcept = generatedConcept.replace(
+          'This comprehensive guide',
+          'This authoritative and engaging guide'
+        ).replace(
+          'Table of Contents',
+          'Improved Table of Contents'
+        );
+        
+        setGeneratedConcept(enhancedConcept);
+        setGenerating(false);
+        
+        toast({
+          title: "Concept enhanced",
+          description: "Your book concept has been enhanced.",
+        });
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error enhancing book concept:', error);
+      setGenerating(false);
+      toast({
+        title: "Enhancement failed",
+        description: "Failed to enhance book concept. Please try again.",
+      });
+    }
+  };
+
+  // Handle editing the concept manually
+  const openEditDialog = () => {
+    setEditText(generatedConcept);
+    setShowEditDialog(true);
+  };
+
+  const saveEditedConcept = () => {
+    setGeneratedConcept(editText);
+    setShowEditDialog(false);
+    
+    toast({
+      title: "Changes saved",
+      description: "Your edits to the book concept have been saved.",
+    });
+  };
+
+  // Save the book idea to the settings
+  const saveBookIdea = () => {
+    onSettingChange('bookSummary', bookIdea);
+  };
+
   return (
-    <div className="space-y-6 relative" style={{ pointerEvents: 'auto' }}>
+    <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
         <div>
           <h2 className="text-2xl font-bold">Book Concept</h2>
-          <p className="text-muted-foreground">Define the overall concept and focus of your book</p>
+          <p className="text-muted-foreground">Describe your book idea and let AI generate a concept</p>
         </div>
       </div>
       
-      <Card>
-        <CardContent className="pt-6">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-            <BookText className="h-5 w-5 text-primary" /> Book Summary
-          </h3>
-          <Separator className="mb-4" />
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="bookSummary">Summary of Your Book</Label>
-              <Textarea
-                id="bookSummary"
-                value={summaryText}
-                onChange={handleSummaryChange}
-                placeholder="Enter a detailed summary of what your book will be about. For example: 'A comprehensive guide to sustainable gardening in urban environments, covering container gardening, vertical gardens, and rooftop farming techniques.'"
-                className="h-32"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Be specific to get the best results. Include key topics, themes, and purpose.
-              </p>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <LightbulbIcon className="h-5 w-5 text-primary" /> Your Book Idea
+            </h3>
+            <Separator className="mb-6" />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="tone">Tone of the Book</Label>
-                <Select
-                  value={settings.tone}
-                  onValueChange={(value) => onSettingChange('tone', value)}
-                >
-                  <SelectTrigger id="tone">
-                    <SelectValue placeholder="Select tone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {toneOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="bookIdea">Describe your book idea in detail</Label>
+                <Textarea
+                  id="bookIdea"
+                  placeholder="E.g., I want to create a book about cryptocurrency and AI that explains how these technologies work together..."
+                  className="min-h-[150px] resize-none"
+                  value={bookIdea}
+                  onChange={(e) => setBookIdea(e.target.value)}
+                  onBlur={saveBookIdea}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The more details you provide, the better the AI can understand your vision
+                </p>
               </div>
               
-              <div>
-                <Label htmlFor="targetAudience">Target Audience</Label>
-                <Select
-                  value={settings.targetAudience}
-                  onValueChange={(value) => onSettingChange('targetAudience', value)}
-                >
-                  <SelectTrigger id="targetAudience">
-                    <SelectValue placeholder="Select audience" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {audienceOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tone">Tone</Label>
+                  <Select
+                    value={settings.tone}
+                    onValueChange={(value) => onSettingChange('tone', value)}
+                  >
+                    <SelectTrigger id="tone">
+                      <SelectValue placeholder="Select tone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Serious">Serious</SelectItem>
+                      <SelectItem value="Educational">Educational</SelectItem>
+                      <SelectItem value="Fun">Fun</SelectItem>
+                      <SelectItem value="Storytelling">Storytelling</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="targetAudience">Target Audience</Label>
+                  <Select
+                    value={settings.targetAudience}
+                    onValueChange={(value) => onSettingChange('targetAudience', value)}
+                  >
+                    <SelectTrigger id="targetAudience">
+                      <SelectValue placeholder="Select audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Kids">Kids</SelectItem>
+                      <SelectItem value="Teens">Teens</SelectItem>
+                      <SelectItem value="Adults">Adults</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-            
-            <div className="pt-4">
-              <Button
-                onClick={handleGenerateProposal}
-                disabled={isGenerating || !summaryText.trim() || !settings.tone || !settings.targetAudience}
-                className="w-full md:w-auto"
+              
+              <Button 
+                onClick={generateBookConcept} 
+                disabled={generating || !bookIdea.trim()}
+                className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
               >
-                {isGenerating ? (
+                {generating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
+                    Generating Concept...
                   </>
                 ) : (
                   <>
@@ -384,58 +286,99 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
                 )}
               </Button>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {conceptGenerated && currentProposal && (
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardContent className="pt-6">
             <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
               <BookOpen className="h-5 w-5 text-primary" /> Generated Book Concept
             </h3>
-            <Separator className="mb-4" />
+            <Separator className="mb-6" />
             
-            <div className="space-y-6">
+            {!generatedConcept ? (
+              <div className="text-center p-6 border border-dashed rounded-md">
+                <BookOpen className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+                <p className="text-muted-foreground mb-1">
+                  No concept generated yet
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Describe your book idea and click "Generate Book Concept"
+                </p>
+              </div>
+            ) : (
               <div className="space-y-4">
-                <div className="p-4 border rounded-lg">
-                  <h4 className="font-semibold text-xl mb-1">{currentProposal.title}</h4>
-                  <h5 className="text-muted-foreground mb-4">{currentProposal.subtitle}</h5>
-                  
-                  <ScrollArea className="h-48">
-                    <div className="whitespace-pre-wrap">
-                      {currentProposal.description}
-                    </div>
-                  </ScrollArea>
+                <ScrollArea className="h-[300px] w-full rounded-md border p-4">
+                  <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap">
+                    {generatedConcept}
+                  </div>
+                </ScrollArea>
+                
+                <div className="flex gap-2 justify-end">
+                  <Button 
+                    variant="outline" 
+                    onClick={openEditDialog}
+                    disabled={generating}
+                  >
+                    <PencilLine className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={enhanceBookConcept}
+                    disabled={generating}
+                  >
+                    <Wand className="h-4 w-4 mr-2" />
+                    Enhance
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={generateBookConcept}
+                    disabled={generating}
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate
+                  </Button>
                 </div>
                 
-                <div className="flex justify-between items-center pt-2">
-                  <div className="flex items-center gap-1 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span>Concept ready for content generation</span>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      onClick={handleGenerateProposal}
-                      disabled={isGenerating}
-                    >
-                      Generate New Concept
-                    </Button>
-                  </div>
+                <div className="flex items-center gap-1 text-sm text-green-600 mt-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Book concept generated</span>
                 </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
-      )}
-      
-      <div className="text-sm text-muted-foreground px-1">
-        <p>
-          In the next step, AI will generate complete book content based on your concept and target page count.
-        </p>
       </div>
+      
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="sm:max-w-[900px]">
+          <DialogHeader>
+            <DialogTitle>Edit Book Concept</DialogTitle>
+            <DialogDescription>
+              Make changes to your generated book concept.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Textarea
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              className="min-h-[60vh] font-mono text-sm resize-none"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveEditedConcept}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }; 
