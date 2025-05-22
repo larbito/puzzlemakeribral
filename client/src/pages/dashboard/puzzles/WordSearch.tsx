@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Card, 
@@ -50,79 +50,81 @@ import { cn } from '@/lib/utils';
 import wordSearchApi from '@/lib/services/wordSearchApi';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
+import { StepWizard, Step } from '@/components/shared/StepWizard';
+import { BookSettingsStep } from './steps/BookSettingsStep';
+import { ThemesAndWordsStep } from './steps/ThemesAndWordsStep';
+import { PuzzleConfigurationStep } from './steps/PuzzleConfigurationStep';
+import { PreviewDownloadStep } from './steps/PreviewDownloadStep';
+import { useLocalStorage } from '@/lib/hooks/useLocalStorage';
+import { useToast } from '@/components/ui/use-toast';
 
 // Animate card component
 const MotionCard = motion(Card);
 
-// Types
-export type WordSearchSettings = {
+// Types for Word Search settings
+export interface WordSearchSettings {
   // Book details
   title: string;
   subtitle: string;
   authorName: string;
   pageSize: string;
-  bleed: boolean;
-  includePageNumbers: boolean;
   interiorTheme: 'light' | 'dark';
   fontFamily: string;
-  
-  // WordSearch specific settings
-  puzzlesPerPage: number;
-  theme: string;
-  customWords: string;
-  difficulty: string;
   quantity: number;
-  aiPrompt: string;
+  includeCoverPage: boolean;
+  includePageNumbers: boolean;
+  includeAnswers: boolean;
+  bleed: boolean;
   
-  // Puzzle options
+  // Puzzle configuration
   gridSize: number;
   wordsPerPuzzle: number;
+  puzzlesPerPage: number;
+  difficulty: string;
+  
+  // Word configuration
+  customWords: string;
+  aiPrompt: string;
+  includeThemeFacts: boolean;
+  
+  // Word directions
   directions: {
     horizontal: boolean;
     vertical: boolean;
     diagonal: boolean;
     backward: boolean;
   };
-  
-  // Output options
-  includeAnswers: boolean;
-  includeThemeFacts: boolean;
-  includeCoverPage: boolean;
-};
+}
 
-export const defaultWordSearchSettings: WordSearchSettings = {
-  // Default book settings
-  title: '',
-  subtitle: '',
+// Default settings
+const defaultSettings: WordSearchSettings = {
+  title: 'My Word Search Book',
+  subtitle: 'Fun Puzzles for Everyone',
   authorName: '',
   pageSize: '6x9',
-  bleed: false,
-  includePageNumbers: true,
   interiorTheme: 'light',
   fontFamily: 'sans',
+  quantity: 30,
+  includeCoverPage: true,
+  includePageNumbers: true,
+  includeAnswers: true,
+  bleed: false,
   
-  // Default WordSearch specific settings
-  puzzlesPerPage: 1,
-  theme: '',
-  customWords: '',
-  difficulty: 'medium',
-  quantity: 20,
-  aiPrompt: '',
-  
-  // Default puzzle options
   gridSize: 15,
-  wordsPerPuzzle: 10,
+  wordsPerPuzzle: 12,
+  puzzlesPerPage: 1,
+  difficulty: 'medium',
+  
+  customWords: '',
+  aiPrompt: 'Generate family-friendly words that are appropriate for all ages',
+  includeThemeFacts: true,
+  
   directions: {
     horizontal: true,
     vertical: true,
     diagonal: true,
-    backward: false
+    backward: false,
   },
-  
-  // Default output options
-  includeAnswers: true,
-  includeThemeFacts: false,
-  includeCoverPage: true
 };
 
 interface BookFormProps {
@@ -561,141 +563,163 @@ const PuzzleContentForm: React.FC<PuzzleFormProps> = ({ settings, onSettingChang
   );
 };
 
-export type WordSearchFormProps = {
-  settings: WordSearchSettings;
-  onSettingChange: (key: keyof WordSearchSettings, value: any) => void;
-  onBack: () => void;
-  onGenerate: () => void;
-  generationStatus: 'idle' | 'generating' | 'complete' | 'error';
-};
+export const WordSearch: React.FC = () => {
+  const { toast } = useToast();
+  const [savedSettings, setSavedSettings] = useLocalStorage<WordSearchSettings>(
+    'word-search-settings',
+    defaultSettings
+  );
+  
+  const [settings, setSettings] = useState<WordSearchSettings>(savedSettings);
+  const [steps, setSteps] = useState<Step[]>([
+    {
+      id: 'book-settings',
+      title: 'Book Settings',
+      description: 'Configure your book details',
+      component: <BookSettingsStep settings={settings} onSettingChange={handleSettingChange} />,
+      isComplete: false,
+      isValid: true,
+    },
+    {
+      id: 'themes',
+      title: 'Themes & Words',
+      description: 'Add themes and word lists',
+      component: <ThemesAndWordsStep settings={settings} onSettingChange={handleSettingChange} />,
+      isComplete: false,
+      isValid: true,
+    },
+    {
+      id: 'configuration',
+      title: 'Design Settings',
+      description: 'Configure puzzle layout and style',
+      component: <PuzzleConfigurationStep settings={settings} onSettingChange={handleSettingChange} />,
+      isComplete: false,
+      isValid: true,
+    },
+    {
+      id: 'preview-download',
+      title: 'Preview & Export',
+      description: 'Generate your finished book',
+      component: <PreviewDownloadStep settings={settings} onSettingChange={handleSettingChange} />,
+      isComplete: false,
+      isValid: true,
+    },
+  ]);
 
-export const WordSearchForm = ({ 
-  settings, 
-  onSettingChange, 
-  onBack, 
-  onGenerate, 
-  generationStatus
-}: WordSearchFormProps) => {
-  const [activeTab, setActiveTab] = useState('book-details');
+  // Update components when settings change
+  useEffect(() => {
+    setSteps(prevSteps => 
+      prevSteps.map(step => ({
+        ...step,
+        component: getStepComponent(step.id),
+      }))
+    );
+  }, [settings]);
+
+  // Get the component for a specific step
+  function getStepComponent(stepId: string) {
+    switch (stepId) {
+      case 'book-settings':
+        return <BookSettingsStep settings={settings} onSettingChange={handleSettingChange} />;
+      case 'themes':
+        return <ThemesAndWordsStep settings={settings} onSettingChange={handleSettingChange} />;
+      case 'configuration':
+        return <PuzzleConfigurationStep settings={settings} onSettingChange={handleSettingChange} />;
+      case 'preview-download':
+        return <PreviewDownloadStep settings={settings} onSettingChange={handleSettingChange} />;
+      default:
+        return null;
+    }
+  }
   
-  const isFormValid = settings.title.trim() !== '';
+  // Validate steps
+  function validateStep(step: Step): boolean {
+    switch (step.id) {
+      case 'book-settings':
+        return !!settings.title && !!settings.authorName;
+      case 'themes':
+        try {
+          if (settings.customWords && settings.customWords.startsWith('[')) {
+            const themes = JSON.parse(settings.customWords);
+            return Array.isArray(themes) && themes.length > 0;
+          }
+        } catch (e) {
+          return false;
+        }
+        return false;
+      default:
+        return true;
+    }
+  }
+
+  // Update settings when a value changes
+  function handleSettingChange(key: keyof WordSearchSettings, value: any) {
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    setSavedSettings(newSettings);
+    
+    // Update step validation
+    setSteps(prevSteps => 
+      prevSteps.map(step => ({
+        ...step,
+        isValid: validateStep({...step, component: getStepComponent(step.id)}),
+      }))
+    );
+  }
+
+  // Handle completion of wizard
+  function handleComplete() {
+    toast({
+      title: 'Book Generation Complete!',
+      description: 'Your word search puzzle book has been generated.',
+    });
+  }
+
+  // Handle saving current progress
+  function handleSave() {
+    setSavedSettings(settings);
+    toast({
+      title: 'Progress Saved',
+      description: 'Your book settings have been saved locally.',
+    });
+  }
   
+  // Reset settings to default
+  function handleReset() {
+    setSettings(defaultSettings);
+    setSavedSettings(defaultSettings);
+    toast({
+      title: 'Settings Reset',
+      description: 'All settings have been reset to default values.',
+    });
+  }
+
   return (
-    <MotionCard
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full overflow-hidden relative"
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-transparent" />
-      
-      <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onBack}
-          className="mr-2 h-8 w-8"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-primary text-white">
-            <BookText className="h-5 w-5" />
-          </div>
-          <CardTitle className="text-xl">Word Search Puzzle Book</CardTitle>
+    <div className="container max-w-6xl mx-auto py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Word Search Puzzle Book Creator
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Create a custom KDP-ready word search puzzle book in minutes
+          </p>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-6">
-        <Tabs defaultValue="book-details" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-2 mb-6 w-full md:w-auto">
-            <TabsTrigger value="book-details" className="flex items-center gap-2">
-              <PenLine className="h-4 w-4" /> Book Details
-            </TabsTrigger>
-            <TabsTrigger value="puzzle-content" className="flex items-center gap-2">
-              <Grid3X3 className="h-4 w-4" /> Puzzle Content
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="book-details" className="space-y-4">
-            <BookDetailsForm 
-              settings={settings} 
-              onSettingChange={onSettingChange} 
-            />
-          </TabsContent>
-          
-          <TabsContent value="puzzle-content" className="space-y-4">
-            <PuzzleContentForm
-              settings={settings}
-              onSettingChange={onSettingChange}
-            />
-          </TabsContent>
-        </Tabs>
         
-        <div className="flex items-center justify-between pt-4 mt-6 border-t">
-          <div className="flex items-center text-muted-foreground">
-            {activeTab === 'book-details' ? (
-              <div className="flex items-center">
-                <Info className="h-4 w-4 mr-2" />
-                <span className="text-sm">Set book details before generating</span>
-              </div>
-            ) : (
-              <div className="flex items-center">
-                <Info className="h-4 w-4 mr-2" />
-                <span className="text-sm">Configure puzzle settings to your needs</span>
-              </div>
-            )}
-          </div>
-          
-          <div className="flex gap-3">
-            {activeTab === 'book-details' ? (
-              <Button
-                type="button"
-                onClick={() => setActiveTab('puzzle-content')}
-                variant="outline"
-                className="flex items-center gap-2 relative z-10"
-              >
-                Next <ArrowLeft className="h-4 w-4 rotate-180" />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={() => setActiveTab('book-details')}
-                variant="outline"
-                className="flex items-center gap-2 relative z-10"
-              >
-                <ArrowLeft className="h-4 w-4" /> Back
-              </Button>
-            )}
-            
-            <Button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log("Generate button clicked, calling onGenerate()");
-                onGenerate();
-              }}
-              disabled={!isFormValid || generationStatus === 'generating'}
-              className={cn(
-                "bg-gradient-to-r from-primary to-secondary hover:opacity-90 relative z-10",
-                !isFormValid && "opacity-70 cursor-not-allowed"
-              )}
-            >
-              {generationStatus === 'generating' ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Generate Puzzle Book
-                </>
-              )}
-            </Button>
-          </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleReset} className="flex items-center gap-1">
+            <Settings className="h-4 w-4" /> Reset
+          </Button>
         </div>
-      </CardContent>
-    </MotionCard>
+      </div>
+      
+      <StepWizard 
+        steps={steps} 
+        onComplete={handleComplete} 
+        onSave={handleSave}
+        showProgress={true}
+      />
+    </div>
   );
 };
 
@@ -789,4 +813,4 @@ export const WordSearchStatus: React.FC<StatusProps> = ({
   );
 };
 
-export default WordSearchForm; 
+export default WordSearch; 
