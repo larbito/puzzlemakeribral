@@ -172,6 +172,20 @@ const staticDir = path.join(__dirname, '..', 'static');
 console.log(`Serving static files from: ${staticDir}`);
 app.use('/static', express.static(staticDir));
 
+// Serve book PDFs from the 'public/books' directory
+const booksDir = path.join(__dirname, '..', 'public', 'books');
+console.log(`Serving books from: ${booksDir}`);
+// Create books directory if it doesn't exist
+if (!fs.existsSync(booksDir)) {
+  try {
+    fs.mkdirSync(booksDir, { recursive: true });
+    console.log('Created books directory at:', booksDir);
+  } catch (error) {
+    console.error('Failed to create books directory:', error);
+  }
+}
+app.use('/books', express.static(booksDir));
+
 // Serve processed images from the 'images' directory
 const imagesDir = path.join(__dirname, '..', 'images');
 console.log(`Serving images from: ${imagesDir}`);
