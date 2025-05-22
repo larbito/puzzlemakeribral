@@ -177,9 +177,14 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
               <Textarea
                 id="bookSummary"
                 value={settings.bookSummary}
-                onChange={(e) => onSettingChange('bookSummary', e.target.value)}
+                onChange={(e) => {
+                  console.log('Textarea value changing:', e.target.value);
+                  onSettingChange('bookSummary', e.target.value);
+                }}
                 placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
                 className="min-h-[120px] resize-y"
+                rows={5}
+                autoComplete="off"
               />
               <p className="text-xs text-muted-foreground">
                 Be specific about your topic, intended audience, and what you want readers to learn or experience.

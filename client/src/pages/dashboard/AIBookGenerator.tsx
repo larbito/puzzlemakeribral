@@ -113,6 +113,13 @@ export const AIBookGenerator = () => {
 
   // Handle setting changes
   const handleSettingChange = (key: keyof BookGeneratorSettings, value: any) => {
+    console.log(`Setting ${key} to:`, value);
+    
+    // Special handling for bookSummary to ensure it updates properly
+    if (key === 'bookSummary') {
+      console.log('Updating bookSummary from:', settings.bookSummary, 'to:', value);
+    }
+    
     setSettings(prev => {
       const newSettings = { ...prev, [key]: value };
       // Save to localStorage
