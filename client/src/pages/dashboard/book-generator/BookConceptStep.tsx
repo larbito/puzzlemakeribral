@@ -38,16 +38,64 @@ const generateTOCWithAI = async (
   audience: string
 ): Promise<Chapter[]> => {
   try {
-    console.log('Generating TOC with parameters:', { bookSummary, tone, audience });
+    console.log('generateTOCWithAI called with:', { bookSummary, tone, audience });
     
-    // Use the imported API function
-    const chapters = await generateTableOfContents(bookSummary, tone, audience);
-    return chapters;
+    // Check if API URL is correct
+    const apiBaseUrl = 'https://puzzlemakeribral-production.up.railway.app';
+    console.log('Using API URL:', apiBaseUrl);
+    
+    // Make direct fetch call for debugging
+    const response = await fetch(`${apiBaseUrl}/api/generate-toc`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bookSummary,
+        tone,
+        audience,
+      }),
+    });
+
+    console.log('API response status:', response.status);
+    
+    // Handle non-ok responses
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API error response:', errorText);
+      throw new Error(`API request failed: ${response.status} ${errorText}`);
+    }
+
+    // Parse the response
+    const data = await response.json();
+    console.log('API response data:', data);
+    
+    // Check if data.chapters exists
+    if (data.chapters && Array.isArray(data.chapters)) {
+      return data.chapters.map((chapter: any, index: number) => ({
+        id: (index + 1).toString(),
+        title: chapter.title || `Chapter ${index + 1}`,
+        content: '',
+        wordCount: 0,
+      }));
+    }
+    
+    // Fallback to mock data if API doesn't return expected format
+    console.warn('API did not return expected format, using fallback data');
+    return [
+      { id: '1', title: 'Introduction', content: '', wordCount: 0 },
+      { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
+      { id: '3', title: 'Chapter 2: Key Concepts', content: '', wordCount: 0 },
+      { id: '4', title: 'Chapter 3: Practical Applications', content: '', wordCount: 0 },
+      { id: '5', title: 'Chapter 4: Case Studies', content: '', wordCount: 0 },
+      { id: '6', title: 'Chapter 5: Advanced Techniques', content: '', wordCount: 0 },
+      { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
+    ];
   } catch (error) {
     console.error('Error generating TOC:', error);
     
-    // Fallback to mock data if API integration fails
-    console.log('Using fallback mock data due to API error');
+    // Always return fallback data on error
+    console.log('Returning fallback data due to error');
     return [
       { id: '1', title: 'Introduction', content: '', wordCount: 0 },
       { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
@@ -134,17 +182,27 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       return;
     }
 
+    // Update the parent component with the current summary
     onSettingChange('bookSummary', summaryText);
     
     setIsGenerating(true);
     
     try {
+      console.log('Calling generateTOCWithAI with:', {
+        summaryText,
+        tone: settings.tone,
+        targetAudience: settings.targetAudience
+      });
+      
       const generatedTOC = await generateTOCWithAI(
         summaryText,
         settings.tone,
         settings.targetAudience
       );
       
+      console.log('Generated TOC:', generatedTOC);
+      
+      // Update the settings with the generated TOC
       onSettingChange('tableOfContents', generatedTOC);
       onSettingChange('chapters', generatedTOC);
       
@@ -304,6 +362,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
               onClick={handleGenerateTOC}
               disabled={isGenerating || !summaryText.trim()}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+              type="button"
             >
               {isGenerating ? (
                 <>
