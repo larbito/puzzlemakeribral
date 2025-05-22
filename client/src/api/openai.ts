@@ -2,10 +2,10 @@
 
 import { Chapter } from '../pages/dashboard/AIBookGenerator';
 
-// API URL - Update this with your actual Railway deployment URL
-const API_BASE_URL = 'https://your-railway-app-url.railway.app';
+// API URL - Railway deployment
+const API_BASE_URL = 'https://puzzlemakeribral-production.up.railway.app';
 
-// For development testing
+// For development testing (if needed)
 // const API_BASE_URL = 'http://localhost:3000';
 
 /**

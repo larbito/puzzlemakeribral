@@ -197,20 +197,27 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
-              <textarea
+              <div
                 id="bookSummary"
-                value={bookSummary}
-                onChange={(e) => {
-                  console.log('Textarea value changing:', e.target.value);
-                  setBookSummary(e.target.value);
-                  // Immediately update parent to ensure it's always in sync
-                  onSettingChange('bookSummary', e.target.value);
+                contentEditable="true"
+                onInput={(e) => {
+                  const content = e.currentTarget.textContent || '';
+                  console.log('Content changed:', content);
+                  setBookSummary(content);
+                  onSettingChange('bookSummary', content);
                 }}
-                placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-                rows={5}
-                autoComplete="off"
-              />
+                onBlur={(e) => {
+                  const content = e.currentTarget.textContent || '';
+                  console.log('Saving on blur:', content);
+                  onSettingChange('bookSummary', content);
+                }}
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y overflow-auto empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:italic"
+                style={{ whiteSpace: 'pre-wrap' }}
+                suppressContentEditableWarning
+                data-placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
+              >
+                {bookSummary}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Be specific about your topic, intended audience, and what you want readers to learn or experience.
               </p>
