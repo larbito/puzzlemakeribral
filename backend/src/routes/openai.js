@@ -1006,27 +1006,97 @@ router.post('/generate-complete-book', async (req, res) => {
       messages: [
         {
           role: "system",
-          content: "You are an expert book editor and author who creates detailed chapter breakdowns for books."
+          content: `You are an expert book editor and author who creates detailed chapter breakdowns for books.
+          
+You MUST respond with a valid JSON object containing an array of chapter objects under the "chapters" key. 
+Each chapter must have a "title" and "summary" field.
+
+The format must be:
+{
+  "chapters": [
+    { "title": "Introduction", "summary": "Brief description" },
+    { "title": "Chapter 1: Example", "summary": "Brief description" },
+    ...
+  ]
+}`
         },
         {
           role: "user",
           content: chapterBreakdownPrompt
         }
       ],
-      response_format: { type: "json_object" }
+      response_format: { type: "json_object" },
+      temperature: 0.7
     });
     
     // Parse the chapter breakdown
     let chapterBreakdown;
     try {
       const breakdownResponse = JSON.parse(breakdownCompletion.choices[0].message.content);
-      chapterBreakdown = breakdownResponse.length ? breakdownResponse : breakdownResponse.chapters;
       
-      if (!Array.isArray(chapterBreakdown)) {
-        throw new Error('Invalid chapter breakdown format');
+      // Handle different possible response formats
+      if (Array.isArray(breakdownResponse)) {
+        // Direct array of chapters
+        chapterBreakdown = breakdownResponse;
+      } else if (breakdownResponse.chapters && Array.isArray(breakdownResponse.chapters)) {
+        // Object with chapters array
+        chapterBreakdown = breakdownResponse.chapters;
+      } else {
+        // Try to extract any array property from the response
+        const arrayProps = Object.entries(breakdownResponse)
+          .find(([_, value]) => Array.isArray(value) && value.length > 0);
+        
+        if (arrayProps) {
+          chapterBreakdown = arrayProps[1];
+        } else {
+          // No array found, throw error
+          throw new Error('Could not find chapters array in API response');
+        }
       }
+      
+      // Validate that chapters have the required properties
+      if (!Array.isArray(chapterBreakdown) || chapterBreakdown.length === 0) {
+        throw new Error('Invalid or empty chapter breakdown');
+      }
+      
+      // Ensure each chapter has at least a title property
+      chapterBreakdown = chapterBreakdown.map((chapter, index) => {
+        if (typeof chapter === 'string') {
+          // Handle case where API returns just strings
+          return { 
+            title: chapter,
+            summary: `Chapter ${index + 1}` 
+          };
+        } else if (!chapter.title && chapter.name) {
+          // Handle case where title is called "name"
+          return {
+            ...chapter,
+            title: chapter.name,
+            summary: chapter.summary || chapter.description || `Chapter ${index + 1}`
+          };
+        } else if (!chapter.title) {
+          // Handle case with no title
+          return {
+            ...chapter,
+            title: `Chapter ${index + 1}`,
+            summary: chapter.summary || chapter.description || `Chapter ${index + 1}`
+          };
+        } else if (!chapter.summary) {
+          // Handle case with no summary
+          return {
+            ...chapter,
+            summary: chapter.description || `Content for ${chapter.title}`
+          };
+        }
+        return chapter;
+      });
+      
+      console.log('Successfully parsed chapter breakdown with structure:', 
+        chapterBreakdown.map(c => c.title).join(', '));
     } catch (error) {
       console.error('Error parsing chapter breakdown:', error);
+      console.error('Raw response:', breakdownCompletion.choices[0].message.content);
+      
       // Fallback to a simple chapter structure
       chapterBreakdown = [
         { title: "Introduction", summary: "Introduction to the book's topic" },
@@ -1036,6 +1106,9 @@ router.post('/generate-complete-book', async (req, res) => {
         { title: "Chapter 4: Practical Applications", summary: "Real-world applications" },
         { title: "Conclusion", summary: "Summary and final thoughts" }
       ];
+      
+      console.log('Using fallback chapter structure:', 
+        chapterBreakdown.map(c => c.title).join(', '));
     }
     
     console.log(`Generated ${chapterBreakdown.length} chapters`);
