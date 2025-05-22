@@ -63,7 +63,18 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
+  const [bookSummary, setBookSummary] = useState(settings.bookSummary || '');
   const { toast } = useToast();
+
+  // Update local state when settings change
+  React.useEffect(() => {
+    setBookSummary(settings.bookSummary || '');
+  }, [settings.bookSummary]);
+
+  // Save book summary to parent component when it changes
+  const saveBookSummary = React.useCallback(() => {
+    onSettingChange('bookSummary', bookSummary);
+  }, [bookSummary, onSettingChange]);
 
   const toneOptions = [
     { value: 'Serious', label: 'Serious - Professional and formal' },
@@ -79,7 +90,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   ];
 
   const handleGenerateTOC = async () => {
-    if (!settings.bookSummary.trim()) {
+    if (!bookSummary.trim()) {
       toast({
         title: 'Book summary required',
         description: 'Please enter a summary of your book before generating a table of contents.',
@@ -87,11 +98,14 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       return;
     }
 
+    // Save current summary to parent component
+    onSettingChange('bookSummary', bookSummary);
+    
     setIsGenerating(true);
     
     try {
       const generatedTOC = await generateTOCWithAI(
-        settings.bookSummary,
+        bookSummary,
         settings.tone,
         settings.targetAudience
       );
@@ -176,11 +190,12 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
               <Textarea
                 id="bookSummary"
-                value={settings.bookSummary}
+                value={bookSummary}
                 onChange={(e) => {
                   console.log('Textarea value changing:', e.target.value);
-                  onSettingChange('bookSummary', e.target.value);
+                  setBookSummary(e.target.value);
                 }}
+                onBlur={saveBookSummary}
                 placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
                 className="min-h-[120px] resize-y"
                 rows={5}
@@ -237,7 +252,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
             
             <Button
               onClick={handleGenerateTOC}
-              disabled={isGenerating || !settings.bookSummary.trim()}
+              disabled={isGenerating || !bookSummary.trim()}
               className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90"
             >
               {isGenerating ? (
