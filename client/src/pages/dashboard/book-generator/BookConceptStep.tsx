@@ -307,45 +307,29 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     setSummaryText(settings.bookSummary || '');
   }, [settings.bookSummary]);
 
-  // Auto-save to localStorage
+  // Check if there are saved proposals but only load them if the user has explicitly saved their work
   useEffect(() => {
-    const autoSaveInterval = setInterval(() => {
-      if (summaryText.trim()) {
-        console.log('Auto-saving book summary...');
-        onSettingChange('bookSummary', summaryText);
-      }
-    }, 10000); // Auto-save every 10 seconds
-
-    return () => clearInterval(autoSaveInterval);
-  }, [summaryText, onSettingChange]);
-
-  // Save proposals to localStorage
-  useEffect(() => {
-    if (bookProposals.length > 0) {
-      localStorage.setItem('bookProposals', JSON.stringify(bookProposals));
-      localStorage.setItem('currentProposalIndex', currentProposalIndex.toString());
-    }
-  }, [bookProposals, currentProposalIndex]);
-
-  // Load proposals from localStorage
-  useEffect(() => {
-    const savedProposals = localStorage.getItem('bookProposals');
-    const savedIndex = localStorage.getItem('currentProposalIndex');
-    
-    if (savedProposals) {
-      try {
-        const parsedProposals = JSON.parse(savedProposals);
-        if (Array.isArray(parsedProposals) && parsedProposals.length > 0) {
-          setBookProposals(parsedProposals);
-          setShowProposal(true);
-          
-          if (savedIndex) {
-            const index = parseInt(savedIndex, 10);
-            setCurrentProposalIndex(isNaN(index) ? 0 : index);
+    // Only load saved proposals if they exist and bookGeneratorSaved flag is set
+    const savedFlag = localStorage.getItem('bookGeneratorSaved');
+    if (savedFlag === 'true') {
+      const savedProposals = localStorage.getItem('bookProposals');
+      const savedIndex = localStorage.getItem('currentProposalIndex');
+      
+      if (savedProposals) {
+        try {
+          const parsedProposals = JSON.parse(savedProposals);
+          if (Array.isArray(parsedProposals) && parsedProposals.length > 0) {
+            setBookProposals(parsedProposals);
+            setShowProposal(true);
+            
+            if (savedIndex) {
+              const index = parseInt(savedIndex, 10);
+              setCurrentProposalIndex(isNaN(index) ? 0 : index);
+            }
           }
+        } catch (error) {
+          console.error('Error loading saved proposals:', error);
         }
-      } catch (error) {
-        console.error('Error loading saved proposals:', error);
       }
     }
   }, []);
@@ -363,7 +347,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     { value: 'Adults', label: 'Adults (18+)' },
   ];
 
-  // Handle summary text change
+  // Modify handleSummaryChange to only update local state, not persistent storage
   const handleSummaryChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     console.log('Summary changed:', value);

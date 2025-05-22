@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { StepWizard, Step } from '@/components/shared/StepWizard';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 // Step Components (will create these next)
 import { BookSettingsStep } from './book-generator/BookSettingsStep';
@@ -97,53 +98,35 @@ export const AIBookGenerator = () => {
   const [generationStatus, setGenerationStatus] = useState<'idle' | 'generating' | 'complete' | 'error'>('idle');
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string>('');
+  const [isSaved, setIsSaved] = useState(false);
+  const { toast } = useToast();
 
-  // Load saved settings from localStorage if available
+  // Check for explicitly saved settings from localStorage on initial load
   useEffect(() => {
     const loadSavedSettings = () => {
       try {
-        // Load settings
-        const savedSettings = localStorage.getItem('bookGeneratorSettings');
-        if (savedSettings) {
-          const parsedSettings = JSON.parse(savedSettings);
-          setSettings(parsedSettings);
+        // Check if settings were explicitly saved
+        const savedFlag = localStorage.getItem('bookGeneratorSaved');
+        if (savedFlag === 'true') {
+          console.log('Loading explicitly saved settings');
+          const savedSettings = localStorage.getItem('bookGeneratorSettings');
+          if (savedSettings) {
+            setSettings(JSON.parse(savedSettings));
+            setIsSaved(true);
+          }
           
           // Load completion status
           const savedCompletedSteps = localStorage.getItem('bookGeneratorCompletedSteps');
           if (savedCompletedSteps) {
-            const parsedCompletedSteps = JSON.parse(savedCompletedSteps);
-            setCompletedSteps(parsedCompletedSteps);
-          } else {
-            // If no saved completion status, calculate based on settings
-            const newCompletedSteps = { ...completedSteps };
-            
-            // Mark book-settings as complete if title exists
-            if (parsedSettings.title && parsedSettings.title.length > 0) {
-              newCompletedSteps['book-settings'] = true;
-            }
-            
-            // Mark book-concept as complete if summary and TOC exist
-            if (parsedSettings.bookSummary && 
-                parsedSettings.bookSummary.trim() && 
-                parsedSettings.tableOfContents && 
-                parsedSettings.tableOfContents.length > 0) {
-              newCompletedSteps['book-concept'] = true;
-            }
-            
-            // Mark content-generation as complete if chapters have content
-            if (parsedSettings.chapters && 
-                parsedSettings.chapters.length > 0 && 
-                parsedSettings.chapters.every((chapter: Chapter) => chapter.content)) {
-              newCompletedSteps['content-generation'] = true;
-            }
-            
-            // Mark front-matter as complete if title page and copyright exist
-            if (parsedSettings.titlePage && parsedSettings.copyrightPage) {
-              newCompletedSteps['front-matter'] = true;
-            }
-            
-            setCompletedSteps(newCompletedSteps);
+            setCompletedSteps(JSON.parse(savedCompletedSteps));
           }
+        } else {
+          console.log('No saved settings found or not explicitly saved, using defaults');
+          // Clear any localStorage data to ensure fresh start
+          localStorage.removeItem('bookGeneratorSettings');
+          localStorage.removeItem('bookGeneratorCompletedSteps');
+          localStorage.removeItem('bookProposals');
+          localStorage.removeItem('currentProposalIndex');
         }
       } catch (error) {
         console.error('Error loading saved settings:', error);
@@ -151,25 +134,9 @@ export const AIBookGenerator = () => {
     };
     
     loadSavedSettings();
-    
-    // Add event listener for storage changes (for multi-tab support)
-    window.addEventListener('storage', loadSavedSettings);
-    
-    return () => {
-      window.removeEventListener('storage', loadSavedSettings);
-    };
   }, []);
 
-  // Setup periodic auto-save
-  useEffect(() => {
-    const autoSaveInterval = setInterval(() => {
-      console.log('Auto-saving book generator state...');
-      localStorage.setItem('bookGeneratorSettings', JSON.stringify(settings));
-      localStorage.setItem('bookGeneratorCompletedSteps', JSON.stringify(completedSteps));
-    }, 30000); // Auto-save every 30 seconds
-    
-    return () => clearInterval(autoSaveInterval);
-  }, [settings, completedSteps]);
+  // No more auto-save, we'll only save when the user explicitly requests it
 
   // Handle setting changes
   const handleSettingChange = (key: keyof BookGeneratorSettings, value: any) => {
@@ -196,25 +163,69 @@ export const AIBookGenerator = () => {
     // If anything changed in the completed steps, update the state
     if (JSON.stringify(newCompletedSteps) !== JSON.stringify(completedSteps)) {
       setCompletedSteps(newCompletedSteps);
-      
-      // Save completed steps to localStorage
-      localStorage.setItem('bookGeneratorCompletedSteps', JSON.stringify(newCompletedSteps));
     }
     
     // Immediately update the settings
     setSettings(prev => {
-      const newSettings = { ...prev, [key]: value };
-      // Save to localStorage
-      localStorage.setItem('bookGeneratorSettings', JSON.stringify(newSettings));
-      return newSettings;
+      return { ...prev, [key]: value };
+    });
+    
+    // Mark as unsaved when any changes are made
+    setIsSaved(false);
+  };
+
+  // Explicitly save the current state
+  const handleSaveProject = () => {
+    try {
+      // Save settings to localStorage
+      localStorage.setItem('bookGeneratorSettings', JSON.stringify(settings));
+      localStorage.setItem('bookGeneratorCompletedSteps', JSON.stringify(completedSteps));
+      // Set saved flag
+      localStorage.setItem('bookGeneratorSaved', 'true');
+      
+      setIsSaved(true);
+      
+      toast({
+        title: 'Project saved',
+        description: 'Your book project has been saved and will be available when you return.',
+      });
+    } catch (error) {
+      console.error('Error saving project:', error);
+      toast({
+        title: 'Error saving project',
+        description: 'Something went wrong. Your changes might not be saved.',
+      });
+    }
+  };
+
+  // Reset the project to defaults
+  const handleResetProject = () => {
+    // Clear localStorage
+    localStorage.removeItem('bookGeneratorSettings');
+    localStorage.removeItem('bookGeneratorCompletedSteps');
+    localStorage.removeItem('bookGeneratorSaved');
+    localStorage.removeItem('bookProposals');
+    localStorage.removeItem('currentProposalIndex');
+    
+    // Reset state
+    setSettings(defaultBookSettings);
+    setCompletedSteps({
+      'book-settings': false,
+      'book-concept': false,
+      'content-generation': false,
+      'front-matter': false,
+      'preview-export': false
+    });
+    setIsSaved(false);
+    
+    toast({
+      title: 'Project reset',
+      description: 'Your book project has been reset to default settings.',
     });
   };
 
   // Save progress and mark step as completed
   const handleSaveStep = (currentStep: number) => {
-    // Save current settings to localStorage
-    localStorage.setItem('bookGeneratorSettings', JSON.stringify(settings));
-
     // Mark steps as completed based on validation
     const stepIds = ['book-settings', 'book-concept', 'content-generation', 'front-matter', 'preview-export'];
     const currentStepId = stepIds[currentStep];
@@ -339,17 +350,46 @@ export const AIBookGenerator = () => {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center mb-8">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate('/dashboard')}
-          className="mr-4"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-3xl font-bold">AI-Powered KDP Book Generator</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/dashboard')}
+            className="mr-4"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-3xl font-bold">AI-Powered KDP Book Generator</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleResetProject}
+            className="flex items-center gap-1"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Reset
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSaveProject}
+            className="flex items-center gap-1"
+          >
+            <Save className="h-4 w-4" />
+            Save Project
+          </Button>
+        </div>
       </div>
+      
+      {isSaved && (
+        <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md p-3 mb-6 text-sm text-green-600 dark:text-green-400 flex items-center">
+          <Save className="h-4 w-4 mr-2" />
+          <span>This project is saved and will be available when you return.</span>
+        </div>
+      )}
       
       <StepWizard 
         steps={steps} 
