@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -12,13 +12,21 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
-  BookOpen
+  BookOpen,
+  List
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { motion } from 'framer-motion';
 import { WordSearchSettings } from '../WordSearch';
 import { cn } from '@/lib/utils';
 import { WordSearchPreview } from '../WordSearchPreview';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface ThemeData {
+  id: string;
+  name: string;
+  words: string[];
+}
 
 interface PreviewDownloadStepProps {
   settings: WordSearchSettings;
@@ -43,9 +51,24 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
 }) => {
   const [showPreview, setShowPreview] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
+  const [themes, setThemes] = useState<ThemeData[]>([]);
+
+  // Parse themes from customWords if in JSON format
+  useEffect(() => {
+    try {
+      if (settings.customWords && settings.customWords.startsWith('[')) {
+        const parsedThemes = JSON.parse(settings.customWords);
+        if (Array.isArray(parsedThemes)) {
+          setThemes(parsedThemes);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing themes:', error);
+    }
+  }, [settings.customWords]);
 
   // Simulate progress updates
-  React.useEffect(() => {
+  useEffect(() => {
     if (generationStatus === 'generating') {
       const interval = setInterval(() => {
         setGenerationProgress(prev => {
@@ -61,6 +84,17 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
       setGenerationProgress(0);
     }
   }, [generationStatus]);
+
+  // Function to get a word count summary for all themes
+  const getTotalWordCount = () => {
+    if (themes.length === 0) {
+      return settings.customWords ? 
+        settings.customWords.split(',').filter(w => w.trim().length > 0).length : 
+        0;
+    }
+    
+    return themes.reduce((total, theme) => total + theme.words.length, 0);
+  };
 
   return (
     <Card className="w-full border-0 shadow-none">
@@ -89,6 +123,9 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
 
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline" className="bg-primary/5">
+                        {themes.length > 0 ? `${themes.length} themes` : 'Single theme'}
+                      </Badge>
                       <Badge variant="outline" className="bg-primary/5">
                         {settings.quantity} puzzles
                       </Badge>
@@ -119,6 +156,44 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Theme Summary */}
+                {themes.length > 0 && (
+                  <div className="mt-6 pt-4 border-t">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium">Themes Summary</h4>
+                      <Badge variant="outline" className="bg-primary/5">
+                        {getTotalWordCount()} total words
+                      </Badge>
+                    </div>
+                    <ScrollArea className="h-[160px] rounded-md border p-4">
+                      <div className="space-y-3">
+                        {themes.map((theme) => (
+                          <div key={theme.id} className="bg-white/20 rounded-md p-3">
+                            <div className="flex justify-between mb-2">
+                              <h5 className="font-medium">{theme.name}</h5>
+                              <Badge variant="secondary" className="text-xs">
+                                {theme.words.length} words
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {theme.words.slice(0, 8).map((word, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-white/50">
+                                  {word}
+                                </Badge>
+                              ))}
+                              {theme.words.length > 8 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{theme.words.length - 8} more
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
 
                 <div className="mt-6 pt-4 border-t">
                   <h4 className="font-medium mb-2">Book Features</h4>
@@ -151,6 +226,16 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
                 </div>
               </div>
             </div>
+
+            {generationStatus === 'error' && (
+              <div className="bg-red-50 p-4 rounded-md flex items-start mb-6">
+                <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="font-medium text-red-500">Generation Failed</h4>
+                  <p className="text-sm text-red-600">{generationError || 'An unexpected error occurred. Please try again.'}</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 space-y-4">
               <Button
@@ -251,53 +336,33 @@ export const PreviewDownloadStep: React.FC<PreviewDownloadStepProps> = ({
           </MotionCard>
         )}
 
-        {/* Generation Error */}
-        {generationStatus === 'error' && (
-          <MotionCard
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative overflow-hidden border-2 border-red-100"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-red-50 via-red-100/5 to-transparent" />
-            
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="rounded-full bg-red-100 p-3 flex-shrink-0">
-                  <AlertCircle className="h-8 w-8 text-red-600" />
-                </div>
-                
-                <div className="flex-1 text-center md:text-left">
-                  <h3 className="text-xl font-medium text-red-600">Generation Error</h3>
-                  <p className="text-muted-foreground mb-4">{generationError || "There was a problem generating your puzzle book"}</p>
-                  
-                  <Button 
-                    onClick={onTryAgain}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Try Again
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </MotionCard>
-        )}
-
         {/* Preview */}
         {generationStatus === 'complete' && showPreview && (
-          <div className="space-y-4">
-            <Button
-              onClick={() => setShowPreview(false)} 
-              variant="outline"
-              className="mb-4"
-            >
-              ← Back to Download
-            </Button>
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-4">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreview(false)}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Back to Download
+              </Button>
+              
+              <Button 
+                onClick={onDownload}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+            </div>
             
-            <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
+            <div className="border rounded-md">
               <WordSearchPreview 
-                settings={settings}
+                settings={settings} 
                 onDownload={onDownload}
               />
             </div>

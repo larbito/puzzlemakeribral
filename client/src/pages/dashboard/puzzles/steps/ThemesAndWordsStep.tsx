@@ -11,11 +11,27 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Sparkles, ListChecks, Plus, Trash2, CloudLightning } from 'lucide-react';
+import { Sparkles, ListChecks, Plus, Trash2, CloudLightning, AlertCircle, Edit } from 'lucide-react';
 import { WordSearchSettings } from '../WordSearch';
 import wordSearchApi from '@/lib/services/wordSearchApi';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface ThemeData {
+  id: string;
+  name: string;
+  words: string[];
+}
 
 interface ThemesAndWordsStepProps {
   settings: WordSearchSettings;
@@ -27,48 +43,144 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
   onSettingChange,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [aiWords, setAiWords] = useState<string[]>([]);
+  const [currentThemeId, setCurrentThemeId] = useState<string | null>(null);
+  const [currentThemeName, setCurrentThemeName] = useState('');
+  const [currentThemeWords, setCurrentThemeWords] = useState('');
+  const [themeDialogOpen, setThemeDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [themeError, setThemeError] = useState('');
+  const [themes, setThemes] = useState<ThemeData[]>([]);
   const [themeIdeas] = useState<string[]>([
     'Animals', 'Space', 'Ocean', 'Sports', 'Food', 'Countries', 
     'Music', 'Movies', 'Science', 'History', 'Holidays', 'Travel'
   ]);
 
-  const handleGenerateWords = async () => {
-    if (!settings.theme) {
-      alert('Please enter a theme first');
+  // Load themes from settings on initial render
+  React.useEffect(() => {
+    try {
+      // If we have custom words in the format for multiple themes
+      if (settings.customWords && settings.customWords.startsWith('[')) {
+        const savedThemes = JSON.parse(settings.customWords);
+        if (Array.isArray(savedThemes)) {
+          setThemes(savedThemes);
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing saved themes:', error);
+    }
+  }, []);
+
+  // Update settings.customWords whenever themes change
+  React.useEffect(() => {
+    if (themes.length > 0) {
+      onSettingChange('customWords', JSON.stringify(themes));
+    }
+  }, [themes]);
+
+  const handleGenerateWords = async (themePrompt: string) => {
+    if (!themePrompt) {
+      setThemeError('Please enter a theme first');
       return;
     }
 
     setIsGenerating(true);
+    setThemeError('');
+    
     try {
       const words = await wordSearchApi.generateWordsFromTheme(
-        settings.theme,
+        themePrompt,
         settings.wordsPerPuzzle,
         settings.aiPrompt
       );
-      setAiWords(words);
       
-      // Add the AI-generated words to custom words
-      const existingWords = settings.customWords.trim() ? 
-        settings.customWords.split(',').map(w => w.trim()) : 
-        [];
-      
-      const allWords = [...existingWords, ...words].filter(Boolean);
-      onSettingChange('customWords', allWords.join(', '));
+      setCurrentThemeWords(words.join(', '));
     } catch (error) {
       console.error('Error generating words:', error);
-      alert('Failed to generate words. Please try again.');
+      setThemeError('Failed to generate words. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const useThemeIdea = (theme: string) => {
-    onSettingChange('theme', theme);
+  const handleAddTheme = () => {
+    if (!currentThemeName.trim()) {
+      setThemeError('Please enter a theme name');
+      return;
+    }
+
+    if (!currentThemeWords.trim()) {
+      setThemeError('Please enter or generate some words for this theme');
+      return;
+    }
+
+    const words = currentThemeWords
+      .split(',')
+      .map(word => word.trim())
+      .filter(word => word.length > 0);
+
+    if (words.length < 5) {
+      setThemeError('Please add at least 5 words for this theme');
+      return;
+    }
+
+    if (isEditing && currentThemeId) {
+      // Update existing theme
+      setThemes(prevThemes => 
+        prevThemes.map(theme => 
+          theme.id === currentThemeId 
+            ? { ...theme, name: currentThemeName, words } 
+            : theme
+        )
+      );
+    } else {
+      // Add new theme
+      const newTheme: ThemeData = {
+        id: Date.now().toString(),
+        name: currentThemeName,
+        words
+      };
+      
+      setThemes(prevThemes => [...prevThemes, newTheme]);
+    }
+
+    // Reset form
+    setCurrentThemeName('');
+    setCurrentThemeWords('');
+    setCurrentThemeId(null);
+    setIsEditing(false);
+    setThemeDialogOpen(false);
+    setThemeError('');
   };
-  
+
+  const handleEditTheme = (theme: ThemeData) => {
+    setCurrentThemeId(theme.id);
+    setCurrentThemeName(theme.name);
+    setCurrentThemeWords(theme.words.join(', '));
+    setIsEditing(true);
+    setThemeDialogOpen(true);
+  };
+
+  const handleDeleteTheme = (themeId: string) => {
+    setThemes(prevThemes => prevThemes.filter(theme => theme.id !== themeId));
+  };
+
   const handleIncludeThemeFacts = (checked: boolean | 'indeterminate') => {
     onSettingChange('includeThemeFacts', checked === 'indeterminate' ? false : checked);
+  };
+
+  const handleOpenNewThemeDialog = () => {
+    setCurrentThemeId(null);
+    setCurrentThemeName('');
+    setCurrentThemeWords('');
+    setIsEditing(false);
+    setThemeError('');
+    setThemeDialogOpen(true);
+  };
+
+  const useThemeIdea = (theme: string) => {
+    setCurrentThemeName(theme);
+    // Auto-generate words when selecting a theme idea
+    handleGenerateWords(theme);
   };
 
   return (
@@ -81,137 +193,178 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
           <h2 className="text-2xl font-bold">Themes & Word Lists</h2>
         </div>
 
-        <Tabs defaultValue="ai" className="w-full">
-          <TabsList className="mb-6 w-full grid grid-cols-2">
-            <TabsTrigger value="ai" className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4" /> AI Word Generation
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="flex items-center gap-2">
-              <ListChecks className="h-4 w-4" /> Manual Word Entry
-            </TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">My Themes</h3>
+            <Button 
+              onClick={handleOpenNewThemeDialog} 
+              className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Theme
+            </Button>
+          </div>
+          <Separator />
 
-          <TabsContent value="ai" className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">AI-Generated Words</h3>
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="theme">Theme</Label>
-                    <div className="flex gap-1 overflow-x-auto pb-2 max-w-[70%]">
-                      {themeIdeas.slice(0, 6).map(idea => (
+          {themes.length === 0 ? (
+            <div className="bg-secondary/10 p-6 rounded-md text-center">
+              <h4 className="font-medium mb-2">No themes added yet</h4>
+              <p className="text-muted-foreground mb-4">
+                Add themes to create puzzles with different word categories
+              </p>
+              <Button 
+                onClick={handleOpenNewThemeDialog}
+                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Create Your First Theme
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {themes.map((theme) => (
+                <Card key={theme.id} className="relative overflow-hidden border border-primary/20 hover:border-primary/50 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h4 className="font-bold text-lg">{theme.name}</h4>
+                      <div className="flex gap-1">
                         <Button 
-                          key={idea} 
-                          variant="outline" 
-                          size="sm" 
-                          className="text-xs h-6 px-2 whitespace-nowrap"
-                          onClick={() => useThemeIdea(idea)}
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7" 
+                          onClick={() => handleEditTheme(theme)}
                         >
-                          {idea}
+                          <Edit className="h-4 w-4" />
                         </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50" 
+                          onClick={() => handleDeleteTheme(theme.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="mb-3 bg-primary/5">
+                      {theme.words.length} words
+                    </Badge>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-hidden">
+                      {theme.words.map((word, idx) => (
+                        <Badge key={idx} variant="secondary" className="text-xs">
+                          {word}
+                        </Badge>
                       ))}
+                      {theme.words.length > 12 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{theme.words.length - 12} more
+                        </Badge>
+                      )}
                     </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Dialog open={themeDialogOpen} onOpenChange={setThemeDialogOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{isEditing ? 'Edit Theme' : 'Add New Theme'}</DialogTitle>
+              <DialogDescription>
+                {isEditing 
+                  ? 'Edit your theme and its associated words' 
+                  : 'Create a new theme with words for your word search puzzle'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="themeName">Theme Name</Label>
+                  <div className="flex gap-1 overflow-x-auto pb-2 max-w-[60%]">
+                    {themeIdeas.slice(0, 4).map(idea => (
+                      <Button 
+                        key={idea} 
+                        variant="outline" 
+                        size="sm" 
+                        className="text-xs h-6 px-2 whitespace-nowrap"
+                        onClick={() => useThemeIdea(idea)}
+                      >
+                        {idea}
+                      </Button>
+                    ))}
                   </div>
-                  <Input
-                    id="theme"
-                    value={settings.theme}
-                    onChange={(e) => onSettingChange('theme', e.target.value)}
-                    placeholder="e.g., Animals, Space, Countries"
-                    className="w-full"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Enter a theme for your word search puzzles
-                  </p>
                 </div>
+                <Input
+                  id="themeName"
+                  value={currentThemeName}
+                  onChange={(e) => setCurrentThemeName(e.target.value)}
+                  placeholder="e.g., Animals, Space, Countries"
+                  className="w-full"
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="aiPrompt">
-                    <div className="flex items-center">
-                      Custom AI Instructions (Optional)
-                      <Sparkles className="h-4 w-4 ml-1 text-yellow-500" />
-                    </div>
-                  </Label>
-                  <Textarea
-                    id="aiPrompt"
-                    value={settings.aiPrompt}
-                    onChange={(e) => onSettingChange('aiPrompt', e.target.value)}
-                    placeholder="Add custom instructions for the AI word generator..."
-                    className="w-full resize-y min-h-[100px]"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Example: "Create educational words related to astronomy for children ages 8-12."
-                  </p>
-                </div>
-
-                <div className="pt-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="themeWords">Theme Words</Label>
                   <Button
-                    onClick={handleGenerateWords}
-                    disabled={isGenerating || !settings.theme}
-                    className="bg-gradient-to-r from-primary to-secondary hover:opacity-90 w-full relative z-10"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGenerateWords(currentThemeName)}
+                    disabled={isGenerating || !currentThemeName}
+                    className="text-xs"
                   >
                     {isGenerating ? (
                       <>
-                        <CloudLightning className="mr-2 h-4 w-4 animate-pulse" />
-                        Generating Words...
+                        <CloudLightning className="mr-1 h-3 w-3 animate-pulse" />
+                        Generating...
                       </>
                     ) : (
                       <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Generate Words from Theme
+                        <Sparkles className="mr-1 h-3 w-3" />
+                        Generate Words
                       </>
                     )}
                   </Button>
                 </div>
-
-                {aiWords.length > 0 && (
-                  <div className="bg-secondary/10 p-4 rounded-md">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="font-medium">Generated Words</h4>
-                      <Badge variant="outline" className="bg-primary/10">
-                        {aiWords.length} words
-                      </Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {aiWords.map((word, index) => (
-                        <Badge key={index} variant="secondary">
-                          {word}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <Textarea
+                  id="themeWords"
+                  value={currentThemeWords}
+                  onChange={(e) => setCurrentThemeWords(e.target.value)}
+                  placeholder="Enter specific words separated by commas..."
+                  className="w-full resize-y min-h-[150px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  For best results, use 8-15 words that fit within your chosen grid size
+                </p>
               </div>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="manual" className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Manual Word Entry</h3>
-              <Separator />
-
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="customWords">Custom Words</Label>
-                    <div className="text-xs text-muted-foreground">Separate with commas</div>
-                  </div>
-                  <Textarea
-                    id="customWords"
-                    value={settings.customWords}
-                    onChange={(e) => onSettingChange('customWords', e.target.value)}
-                    placeholder="Enter specific words separated by commas..."
-                    className="w-full resize-y min-h-[200px]"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    For best results, use 8-15 words per puzzle and ensure they fit within your chosen grid size.
-                  </p>
+              {themeError && (
+                <div className="bg-red-50 text-red-500 p-3 rounded-md flex items-start">
+                  <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                  <p className="text-sm">{themeError}</p>
                 </div>
-              </div>
+              )}
             </div>
-          </TabsContent>
-        </Tabs>
+
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setThemeDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleAddTheme}
+                className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+              >
+                {isEditing ? 'Update Theme' : 'Add Theme'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <div className="mt-8 pt-6 border-t">
           <div className="space-y-4">

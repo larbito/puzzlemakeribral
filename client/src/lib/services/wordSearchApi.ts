@@ -33,6 +33,12 @@ type DownloadResponse = {
   downloadUrl: string;
 };
 
+interface ThemeData {
+  id: string;
+  name: string;
+  words: string[];
+}
+
 /**
  * Generate a word search puzzle book
  * @param settings The settings for the puzzle book
@@ -48,7 +54,18 @@ export const generateWordSearch = async (settings: WordSearchSettings): Promise<
       backward: settings.directions.backward
     };
     
-    const response = await axios.post<GenerateResponse>(`${WORD_SEARCH_API}/generate`, {
+    // Parse themes if customWords is in JSON format
+    let themes: ThemeData[] = [];
+    try {
+      if (settings.customWords.startsWith('[')) {
+        themes = JSON.parse(settings.customWords);
+      }
+    } catch (error) {
+      console.error('Error parsing themes from customWords:', error);
+    }
+    
+    // If themes were parsed successfully, use them; otherwise, use the legacy format
+    const requestData = {
       title: settings.title,
       subtitle: settings.subtitle,
       authorName: settings.authorName,
@@ -67,9 +84,17 @@ export const generateWordSearch = async (settings: WordSearchSettings): Promise<
       includeAnswers: settings.includeAnswers,
       includeThemeFacts: settings.includeThemeFacts,
       includeCoverPage: settings.includeCoverPage,
-      customWords: settings.customWords,
-      aiPrompt: settings.aiPrompt
-    });
+      aiPrompt: settings.aiPrompt,
+      // If we have themes, send them; otherwise, fall back to customWords
+      ...(themes.length > 0 
+        ? { themes } 
+        : { customWords: settings.customWords })
+    };
+    
+    const response = await axios.post<GenerateResponse>(
+      `${WORD_SEARCH_API}/generate`, 
+      requestData
+    );
     
     return response.data.jobId;
   } catch (error) {
