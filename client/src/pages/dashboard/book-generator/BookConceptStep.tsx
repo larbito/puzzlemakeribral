@@ -387,11 +387,25 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     setIsGeneratingProposal(true);
     
     try {
-      const proposal = await generateBookProposal(
-        summaryText,
-        settings.tone,
-        settings.targetAudience
-      );
+      // First try the API
+      let proposal;
+      try {
+        proposal = await generateBookProposal(
+          summaryText,
+          settings.tone,
+          settings.targetAudience
+        );
+      } catch (apiError) {
+        console.error('API error, using fallback:', apiError);
+        // If API fails, use local fallback
+        const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
+        const mockTOC = generateMockTOC(summaryText);
+        
+        proposal = {
+          ...mockProposal,
+          tableOfContents: mockTOC
+        };
+      }
       
       // Add new proposal to history
       const newProposals = [...bookProposals, proposal];
@@ -412,11 +426,31 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
       // Show the proposal UI
       setShowProposal(true);
     } catch (error) {
-      console.error('Error generating book proposal:', error);
+      console.error('Error generating proposal:', error);
       toast({
         title: 'Error generating proposal',
-        description: 'Something went wrong. Please try again.',
+        description: 'Using offline mode with sample data.',
       });
+      
+      // Even on complete failure, generate something for the user
+      const mockProposal = generateMockProposal(summaryText, settings.tone, settings.targetAudience);
+      const mockTOC = generateMockTOC(summaryText);
+      
+      const proposal = {
+        ...mockProposal,
+        tableOfContents: mockTOC
+      };
+      
+      const newProposals = [...bookProposals, proposal];
+      setBookProposals(newProposals);
+      setCurrentProposalIndex(newProposals.length - 1);
+      
+      onSettingChange('title', proposal.title);
+      onSettingChange('subtitle', proposal.subtitle);
+      onSettingChange('tableOfContents', proposal.tableOfContents);
+      onSettingChange('chapters', proposal.tableOfContents);
+      
+      setShowProposal(true);
     } finally {
       setIsGeneratingProposal(false);
     }
