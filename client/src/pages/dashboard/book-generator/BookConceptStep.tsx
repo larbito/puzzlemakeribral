@@ -72,6 +72,7 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [summaryText, setSummaryText] = useState(settings.bookSummary || '');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
   // Update local state when settings change
@@ -79,6 +80,29 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
     console.log('Settings updated, updating local state');
     setSummaryText(settings.bookSummary || '');
   }, [settings.bookSummary]);
+
+  // Add global document click handler to help with focus issues
+  useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      // Check if click was inside our wrapper
+      const wrapper = document.querySelector('.textarea-wrapper');
+      if (wrapper && wrapper.contains(e.target as Node)) {
+        console.log('Click inside wrapper');
+        // Focus the textarea if the click was inside our wrapper
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener('click', handleDocumentClick);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('click', handleDocumentClick);
+    };
+  }, []);
 
   const toneOptions = [
     { value: 'Serious', label: 'Serious - Professional and formal' },
@@ -199,16 +223,34 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
-              <textarea
-                id="bookSummary"
-                value={summaryText}
-                onChange={handleSummaryChange}
-                onClick={() => console.log('Textarea clicked')}
-                onFocus={() => console.log('Textarea focused')}
-                className="w-full min-h-[120px] p-3 border rounded-md resize-y bg-[#1e1e1e] text-white border-[#4d4d4d] outline-none focus:border-[#3a86ff] focus:ring-2 focus:ring-[#3a86ff] focus:ring-opacity-30 hover:border-[#3a86ff]"
-                placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
-                rows={5}
-              />
+              <div 
+                className="textarea-wrapper relative w-full min-h-[200px] border rounded-md border-[#4d4d4d] hover:border-[#3a86ff] focus-within:border-[#3a86ff] focus-within:ring-2 focus-within:ring-[#3a86ff] focus-within:ring-opacity-30"
+                onClick={(e) => {
+                  console.log('Wrapper clicked');
+                  if (textareaRef.current) {
+                    textareaRef.current.focus();
+                  }
+                  e.stopPropagation();
+                }}
+                style={{ zIndex: 50 }}
+              >
+                <textarea
+                  ref={textareaRef}
+                  id="bookSummary"
+                  value={summaryText}
+                  onChange={handleSummaryChange}
+                  onClick={(e) => {
+                    console.log('Textarea clicked');
+                    e.stopPropagation();
+                  }}
+                  onFocus={() => console.log('Textarea focused')}
+                  onBlur={() => console.log('Textarea blurred')}
+                  className="absolute top-0 left-0 w-full h-full p-3 resize-y bg-[#1e1e1e] text-white outline-none border-none rounded-md"
+                  placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
+                  tabIndex={0}
+                  style={{ zIndex: 100, minHeight: '200px' }}
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
                 Be specific about your topic, intended audience, and what you want readers to learn or experience.
               </p>
