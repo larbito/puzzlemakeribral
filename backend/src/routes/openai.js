@@ -924,4 +924,251 @@ function generateMockChapterContent(chapterTitle, chapterNumber, totalChapters) 
   return content;
 }
 
+/**
+ * Generate a complete book with content, automatically determining chapters based on page count
+ * POST /api/openai/generate-complete-book
+ */
+router.post('/generate-complete-book', async (req, res) => {
+  try {
+    const { 
+      title, 
+      subtitle, 
+      bookSummary, 
+      tone, 
+      targetAudience, 
+      pageCount, 
+      bookSize, 
+      fontFamily, 
+      fontSize 
+    } = req.body;
+    
+    if (!bookSummary || !tone || !targetAudience || !pageCount) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: bookSummary, tone, targetAudience, and pageCount are required' 
+      });
+    }
+    
+    console.log('Generating complete book with:', { 
+      title: title || 'Untitled', 
+      pageCount, 
+      bookSummary: bookSummary.substring(0, 100) + '...' 
+    });
+    
+    // Use mock response if API key is not available
+    if (req.useLocalMock) {
+      console.log('Using mock book generator');
+      return res.json(generateMockCompleteBook({ 
+        title, 
+        subtitle, 
+        bookSummary, 
+        tone, 
+        targetAudience, 
+        pageCount 
+      }));
+    }
+    
+    // Calculate estimated number of chapters based on page count
+    // Typically, books have about 10-15 pages per chapter on average
+    const estimatedChapters = Math.max(5, Math.ceil(pageCount / 15));
+    
+    // Step 1: Generate appropriate chapter breakdown for the book
+    const chapterBreakdownPrompt = `
+      You are an expert book editor and author. Create a chapter breakdown for a ${pageCount}-page book with the following details:
+      
+      Title: ${title || 'Untitled'}
+      Subtitle: ${subtitle || ''}
+      Summary: ${bookSummary}
+      Tone: ${tone}
+      Target Audience: ${targetAudience}
+      
+      The book should be approximately ${pageCount} pages long when formatted with:
+      - Book size: ${bookSize || '6x9'} inches
+      - Font: ${fontFamily || 'Times New Roman'}
+      - Font size: ${fontSize || 12}pt
+      
+      Create a chapter breakdown with approximately ${estimatedChapters} chapters (including introduction and conclusion).
+      The chapters should flow logically and cover the topic thoroughly.
+      
+      Return ONLY a JSON array of chapter objects with the format:
+      [
+        { "title": "Introduction", "summary": "Brief description of chapter content" },
+        { "title": "Chapter 1: Example Title", "summary": "Brief description of chapter content" },
+        ...and so on
+      ]
+    `;
+    
+    console.log('Generating chapter breakdown...');
+    
+    // Call OpenAI to generate the chapter breakdown
+    const breakdownCompletion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert book editor and author who creates detailed chapter breakdowns for books."
+        },
+        {
+          role: "user",
+          content: chapterBreakdownPrompt
+        }
+      ],
+      response_format: { type: "json_object" }
+    });
+    
+    // Parse the chapter breakdown
+    let chapterBreakdown;
+    try {
+      const breakdownResponse = JSON.parse(breakdownCompletion.choices[0].message.content);
+      chapterBreakdown = breakdownResponse.length ? breakdownResponse : breakdownResponse.chapters;
+      
+      if (!Array.isArray(chapterBreakdown)) {
+        throw new Error('Invalid chapter breakdown format');
+      }
+    } catch (error) {
+      console.error('Error parsing chapter breakdown:', error);
+      // Fallback to a simple chapter structure
+      chapterBreakdown = [
+        { title: "Introduction", summary: "Introduction to the book's topic" },
+        { title: "Chapter 1: Getting Started", summary: "Basic concepts and fundamentals" },
+        { title: "Chapter 2: Core Principles", summary: "Essential principles and ideas" },
+        { title: "Chapter 3: Advanced Concepts", summary: "More complex aspects of the topic" },
+        { title: "Chapter 4: Practical Applications", summary: "Real-world applications" },
+        { title: "Conclusion", summary: "Summary and final thoughts" }
+      ];
+    }
+    
+    console.log(`Generated ${chapterBreakdown.length} chapters`);
+    
+    // Step 2: Generate content for each chapter
+    const chaptersWithContent = [];
+    
+    // Calculate target words per chapter to hit the page count
+    // Assuming approximately 250 words per page
+    const totalWords = pageCount * 250;
+    const wordsPerChapter = Math.floor(totalWords / chapterBreakdown.length);
+    
+    for (let i = 0; i < chapterBreakdown.length; i++) {
+      const chapter = chapterBreakdown[i];
+      console.log(`Generating content for chapter ${i+1}: ${chapter.title}`);
+      
+      const chapterPrompt = `
+        You are writing the "${chapter.title}" chapter of a book titled "${title || 'Untitled'}".
+        
+        Book summary: ${bookSummary}
+        Chapter summary: ${chapter.summary}
+        Tone: ${tone}
+        Target audience: ${targetAudience}
+        
+        This is chapter ${i+1} of ${chapterBreakdown.length}.
+        
+        Write the complete content for this chapter. It should be approximately ${wordsPerChapter} words.
+        Use appropriate headings, subheadings, and paragraphs to organize the content.
+        The content should be engaging, informative, and match the specified tone.
+        
+        Return ONLY the chapter content, starting with the chapter title as a heading.
+      `;
+      
+      try {
+        const contentCompletion = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are an expert book author who writes engaging, well-structured chapter content."
+            },
+            {
+              role: "user",
+              content: chapterPrompt
+            }
+          ],
+          max_tokens: 4000,
+          temperature: 0.7
+        });
+        
+        const chapterContent = contentCompletion.choices[0].message.content;
+        const wordCount = chapterContent.split(/\s+/).filter(word => word.length > 0).length;
+        
+        chaptersWithContent.push({
+          title: chapter.title,
+          content: chapterContent,
+          wordCount: wordCount
+        });
+        
+        console.log(`Generated ${wordCount} words for chapter ${i+1}`);
+      } catch (error) {
+        console.error(`Error generating content for chapter ${i+1}:`, error);
+        // Add a placeholder for failed chapters
+        chaptersWithContent.push({
+          title: chapter.title,
+          content: `# ${chapter.title}\n\nContent generation failed. Please try again or edit manually.\n\nChapter summary: ${chapter.summary}`,
+          wordCount: 20
+        });
+      }
+    }
+    
+    // Return the complete book
+    res.json({
+      success: true,
+      chapters: chaptersWithContent,
+      estimatedPageCount: Math.ceil(chaptersWithContent.reduce((total, ch) => total + ch.wordCount, 0) / 250)
+    });
+    
+  } catch (error) {
+    console.error('Error generating complete book:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate complete book',
+      details: error.message
+    });
+  }
+});
+
+// Function to generate a mock complete book for local development
+function generateMockCompleteBook(params) {
+  const { bookSummary, pageCount } = params;
+  
+  // Create a realistic number of chapters based on page count
+  const numChapters = Math.max(5, Math.ceil(pageCount / 15));
+  const chapters = [];
+  
+  // Extract some keywords from the summary to make the mock content more relevant
+  const keywords = bookSummary.split(' ')
+    .filter(word => word.length > 4)
+    .map(word => word.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, ""));
+  
+  const uniqueKeywords = [...new Set(keywords)];
+  const relevantKeywords = uniqueKeywords.slice(0, Math.min(5, uniqueKeywords.length));
+  
+  // Add introduction
+  chapters.push({
+    title: 'Introduction',
+    content: `# Introduction\n\nWelcome to this book about ${bookSummary.substring(0, 50)}. In the following chapters, we will explore various aspects of this fascinating topic.\n\n## Why This Book Matters\n\nThis book provides valuable insights into ${relevantKeywords[0] || 'the subject'} and offers practical advice for ${relevantKeywords[1] || 'readers'}.\n\n## What You'll Learn\n\nBy the end of this book, you'll have a comprehensive understanding of ${relevantKeywords[2] || 'the topic'} and how to apply it in real-world situations.`,
+    wordCount: 100
+  });
+  
+  // Add main chapters
+  for (let i = 1; i <= numChapters - 2; i++) {
+    const keyword = relevantKeywords[i % relevantKeywords.length] || `Topic ${i}`;
+    chapters.push({
+      title: `Chapter ${i}: Understanding ${keyword}`,
+      content: `# Chapter ${i}: Understanding ${keyword}\n\nThis chapter explores the concept of ${keyword} in depth.\n\n## Key Concepts\n\nHere we discuss the fundamental aspects of ${keyword} and why they matter.\n\n## Practical Applications\n\nIn this section, we examine how ${keyword} can be applied in various contexts.\n\n## Case Studies\n\nLet's look at some real-world examples of ${keyword} in action.\n\n## Summary\n\nIn this chapter, we've explored ${keyword} and its significance in the broader context of ${bookSummary.substring(0, 30)}.`,
+      wordCount: 200
+    });
+  }
+  
+  // Add conclusion
+  chapters.push({
+    title: 'Conclusion',
+    content: `# Conclusion\n\nAs we conclude this exploration of ${bookSummary.substring(0, 50)}, let's recap the key insights we've gained.\n\n## Key Takeaways\n\nThroughout this book, we've learned about ${relevantKeywords.join(', ')} and how they interconnect.\n\n## Future Directions\n\nThe field of ${relevantKeywords[0] || 'this topic'} continues to evolve, and there are many exciting developments on the horizon.\n\n## Final Thoughts\n\nThank you for joining me on this journey through ${relevantKeywords[0] || 'this subject'}. I hope you've found this book informative and inspiring.`,
+    wordCount: 150
+  });
+  
+  return {
+    success: true,
+    chapters: chapters,
+    estimatedPageCount: pageCount
+  };
+}
+
 module.exports = router; 

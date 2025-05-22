@@ -120,7 +120,7 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="pageCount">Estimated Page Count: {settings.pageCount}</Label>
+                    <Label htmlFor="pageCount">Target Page Count: {settings.pageCount}</Label>
                     <Slider
                       id="pageCount"
                       min={30}
@@ -130,7 +130,7 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                       onValueChange={(value) => onSettingChange('pageCount', value[0])}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Approximate number of pages (will adjust based on content)
+                      The AI will generate content to match this exact page count
                     </p>
                   </div>
                 </div>

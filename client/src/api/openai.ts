@@ -81,4 +81,59 @@ export const generateChapterContent = async (
     console.error(`Error generating content for chapter "${chapterTitle}":`, error);
     throw error;
   }
+};
+
+/**
+ * Generate a complete book with content, automatically determining chapters to match target page count
+ */
+export const generateCompleteBook = async (
+  settings: {
+    title: string;
+    subtitle: string;
+    bookSummary: string;
+    tone: string;
+    targetAudience: string;
+    pageCount: number;
+    bookSize: string;
+    fontFamily: string;
+    fontSize: number;
+  }
+): Promise<{
+  chapters: Chapter[];
+  estimatedPageCount: number;
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/openai/generate-complete-book`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...settings
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.success && data.chapters) {
+      return {
+        chapters: data.chapters.map((chapter: any, index: number) => ({
+          id: (index + 1).toString(),
+          title: chapter.title,
+          content: chapter.content,
+          wordCount: chapter.content ? chapter.content.split(/\s+/).filter((word: string) => word.length > 0).length : 0
+        })),
+        estimatedPageCount: data.estimatedPageCount || settings.pageCount
+      };
+    } else {
+      throw new Error('Invalid response from API');
+    }
+  } catch (error) {
+    console.error('Error generating complete book:', error);
+    throw error;
+  }
 }; 

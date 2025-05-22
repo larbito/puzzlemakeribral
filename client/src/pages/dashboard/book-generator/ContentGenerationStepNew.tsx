@@ -13,7 +13,10 @@ import {
   X, 
   BookOpen,
   BookText,
-  Play
+  Play,
+  BookMarked,
+  CheckCircle,
+  FileDown
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -26,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from "@/components/ui/progress";
+import { generateCompleteBook } from '@/api/openai';
 
 interface ContentGenerationStepProps {
   settings: BookGeneratorSettings;
@@ -38,18 +42,16 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
 }) => {
   const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
-  const [generatingIndex, setGeneratingIndex] = useState<number | null>(null);
   const [expandedChapter, setExpandedChapter] = useState<string | null>(null);
-  const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState(0);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewChapter, setPreviewChapter] = useState<Chapter | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [editingPage, setEditingPage] = useState(false);
   const [pageEditValue, setPageEditValue] = useState('');
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const { toast } = useToast();
-
-  const apiBaseUrl = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
 
   // Function to count words in a string
   const countWords = (text: string): number => {
@@ -97,150 +99,104 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
     }
   };
 
-  // Function to generate content for a single chapter
-  const generateChapterContent = async (chapterIndex: number) => {
+  // Function to generate the entire book at once
+  const generateBook = async () => {
     try {
-      setGeneratingIndex(chapterIndex);
-      const chapter = settings.chapters[chapterIndex];
+      setIsGenerating(true);
+      setGenerationProgress(0);
+      setGenerationError(null);
       
-      // If no chapter, abort
-      if (!chapter) {
-        throw new Error('Chapter not found');
-      }
-
-      // Create a prompt for chapter generation
-      const prompt = {
+      // Fake initial progress to show user something is happening
+      const progressInterval = setInterval(() => {
+        setGenerationProgress(prev => {
+          // Don't go past 90% with the fake progress
+          const newProgress = prev + Math.random() * 3;
+          return newProgress > 90 ? 90 : newProgress;
+        });
+      }, 2000);
+      
+      // Call the API to generate the complete book
+      const result = await generateCompleteBook({
         title: settings.title,
         subtitle: settings.subtitle,
         bookSummary: settings.bookSummary,
         tone: settings.tone,
         targetAudience: settings.targetAudience,
-        chapterTitle: chapter.title,
-        chapterNumber: chapterIndex + 1,
-        totalChapters: settings.chapters.length,
-      };
-
-      // Try to call the API
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
-        
-        const response = await fetch(`${apiBaseUrl}/api/openai/generate-chapter-content`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(prompt),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          throw new Error(`API request failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        if (data.success && data.content) {
-          // Update the chapter with the generated content
-          const updatedChapters = [...settings.chapters];
-          updatedChapters[chapterIndex] = {
-            ...updatedChapters[chapterIndex],
-            content: data.content,
-            wordCount: countWords(data.content)
-          };
-          
-          onSettingChange('chapters', updatedChapters);
-          
-          toast({
-            title: 'Content generated',
-            description: `Content for "${chapter.title}" has been generated.`,
-          });
-          
-          return true;
-        } else {
-          throw new Error('API response missing content');
-        }
-      } catch (error: any) {
-        console.error('API error, using fallback generation:', error);
-        // Fallback: Generate chapter content locally
-        
-        // Create a sample chapter based on the chapter title
-        let dummyContent = `# ${chapter.title}\n\n`;
-        
-        // Add 5-7 paragraphs of content
-        const paragraphCount = 5 + Math.floor(Math.random() * 3);
-        for (let i = 0; i < paragraphCount; i++) {
-          dummyContent += `Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n\n`;
-        }
-        
-        // Add a subheading
-        dummyContent += `## Key Points\n\n`;
-        
-        // Add 3 bullet points
-        dummyContent += `- Important point related to ${chapter.title}\n`;
-        dummyContent += `- Another crucial element to consider\n`;
-        dummyContent += `- Final point to remember\n\n`;
-        
-        // Add a conclusion paragraph
-        dummyContent += `In conclusion, this chapter has covered important aspects of ${chapter.title}. The next chapter will build upon these concepts and explore more advanced topics.`;
-        
-        // Update the chapter with the generated content
-        const updatedChapters = [...settings.chapters];
-        updatedChapters[chapterIndex] = {
-          ...updatedChapters[chapterIndex],
-          content: dummyContent,
-          wordCount: countWords(dummyContent)
-        };
-        
-        onSettingChange('chapters', updatedChapters);
-        
-        toast({
-          title: 'Offline content generated',
-          description: `Sample content for "${chapter.title}" has been created. You should edit this placeholder text.`,
-        });
-        
-        return true;
-      }
-    } catch (error) {
-      console.error('Error generating chapter content:', error);
-      toast({
-        title: 'Generation failed',
-        description: 'Failed to generate chapter content. Please try again.',
+        pageCount: settings.pageCount,
+        bookSize: settings.bookSize,
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize
       });
-      return false;
+      
+      // Clear the fake progress interval
+      clearInterval(progressInterval);
+      
+      // Set real progress to 100%
+      setGenerationProgress(100);
+      
+      // Update the chapters with the generated content
+      onSettingChange('chapters', result.chapters);
+      
+      // Also update the table of contents to match
+      onSettingChange('tableOfContents', result.chapters);
+      
+      toast({
+        title: 'Book generated successfully',
+        description: `Generated a ${settings.pageCount}-page book with ${result.chapters.length} chapters.`,
+      });
+    } catch (error) {
+      console.error('Error generating book:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Unknown error occurred');
+      
+      toast({
+        title: 'Book generation failed',
+        description: 'Unable to generate your book. Please try again.',
+      });
+      
+      // Generate fallback content with empty chapters
+      generateFallbackBook();
     } finally {
-      setGeneratingIndex(null);
+      setIsGenerating(false);
     }
   };
-
-  // Function to generate all chapters
-  const generateAllChapters = async () => {
-    setIsGeneratingAll(true);
-    setGenerationProgress(0);
+  
+  // Generate some fallback content if the API fails
+  const generateFallbackBook = () => {
+    // Determine a reasonable number of chapters based on page count
+    const chaptersCount = Math.max(5, Math.round(settings.pageCount / 30));
     
-    let successCount = 0;
-    for (let i = 0; i < settings.chapters.length; i++) {
-      // Skip chapters that already have content
-      if (settings.chapters[i].content) {
-        setGenerationProgress(((i + 1) / settings.chapters.length) * 100);
-        continue;
-      }
-      
-      const success = await generateChapterContent(i);
-      if (success) successCount++;
-      
-      // Update progress
-      setGenerationProgress(((i + 1) / settings.chapters.length) * 100);
+    // Create sample chapters
+    const fallbackChapters: Chapter[] = [];
+    
+    // Add introduction
+    fallbackChapters.push({
+      id: '1',
+      title: 'Introduction',
+      content: `# Introduction\n\nThis is a placeholder for your book introduction. The actual content generation failed, so you'll need to edit this content manually.\n\nYour book concept was: ${settings.bookSummary}`,
+      wordCount: 30
+    });
+    
+    // Add main chapters
+    for (let i = 1; i < chaptersCount; i++) {
+      fallbackChapters.push({
+        id: (i + 1).toString(),
+        title: `Chapter ${i}`,
+        content: `# Chapter ${i}\n\nThis is a placeholder for your chapter content. The actual content generation failed, so you'll need to edit this content manually.`,
+        wordCount: 20
+      });
     }
     
-    setIsGeneratingAll(false);
-    
-    toast({
-      title: 'Generation complete',
-      description: `Generated content for ${successCount} chapters.`,
+    // Add conclusion
+    fallbackChapters.push({
+      id: (chaptersCount + 1).toString(),
+      title: 'Conclusion',
+      content: `# Conclusion\n\nThis is a placeholder for your book conclusion. The actual content generation failed, so you'll need to edit this content manually.`,
+      wordCount: 20
     });
+    
+    // Update the chapters with the fallback content
+    onSettingChange('chapters', fallbackChapters);
+    onSettingChange('tableOfContents', fallbackChapters);
   };
 
   // Preview functionality
@@ -257,179 +213,158 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
     setEditingPage(false);
   };
 
+  // Calculate number of pages in a chapter (rough estimate)
   const pagesInChapter = (chapter: Chapter | null) => {
-    if (!chapter) return 0;
-    return Math.ceil(chapter.wordCount / 250); // Approx. 250 words per page
+    if (!chapter?.content) return 0;
+    // Assuming average words per page based on book size and font
+    return Math.ceil(chapter.wordCount / 250);
   };
 
+  // Get content for a specific page in the chapter
   const getPageContent = (chapter: Chapter | null, pageIndex: number) => {
-    if (!chapter || !chapter.content) return '';
+    if (!chapter?.content) return '';
     
     const wordsPerPage = 250;
     const words = chapter.content.split(/\s+/);
-    const startIndex = pageIndex * wordsPerPage;
-    const pageWords = words.slice(startIndex, startIndex + wordsPerPage);
     
-    return pageWords.join(' ');
+    const startIdx = pageIndex * wordsPerPage;
+    const endIdx = Math.min((pageIndex + 1) * wordsPerPage, words.length);
+    
+    return words.slice(startIdx, endIdx).join(' ');
   };
 
+  // Edit page content
   const handleEditPage = () => {
     if (!previewChapter) return;
     setPageEditValue(getPageContent(previewChapter, currentPage));
     setEditingPage(true);
   };
 
+  // Save edited page content
   const handleSavePageEdit = () => {
     if (!previewChapter || !editingPage) return;
     
-    // Split the chapter content into pages
+    const chapter = previewChapter;
     const wordsPerPage = 250;
-    const words = previewChapter.content.split(/\s+/);
-    const startIndex = currentPage * wordsPerPage;
-    const endIndex = startIndex + wordsPerPage;
+    const words = chapter.content.split(/\s+/);
+    const startIdx = currentPage * wordsPerPage;
+    const endIdx = Math.min((currentPage + 1) * wordsPerPage, words.length);
     
-    // Replace the current page's content
+    // Replace the current page content with edited content
     const newPageWords = pageEditValue.split(/\s+/);
     const newWords = [
-      ...words.slice(0, startIndex),
+      ...words.slice(0, startIdx),
       ...newPageWords,
-      ...words.slice(endIndex)
+      ...words.slice(endIdx)
     ];
     
-    // Update chapter content
     const newContent = newWords.join(' ');
+    
+    // Update the chapter with new content
     const updatedChapter = {
-      ...previewChapter,
+      ...chapter,
       content: newContent,
       wordCount: newWords.length
     };
     
+    // Update preview chapter
+    setPreviewChapter(updatedChapter);
+    
     // Update chapters in settings
-    const updatedChapters = settings.chapters.map(chapter => 
-      chapter.id === previewChapter.id ? updatedChapter : chapter
+    const updatedChapters = settings.chapters.map(c => 
+      c.id === updatedChapter.id ? updatedChapter : c
     );
     
     onSettingChange('chapters', updatedChapters);
-    setPreviewChapter(updatedChapter);
+    
     setEditingPage(false);
     
     toast({
       title: 'Page updated',
-      description: `Page ${currentPage + 1} has been updated.`,
+      description: 'Your changes have been saved.',
     });
   };
 
+  // Cancel page edit
   const handleCancelPageEdit = () => {
     setEditingPage(false);
     setPageEditValue('');
   };
 
+  // Render chapters list
   const renderChapters = () => {
-    if (settings.chapters.length === 0) {
+    if (!settings.chapters || settings.chapters.length === 0) {
       return (
-        <div className="text-center py-10">
-          <BookText className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">No Chapters Yet</h3>
-          <p className="text-muted-foreground mb-4">
-            Go back to the Book Concept step to generate your table of contents.
+        <div className="text-center p-6 border border-dashed rounded-md">
+          <BookMarked className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+          <p className="text-muted-foreground mb-6">
+            No content yet. Click the "Generate Book" button to create your book content.
           </p>
-          <Button variant="secondary" size="sm">
-            Go to Book Concept
+          <Button 
+            onClick={generateBook} 
+            disabled={isGenerating}
+            className="bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating Book...
+              </>
+            ) : (
+              <>
+                <BookOpen className="mr-2 h-4 w-4" />
+                Generate Book
+              </>
+            )}
           </Button>
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-4">
-        {settings.chapters.map((chapter, index) => (
+        {settings.chapters.map((chapter) => (
           <Card key={chapter.id} className="overflow-hidden">
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h3 className="text-lg font-medium">{chapter.title}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {chapter.wordCount > 0 
-                      ? `${chapter.wordCount} words · Approximately ${Math.ceil(chapter.wordCount / 250)} pages` 
-                      : 'No content yet'}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  {generatingIndex === index ? (
-                    <Button variant="ghost" size="sm" disabled>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    </Button>
-                  ) : (
-                    <>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => generateChapterContent(index)}
-                        disabled={isGeneratingAll}
-                      >
-                        <Play className="h-4 w-4 mr-1" />
-                        Generate
-                      </Button>
-                      {chapter.content && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => handleEditChapter(chapter.id)}
-                          disabled={!!editingChapterId}
-                        >
-                          <Pencil className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                      )}
-                      {chapter.content && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => openChapterPreview(chapter)}
-                        >
-                          <BookOpen className="h-4 w-4 mr-1" />
-                          Preview
-                        </Button>
-                      )}
-                    </>
-                  )}
+            <div 
+              className="p-4 border-b cursor-pointer hover:bg-secondary/10 flex justify-between items-center"
+              onClick={() => handleExpandChapter(chapter.id)}
+            >
+              <div className="flex-1">
+                <h3 className="font-medium">{chapter.title}</h3>
+                <div className="flex items-center text-xs text-muted-foreground mt-1">
+                  <FileText className="h-3 w-3 mr-1" />
+                  <span>{chapter.wordCount} words</span>
+                  <span className="mx-2">•</span>
+                  <span>~{pagesInChapter(chapter)} pages</span>
                 </div>
               </div>
-              
-              {chapter.content && (
-                <div
-                  className={`mt-2 overflow-hidden transition-all duration-300 ${
-                    expandedChapter === chapter.id ? 'max-h-60' : 'max-h-20'
-                  }`}
-                >
-                  <div className="text-sm whitespace-pre-wrap">
-                    {chapter.content}
-                  </div>
-                </div>
-              )}
-              
-              {chapter.content && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="mt-2"
-                  onClick={() => handleExpandChapter(chapter.id)}
-                >
-                  {expandedChapter === chapter.id ? 'Show Less' : 'Show More'}
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={(e) => {
+                  e.stopPropagation();
+                  openChapterPreview(chapter);
+                }}>
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Preview
                 </Button>
-              )}
-              
-              {!chapter.content && generatingIndex !== index && (
-                <div className="flex items-center justify-center py-6 border rounded-md border-dashed mt-2">
-                  <div className="text-center">
-                    <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">
-                      Click "Generate" to create content for this chapter
-                    </p>
+                <Button variant="outline" size="sm" onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditChapter(chapter.id);
+                }}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
+            </div>
+            
+            {expandedChapter === chapter.id && (
+              <CardContent className="pt-4">
+                <ScrollArea className="h-64 w-full">
+                  <div className="whitespace-pre-wrap">
+                    {chapter.content || 'No content yet.'}
                   </div>
-                </div>
-              )}
-            </CardContent>
+                </ScrollArea>
+              </CardContent>
+            )}
           </Card>
         ))}
       </div>
@@ -440,188 +375,225 @@ export const ContentGenerationStepNew: React.FC<ContentGenerationStepProps> = ({
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center">
         <div>
-          <h2 className="text-2xl font-bold">Content Generation</h2>
-          <p className="text-muted-foreground">Generate and edit your book's content chapter by chapter</p>
+          <h2 className="text-2xl font-bold">Book Content</h2>
+          <p className="text-muted-foreground">Generate and edit your book content</p>
         </div>
+        
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={generateAllChapters}
-            disabled={isGeneratingAll || !!editingChapterId || settings.chapters.length === 0}
-          >
-            {isGeneratingAll ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-1" />
-                Generate All Content
-              </>
-            )}
-          </Button>
+          {settings.chapters && settings.chapters.length > 0 && (
+            <Button 
+              variant="outline" 
+              onClick={generateBook}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              Regenerate Book
+            </Button>
+          )}
         </div>
       </div>
       
-      {isGeneratingAll && (
-        <div className="space-y-2">
-          <Progress value={generationProgress} className="h-2" />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Generating chapters...</span>
-            <span>{Math.round(generationProgress)}%</span>
-          </div>
-        </div>
+      {/* Show progress bar when generating */}
+      {isGenerating && (
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+              <Loader2 className="h-5 w-5 text-primary animate-spin" /> Generating Your Book
+            </h3>
+            <Separator className="mb-4" />
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm mb-1">
+                  <span>Generating content...</span>
+                  <span>{Math.round(generationProgress)}%</span>
+                </div>
+                <Progress value={generationProgress} />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Creating a {settings.pageCount}-page book about "{settings.bookSummary.substring(0, 50)}..."
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
       
-      <Tabs defaultValue="edit">
-        <TabsList className="mb-4">
-          <TabsTrigger value="edit">Edit Chapters</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="edit" className="space-y-4">
-          {renderChapters()}
-        </TabsContent>
-      </Tabs>
+      {/* Show error message if generation failed */}
+      {generationError && (
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <h3 className="text-lg font-medium mb-2 text-destructive">Generation Error</h3>
+            <p className="text-sm mb-4">{generationError}</p>
+            <p className="text-xs text-muted-foreground">Fallback content has been created instead. You can edit it or try again.</p>
+          </CardContent>
+        </Card>
+      )}
       
-      {/* Chapter Editing Dialog */}
+      {/* Content area */}
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
+            <BookText className="h-5 w-5 text-primary" /> Book Chapters
+          </h3>
+          <Separator className="mb-6" />
+          
+          {renderChapters()}
+          
+          {/* Chapter completion status */}
+          {settings.chapters && settings.chapters.length > 0 && (
+            <div className="flex items-center gap-1 text-sm text-green-600 mt-4">
+              <CheckCircle className="h-4 w-4" />
+              <span>
+                Book generated with {settings.chapters.length} chapters and approximately {settings.chapters.reduce((total, chapter) => total + chapter.wordCount, 0)} words
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Chapter editing dialog */}
       {editingChapterId && (
-        <Dialog open={!!editingChapterId} onOpenChange={() => handleCancelEdit()}>
-          <DialogContent className="max-w-4xl max-h-[90vh] h-[80vh]">
+        <Dialog open={!!editingChapterId} onOpenChange={(isOpen) => {
+          if (!isOpen) handleCancelEdit();
+        }}>
+          <DialogContent className="sm:max-w-[900px]">
             <DialogHeader>
               <DialogTitle>
-                Editing: {settings.chapters.find(c => c.id === editingChapterId)?.title}
+                Edit Chapter: {settings.chapters.find(c => c.id === editingChapterId)?.title}
               </DialogTitle>
               <DialogDescription>
-                Edit the content of this chapter. The content should be approximately 1500-2500 words.
+                Edit your chapter content below. Use markdown formatting for headers, lists, and emphasis.
               </DialogDescription>
             </DialogHeader>
             
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              <ScrollArea className="flex-1 mt-4">
-                <Textarea
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  className="min-h-[400px] h-full font-mono"
-                />
-              </ScrollArea>
-              
-              <div className="mt-4 text-sm text-muted-foreground">
-                Word count: {countWords(editValue)} words
-              </div>
+            <div className="py-4">
+              <Textarea
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                className="min-h-[60vh] font-mono text-sm resize-none"
+              />
             </div>
             
-            <DialogFooter className="mt-4">
+            <DialogFooter>
               <Button variant="outline" onClick={handleCancelEdit}>
-                <X className="h-4 w-4 mr-1" />
+                <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>
               <Button onClick={handleSaveEdit}>
-                <Save className="h-4 w-4 mr-1" />
-                Save Chapter
+                <Save className="h-4 w-4 mr-2" />
+                Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
       
-      {/* Chapter Preview Dialog */}
+      {/* Chapter preview dialog */}
       {showPreviewDialog && previewChapter && (
         <Dialog open={showPreviewDialog} onOpenChange={closePreview}>
-          <DialogContent className="max-w-4xl max-h-[90vh] h-[80vh]">
+          <DialogContent className="sm:max-w-[900px]">
             <DialogHeader>
               <DialogTitle>
                 {previewChapter.title} - Page {currentPage + 1} of {pagesInChapter(previewChapter)}
               </DialogTitle>
               <DialogDescription>
-                Preview how this chapter will appear in your book
+                Preview how your chapter will appear in the final book.
               </DialogDescription>
             </DialogHeader>
             
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {editingPage ? (
-                <div className="flex-1 flex flex-col">
-                  <Textarea
-                    value={pageEditValue}
-                    onChange={(e) => setPageEditValue(e.target.value)}
-                    className="min-h-[400px] flex-1 font-mono"
-                  />
-                  <div className="flex justify-end gap-2 mt-4">
-                    <Button variant="outline" onClick={handleCancelPageEdit}>
-                      <X className="h-4 w-4 mr-1" />
-                      Cancel
-                    </Button>
-                    <Button onClick={handleSavePageEdit}>
-                      <Save className="h-4 w-4 mr-1" />
-                      Save Page
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <ScrollArea className="flex-1 mt-4">
+            <Tabs defaultValue="page">
+              <TabsList className="grid grid-cols-2 mb-6">
+                <TabsTrigger value="page">Page View</TabsTrigger>
+                <TabsTrigger value="full">Full Chapter</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="page" className="relative">
+                {!editingPage ? (
                   <div 
-                    className="border rounded-md p-6 bg-white mb-4"
-                    style={{
+                    className="p-8 border rounded-md h-[60vh] overflow-auto" 
+                    style={{ 
                       fontFamily: settings.fontFamily,
                       fontSize: `${settings.fontSize}pt`,
-                      lineHeight: settings.lineSpacing,
-                      position: 'relative',
-                      minHeight: '400px'
+                      lineHeight: settings.lineSpacing
                     }}
                   >
-                    {currentPage === 0 && (
-                      <h2 className="text-xl font-bold mb-4">{previewChapter.title}</h2>
-                    )}
-                    <div className="whitespace-pre-wrap">
-                      {getPageContent(previewChapter, currentPage)}
-                    </div>
+                    <div dangerouslySetInnerHTML={{ __html: getPageContent(previewChapter, currentPage).replace(/\n/g, '<br />') }} />
                     
                     {settings.includePageNumbers && (
-                      <div className="absolute bottom-4 w-full text-center text-sm">
-                        Page {currentPage + 1}
+                      <div className="absolute bottom-4 right-4 text-sm">
+                        {currentPage + 1}
                       </div>
                     )}
                   </div>
-                </ScrollArea>
-              )}
+                ) : (
+                  <Textarea
+                    value={pageEditValue}
+                    onChange={(e) => setPageEditValue(e.target.value)}
+                    className="h-[60vh] font-mono text-sm resize-none"
+                    style={{ 
+                      fontFamily: settings.fontFamily,
+                      fontSize: `${settings.fontSize}pt`,
+                      lineHeight: settings.lineSpacing
+                    }}
+                  />
+                )}
+              </TabsContent>
               
-              <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
-                    disabled={currentPage === 0 || editingPage}
+              <TabsContent value="full">
+                <ScrollArea className="h-[60vh] w-full p-4 border rounded-md">
+                  <div
+                    className="whitespace-pre-wrap p-4"
+                    style={{ 
+                      fontFamily: settings.fontFamily,
+                      fontSize: `${settings.fontSize}pt`,
+                      lineHeight: settings.lineSpacing
+                    }}
                   >
-                    Previous Page
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(pagesInChapter(previewChapter) - 1, currentPage + 1))}
-                    disabled={currentPage === pagesInChapter(previewChapter) - 1 || editingPage}
-                  >
-                    Next Page
-                  </Button>
-                </div>
-                {!editingPage && (
-                  <Button 
-                    variant="secondary" 
-                    size="sm"
-                    onClick={handleEditPage}
-                  >
-                    <Pencil className="h-4 w-4 mr-1" />
-                    Edit This Page
+                    {previewChapter.content}
+                  </div>
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
+            
+            <DialogFooter className="flex justify-between items-center">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
+                  disabled={currentPage === 0 || editingPage}
+                >
+                  Previous Page
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(Math.min(pagesInChapter(previewChapter) - 1, currentPage + 1))}
+                  disabled={currentPage >= pagesInChapter(previewChapter) - 1 || editingPage}
+                >
+                  Next Page
+                </Button>
+              </div>
+              
+              <div className="flex gap-2">
+                {editingPage ? (
+                  <>
+                    <Button variant="outline" onClick={handleCancelPageEdit}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleSavePageEdit}>
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="outline" onClick={handleEditPage}>
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Page
                   </Button>
                 )}
               </div>
-            </div>
-            
-            <DialogFooter className="mt-4">
-              <Button onClick={closePreview}>
-                Close Preview
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
