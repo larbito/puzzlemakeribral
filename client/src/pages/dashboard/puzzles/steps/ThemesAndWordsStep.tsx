@@ -254,6 +254,38 @@ export const ThemesAndWordsStep: React.FC<ThemesAndWordsStepProps> = ({
     console.log("Dialog state changed:", dialogOpen);
   }, [dialogOpen]);
 
+  // Add useEffect to add a simple HTML button to the body
+  useEffect(() => {
+    // Create a button element
+    const debugButton = document.createElement('button');
+    debugButton.innerText = 'TEST MODAL';
+    debugButton.style.position = 'fixed';
+    debugButton.style.bottom = '20px';
+    debugButton.style.left = '20px';
+    debugButton.style.zIndex = '10001';
+    debugButton.style.padding = '10px';
+    debugButton.style.backgroundColor = 'red';
+    debugButton.style.color = 'white';
+    debugButton.style.border = 'none';
+    debugButton.style.borderRadius = '5px';
+    debugButton.style.cursor = 'pointer';
+    
+    // Add click handler
+    debugButton.addEventListener('click', () => {
+      console.log('HTML button clicked');
+      alert('HTML button clicked');
+      setDialogOpen(true);
+    });
+    
+    // Append to body
+    document.body.appendChild(debugButton);
+    
+    // Cleanup
+    return () => {
+      document.body.removeChild(debugButton);
+    };
+  }, []);
+
   return (
     <div>
       <div className="mb-6">
