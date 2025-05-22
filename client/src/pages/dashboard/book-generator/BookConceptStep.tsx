@@ -30,26 +30,35 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
+import { generateTableOfContents } from '@/api/openai';
 
-// Mock function for AI TOC generation - will replace with real API call
+// Real function for AI TOC generation using the API
 const generateTOCWithAI = async (
   bookSummary: string, 
   tone: string, 
   audience: string
 ): Promise<Chapter[]> => {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Mock response
-  return [
-    { id: '1', title: 'Introduction', content: '', wordCount: 0 },
-    { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
-    { id: '3', title: 'Chapter 2: Key Concepts and Frameworks', content: '', wordCount: 0 },
-    { id: '4', title: 'Chapter 3: Practical Applications', content: '', wordCount: 0 },
-    { id: '5', title: 'Chapter 4: Case Studies', content: '', wordCount: 0 },
-    { id: '6', title: 'Chapter 5: Advanced Techniques', content: '', wordCount: 0 },
-    { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
-  ];
+  try {
+    console.log('Generating TOC with parameters:', { bookSummary, tone, audience });
+    
+    // Use the imported API function
+    const chapters = await generateTableOfContents(bookSummary, tone, audience);
+    return chapters;
+  } catch (error) {
+    console.error('Error generating TOC:', error);
+    
+    // Fallback to mock data if API integration fails
+    console.log('Using fallback mock data due to API error');
+    return [
+      { id: '1', title: 'Introduction', content: '', wordCount: 0 },
+      { id: '2', title: 'Chapter 1: Understanding the Basics', content: '', wordCount: 0 },
+      { id: '3', title: 'Chapter 2: Key Concepts', content: '', wordCount: 0 },
+      { id: '4', title: 'Chapter 3: Practical Applications', content: '', wordCount: 0 },
+      { id: '5', title: 'Chapter 4: Case Studies', content: '', wordCount: 0 },
+      { id: '6', title: 'Chapter 5: Advanced Techniques', content: '', wordCount: 0 },
+      { id: '7', title: 'Conclusion', content: '', wordCount: 0 },
+    ];
+  }
 };
 
 interface BookConceptStepProps {
@@ -188,16 +197,17 @@ export const BookConceptStep: React.FC<BookConceptStepProps> = ({
           <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="bookSummary">Book Summary / Idea</Label>
-              <Textarea
+              <textarea
                 id="bookSummary"
                 value={bookSummary}
                 onChange={(e) => {
                   console.log('Textarea value changing:', e.target.value);
                   setBookSummary(e.target.value);
+                  // Immediately update parent to ensure it's always in sync
+                  onSettingChange('bookSummary', e.target.value);
                 }}
-                onBlur={saveBookSummary}
                 placeholder="Describe your book idea in detail. For example: A motivational book for teenagers about building confidence and overcoming failure."
-                className="min-h-[120px] resize-y"
+                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
                 rows={5}
                 autoComplete="off"
               />

@@ -118,8 +118,14 @@ export const AIBookGenerator = () => {
     // Special handling for bookSummary to ensure it updates properly
     if (key === 'bookSummary') {
       console.log('Updating bookSummary from:', settings.bookSummary, 'to:', value);
+      
+      // Force step completion for book-settings if a title exists
+      if (settings.title.length > 0 && key === 'bookSummary') {
+        setCompletedSteps(prev => ({ ...prev, 'book-settings': true }));
+      }
     }
     
+    // Immediately update the settings
     setSettings(prev => {
       const newSettings = { ...prev, [key]: value };
       // Save to localStorage
