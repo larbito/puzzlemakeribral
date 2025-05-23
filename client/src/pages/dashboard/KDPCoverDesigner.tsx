@@ -332,23 +332,17 @@ const KDPCoverDesigner: React.FC = () => {
           imageUrl: base64DataUrl, // Send as imageUrl parameter
           instructions: `
             This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
-            Focus on the visual style, colors, layout, and overall design.
+            Focus ONLY on the background design, style, colors, and overall aesthetic.
             
-            IMPORTANT KDP REQUIREMENTS:
-            1. The prompt should emphasize that text must be properly sized and placed
-            2. Text must be at least 0.25 inches from all edges (safe area)
-            3. Title should be prominent and centered
-            4. Any subtitle should be smaller but clearly visible
-            5. Author name should be properly positioned and sized
-            
-            Include specific details about:
-            - The book title and author placement
-            - The color scheme and aesthetic
-            - Any graphic elements or illustrations
-            - The mood and style of the cover
-            
-            DO NOT include instructions that would place text too close to edges.
-            DO NOT include watermarks or elements that interfere with readability.
+            EXTREMELY IMPORTANT INSTRUCTIONS - FOLLOW EXACTLY:
+            1. DO NOT include ANY text-related instructions in your prompt
+            2. DO NOT mention titles, subtitles, author names, or any text elements
+            3. ONLY describe the visual style, background artwork, colors, and design elements
+            4. Focus on creating a prompt for a TEXTLESS background design only
+            5. The text will be added separately later in safe margins
+
+            Output a prompt that will create ONLY the background/artwork with NO TEXT whatsoever.
+            This is critical for Amazon KDP print requirements.
           `
         })
       });
@@ -359,11 +353,23 @@ const KDPCoverDesigner: React.FC = () => {
       
       const analyzeData = await analyzeResponse.json();
       
-      // Update state with the analysis and mark the step as complete
+      // Ensure the prompt focuses only on background design, not text
+      let extractedPrompt = analyzeData.extractedPrompt || '';
+      
+      // Remove any text placement instructions
+      extractedPrompt = extractedPrompt.replace(/title/gi, 'central area');
+      extractedPrompt = extractedPrompt.replace(/text/gi, 'design element');
+      extractedPrompt = extractedPrompt.replace(/author/gi, 'artwork');
+      extractedPrompt = extractedPrompt.replace(/subtitle/gi, 'visual element');
+      
+      // Add explicit instruction to not generate any text
+      extractedPrompt = `Create a book cover background design with NO TEXT: ${extractedPrompt}. IMPORTANT: Generate ONLY the background artwork with absolutely NO TEXT, NO TITLES, NO WORDS of any kind.`;
+      
+      // Update state with the filtered analysis
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: analyzeData.extractedPrompt, // Note: backend returns extractedPrompt, not prompt
-        frontCoverImage: imageUrl, // Use the local object URL
+        frontCoverPrompt: extractedPrompt,
+        frontCoverImage: imageUrl,
         originalImageUrl: imageUrl,
         steps: {
           ...prev.steps,
@@ -372,7 +378,7 @@ const KDPCoverDesigner: React.FC = () => {
       }));
       
       // Show success message
-      toast.success("Image analyzed successfully!");
+      toast.success("Image analyzed successfully! Prompt created for background only - text will be added separately.");
       
     } catch (error) {
       console.error('Error analyzing image:', error);
@@ -994,6 +1000,21 @@ const KDPCoverDesigner: React.FC = () => {
             {(state.uploadedFile || state.frontCoverImage) && (
               <div className="mt-6">
                 <h3 className="text-md font-medium mb-2">Cover Preview</h3>
+                
+                {/* Add text-free design notice */}
+                <div className="mb-4 bg-amber-900/30 border border-amber-500/30 rounded-md p-3 text-sm">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
+                    <div>
+                      <p className="text-amber-300 font-medium">Text-Free Cover Design</p>
+                      <p className="text-amber-400/90 text-xs mt-1">
+                        For KDP compatibility, we now generate covers without text to ensure proper safe margins.
+                        Our system will overlay the book title and author name in the correct safe area during final export.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[550px]">
                   {/* Original Uploaded Image */}
                   <div className="space-y-2">
@@ -1119,8 +1140,9 @@ const KDPCoverDesigner: React.FC = () => {
                       <div className="flex items-center gap-2 text-xs p-3 bg-amber-950/60 border border-amber-900/50 rounded text-amber-400 mt-3">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500" />
                         <p className="font-medium">
-                          IMPORTANT: KDP requires all text to stay at least 0.25" from edges (within dashed line). 
-                          Text outside this safe area may be cut off during printing.
+                          IMPORTANT: This design is intentionally generated without text. In the final export, 
+                          text will be automatically placed within the 0.25" safe margin (within dashed line)
+                          to meet KDP requirements.
                         </p>
                       </div>
                     )}

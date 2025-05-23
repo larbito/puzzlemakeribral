@@ -219,7 +219,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
     
     // Add aspect ratio information to the prompt
     const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
-    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL: ALL text MUST be at least ${safeMarginPx}px (0.25 inches) away from ALL edges. Place text only in center area, far from edges. No text in outer margins. Create a FLAT DESIGN with text placed ONLY in the CENTRAL SAFE AREA, nothing near the edges.`;
+    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL: DO NOT INCLUDE ANY TEXT, TITLES OR WORDS IN THE IMAGE AT ALL. Create ONLY background artwork with no text elements.`;
     
     // Modify the API call logic to strongly enforce margins
     const enforceTextPlacement = true; // Set to true to enforce the text placement rules
@@ -259,7 +259,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
       if (negative_prompt) {
         form.append('negative_prompt', negative_prompt);
       } else {
-        form.append('negative_prompt', 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed');
+        form.append('negative_prompt', 'text, words, letters, typography, title, subtitle, author name, book title, writing, lettering, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed');
       }
       
       // Add some default parameters
@@ -273,7 +273,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
         prompt: enhancedPrompt,
         width: targetWidth.toString(),
         height: targetHeight.toString(),
-        negative_prompt: negative_prompt || 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed',
+        negative_prompt: negative_prompt || 'text, words, letters, typography, title, subtitle, author name, book title, writing, lettering, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed',
         num_images: '1',
         seed: Math.floor(Math.random() * 1000000),
         rendering_speed: 'DEFAULT'
