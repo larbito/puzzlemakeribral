@@ -191,23 +191,34 @@ router.post('/generate-front', express.json(), async (req, res) => {
     const pixelWidth = parseInt(width);
     const pixelHeight = parseInt(height);
     
+    // Calculate the exact aspect ratio for the cover
+    const aspectRatio = pixelWidth / pixelHeight;
+    console.log('Original aspect ratio:', aspectRatio);
+    
     // Ideogram API has resolution limits, so we might need to scale down and later scale up
     const maxDimension = 1024;
     let targetWidth = pixelWidth;
     let targetHeight = pixelHeight;
     
-    // Scale down if needed while maintaining aspect ratio
+    // Scale down if needed while maintaining aspect ratio EXACTLY
     if (pixelWidth > maxDimension || pixelHeight > maxDimension) {
       if (pixelWidth >= pixelHeight) {
         targetWidth = maxDimension;
-        targetHeight = Math.round((pixelHeight / pixelWidth) * maxDimension);
+        targetHeight = Math.round(maxDimension / aspectRatio);
       } else {
         targetHeight = maxDimension;
-        targetWidth = Math.round((pixelWidth / pixelHeight) * maxDimension);
+        targetWidth = Math.round(maxDimension * aspectRatio);
       }
     }
     
-    console.log('Using scaled dimensions:', { targetWidth, targetHeight });
+    console.log('Using scaled dimensions:', { targetWidth, targetHeight, aspectRatio });
+    
+    // Ensure the scaled dimensions maintain the original aspect ratio
+    const scaledAspectRatio = targetWidth / targetHeight;
+    console.log('Scaled aspect ratio:', scaledAspectRatio);
+    
+    // Add aspect ratio information to the prompt
+    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)})`;
     
     // For testing when the API key is not available or not valid
     if (!apiKey || apiKey.includes('your_api_key_here')) {
@@ -226,7 +237,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
     try {
       // Create form data for the Ideogram API
       const form = new FormData();
-      form.append('prompt', prompt);
+      form.append('prompt', enhancedPrompt);
       form.append('width', targetWidth.toString());
       form.append('height', targetHeight.toString());
       
@@ -245,7 +256,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
       console.log('Form data prepared for Ideogram API');
       // Directly log what we're sending
       console.log('Form data contents:', {
-        prompt: prompt,
+        prompt: enhancedPrompt,
         width: targetWidth.toString(),
         height: targetHeight.toString(),
         negative_prompt: negative_prompt || 'text, watermark, signature, blurry, low quality, distorted, deformed',
