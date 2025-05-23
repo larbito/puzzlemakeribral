@@ -461,7 +461,10 @@ const KDPCoverDesigner: React.FC = () => {
       
       // Get the selected style's prompt addition
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
-      const stylePrompt = selectedStyleObj ? `Apply the ${selectedStyleObj.name} style: ${selectedStyleObj.prompt}` : '';
+      const selectedVisualStyleObj = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
+      const bookStylePrompt = selectedStyleObj ? `${selectedStyleObj.name} book style: ${selectedStyleObj.prompt}` : '';
+      const visualStylePrompt = selectedVisualStyleObj ? `${selectedVisualStyleObj.name} visual style: ${selectedVisualStyleObj.prompt}` : '';
+      const combinedStylePrompt = `${bookStylePrompt} with ${visualStylePrompt}`;
       
       // Then, analyze the image for detailed visual description
       const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
@@ -485,7 +488,7 @@ const KDPCoverDesigner: React.FC = () => {
             6. Mood and atmosphere of the cover
             7. Type of typography that should be used for the title and author name
             
-            STYLE PREFERENCE: ${stylePrompt}
+            STYLE PREFERENCE: ${combinedStylePrompt}
             
             EXTREMELY IMPORTANT KDP PUBLISHING REQUIREMENTS - FOLLOW EXACTLY:
             1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
@@ -526,8 +529,15 @@ const KDPCoverDesigner: React.FC = () => {
       }
       
       // Make sure the selected style is included in the prompt
+      let styleAdded = false;
       if (selectedStyleObj && !extractedPrompt.toLowerCase().includes(selectedStyleObj.name.toLowerCase())) {
-        extractedPrompt = `${extractedPrompt}\n\nImportant: Apply the ${selectedStyleObj.name} style (${selectedStyleObj.prompt}) to the final design.`;
+        extractedPrompt = `${extractedPrompt}\n\nImportant: Apply the ${selectedStyleObj.name} book style (${selectedStyleObj.prompt}) to the final design.`;
+        styleAdded = true;
+      }
+      
+      // Add visual style if not already included
+      if (selectedVisualStyleObj && !extractedPrompt.toLowerCase().includes(selectedVisualStyleObj.name.toLowerCase())) {
+        extractedPrompt = `${extractedPrompt}${styleAdded ? ' ' : '\n\nImportant: '}Use ${selectedVisualStyleObj.name} visual art style (${selectedVisualStyleObj.prompt}) for the artwork.`;
       }
       
       // Update state with the enhanced prompt
@@ -1452,7 +1462,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <Wand2 className="mr-2 h-4 w-4" />
-                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} Style
+                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} & {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.name || ''} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Style
                               </>
                             )}
                           </Button>
@@ -1534,7 +1544,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <RefreshCcw className="mr-2 h-4 w-4" />
-                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} Style
+                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} & {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.name || ''} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Style
                               </>
                             )}
                           </Button>
