@@ -228,7 +228,19 @@ router.post('/generate-front', express.json(), async (req, res) => {
     
     // Add aspect ratio information to the prompt with very explicit dimensions
     const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
-    const enhancedPrompt = `${prompt} (Make sure this is EXACTLY ${width}x${height} pixels with an EXACT aspect ratio of ${aspectRatio.toFixed(5)} - book dimensions are ${width/300}x${height/300} inches) CRITICAL REQUIREMENTS: ALL text must be at least ${safeMarginPx}px (0.25 inches) from ALL edges. Title should be placed in upper half, centered. Author name should be in lower third. All text must stay within safe area - never near edges.`;
+    // Create a much more forceful prompt with repeated dimension information
+    const enhancedPrompt = `${prompt} 
+
+CRITICAL EXACT DIMENSIONS: This MUST be EXACTLY ${width}x${height} pixels with an EXACT aspect ratio of ${aspectRatio.toFixed(5)}. 
+Book dimensions are EXACTLY ${width/300}x${height/300} inches at 300 DPI.
+
+CRITICAL DIMENSIONS REQUIREMENT: The final image MUST maintain a ${width}:${height} exact dimension ratio with no deviation.
+
+CRITICAL TEXT REQUIREMENTS: 
+- ALL text must be at least ${safeMarginPx}px (0.25 inches) from ALL edges
+- Title should be placed in upper half, centered
+- Author name should be in lower third
+- All text must stay within safe area - never near edges`;
     
     // Modify the API call logic to strongly enforce margins
     const enforceTextPlacement = true; // Set to true to enforce the text placement rules
@@ -357,6 +369,60 @@ router.post('/generate-front', express.json(), async (req, res) => {
           height: pixelHeight,
           message: 'Using placeholder due to missing image URL'
         });
+      }
+
+      // Add post-processing to ensure the exact dimensions after generation
+      // After the image URL is retrieved from the API
+      if (data.url) {
+        try {
+          console.log('Enforcing exact dimensions on generated image');
+          // We'll resample the image to ensure exact dimensions
+          // If we have access to the raw image buffer, we can use sharp
+          const response = await fetch(data.url);
+          if (response.ok) {
+            const imageBuffer = await response.arrayBuffer();
+            const imageData = Buffer.from(imageBuffer);
+            
+            // Get the actual dimensions of the returned image
+            const metadata = await sharp(imageData).metadata();
+            console.log('Original image dimensions:', metadata.width, 'x', metadata.height);
+            
+            // If dimensions don't match exactly, force resize
+            if (metadata.width !== pixelWidth || metadata.height !== pixelHeight) {
+              console.log('Resizing to enforce exact dimensions');
+              // Use sharp to resize the image to exact dimensions
+              const resizedImage = await sharp(imageData)
+                .resize({
+                  width: pixelWidth,
+                  height: pixelHeight,
+                  fit: 'fill' // Enforce exact dimensions
+                })
+                .jpeg({ quality: 95 })
+                .toBuffer();
+              
+              // Save to a temporary file with a unique name
+              const uniqueId = Date.now();
+              const fileName = `cover-${uniqueId}-${pixelWidth}x${pixelHeight}.jpg`;
+              const filePath = path.join(staticDir, fileName);
+              await fs.promises.writeFile(filePath, resizedImage);
+              
+              // Generate a URL to the local file
+              const imageUrl = `/static/${fileName}`;
+              console.log('Created resized image at:', imageUrl);
+              
+              return res.json({
+                status: 'success',
+                url: `https://puzzlemakeribral-production.up.railway.app${imageUrl}`,
+                width: pixelWidth,
+                height: pixelHeight,
+                resized: true
+              });
+            }
+          }
+        } catch (resizeError) {
+          console.error('Error enforcing dimensions:', resizeError);
+          // Continue with original URL if resize fails
+        }
       }
 
       res.json({

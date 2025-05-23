@@ -1058,22 +1058,15 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage && state.steps.frontCover ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`,
-                          height: `${state.bookSettings.dimensions.height * 70}px`,
-                          maxWidth: '100%',
-                          maxHeight: '550px',
-                          aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`,
+                          width: '100%',
+                          paddingTop: `${(state.bookSettings.dimensions.height / state.bookSettings.dimensions.width) * 100}%`, /* Force aspect ratio */
+                          maxWidth: `${state.bookSettings.dimensions.width * 70}px`,
+                          maxHeight: `${state.bookSettings.dimensions.height * 70}px`,
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
-                            className="w-full h-full object-cover rounded-md shadow-lg"
-                            style={{
-                              objectFit: 'cover',
-                              aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`,
-                              width: '100%',
-                              height: '100%'
-                            }}
+                            className="absolute top-0 left-0 w-full h-full object-cover rounded-md shadow-lg"
                           />
                           
                           {/* Safe area indicators for KDP */}
@@ -1120,18 +1113,14 @@ const KDPCoverDesigner: React.FC = () => {
                               size="sm"
                               variant="secondary"
                               className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
-                              onClick={() => handleDownloadFrontCover()}
-                              disabled={isLoading.downloadingCover}
+                              onClick={() => {
+                                if (state.frontCoverImage) {
+                                  // Open the image in a new tab - simplest approach that always works
+                                  window.open(state.frontCoverImage, '_blank');
+                                }
+                              }}
                             >
-                              {isLoading.downloadingCover ? (
-                                <>
-                                  <span className="animate-spin mr-1">⏳</span> Downloading...
-                                </>
-                              ) : (
-                                <>
-                                  <Download className="h-3 w-3 mr-1" /> Download Cover
-                                </>
-                              )}
+                              <Download className="h-3 w-3 mr-1" /> View & Save
                             </Button>
                           </div>
                         </div>
@@ -1353,7 +1342,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: modifiedPrompt,
+                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications.`,
                                     width: coverWidth,
                                     height: coverHeight,
                                     negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
@@ -1523,19 +1512,18 @@ const KDPCoverDesigner: React.FC = () => {
                         <div className="flex flex-wrap gap-3">
                           <Button 
                             className="bg-emerald-600 hover:bg-emerald-500 flex items-center"
-                            onClick={() => handleDownloadFrontCover()}
-                            disabled={isLoading.downloadingCover}
+                            onClick={() => {
+                              if (state.frontCoverImage) {
+                                // Open image in a new tab for download
+                                window.open(state.frontCoverImage, '_blank');
+                                toast.success("Image opened in new tab - you can right-click to save it");
+                              } else {
+                                toast.error("No cover image to download");
+                              }
+                            }}
                           >
-                            {isLoading.downloadingCover ? (
-                              <span className="flex items-center">
-                                <span className="animate-spin mr-2">⏳</span> Downloading...
-                              </span>
-                            ) : (
-                              <>
-                                <Download className="mr-2 h-4 w-4" />
-                                Download Cover Image
-                              </>
-                            )}
+                            <Download className="mr-2 h-4 w-4" />
+                            Open Image for Download
                           </Button>
                           
                           <Button
