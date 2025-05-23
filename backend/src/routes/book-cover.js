@@ -191,8 +191,9 @@ router.post('/generate-front', express.json(), async (req, res) => {
     const pixelWidth = parseInt(width);
     const pixelHeight = parseInt(height);
     
-    // Calculate the exact aspect ratio for the cover
-    const aspectRatio = pixelWidth / pixelHeight;
+    // Calculate the exact aspect ratio for the cover - using precise arithmetic
+    const aspectRatio = parseFloat((pixelWidth / pixelHeight).toFixed(5));
+    console.log('Original dimensions:', { pixelWidth, pixelHeight });
     console.log('Original aspect ratio:', aspectRatio);
     
     // Ideogram API has resolution limits, so we might need to scale down and later scale up
@@ -209,17 +210,25 @@ router.post('/generate-front', express.json(), async (req, res) => {
         targetHeight = maxDimension;
         targetWidth = Math.round(maxDimension * aspectRatio);
       }
+      
+      // Double-check aspect ratio after rounding - adjust if needed to maintain exact ratio
+      const newRatio = parseFloat((targetWidth / targetHeight).toFixed(5));
+      if (newRatio !== aspectRatio) {
+        console.log('Adjusting dimensions to maintain exact aspect ratio');
+        // Adjust width or height to maintain exact ratio
+        if (targetWidth >= targetHeight) {
+          targetWidth = Math.round(targetHeight * aspectRatio);
+        } else {
+          targetHeight = Math.round(targetWidth / aspectRatio);
+        }
+      }
     }
     
-    console.log('Using scaled dimensions:', { targetWidth, targetHeight, aspectRatio });
+    console.log('Using scaled dimensions:', { targetWidth, targetHeight });
     
-    // Ensure the scaled dimensions maintain the original aspect ratio
-    const scaledAspectRatio = targetWidth / targetHeight;
-    console.log('Scaled aspect ratio:', scaledAspectRatio);
-    
-    // Add aspect ratio information to the prompt
+    // Add aspect ratio information to the prompt with very explicit dimensions
     const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
-    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL REQUIREMENTS: ALL text must be at least ${safeMarginPx}px (0.25 inches) from ALL edges. Title should be placed in upper half, centered. Author name should be in lower third. All text must stay within safe area - never near edges.`;
+    const enhancedPrompt = `${prompt} (Make sure this is EXACTLY ${width}x${height} pixels with an EXACT aspect ratio of ${aspectRatio.toFixed(5)} - book dimensions are ${width/300}x${height/300} inches) CRITICAL REQUIREMENTS: ALL text must be at least ${safeMarginPx}px (0.25 inches) from ALL edges. Title should be placed in upper half, centered. Author name should be in lower third. All text must stay within safe area - never near edges.`;
     
     // Modify the API call logic to strongly enforce margins
     const enforceTextPlacement = true; // Set to true to enforce the text placement rules

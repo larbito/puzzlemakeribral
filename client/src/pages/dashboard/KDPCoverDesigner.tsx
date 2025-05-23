@@ -183,12 +183,12 @@ const KDPCoverDesigner: React.FC = () => {
     }));
   }, [state.bookSettings.pageCount, state.bookSettings.paperType]);
 
-  // Calculate book dimensions when book size changes
+  // Calculate book dimensions when book size changes - ENSURE PROPER ASPECT RATIO
   useEffect(() => {
     const { bookSize } = state.bookSettings;
     const [width, height] = bookSize.split('x').map(Number);
     
-    // Set initial dimensions 
+    // Set exact dimensions to ensure proper aspect ratio
     setState(prev => ({
       ...prev,
       bookSettings: {
@@ -202,6 +202,8 @@ const KDPCoverDesigner: React.FC = () => {
         }
       }
     }));
+    
+    console.log(`Book dimensions set to: ${width}x${height} inches`);
   }, [state.bookSettings.bookSize, state.bookSettings.includeBleed]);
 
   // Function to complete a step and advance to the next one
@@ -1061,7 +1063,6 @@ const KDPCoverDesigner: React.FC = () => {
                           maxWidth: '100%',
                           maxHeight: '550px',
                           aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`,
-                          overflow: 'hidden'
                         }}>
                           <img 
                             src={state.frontCoverImage} 
@@ -1069,7 +1070,9 @@ const KDPCoverDesigner: React.FC = () => {
                             className="w-full h-full object-cover rounded-md shadow-lg"
                             style={{
                               objectFit: 'cover',
-                              aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`
+                              aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`,
+                              width: '100%',
+                              height: '100%'
                             }}
                           />
                           
@@ -1117,7 +1120,7 @@ const KDPCoverDesigner: React.FC = () => {
                               size="sm"
                               variant="secondary"
                               className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
-                              onClick={() => downloadFrontCover()}
+                              onClick={() => handleDownloadFrontCover()}
                               disabled={isLoading.downloadingCover}
                             >
                               {isLoading.downloadingCover ? (
@@ -1338,6 +1341,12 @@ const KDPCoverDesigner: React.FC = () => {
                                 const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt}`;
                                 
                                 // Call the book cover generation API
+                                const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
+                                const coverHeight = Math.round(state.bookSettings.dimensions.height * 300);
+                                
+                                console.log(`Generating cover with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
+                                console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
+                                
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                                   method: 'POST',
                                   headers: {
@@ -1345,8 +1354,8 @@ const KDPCoverDesigner: React.FC = () => {
                                   },
                                   body: JSON.stringify({
                                     prompt: modifiedPrompt,
-                                    width: Math.round(state.bookSettings.dimensions.width * 300),
-                                    height: Math.round(state.bookSettings.dimensions.height * 300),
+                                    width: coverWidth,
+                                    height: coverHeight,
                                     negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
                                   })
                                 });
@@ -1420,6 +1429,13 @@ const KDPCoverDesigner: React.FC = () => {
                                     
                                     const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
                                     
+                                    // Calculate pixel dimensions for the cover
+                                    const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
+                                    const coverHeight = Math.round(state.bookSettings.dimensions.height * 300);
+                                    
+                                    console.log(`Generating variation with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
+                                    console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
+                                    
                                     // Call the book cover generation API for a variation
                                     const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
                                       method: 'POST',
@@ -1428,8 +1444,8 @@ const KDPCoverDesigner: React.FC = () => {
                                       },
                                       body: JSON.stringify({
                                         prompt: variationPrompt,
-                                        width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                                        height: Math.round(state.bookSettings.dimensions.height * 300),
+                                        width: coverWidth,
+                                        height: coverHeight,
                                         negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
@@ -1507,7 +1523,7 @@ const KDPCoverDesigner: React.FC = () => {
                         <div className="flex flex-wrap gap-3">
                           <Button 
                             className="bg-emerald-600 hover:bg-emerald-500 flex items-center"
-                            onClick={downloadFrontCover}
+                            onClick={() => handleDownloadFrontCover()}
                             disabled={isLoading.downloadingCover}
                           >
                             {isLoading.downloadingCover ? (
@@ -2553,8 +2569,8 @@ const KDPCoverDesigner: React.FC = () => {
     }
   };
 
-  // New function to download the front cover image
-  const downloadFrontCover = async () => {
+  // Fixed download function with proper naming
+  const handleDownloadFrontCover = async () => {
     if (!state.frontCoverImage) {
       toast.error("No cover image to download");
       return;
