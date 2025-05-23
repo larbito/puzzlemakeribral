@@ -154,7 +154,8 @@ const KDPCoverDesigner: React.FC = () => {
     generateBackCoverPrompt: false,
     assembleFullCover: false,
     uploadImage: false,
-    analyzeImage: false
+    analyzeImage: false,
+    downloadingCover: false
   });
 
   // Calculate spine width based on page count and paper type
@@ -1110,6 +1111,27 @@ const KDPCoverDesigner: React.FC = () => {
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Download button overlay */}
+                          <div className="absolute top-2 left-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
+                              onClick={() => downloadFrontCover()}
+                              disabled={isLoading.downloadingCover}
+                            >
+                              {isLoading.downloadingCover ? (
+                                <>
+                                  <span className="animate-spin mr-1">⏳</span> Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="h-3 w-3 mr-1" /> Download Cover
+                                </>
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       ) : (
                         <div className="text-zinc-500 text-center flex flex-col items-center justify-center" style={{
@@ -1481,6 +1503,55 @@ const KDPCoverDesigner: React.FC = () => {
                             </Button>
                           </>
                         )}
+                      </div>
+                    </div>
+                  )}
+                  {state.frontCoverImage && (
+                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
+                          <span className="text-emerald-400 font-medium">3</span>
+                        </div>
+                        <h4 className="text-md font-medium text-emerald-400">Export Options</h4>
+                      </div>
+                      
+                      <div className="ml-11 space-y-3">
+                        <p className="text-sm text-zinc-400">
+                          Download your cover image or continue with the design process
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-3">
+                          <Button 
+                            className="bg-emerald-600 hover:bg-emerald-500 flex items-center"
+                            onClick={downloadFrontCover}
+                            disabled={isLoading.downloadingCover}
+                          >
+                            {isLoading.downloadingCover ? (
+                              <span className="flex items-center">
+                                <span className="animate-spin mr-2">⏳</span> Downloading...
+                              </span>
+                            ) : (
+                              <>
+                                <Download className="mr-2 h-4 w-4" />
+                                Download Cover Image
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
+                            onClick={() => {
+                              // Open the image in a new tab
+                              if (state.frontCoverImage) {
+                                window.open(state.frontCoverImage, '_blank');
+                              }
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Full Size
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2495,6 +2566,57 @@ const KDPCoverDesigner: React.FC = () => {
             </Button>
           </div>
         );
+    }
+  };
+
+  // New function to download the front cover image
+  const downloadFrontCover = async () => {
+    if (!state.frontCoverImage) {
+      toast.error("No cover image to download");
+      return;
+    }
+
+    try {
+      setIsLoading({...isLoading, downloadingCover: true});
+      toast.info("Preparing download...");
+
+      // Handle both remote URLs and data URLs
+      let imageUrl = state.frontCoverImage;
+      
+      // If URL is from an external source (not a data URL), fetch it first
+      if (imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        imageUrl = URL.createObjectURL(blob);
+      }
+
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      
+      // Extract title from prompt if available
+      let filename = 'book-cover';
+      const titleMatch = state.frontCoverPrompt.match(/book about ([^,\.]+)/i);
+      if (titleMatch && titleMatch[1]) {
+        filename = titleMatch[1].trim().replace(/\s+/g, '-').toLowerCase();
+      }
+      
+      link.download = `${filename}-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up object URL if we created one
+      if (imageUrl !== state.frontCoverImage) {
+        URL.revokeObjectURL(imageUrl);
+      }
+
+      toast.success("Cover image downloaded successfully!");
+    } catch (error) {
+      console.error('Error downloading cover:', error);
+      toast.error("Failed to download cover image");
+    } finally {
+      setIsLoading({...isLoading, downloadingCover: false});
     }
   };
 
