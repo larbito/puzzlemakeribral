@@ -156,7 +156,7 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Image URL is required' });
     }
 
-    const systemPrompt = context || `You are an expert book cover designer and publishing professional who analyzes book covers for KDP (Kindle Direct Publishing) and other print-on-demand services.`;
+    const systemPrompt = context || `You are an expert book cover designer and publishing professional with exceptional skill at identifying specific individuals, places, and objects in images. You provide precise, accurate descriptions without resorting to generic terms when specifics can be determined.`;
     
     console.log('Calling OpenAI API to extract prompt from image');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -177,22 +177,25 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
             content: [
               {
                 type: 'text',
-                text: `Analyze this book cover image carefully. 
+                text: `Analyze this book cover image carefully and identify EXACTLY what you see. 
 
 1. Extract all visible text elements, separating them into categories:
-   - TITLE: The main title of the book
+   - TITLE: The exact book title
    - SUBTITLE: Any secondary title or subtitle
-   - AUTHOR: The author's name
+   - AUTHOR: The exact author name
    - TAGLINE: Any short marketing phrase or tagline
    - OTHER_TEXT: Any other visible text elements
 
 2. Then provide a detailed description for recreating this cover design, including:
-   - Visual elements and their arrangement
-   - Color scheme with specific color names
-   - Artistic style and mood
+   - EXACTLY who or what is depicted (specific people, objects, scenes)
+   - Precise visual elements and their arrangement
+   - Exact color scheme with specific color names
+   - Detailed artistic style and mood
    - Typography styles
    - Layout and composition
    - Texture and finishing details
+
+CRITICAL: Be extremely specific with identifications. Never use generic terms like "famous scientist" or "sports figure" when you can identify the specific person (e.g., "Albert Einstein", "Lionel Messi"). If you're not 100% certain, provide your best specific guess along with alternative possibilities.
 
 Format your response as a structured JSON object with these fields:
 {
