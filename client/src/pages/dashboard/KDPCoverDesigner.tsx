@@ -1058,15 +1058,16 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage && state.steps.frontCover ? (
                         <div className="relative" style={{
-                          width: '100%',
-                          paddingTop: `${(state.bookSettings.dimensions.height / state.bookSettings.dimensions.width) * 100}%`, /* Force aspect ratio */
-                          maxWidth: `${state.bookSettings.dimensions.width * 70}px`,
-                          maxHeight: `${state.bookSettings.dimensions.height * 70}px`,
+                          width: `${state.bookSettings.dimensions.width * 70}px`, // Use width directly
+                          height: `${state.bookSettings.dimensions.height * 70}px`, // Use height directly
+                          maxWidth: '100%',
+                          maxHeight: '550px',
+                          margin: '0 auto' // Center the container
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
-                            className="absolute top-0 left-0 w-full h-full object-cover rounded-md shadow-lg"
+                            className="w-full h-full object-contain rounded-md shadow-lg"
                           />
                           
                           {/* Safe area indicators for KDP */}
@@ -1115,8 +1116,8 @@ const KDPCoverDesigner: React.FC = () => {
                               className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
                               onClick={() => {
                                 if (state.frontCoverImage) {
-                                  // Open the image in a new tab - simplest approach that always works
-                                  window.open(state.frontCoverImage, '_blank');
+                                  // Instead of just opening in a new tab, create a proper download
+                                  downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
                                 }
                               }}
                             >
@@ -1514,9 +1515,8 @@ const KDPCoverDesigner: React.FC = () => {
                             className="bg-emerald-600 hover:bg-emerald-500 flex items-center"
                             onClick={() => {
                               if (state.frontCoverImage) {
-                                // Open image in a new tab for download
-                                window.open(state.frontCoverImage, '_blank');
-                                toast.success("Image opened in new tab - you can right-click to save it");
+                                // Instead of just opening in a new tab, create a proper download
+                                downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
                               } else {
                                 toast.error("No cover image to download");
                               }
@@ -1532,7 +1532,7 @@ const KDPCoverDesigner: React.FC = () => {
                             onClick={() => {
                               // Open the image in a new tab
                               if (state.frontCoverImage) {
-                                window.open(state.frontCoverImage, '_blank');
+                                downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
                               }
                             }}
                           >
@@ -2603,6 +2603,68 @@ const KDPCoverDesigner: React.FC = () => {
     } catch (error) {
       console.error('Error downloading cover:', error);
       toast.error("Failed to download cover image");
+    } finally {
+      setIsLoading({...isLoading, downloadingCover: false});
+    }
+  };
+
+  // Add a new download function before the return statement and after handleDownloadFrontCover
+  // Add this as a new function around line 2600
+  const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
+    try {
+      setIsLoading({...isLoading, downloadingCover: true});
+      toast.info("Preparing download with exact 6x9 dimensions...");
+
+      // Create an image element to load the image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      // Set up promise to wait for image to load
+      const imageLoaded = new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load image"));
+        img.src = imageUrl;
+      });
+      
+      await imageLoaded;
+      
+      // Calculate exact dimensions at 300 DPI
+      const exactWidth = Math.round(state.bookSettings.dimensions.width * 300);
+      const exactHeight = Math.round(state.bookSettings.dimensions.height * 300);
+      
+      // Create a canvas with exact dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = exactWidth;
+      canvas.height = exactHeight;
+      const ctx = canvas.getContext('2d');
+      
+      // Draw the image to the canvas with exact dimensions
+      if (ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to a data URL and download
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        // Create a download link
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename || 'cover.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        toast.success(`Downloaded cover with exact ${state.bookSettings.bookSize} dimensions (${exactWidth}x${exactHeight}px @ 300dpi)`);
+      } else {
+        throw new Error("Could not get canvas context");
+      }
+    } catch (error) {
+      console.error('Error downloading image with exact dimensions:', error);
+      toast.error("Failed to download cover. Falling back to direct download.");
+      
+      // Fallback to direct download
+      window.open(imageUrl, '_blank');
     } finally {
       setIsLoading({...isLoading, downloadingCover: false});
     }
