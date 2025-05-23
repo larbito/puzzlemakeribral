@@ -194,6 +194,9 @@ const KDPCoverDesigner: React.FC = () => {
     downloadingCover: false
   });
 
+  // Add a state for showing/hiding safety guidelines at the top near other state declarations
+  const [showSafetyGuides, setShowSafetyGuides] = useState<boolean>(false);
+
   // Calculate spine width based on page count and paper type
   useEffect(() => {
     const { pageCount, paperType } = state.bookSettings;
@@ -1377,7 +1380,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                           />
                           
                           {/* Safe area indicators for KDP */}
-                          <div className="absolute inset-0 pointer-events-none">
+                          <div className={`absolute inset-0 pointer-events-none ${showSafetyGuides ? 'visible' : 'hidden'}`}>
                             {/* Inner safe area boundary - 0.25 inches from edges */}
                             <div 
                               className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-70"
@@ -1412,6 +1415,18 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                 KDP requires 0.25" safe margin for text
                               </div>
                             </div>
+                          </div>
+                          
+                          {/* Add a toggle button to show/hide guides */}
+                          <div className="absolute top-2 right-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-700"
+                              onClick={() => setShowSafetyGuides(!showSafetyGuides)}
+                            >
+                              {showSafetyGuides ? 'Hide Guidelines' : 'Show Guidelines'}
+                            </Button>
                           </div>
                           
                           {/* Download button overlay */}
@@ -1463,8 +1478,8 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                       <div className="flex items-center gap-2 text-xs p-3 bg-amber-950/60 border border-amber-900/50 rounded text-amber-400 mt-3">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500" />
                         <p className="font-medium">
-                          IMPORTANT: This design maintains a 0.25" safe margin (shown by dashed lines).
-                          All text is positioned within this safe area to meet KDP requirements.
+                          IMPORTANT: This design maintains a 0.25" safe margin for all text elements.
+                          Text is positioned to meet KDP requirements. Use the "Show Guidelines" button to view safety margins.
                         </p>
                       </div>
                     )}
@@ -2512,7 +2527,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                     />
                     
                     {/* Safe Zones Overlay */}
-                    <div className="absolute inset-0 pointer-events-none">
+                    <div className={`absolute inset-0 pointer-events-none ${showSafetyGuides ? 'visible' : 'hidden'}`}>
                       {/* Spine guides */}
                       <div className="absolute top-0 bottom-0 border-l-2 border-r-2 border-cyan-500 border-dashed"
                         style={{
@@ -2533,6 +2548,18 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                       {state.bookSettings.includeISBN && (
                         <div className="absolute bottom-16 right-16 w-24 h-16 border-2 border-green-500 border-dashed rounded" />
                       )}
+                    </div>
+                    
+                    {/* Add toggle for guidelines */}
+                    <div className="absolute top-2 right-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-700"
+                        onClick={() => setShowSafetyGuides(!showSafetyGuides)}
+                      >
+                        {showSafetyGuides ? 'Hide Guidelines' : 'Show Guidelines'}
+                      </Button>
                     </div>
                   </div>
                 ) : (
