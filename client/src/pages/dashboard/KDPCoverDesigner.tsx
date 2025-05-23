@@ -1058,16 +1058,20 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage && state.steps.frontCover ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`, // Use width directly
-                          height: `${state.bookSettings.dimensions.height * 70}px`, // Use height directly
+                          width: `${state.bookSettings.dimensions.width * 70}px`, // Fixed width based on inches * 70
+                          height: `${state.bookSettings.dimensions.height * 70}px`, // Fixed height based on inches * 70
+                          aspectRatio: `${state.bookSettings.dimensions.width} / ${state.bookSettings.dimensions.height}`, // Enforce exact aspect ratio
                           maxWidth: '100%',
-                          maxHeight: '550px',
-                          margin: '0 auto' // Center the container
+                          margin: '0 auto', // Center the container
+                          overflow: 'hidden' // Ensure nothing spills outside
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
                             className="w-full h-full object-contain rounded-md shadow-lg"
+                            style={{
+                              objectFit: 'contain'
+                            }}
                           />
                           
                           {/* Safe area indicators for KDP */}
@@ -1116,7 +1120,7 @@ const KDPCoverDesigner: React.FC = () => {
                               className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
                               onClick={() => {
                                 if (state.frontCoverImage) {
-                                  // Instead of just opening in a new tab, create a proper download
+                                  // Use our new download function
                                   downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
                                 }
                               }}
@@ -1126,11 +1130,14 @@ const KDPCoverDesigner: React.FC = () => {
                           </div>
                         </div>
                       ) : (
+                        // Placeholder when no image
                         <div className="text-zinc-500 text-center flex flex-col items-center justify-center" style={{
                           width: `${state.bookSettings.dimensions.width * 70}px`,
                           height: `${state.bookSettings.dimensions.height * 70}px`,
+                          aspectRatio: `${state.bookSettings.dimensions.width} / ${state.bookSettings.dimensions.height}`, // Enforce exact aspect ratio here too
                           maxWidth: '100%',
-                          maxHeight: '550px'
+                          maxHeight: '550px',
+                          margin: '0 auto' // Center the container
                         }}>
                           <Wand2 className="h-10 w-10 mb-2 text-zinc-700" />
                           <p className="text-zinc-500">
@@ -2613,7 +2620,7 @@ const KDPCoverDesigner: React.FC = () => {
   const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
     try {
       setIsLoading({...isLoading, downloadingCover: true});
-      toast.info("Preparing download with exact 6x9 dimensions...");
+      toast.info(`Preparing ${state.bookSettings.bookSize} cover at 300 DPI...`);
 
       // Create an image element to load the image
       const img = new Image();
@@ -2640,9 +2647,32 @@ const KDPCoverDesigner: React.FC = () => {
       
       // Draw the image to the canvas with exact dimensions
       if (ctx) {
+        // First fill with white background to ensure proper dimensions
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // Calculate how to draw the image to maintain aspect ratio and fill the canvas properly
+        const imgAspect = img.width / img.height;
+        const canvasAspect = canvas.width / canvas.height;
+        
+        let drawWidth, drawHeight, xOffset, yOffset;
+        
+        if (imgAspect > canvasAspect) {
+          // Image is wider than canvas aspect ratio - fit to height
+          drawHeight = canvas.height;
+          drawWidth = img.width * (drawHeight / img.height);
+          xOffset = (canvas.width - drawWidth) / 2;
+          yOffset = 0;
+        } else {
+          // Image is taller than canvas aspect ratio - fit to width
+          drawWidth = canvas.width;
+          drawHeight = img.height * (drawWidth / img.width);
+          xOffset = 0;
+          yOffset = (canvas.height - drawHeight) / 2;
+        }
+        
+        // Draw the image centered and maintaining aspect ratio
+        ctx.drawImage(img, xOffset, yOffset, drawWidth, drawHeight);
         
         // Convert to a data URL and download
         const dataUrl = canvas.toDataURL('image/png');
@@ -2655,7 +2685,7 @@ const KDPCoverDesigner: React.FC = () => {
         a.click();
         document.body.removeChild(a);
         
-        toast.success(`Downloaded cover with exact ${state.bookSettings.bookSize} dimensions (${exactWidth}x${exactHeight}px @ 300dpi)`);
+        toast.success(`Downloaded ${state.bookSettings.bookSize} cover (${exactWidth}×${exactHeight}px @ 300dpi)`);
       } else {
         throw new Error("Could not get canvas context");
       }
