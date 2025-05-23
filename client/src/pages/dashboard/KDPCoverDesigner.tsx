@@ -1350,10 +1350,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications.`,
+                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
                                     width: coverWidth,
                                     height: coverHeight,
-                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
+                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text'
                                   })
                                 });
                                 
@@ -1440,10 +1440,10 @@ const KDPCoverDesigner: React.FC = () => {
                                         'Content-Type': 'application/json',
                                       },
                                       body: JSON.stringify({
-                                        prompt: variationPrompt,
+                                        prompt: variationPrompt + ` DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
                                         width: coverWidth,
                                         height: coverHeight,
-                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
+                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });

@@ -372,13 +372,12 @@ CRITICAL TEXT REQUIREMENTS:
       }
 
       // Add post-processing to ensure the exact dimensions after generation
-      // After the image URL is retrieved from the API
-      if (data.url) {
+      if (data.url || imageUrl) {
         try {
           console.log('Enforcing exact dimensions on generated image');
-          // We'll resample the image to ensure exact dimensions
-          // If we have access to the raw image buffer, we can use sharp
-          const response = await fetch(data.url);
+          // We'll always resample the image to ensure exact dimensions, not just when they don't match
+          const responseUrl = data.url || imageUrl;
+          const response = await fetch(responseUrl);
           if (response.ok) {
             const imageBuffer = await response.arrayBuffer();
             const imageData = Buffer.from(imageBuffer);
@@ -387,37 +386,35 @@ CRITICAL TEXT REQUIREMENTS:
             const metadata = await sharp(imageData).metadata();
             console.log('Original image dimensions:', metadata.width, 'x', metadata.height);
             
-            // If dimensions don't match exactly, force resize
-            if (metadata.width !== pixelWidth || metadata.height !== pixelHeight) {
-              console.log('Resizing to enforce exact dimensions');
-              // Use sharp to resize the image to exact dimensions
-              const resizedImage = await sharp(imageData)
-                .resize({
-                  width: pixelWidth,
-                  height: pixelHeight,
-                  fit: 'fill' // Enforce exact dimensions
-                })
-                .jpeg({ quality: 95 })
-                .toBuffer();
-              
-              // Save to a temporary file with a unique name
-              const uniqueId = Date.now();
-              const fileName = `cover-${uniqueId}-${pixelWidth}x${pixelHeight}.jpg`;
-              const filePath = path.join(staticDir, fileName);
-              await fs.promises.writeFile(filePath, resizedImage);
-              
-              // Generate a URL to the local file
-              const imageUrl = `/static/${fileName}`;
-              console.log('Created resized image at:', imageUrl);
-              
-              return res.json({
-                status: 'success',
-                url: `https://puzzlemakeribral-production.up.railway.app${imageUrl}`,
+            // ALWAYS force resize to ensure EXACT dimensions, even if they seem to match
+            console.log('Resizing to enforce exact dimensions');
+            // Use sharp to resize the image to exact dimensions
+            const resizedImage = await sharp(imageData)
+              .resize({
                 width: pixelWidth,
                 height: pixelHeight,
-                resized: true
-              });
-            }
+                fit: 'fill' // Enforce exact dimensions
+              })
+              .jpeg({ quality: 95 })
+              .toBuffer();
+            
+            // Save to a temporary file with a unique name
+            const uniqueId = Date.now();
+            const fileName = `cover-${uniqueId}-${pixelWidth}x${pixelHeight}.jpg`;
+            const filePath = path.join(staticDir, fileName);
+            await fs.promises.writeFile(filePath, resizedImage);
+            
+            // Generate a URL to the local file
+            const imageUrl = `/static/${fileName}`;
+            console.log('Created resized image at:', imageUrl);
+            
+            return res.json({
+              status: 'success',
+              url: `https://puzzlemakeribral-production.up.railway.app${imageUrl}`,
+              width: pixelWidth,
+              height: pixelHeight,
+              resized: true
+            });
           }
         } catch (resizeError) {
           console.error('Error enforcing dimensions:', resizeError);
