@@ -2615,8 +2615,7 @@ const KDPCoverDesigner: React.FC = () => {
     }
   };
 
-  // Add a new download function before the return statement and after handleDownloadFrontCover
-  // Add this as a new function around line 2600
+  // Completely revise the downloadCoverWithExactDimensions function
   const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
     try {
       setIsLoading({...isLoading, downloadingCover: true});
@@ -2645,40 +2644,10 @@ const KDPCoverDesigner: React.FC = () => {
       canvas.height = exactHeight;
       const ctx = canvas.getContext('2d');
       
-      // Draw the image to the canvas with exact dimensions
       if (ctx) {
-        // First fill with white background to ensure proper dimensions
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // FIXED APPROACH: For book covers, we want to COVER not CONTAIN
-        // This ensures the image fills the entire canvas without white borders
-        // Get original image dimensions
-        const imgWidth = img.width;
-        const imgHeight = img.height;
-        
-        // Calculate the scaling factor to COVER the entire canvas
-        // (this may crop some of the image but ensures no white borders)
-        const scale = Math.max(
-          canvas.width / imgWidth,
-          canvas.height / imgHeight
-        );
-        
-        // Calculate centered position (this will crop equally from both sides/top/bottom)
-        const x = (canvas.width - imgWidth * scale) / 2;
-        const y = (canvas.height - imgHeight * scale) / 2;
-        
-        // Draw the image at the calculated position and size
-        ctx.drawImage(
-          img,
-          0, 0, imgWidth, imgHeight,  // Source rectangle
-          x, y, imgWidth * scale, imgHeight * scale  // Destination rectangle
-        );
-        
-        // Remove the debug border that might be showing white space
-        // ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
-        // ctx.lineWidth = 1;
-        // ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        // SIMPLEST APPROACH: Just draw the image to fill the entire canvas
+        // This will stretch/distort the image if needed but ensures no white borders
+        ctx.drawImage(img, 0, 0, exactWidth, exactHeight);
         
         // Convert to a data URL and download
         const dataUrl = canvas.toDataURL('image/png');
