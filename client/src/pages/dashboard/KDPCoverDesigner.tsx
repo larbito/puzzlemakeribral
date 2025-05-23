@@ -438,6 +438,10 @@ const KDPCoverDesigner: React.FC = () => {
         extractedText = textData.extractedText || '';
       }
       
+      // Get the selected style's prompt addition
+      const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
+      const stylePrompt = selectedStyleObj ? `Apply the ${selectedStyleObj.name} style: ${selectedStyleObj.prompt}` : '';
+      
       // Then, analyze the image for detailed visual description
       const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
@@ -456,6 +460,8 @@ const KDPCoverDesigner: React.FC = () => {
             4. Description of all visual elements and their placement
             5. Texture and finishing details
             6. Mood and atmosphere of the cover
+            
+            STYLE PREFERENCE: ${stylePrompt}
             
             EXTREMELY IMPORTANT KDP REQUIREMENTS - FOLLOW EXACTLY:
             1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
@@ -489,6 +495,11 @@ const KDPCoverDesigner: React.FC = () => {
       // Add extracted text information if available
       if (extractedText && !extractedPrompt.includes("Title:")) {
         extractedPrompt = `${extractedPrompt}\n\nExtracted text from original cover: ${extractedText}`;
+      }
+      
+      // Make sure the selected style is included in the prompt
+      if (selectedStyleObj && !extractedPrompt.toLowerCase().includes(selectedStyleObj.name.toLowerCase())) {
+        extractedPrompt = `${extractedPrompt}\n\nImportant: Apply the ${selectedStyleObj.name} style (${selectedStyleObj.prompt}) to the final design.`;
       }
       
       // Update state with the enhanced prompt
@@ -987,55 +998,24 @@ const KDPCoverDesigner: React.FC = () => {
                       </Button>
                     ))}
                   </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    The selected style will be incorporated into image analysis and the generated cover.
+                  </p>
                 </div>
                 
-                <div className="flex space-x-2">
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      toast.info("Enhancing prompt with AI...");
-                      // Simulate API call to enhance prompt
-                      setTimeout(() => {
-                        const enhancedPrompt = state.frontCoverPrompt + 
-                          ", professional book cover, high quality publishing, centered title, vivid colors, dramatic lighting";
-                        setState(prev => ({
-                          ...prev,
-                          frontCoverPrompt: enhancedPrompt
-                        }));
-                        toast.success("Prompt enhanced with AI recommendations");
-                      }, 1500);
-                    }}
-                    className="flex-1 border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
-                  >
-                    <Wand2 className="mr-2 h-4 w-4" />
-                    Enhance Prompt
-                  </Button>
-                  
-                  <Button 
-                    onClick={() => {
-                      setIsLoading({...isLoading, generateFrontCover: true});
-                      // Simulate API call to generate front cover
-                      setTimeout(() => {
-                        // In a real implementation, this would be the URL from the API
-                        const imageUrl = 'https://placehold.co/600x900/334155/ffffff?text=AI+Generated+Front+Cover';
-                        setState(prev => ({
-                          ...prev,
-                          frontCoverImage: imageUrl,
-                          steps: {
-                            ...prev.steps,
-                            frontCover: true
-                          }
-                        }));
-                        setIsLoading({...isLoading, generateFrontCover: false});
-                        toast.success("Front cover generated successfully!");
-                      }, 2000);
-                    }}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-500"
-                    disabled={isLoading.generateFrontCover || !state.frontCoverPrompt}
-                  >
-                    {isLoading.generateFrontCover ? 'Generating...' : 'Generate Cover'}
-                  </Button>
+                <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
+                  <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center">
+                    <span className="mr-2">✨</span> AI Analysis
+                  </h4>
+                  <p className="text-xs text-emerald-300">
+                    Upload your image and our AI will analyze it to create a detailed prompt that captures its style and elements.
+                    We'll then use this prompt to generate variations or enhancements.
+                  </p>
                 </div>
+                
+                <p className="text-xs text-zinc-500">
+                  Images should be at least 300 DPI and match the dimensions from your book settings.
+                </p>
               </TabsContent>
               
               <TabsContent value="upload" className="space-y-4">
@@ -1124,6 +1104,34 @@ const KDPCoverDesigner: React.FC = () => {
                       />
                     </div>
                   )}
+                </div>
+                
+                {/* Add style selection */}
+                <div className="space-y-2 mt-4">
+                  <Label>Cover Style</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {COVER_STYLES.map((style) => (
+                      <Button
+                        key={style.id}
+                        type="button"
+                        variant={state.selectedStyle === style.id ? "default" : "outline"}
+                        onClick={() => 
+                          setState(prev => ({
+                            ...prev,
+                            selectedStyle: style.id
+                          }))
+                        }
+                        className={`flex flex-col items-center justify-center h-20 ${
+                          state.selectedStyle === style.id 
+                            ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
+                            : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
+                        }`}
+                      >
+                        <span className="text-2xl mb-1">{style.emoji}</span>
+                        <span className="text-xs font-medium">{style.name}</span>
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 
                 <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
@@ -1353,7 +1361,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <Wand2 className="mr-2 h-4 w-4" />
-                                Generate Prompt from Image
+                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} Style
                               </>
                             )}
                           </Button>
@@ -1435,7 +1443,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <RefreshCcw className="mr-2 h-4 w-4" />
-                                Regenerate Prompt
+                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} Style
                               </>
                             )}
                           </Button>
@@ -1547,7 +1555,7 @@ const KDPCoverDesigner: React.FC = () => {
                           ) : (
                             <>
                               <Wand2 className="mr-2 h-4 w-4" />
-                              Generate Cover from Prompt
+                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} Cover from Prompt
                             </>
                           )}
                         </Button>
