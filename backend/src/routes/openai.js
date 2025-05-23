@@ -713,11 +713,11 @@ router.post('/generate-pdf', async (req, res) => {
         for (let i = 0; i < pageCount; i++) {
           doc.switchToPage(i);
           
-          // Skip page numbers on title, copyright, dedication pages
-          if (i < 3) continue;
+          // Skip page number on title page
+          if (i === 0) continue;
           
           doc.fontSize(10)
-             .text(`${i + 1}`, 
+             .text(`${i}`, 
                   0, 
                   pageHeight - 50, 
                   { align: 'center', width: pageWidth });

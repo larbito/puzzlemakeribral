@@ -55,7 +55,6 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
   onDownload,
 }) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const [email, setEmail] = useState('');
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [currentChapter, setCurrentChapter] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("preview");
@@ -89,22 +88,6 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
     const hasCopyrightPage = settings.includeCopyright ? !!settings.copyrightPage : true;
     
     return hasAllChapterContent && hasTitlePage && hasCopyrightPage;
-  };
-
-  const handleSendByEmail = () => {
-    if (!email || !email.includes('@') || !downloadUrl) {
-      toast({
-        title: 'Invalid email',
-        description: 'Please enter a valid email address.',
-      });
-      return;
-    }
-    
-    // This would connect to a backend API to send the email
-    toast({
-      title: 'Book sent!',
-      description: `Your book has been sent to ${email}`,
-    });
   };
 
   const handlePrint = () => {
@@ -347,7 +330,7 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
     return (
       <div className="flex flex-col items-center">
         <div 
-          className="border rounded-md p-6 bg-white mb-4 w-full"
+          className="border rounded-md p-6 mb-4 w-full shadow-md bg-white"
           style={{
             aspectRatio: settings.bookSize === '6x9' ? '6/9' : 
                          settings.bookSize === '5x8' ? '5/8' : 
@@ -356,6 +339,10 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
             fontSize: `${settings.fontSize}pt`,
             lineHeight: settings.lineSpacing,
             position: 'relative',
+            minHeight: '300px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
           }}
         >
           {pageContent}
@@ -551,23 +538,6 @@ export const PreviewExportStep: React.FC<PreviewExportStepProps> = ({
                           <Download className="mr-2 h-4 w-4" />
                           Download PDF
                         </Button>
-                        
-                        <div className="flex gap-2 items-center">
-                          <Input
-                            type="email"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                          />
-                          <Button 
-                            variant="outline" 
-                            onClick={handleSendByEmail}
-                            disabled={!email || !email.includes('@')}
-                          >
-                            <Mail className="h-4 w-4 mr-1" />
-                            Send
-                          </Button>
-                        </div>
                       </div>
                     </div>
                   </div>

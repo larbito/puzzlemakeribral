@@ -490,12 +490,15 @@ export const AIBookGenerator = () => {
         const totalPages = pdf.internal.pages.length - 1; // -1 because jsPDF has an empty first page
         for (let i = 1; i <= totalPages; i++) {
           pdf.setPage(i);
-          pdf.text(
-            String(i), 
-            pdf.internal.pageSize.getWidth() / 2, 
-            pdf.internal.pageSize.getHeight() - 0.5,
-            { align: 'center' }
-          );
+          // Skip the title page for page numbering
+          if (i > 1) {
+            pdf.text(
+              String(i - 1), 
+              pdf.internal.pageSize.getWidth() / 2, 
+              pdf.internal.pageSize.getHeight() - 0.5,
+              { align: 'center' }
+            );
+          }
         }
       }
       
