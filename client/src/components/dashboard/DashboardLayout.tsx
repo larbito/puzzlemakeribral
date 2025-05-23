@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -13,9 +13,21 @@ import {
   Shirt,
   Puzzle,
   BookCopy,
-  FileText
+  FileText,
+  Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+
+// Define which routes are coming soon
+const comingSoonRoutes = [
+  '/dashboard/ai-book-generator',
+  '/dashboard/kdp-formatter',
+  '/dashboard/puzzle-generator',
+  '/dashboard/content',
+  '/dashboard/pricing',
+  '/dashboard/merch-calculator',
+];
 
 const navigation = [
   // Dashboard overview
@@ -40,7 +52,16 @@ const navigation = [
 
 export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Check if current route is a "coming soon" route and redirect to dashboard if directly accessed
+  useEffect(() => {
+    const currentPathname = location.pathname;
+    if (comingSoonRoutes.includes(currentPathname)) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [location.pathname, navigate]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -69,8 +90,37 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           <nav className="flex-1 space-y-1 px-3 py-4">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
-              return (
-                <Link key={item.name} to={item.href}>
+              const isComingSoon = comingSoonRoutes.includes(item.href);
+              
+              // For coming soon items, render a div instead of a Link to completely prevent navigation
+              return isComingSoon ? (
+                <div 
+                  key={item.name}
+                  className="cursor-not-allowed"
+                >
+                  <motion.div
+                    className={cn(
+                      "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-colors",
+                      "text-muted-foreground/60"
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    <span>{item.name}</span>
+                    
+                    <Badge 
+                      variant="outline" 
+                      className="ml-auto text-xs bg-gray-500/10 text-gray-500 border-gray-500/20 flex items-center gap-1"
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>Soon</span>
+                    </Badge>
+                  </motion.div>
+                </div>
+              ) : (
+                <Link 
+                  key={item.name} 
+                  to={item.href}
+                >
                   <motion.div
                     className={cn(
                       "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-colors",
@@ -82,6 +132,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                   >
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
+                    
                     {isActive && (
                       <motion.div
                         className="absolute inset-0 rounded-xl bg-primary/10 -z-10"
