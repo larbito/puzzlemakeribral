@@ -1003,7 +1003,7 @@ const KDPCoverDesigner: React.FC = () => {
                 
                 <div className="space-y-2 mt-4">
                   <Label>Cover Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {COVER_STYLES.map((style) => (
                       <Button
                         key={style.id}
@@ -1015,14 +1015,14 @@ const KDPCoverDesigner: React.FC = () => {
                             selectedStyle: style.id
                           }))
                         }
-                        className={`flex flex-col items-center justify-center h-20 ${
+                        className={`flex flex-col items-center justify-center h-14 ${
                           state.selectedStyle === style.id 
                             ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
                             : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
                         }`}
                       >
-                        <span className="text-2xl mb-1">{style.emoji}</span>
-                        <span className="text-xs font-medium">{style.name}</span>
+                        <span className="text-lg mb-0.5">{style.emoji}</span>
+                        <span className="text-[10px] font-medium">{style.name}</span>
                       </Button>
                     ))}
                   </div>
@@ -1031,10 +1031,10 @@ const KDPCoverDesigner: React.FC = () => {
                   </p>
                 </div>
                 
-                {/* Add Visual Style Selector to Upload tab */}
-                <div className="space-y-2 mt-6">
+                {/* Visual Art Styles for Upload tab */}
+                <div className="space-y-2 mt-4">
                   <Label>Visual Art Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {VISUAL_STYLES.map((style) => (
                       <Button
                         key={style.id}
@@ -1046,14 +1046,14 @@ const KDPCoverDesigner: React.FC = () => {
                             selectedVisualStyle: style.id
                           }))
                         }
-                        className={`flex flex-col items-center justify-center h-20 ${
+                        className={`flex flex-col items-center justify-center h-14 ${
                           state.selectedVisualStyle === style.id 
                             ? "bg-blue-600 hover:bg-blue-500 text-white" 
                             : "border-blue-600/40 text-blue-500 hover:bg-blue-950/30 hover:text-blue-400"
                         }`}
                       >
-                        <span className="text-2xl mb-1">{style.emoji}</span>
-                        <span className="text-xs font-medium">{style.name}</span>
+                        <span className="text-lg mb-0.5">{style.emoji}</span>
+                        <span className="text-[10px] font-medium">{style.name}</span>
                       </Button>
                     ))}
                   </div>
@@ -1168,7 +1168,7 @@ const KDPCoverDesigner: React.FC = () => {
                 {/* Add style selection */}
                 <div className="space-y-2 mt-4">
                   <Label>Cover Style</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {COVER_STYLES.map((style) => (
                       <Button
                         key={style.id}
@@ -1180,14 +1180,14 @@ const KDPCoverDesigner: React.FC = () => {
                             selectedStyle: style.id
                           }))
                         }
-                        className={`flex flex-col items-center justify-center h-20 ${
+                        className={`flex flex-col items-center justify-center h-14 ${
                           state.selectedStyle === style.id 
                             ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
                             : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
                         }`}
                       >
-                        <span className="text-2xl mb-1">{style.emoji}</span>
-                        <span className="text-xs font-medium">{style.name}</span>
+                        <span className="text-lg mb-0.5">{style.emoji}</span>
+                        <span className="text-[10px] font-medium">{style.name}</span>
                       </Button>
                     ))}
                   </div>
