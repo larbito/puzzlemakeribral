@@ -1061,7 +1061,7 @@ const KDPCoverDesigner: React.FC = () => {
                           <div className="absolute inset-0 pointer-events-none">
                             {/* Inner safe area boundary - 0.25 inches from edges */}
                             <div 
-                              className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-40"
+                              className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-70"
                               style={{
                                 top: 0.25 * 70,
                                 left: 0.25 * 70,
@@ -1070,9 +1070,23 @@ const KDPCoverDesigner: React.FC = () => {
                               }}
                             />
                             
+                            {/* Red corners to emphasize safe area */}
+                            <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-red-500"></div>
+                            <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-red-500"></div>
+                            <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-red-500"></div>
+                            <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-red-500"></div>
+                            
                             {/* Add indicator label */}
-                            <div className="absolute top-1 right-1 bg-cyan-900/70 text-cyan-300 text-xs px-1 rounded">
+                            <div className="absolute top-1 right-1 bg-cyan-900/80 text-cyan-300 text-xs px-1 py-0.5 rounded">
                               Safe Area
+                            </div>
+                            
+                            {/* Add warning if text appears to be outside safe area */}
+                            <div className="absolute bottom-1 right-1 left-1 flex justify-center">
+                              <div className="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded">
+                                <AlertTriangle className="h-3 w-3 inline mr-1" />
+                                Text must be within dashed line
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -1102,9 +1116,12 @@ const KDPCoverDesigner: React.FC = () => {
                     
                     {/* Text placement guidelines */}
                     {state.frontCoverImage && (
-                      <div className="flex items-center gap-2 text-xs p-2 bg-amber-950/40 border border-amber-900/30 rounded text-amber-400">
-                        <AlertTriangle className="h-3 w-3 flex-shrink-0" />
-                        <p>KDP requires all text to stay within safe margins (dashed line). Ensure text is properly sized and readable.</p>
+                      <div className="flex items-center gap-2 text-xs p-3 bg-amber-950/60 border border-amber-900/50 rounded text-amber-400 mt-3">
+                        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500" />
+                        <p className="font-medium">
+                          IMPORTANT: KDP requires all text to stay at least 0.25" from edges (within dashed line). 
+                          Text outside this safe area may be cut off during printing.
+                        </p>
                       </div>
                     )}
                   </div>
@@ -1263,12 +1280,13 @@ const KDPCoverDesigner: React.FC = () => {
                               
                               try {
                                 // Enhanced prompt with explicit KDP text placement instructions
-                                const kdpTextInstructions = `
-                                  IMPORTANT FOR AMAZON KDP: 
-                                  - Keep all text at least 0.25 inches from edges
-                                  - Make title large, bold and centered
-                                  - Ensure text has good contrast against background
-                                  - Text should be properly sized and well-proportioned
+                                const safeAreaPrompt = `
+                                  CRITICAL KDP REQUIREMENT: 
+                                  - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
+                                  - DO NOT place ANY text in the outer margin area near the edges
+                                  - Keep title, subtitle, and author name well within the safe area boundary
+                                  - Center all text elements away from edges
+                                  - Title should be large, bold and centered in safe area
                                 `;
                                 
                                 // Update the generate cover API call with even more explicit dimension requirements
@@ -1276,8 +1294,8 @@ const KDPCoverDesigner: React.FC = () => {
                                 
                                 // Include KDP-specific instructions if not already in prompt
                                 const modifiedPrompt = state.frontCoverPrompt.includes("AMAZON KDP") 
-                                  ? state.frontCoverPrompt + " " + dimensionsPrompt
-                                  : state.frontCoverPrompt + " " + kdpTextInstructions + " " + dimensionsPrompt;
+                                  ? state.frontCoverPrompt + " " + dimensionsPrompt + " " + safeAreaPrompt
+                                  : state.frontCoverPrompt + " " + safeAreaPrompt + " " + dimensionsPrompt;
                                 
                                 // Call the book cover generation API
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1286,10 +1304,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: modifiedPrompt + ` IMPORTANT: This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} book cover with exact ${state.bookSettings.bookSize} aspect ratio.`,
+                                    prompt: modifiedPrompt,
                                     width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text too small, text cut off, text outside safe area, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
+                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
                                   })
                                 });
                                 
@@ -1350,8 +1368,16 @@ const KDPCoverDesigner: React.FC = () => {
                                   
                                   try {
                                     // Add a variation modifier to the prompt
+                                    const safeAreaPrompt = `
+                                      CRITICAL KDP REQUIREMENT: 
+                                      - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
+                                      - DO NOT place ANY text in the outer margin area near the edges
+                                      - Keep title, subtitle, and author name well within the safe area boundary
+                                      - Center all text elements away from edges
+                                      - Title should be large, bold and centered in safe area
+                                    `;
                                     const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio. The image must be precisely proportioned to ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`;
-                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt}`;
+                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
                                     
                                     // Call the book cover generation API for a variation
                                     const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1363,7 +1389,7 @@ const KDPCoverDesigner: React.FC = () => {
                                         prompt: variationPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
+                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });

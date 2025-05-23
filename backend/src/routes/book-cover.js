@@ -218,7 +218,8 @@ router.post('/generate-front', express.json(), async (req, res) => {
     console.log('Scaled aspect ratio:', scaledAspectRatio);
     
     // Add aspect ratio information to the prompt
-    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)})`;
+    const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
+    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL: ALL text MUST be at least ${safeMarginPx}px (0.25 inches) away from ALL edges. Place text only in center area, far from edges. No text in outer margins.`;
     
     // For testing when the API key is not available or not valid
     if (!apiKey || apiKey.includes('your_api_key_here')) {
@@ -245,7 +246,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
       if (negative_prompt) {
         form.append('negative_prompt', negative_prompt);
       } else {
-        form.append('negative_prompt', 'text, watermark, signature, blurry, low quality, distorted, deformed');
+        form.append('negative_prompt', 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed');
       }
       
       // Add some default parameters
@@ -259,7 +260,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
         prompt: enhancedPrompt,
         width: targetWidth.toString(),
         height: targetHeight.toString(),
-        negative_prompt: negative_prompt || 'text, watermark, signature, blurry, low quality, distorted, deformed',
+        negative_prompt: negative_prompt || 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed',
         num_images: '1',
         seed: Math.floor(Math.random() * 1000000),
         rendering_speed: 'DEFAULT'
