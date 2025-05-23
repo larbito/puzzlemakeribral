@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/config';
+import { generateFrontCover } from '../../lib/bookCoverApi';
 
 // Define the main types we'll use
 type Step = 'settings' | 'frontCover' | 'backCover' | 'spine' | 'preview' | 'export';
