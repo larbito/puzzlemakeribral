@@ -1001,6 +1001,7 @@ const KDPCoverDesigner: React.FC = () => {
                   />
                 </div>
                 
+                {/* Add style selection */}
                 <div className="space-y-2 mt-4">
                   <Label>Cover Style</Label>
                   <div className="grid grid-cols-4 gap-2">
@@ -1191,6 +1192,37 @@ const KDPCoverDesigner: React.FC = () => {
                       </Button>
                     ))}
                   </div>
+                </div>
+                
+                {/* Visual Art Styles */}
+                <div className="space-y-2 mt-4">
+                  <Label>Visual Art Style</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {VISUAL_STYLES.map((style) => (
+                      <Button
+                        key={style.id}
+                        type="button"
+                        variant={state.selectedVisualStyle === style.id ? "default" : "outline"}
+                        onClick={() => 
+                          setState(prev => ({
+                            ...prev,
+                            selectedVisualStyle: style.id
+                          }))
+                        }
+                        className={`flex flex-col items-center justify-center h-14 ${
+                          state.selectedVisualStyle === style.id 
+                            ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                            : "border-blue-600/40 text-blue-500 hover:bg-blue-950/30 hover:text-blue-400"
+                        }`}
+                      >
+                        <span className="text-lg mb-0.5">{style.emoji}</span>
+                        <span className="text-[10px] font-medium">{style.name}</span>
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Choose the artistic style for your cover illustration.
+                  </p>
                 </div>
                 
                 <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
