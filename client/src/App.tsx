@@ -27,6 +27,7 @@ import KDPCoverDesigner from '@/pages/dashboard/KDPCoverDesigner';
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeDebug } from '@/pages/dashboard/puzzles/ThemeDebug';
 import { AIBookGenerator } from '@/pages/dashboard/AIBookGenerator';
+import { KDPBookFormatter } from '@/pages/dashboard/KDPBookFormatter';
 
 function App() {
   return (
@@ -70,6 +71,7 @@ function App() {
                       <Route path="bulk" element={<BulkGeneratorPage />} />
                       <Route path="ai-book" element={<AIBookPage />} />
                       <Route path="ai-book-generator" element={<AIBookGenerator />} />
+                      <Route path="kdp-formatter" element={<KDPBookFormatter />} />
                       <Route path="t-shirts" element={<TShirtDesigner />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />

@@ -1,163 +1,156 @@
-import React, { useState, ReactNode, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, ArrowLeft, Check } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+import { Check, ChevronRight, ChevronLeft } from 'lucide-react';
 
 export interface Step {
   id: string;
   title: string;
-  component: ReactNode;
-  isComplete: boolean;
+  component: React.ReactNode;
+  isComplete?: boolean;
 }
 
 interface StepWizardProps {
   steps: Step[];
-  onComplete: () => void;
-  onSave?: (currentStep: number) => void;
   initialStep?: number;
+  onComplete?: () => void;
+  onSave?: (currentStep: number) => void;
   showProgress?: boolean;
 }
 
 export const StepWizard: React.FC<StepWizardProps> = ({
   steps,
+  initialStep = 0,
   onComplete,
   onSave,
-  initialStep = 0,
-  showProgress = false,
+  showProgress = false
 }) => {
   const [currentStep, setCurrentStep] = useState(initialStep);
-  const [hasInteracted, setHasInteracted] = useState(false);
+  const [progress, setProgress] = useState(0);
 
+  // Calculate progress percentage
   useEffect(() => {
-    // Reset interaction state when step changes
-    setHasInteracted(false);
-  }, [currentStep]);
+    if (steps.length > 0) {
+      setProgress(((currentStep + 1) / steps.length) * 100);
+    }
+  }, [currentStep, steps.length]);
 
+  // Handle next step
   const handleNext = () => {
     if (onSave) {
-      // Call onSave first to update the completion state
       onSave(currentStep);
     }
-
-    // Force immediate step advance if the current step is already marked complete
-    // This will skip the disabled check for better UX
-    if (steps[currentStep].isComplete) {
-      if (currentStep < steps.length - 1) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        onComplete();
-      }
+    
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else if (onComplete) {
+      onComplete();
     }
   };
 
+  // Handle previous step
   const handlePrevious = () => {
     if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(prev => prev - 1);
     }
   };
 
+  // Handle direct step navigation
   const handleStepClick = (index: number) => {
-    // Can only navigate to previously completed steps or the current step + 1
-    if (index <= currentStep || (index === currentStep + 1 && steps[currentStep].isComplete)) {
+    // Check if the step is available for navigation (steps need to be consecutive)
+    if (index <= currentStep || (steps[index - 1] && steps[index - 1].isComplete)) {
       setCurrentStep(index);
     }
   };
 
-  const isLastStep = currentStep === steps.length - 1;
-  const isFirstStep = currentStep === 0;
-  const nextIsDisabled = false; // Always enable the Next button
-  const progressValue = ((currentStep + 1) / steps.length) * 100;
-  
-  // Mark step as interacted with
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setHasInteracted(true);
-    }, 500);
-    
-    return () => clearTimeout(timer);
-  }, [currentStep]);
-
   return (
-    <div className="space-y-8">
-      {showProgress && (
-        <div className="w-full space-y-2">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Step {currentStep + 1} of {steps.length}</span>
-            <span>{Math.round(progressValue)}% Complete</span>
-          </div>
-          <Progress value={progressValue} className="h-2" />
-        </div>
-      )}
-      
-      <div className="flex overflow-x-auto pb-2 hide-scrollbar">
-        {steps.map((step, index) => (
-          <React.Fragment key={step.id}>
-            <div 
-              className={`flex flex-col items-center cursor-pointer transition-colors px-2 min-w-[100px] ${
-                index <= currentStep 
-                  ? 'text-primary' 
-                  : index === currentStep + 1 && steps[currentStep].isComplete
-                  ? 'text-muted-foreground hover:text-primary'
-                  : 'text-muted-foreground'
-              }`}
+    <div className="step-wizard">
+      {/* Steps Navigation Bar */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => (
+            <div
+              key={step.id}
+              className={cn(
+                "flex flex-col items-center relative cursor-pointer",
+                index === currentStep
+                  ? "text-primary"
+                  : (index < currentStep || step.isComplete)
+                  ? "text-primary/70 dark:text-primary/60"
+                  : "text-muted-foreground"
+              )}
               onClick={() => handleStepClick(index)}
             >
-              <div 
-                className={`flex items-center justify-center w-8 h-8 rounded-full mb-2 transition-colors ${
-                  index === currentStep 
-                    ? 'bg-primary text-primary-foreground' 
-                    : index < currentStep && step.isComplete
-                    ? 'bg-primary/20 text-primary'
-                    : 'bg-muted text-muted-foreground'
-                }`}
+              <div
+                className={cn(
+                  "rounded-full h-10 w-10 flex items-center justify-center border-2 z-10 bg-background transition-colors",
+                  index === currentStep
+                    ? "border-primary"
+                    : (index < currentStep || step.isComplete)
+                    ? "border-primary/70 dark:border-primary/60"
+                    : "border-muted-foreground"
+                )}
               >
-                {index < currentStep && step.isComplete ? (
-                  <Check className="h-4 w-4" />
+                {index < currentStep || step.isComplete ? (
+                  <Check className="h-5 w-5" />
                 ) : (
                   <span>{index + 1}</span>
                 )}
               </div>
-              <span className="text-sm whitespace-nowrap">{step.title}</span>
+              <span className="text-sm mt-2 font-medium">{step.title}</span>
+
+              {/* Connecting Line */}
+              {index < steps.length - 1 && (
+                <div
+                  className={cn(
+                    "absolute top-5 w-[calc(100%-2rem)] h-0.5 left-1/2",
+                    (index < currentStep || step.isComplete)
+                      ? "bg-primary/70 dark:bg-primary/60"
+                      : "bg-muted-foreground/30"
+                  )}
+                />
+              )}
             </div>
-            
-            {index < steps.length - 1 && (
-              <div className="flex items-center px-1 pt-4">
-                <div className={`w-12 h-[1px] ${
-                  index < currentStep ? 'bg-primary' : 'bg-muted-foreground/30'
-                }`} />
-              </div>
-            )}
-          </React.Fragment>
-        ))}
+          ))}
+        </div>
+
+        {/* Progress Bar (Optional) */}
+        {showProgress && (
+          <Progress value={progress} className="h-1 mt-6" />
+        )}
       </div>
-      
-      <Separator />
-      
-      <div className="min-h-[400px]">
-        {steps[currentStep].component}
-      </div>
-      
-      <Separator />
-      
-      <div className="flex justify-between pt-4 relative z-50">
-        <Button 
-          variant="outline" 
-          onClick={handlePrevious} 
-          disabled={isFirstStep}
-          className="pointer-events-auto"
+
+      {/* Step Content */}
+      <Card className="mb-6 p-6">
+        {steps[currentStep]?.component}
+      </Card>
+
+      {/* Navigation Buttons */}
+      <div className="flex justify-between mt-6">
+        <Button
+          variant="outline"
+          onClick={handlePrevious}
+          disabled={currentStep === 0}
+          className="flex items-center gap-1"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ChevronLeft className="h-4 w-4" />
           Previous
         </Button>
-        
-        <Button 
-          onClick={handleNext} 
-          disabled={false} // Remove the disabled state to allow navigation
-          className={`pointer-events-auto relative z-50 ${isLastStep ? 'bg-green-600 hover:bg-green-700' : ''}`}
+
+        <Button
+          onClick={handleNext}
+          className="flex items-center gap-1"
         >
-          {isLastStep ? 'Complete' : 'Continue'}
-          {!isLastStep && <ArrowRight className="ml-2 h-4 w-4" />}
+          {currentStep === steps.length - 1 ? (
+            'Complete'
+          ) : (
+            <>
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

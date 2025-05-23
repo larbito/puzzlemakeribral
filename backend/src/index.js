@@ -146,6 +146,22 @@ try {
   });
 }
 
+// Load the KDP Formatter routes module
+let kdpFormatterRoutes;
+try {
+  console.log('Attempting to require kdp-formatter.js');
+  kdpFormatterRoutes = require('./routes/kdp-formatter');
+  console.log('Successfully loaded kdp-formatter.js');
+} catch (e) {
+  console.error('Failed to load kdp-formatter.js:', e.message);
+  console.error(e.stack);
+  // Use a simple router as fallback
+  kdpFormatterRoutes = express.Router();
+  kdpFormatterRoutes.get('/test', (req, res) => {
+    res.json({ status: 'error', message: 'Failed to load KDP Formatter routes', error: e.message });
+  });
+}
+
 // Create Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -309,6 +325,10 @@ console.log('Registered route: /api/image-enhancement/*');
 app.use('/api/word-search', wordSearchRoutes);
 console.log('Registered route: /api/word-search/*');
 
+// Register KDP Formatter routes
+app.use('/api/kdp-formatter', kdpFormatterRoutes);
+console.log('Registered route: /api/kdp-formatter/*');
+
 // Root route for testing
 app.get('/', (req, res) => {
   res.json({ 
@@ -334,7 +354,10 @@ app.get('/', (req, res) => {
       '/api/word-search/generate',
       '/api/word-search/generate-words',
       '/api/word-search/status/:id',
-      '/api/word-search/download/:id'
+      '/api/word-search/download/:id',
+      '/api/kdp-formatter/extract',
+      '/api/kdp-formatter/enhance-text',
+      '/api/kdp-formatter/format-pdf'
     ]
   });
 });

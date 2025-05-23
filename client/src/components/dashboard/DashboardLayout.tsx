@@ -12,7 +12,8 @@ import {
   Sparkles,
   Shirt,
   Puzzle,
-  BookCopy
+  BookCopy,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Cover Designer', href: '/dashboard/kdp-covers', icon: BookCopy },
   { name: 'AI Book Generator', href: '/dashboard/ai-book-generator', icon: BookCopy },
+  { name: 'KDP Book Formatter', href: '/dashboard/kdp-formatter', icon: FileText },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
   
   // Planning & Analytics
