@@ -1043,7 +1043,8 @@ const KDPCoverDesigner: React.FC = () => {
                           width: `${state.bookSettings.dimensions.width * 70}px`,
                           height: `${state.bookSettings.dimensions.height * 70}px`,
                           maxWidth: '100%',
-                          maxHeight: '550px'
+                          maxHeight: '550px',
+                          aspectRatio: `${state.bookSettings.dimensions.width}/${state.bookSettings.dimensions.height}`
                         }}>
                           <img 
                             src={state.frontCoverImage} 
@@ -1277,10 +1278,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: modifiedPrompt,
+                                    prompt: modifiedPrompt + ` IMPORTANT: This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} book cover with exact ${state.bookSettings.bookSize} aspect ratio.`,
                                     width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text too small, text cut off, text outside safe area, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl'
+                                    negative_prompt: 'text too small, text cut off, text outside safe area, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
                                   })
                                 });
                                 
@@ -1341,7 +1342,7 @@ const KDPCoverDesigner: React.FC = () => {
                                   
                                   try {
                                     // Add a variation modifier to the prompt
-                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style)`;
+                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) IMPORTANT: This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} book cover with exact ${state.bookSettings.bookSize} aspect ratio.`;
                                     
                                     // Call the book cover generation API for a variation
                                     const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1353,7 +1354,7 @@ const KDPCoverDesigner: React.FC = () => {
                                         prompt: variationPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
+                                        negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });
