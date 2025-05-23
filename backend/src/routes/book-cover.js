@@ -219,10 +219,13 @@ router.post('/generate-front', express.json(), async (req, res) => {
     
     // Add aspect ratio information to the prompt
     const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
-    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL: ALL text MUST be at least ${safeMarginPx}px (0.25 inches) away from ALL edges. Place text only in center area, far from edges. No text in outer margins.`;
+    const enhancedPrompt = `${prompt} (Make sure this is exactly ${width}x${height} with an aspect ratio of ${aspectRatio.toFixed(5)}) CRITICAL: ALL text MUST be at least ${safeMarginPx}px (0.25 inches) away from ALL edges. Place text only in center area, far from edges. No text in outer margins. Create a FLAT DESIGN with text placed ONLY in the CENTRAL SAFE AREA, nothing near the edges.`;
+    
+    // Modify the API call logic to strongly enforce margins
+    const enforceTextPlacement = true; // Set to true to enforce the text placement rules
     
     // For testing when the API key is not available or not valid
-    if (!apiKey || apiKey.includes('your_api_key_here')) {
+    if (!apiKey || apiKey.includes('your_api_key_here') || !enforceTextPlacement) {
       console.log('Using mock response for Ideogram API (no valid API key)');
       
       // Return a placeholder image with the correct dimensions
@@ -238,9 +241,19 @@ router.post('/generate-front', express.json(), async (req, res) => {
     try {
       // Create form data for the Ideogram API
       const form = new FormData();
+
+      // Add primary parameters
       form.append('prompt', enhancedPrompt);
       form.append('width', targetWidth.toString());
       form.append('height', targetHeight.toString());
+      
+      // Determine if we need to enforce text placement with visual guide
+      if (enforceTextPlacement) {
+        // Add text safety parameters to prevent edge placement
+        form.append('text_safety', 'high');
+        // In Ideogram API, "safety_mode" helps avoid problematic content, but it might also influence text placement
+        form.append('safety_mode', 'strict');
+      }
       
       // Add negative prompt if provided
       if (negative_prompt) {

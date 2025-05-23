@@ -1282,20 +1282,25 @@ const KDPCoverDesigner: React.FC = () => {
                                 // Enhanced prompt with explicit KDP text placement instructions
                                 const safeAreaPrompt = `
                                   CRITICAL KDP REQUIREMENT: 
-                                  - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
-                                  - DO NOT place ANY text in the outer margin area near the edges
-                                  - Keep title, subtitle, and author name well within the safe area boundary
-                                  - Center all text elements away from edges
-                                  - Title should be large, bold and centered in safe area
+                                  - DO NOT INCLUDE ANY TEXT IN THE IMAGE AT ALL
+                                  - GENERATE ONLY THE BACKGROUND DESIGN WITHOUT ANY TEXT
+                                  - LEAVE SPACE FOR TEXT TO BE ADDED SEPARATELY IN THE CENTER
+                                  - NO TEXT, TITLES, SUBTITLES, OR AUTHOR NAMES IN THE GENERATED IMAGE
+                                  - JUST CREATE THE BACKGROUND ARTWORK/DESIGN
                                 `;
                                 
                                 // Update the generate cover API call with even more explicit dimension requirements
                                 const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio. The image must be precisely proportioned to ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`;
                                 
-                                // Include KDP-specific instructions if not already in prompt
-                                const modifiedPrompt = state.frontCoverPrompt.includes("AMAZON KDP") 
-                                  ? state.frontCoverPrompt + " " + dimensionsPrompt + " " + safeAreaPrompt
-                                  : state.frontCoverPrompt + " " + safeAreaPrompt + " " + dimensionsPrompt;
+                                // Prepare prompt for textless background
+                                let basePrompt = state.frontCoverPrompt;
+                                
+                                // Remove references to text in the prompt
+                                basePrompt = basePrompt.replace(/with\s+title/gi, 'with space for title');
+                                basePrompt = basePrompt.replace(/with\s+text/gi, 'with space for text');
+                                
+                                // Include KDP-specific instructions
+                                const modifiedPrompt = basePrompt + " " + dimensionsPrompt + " " + safeAreaPrompt;
                                 
                                 // Call the book cover generation API
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1307,7 +1312,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     prompt: modifiedPrompt,
                                     width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
+                                    negative_prompt: 'any text, any words, any lettering, any titles, author name, subtitles, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
                                   })
                                 });
                                 
@@ -1370,14 +1375,22 @@ const KDPCoverDesigner: React.FC = () => {
                                     // Add a variation modifier to the prompt
                                     const safeAreaPrompt = `
                                       CRITICAL KDP REQUIREMENT: 
-                                      - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
-                                      - DO NOT place ANY text in the outer margin area near the edges
-                                      - Keep title, subtitle, and author name well within the safe area boundary
-                                      - Center all text elements away from edges
-                                      - Title should be large, bold and centered in safe area
+                                      - DO NOT INCLUDE ANY TEXT IN THE IMAGE AT ALL
+                                      - GENERATE ONLY THE BACKGROUND DESIGN WITHOUT ANY TEXT
+                                      - LEAVE SPACE FOR TEXT TO BE ADDED SEPARATELY IN THE CENTER
+                                      - NO TEXT, TITLES, SUBTITLES, OR AUTHOR NAMES IN THE GENERATED IMAGE
+                                      - JUST CREATE THE BACKGROUND ARTWORK/DESIGN
                                     `;
                                     const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio. The image must be precisely proportioned to ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`;
-                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
+                                    
+                                    // Prepare base prompt for textless background
+                                    let basePrompt = state.frontCoverPrompt;
+                                    
+                                    // Remove references to text in the prompt
+                                    basePrompt = basePrompt.replace(/with\s+title/gi, 'with space for title');
+                                    basePrompt = basePrompt.replace(/with\s+text/gi, 'with space for text');
+                                    
+                                    const variationPrompt = `${basePrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
                                     
                                     // Call the book cover generation API for a variation
                                     const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1389,7 +1402,7 @@ const KDPCoverDesigner: React.FC = () => {
                                         prompt: variationPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
+                                        negative_prompt: 'any text, any words, any lettering, any titles, author name, subtitles, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });
