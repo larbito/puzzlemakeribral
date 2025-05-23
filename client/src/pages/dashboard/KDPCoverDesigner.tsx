@@ -80,7 +80,8 @@ interface CoverDesignerState {
   spineFont: string;
   fullCoverImage: string | null;
   uploadedFile?: File;
-  selectedStyle: string; // New field for selected style
+  selectedStyle: string; // Book genre style
+  selectedVisualStyle: string; // Visual/artistic style
 }
 
 // KDP supported trim sizes
@@ -126,6 +127,22 @@ const COVER_STYLES = [
   { id: 'textbook', name: 'Textbook/Academic', emoji: '🎓', prompt: 'academic or textbook cover design, organized layout, clear typography, educational imagery, professional appearance, subject-focused visual elements' },
 ];
 
+// Add visual art styles that work well with AI image generators like Ideogram
+const VISUAL_STYLES = [
+  { id: 'realistic', name: 'Realistic', emoji: '📸', prompt: 'photorealistic style, detailed, high definition, lifelike, hyper-realistic' },
+  { id: 'watercolor', name: 'Watercolor', emoji: '🎨', prompt: 'watercolor painting style, soft edges, flowing colors, translucent layers, artistic brush strokes' },
+  { id: 'minimalist', name: 'Minimalist', emoji: '⬜', prompt: 'minimalist design, clean lines, simple shapes, limited color palette, negative space, essential elements only' },
+  { id: 'vintage', name: 'Vintage', emoji: '🕰️', prompt: 'vintage style, retro aesthetic, aged appearance, classic design, nostalgic feel, antique look' },
+  { id: 'comic', name: 'Comic', emoji: '💥', prompt: 'comic book style, bold outlines, vibrant colors, dynamic composition, graphic novel aesthetic, cell-shaded' },
+  { id: '3d', name: '3D Rendered', emoji: '🧊', prompt: '3D rendering style, volumetric lighting, depth, digital 3D modeling, textured surfaces, dimensional appearance' },
+  { id: 'abstract', name: 'Abstract', emoji: '🔶', prompt: 'abstract style, non-representational, geometric shapes, expressive forms, conceptual design, artistic interpretation' },
+  { id: 'handdrawn', name: 'Hand Drawn', emoji: '✏️', prompt: 'hand-drawn illustration, sketch-like quality, organic lines, artistic, illustration-focused, drawn by hand' },
+  { id: 'noir', name: 'Film Noir', emoji: '🖤', prompt: 'film noir style, black and white, high contrast, moody shadows, dramatic lighting, mysterious atmosphere' },
+  { id: 'surreal', name: 'Surrealism', emoji: '🌀', prompt: 'surrealist style, dreamlike quality, unexpected juxtapositions, imaginative, strange and wonderful, Salvador Dali-inspired' },
+  { id: 'pop', name: 'Pop Art', emoji: '🎭', prompt: 'pop art style, bold colors, Ben-Day dots, comic-inspired, Andy Warhol influence, contemporary, commercial art aesthetic' },
+  { id: 'pixel', name: 'Pixel Art', emoji: '👾', prompt: 'pixel art style, 8-bit aesthetic, retro gaming look, pixelated, low-resolution, blocky shapes' }
+];
+
 const KDPCoverDesigner: React.FC = () => {
   // Initialize state
   const [state, setState] = useState<CoverDesignerState>({
@@ -163,6 +180,7 @@ const KDPCoverDesigner: React.FC = () => {
     spineFont: 'helvetica',
     fullCoverImage: null,
     selectedStyle: 'literary', // Default style
+    selectedVisualStyle: 'realistic', // Default visual style
   });
 
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({
@@ -1009,7 +1027,38 @@ const KDPCoverDesigner: React.FC = () => {
                     ))}
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
-                    The selected style will be incorporated into image analysis and the generated cover.
+                    Select the genre or type of book for your cover design.
+                  </p>
+                </div>
+                
+                {/* Add Visual Style Selector to Upload tab */}
+                <div className="space-y-2 mt-6">
+                  <Label>Visual Art Style</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {VISUAL_STYLES.map((style) => (
+                      <Button
+                        key={style.id}
+                        type="button"
+                        variant={state.selectedVisualStyle === style.id ? "default" : "outline"}
+                        onClick={() => 
+                          setState(prev => ({
+                            ...prev,
+                            selectedVisualStyle: style.id
+                          }))
+                        }
+                        className={`flex flex-col items-center justify-center h-20 ${
+                          state.selectedVisualStyle === style.id 
+                            ? "bg-blue-600 hover:bg-blue-500 text-white" 
+                            : "border-blue-600/40 text-blue-500 hover:bg-blue-950/30 hover:text-blue-400"
+                        }`}
+                      >
+                        <span className="text-2xl mb-1">{style.emoji}</span>
+                        <span className="text-xs font-medium">{style.name}</span>
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Choose the artistic style for your cover illustration.
                   </p>
                 </div>
                 
@@ -1502,7 +1551,11 @@ const KDPCoverDesigner: React.FC = () => {
                                 const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                 
                                 // Include KDP-specific instructions
-                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} ${COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || ''}`;
+                                const bookStylePrompt = COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || '';
+                                const visualStylePrompt = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.prompt || '';
+                                
+                                // Combine both styles into the modified prompt
+                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
                                 
                                 // Call the book cover generation API
                                 const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
@@ -1565,7 +1618,7 @@ const KDPCoverDesigner: React.FC = () => {
                           ) : (
                             <>
                               <Wand2 className="mr-2 h-4 w-4" />
-                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} Cover from Prompt
+                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Cover
                             </>
                           )}
                         </Button>
@@ -1591,7 +1644,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     `;
                                     const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                     
-                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
+                                    const bookStylePrompt = COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || '';
+                                    const visualStylePrompt = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.prompt || '';
+                                    
+                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
                                     
                                     // Calculate pixel dimensions for the cover
                                     const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
