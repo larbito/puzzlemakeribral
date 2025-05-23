@@ -16,7 +16,10 @@ import {
   FileType,
   LayoutPanelTop,
   Check,
-  RefreshCcw
+  RefreshCcw,
+  AlertTriangle,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -308,84 +311,83 @@ const KDPCoverDesigner: React.FC = () => {
     toast.success("Image uploaded successfully! Click 'Generate Prompt' to analyze it with AI.");
   };
   
-  // Analyze image with OpenAI and get a prompt
+  // Modify the analyzeImageWithOpenAI function to include KDP-specific instructions
   const analyzeImageWithOpenAI = async (file: File) => {
-    setIsLoading({...isLoading, analyzeImage: true});
-    
     try {
-      // Convert the file to a base64 data URL
-      const imageUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Failed to convert file to data URL'));
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
+      setIsLoading({...isLoading, analyzeImage: true});
+      
+      // First upload the file to get a URL
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const uploadResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/upload', {
+        method: 'POST',
+        body: formData
       });
       
-      toast.info("Analyzing image with OpenAI...");
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image');
+      }
       
-      // Call the actual backend API endpoint to analyze the image
-      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
+      const uploadData = await uploadResponse.json();
+      const imageUrl = uploadData.url;
+      
+      // Now analyze the image with the AI service
+      const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/analyze-image', {
         method: 'POST',
-        body: JSON.stringify({ 
-          imageUrl,
-          context: `You are a prompt engineer for image generation AIs like Midjourney or Ideogram. Your task is to create a COMPLETE and DETAILED prompt describing EVERYTHING in the image. CRITICAL INSTRUCTIONS:
-
-1) Create a flat image design, NOT a book cover mockup.
-2) EXTRACT ALL TEXT: Read and record EVERY word, title, and text element visible. Use EXACT quotes for all text.
-3) Use format: Title: "EXACT TEXT", Subtitle: "EXACT TEXT", Additional Text: "EXACT TEXT" at the beginning of your response.
-4) Describe all characters, their positions, colors, and actions in precise detail.
-5) Describe the background, style, mood, and artistic technique.
-6) NEVER mention 'book cover', 'cover design', 'publishing', 'mockup', or related terms.
-7) Format as a flat illustration prompt for direct use in image generation.
-8) IMPORTANT: Record all text EXACTLY as shown - maintain original case, spacing and spelling.`
-        }),
         headers: {
           'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+        },
+        body: JSON.stringify({
+          imageUrl,
+          // Add specific instructions for KDP cover analysis
+          instructions: `
+            This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
+            Focus on the visual style, colors, layout, and overall design.
+            
+            IMPORTANT KDP REQUIREMENTS:
+            1. The prompt should emphasize that text must be properly sized and placed
+            2. Text must be at least 0.25 inches from all edges (safe area)
+            3. Title should be prominent and centered
+            4. Any subtitle should be smaller but clearly visible
+            5. Author name should be properly positioned and sized
+            
+            Include specific details about:
+            - The book title and author placement
+            - The color scheme and aesthetic
+            - Any graphic elements or illustrations
+            - The mood and style of the cover
+            
+            DO NOT include instructions that would place text too close to edges.
+            DO NOT include watermarks or elements that interfere with readability.
+          `
+        })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to analyze image');
+      if (!analyzeResponse.ok) {
+        throw new Error('Failed to analyze image');
       }
       
-      const data = await response.json();
-      let generatedPrompt = data.extractedPrompt;
+      const analyzeData = await analyzeResponse.json();
       
-      if (!generatedPrompt) {
-        throw new Error('No prompt was generated');
-      }
-      
-      // Post-process the prompt to remove any book cover references and add flat image instruction
-      if (!generatedPrompt.toLowerCase().includes('flat image') && !generatedPrompt.toLowerCase().includes('flat illustration')) {
-        generatedPrompt = "Create a flat image design (not a book mockup): " + generatedPrompt;
-      }
-      
-      // Add aspect ratio for the book dimensions
-      const { width, height } = state.bookSettings.dimensions;
-      generatedPrompt += ` --ar ${width}:${height} --high quality --flat illustration --no mockup`;
-      
+      // Update state with the analysis and mark the step as complete
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: generatedPrompt,
-        // Don't set frontCover to true yet - this allows the prompt to be displayed first
+        frontCoverPrompt: analyzeData.prompt,
+        originalImageUrl: imageUrl,
+        steps: {
+          ...prev.steps,
+          frontCover: true
+        }
       }));
       
-      setIsLoading({...isLoading, analyzeImage: false});
-      toast.success("Image analyzed! AI has generated a prompt based on your image.");
+      // Show success message
+      toast.success("Image analyzed successfully!");
       
     } catch (error) {
       console.error('Error analyzing image:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to analyze image. Please try again.');
+      toast.error("Failed to analyze image. Please try again.");
+    } finally {
       setIsLoading({...isLoading, analyzeImage: false});
     }
   };
@@ -1021,16 +1023,35 @@ const KDPCoverDesigner: React.FC = () => {
                     <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
                       {state.frontCoverImage && state.steps.frontCover ? (
                         <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`, // Larger size multiplier
-                          height: `${state.bookSettings.dimensions.height * 70}px`, // Larger size multiplier
+                          width: `${state.bookSettings.dimensions.width * 70}px`,
+                          height: `${state.bookSettings.dimensions.height * 70}px`,
                           maxWidth: '100%',
-                          maxHeight: '550px' // Increased max height
+                          maxHeight: '550px'
                         }}>
                           <img 
                             src={state.frontCoverImage} 
                             alt="AI Generated Cover" 
-                            className="w-full h-full object-cover rounded-md shadow-lg" // Changed to object-cover
+                            className="w-full h-full object-contain rounded-md shadow-lg"
                           />
+                          
+                          {/* Safe area indicators for KDP */}
+                          <div className="absolute inset-0 pointer-events-none">
+                            {/* Inner safe area boundary - 0.25 inches from edges */}
+                            <div 
+                              className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-40"
+                              style={{
+                                top: 0.25 * 70,
+                                left: 0.25 * 70,
+                                right: 0.25 * 70,
+                                bottom: 0.25 * 70
+                              }}
+                            />
+                            
+                            {/* Add indicator label */}
+                            <div className="absolute top-1 right-1 bg-cyan-900/70 text-cyan-300 text-xs px-1 rounded">
+                              Safe Area
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <div className="text-zinc-500 text-center flex flex-col items-center justify-center" style={{
@@ -1055,6 +1076,14 @@ const KDPCoverDesigner: React.FC = () => {
                         </div>
                       )}
                     </div>
+                    
+                    {/* Text placement guidelines */}
+                    {state.frontCoverImage && (
+                      <div className="flex items-center gap-2 text-xs p-2 bg-amber-950/40 border border-amber-900/30 rounded text-amber-400">
+                        <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                        <p>KDP requires all text to stay within safe margins (dashed line). Ensure text is properly sized and readable.</p>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -1210,8 +1239,19 @@ const KDPCoverDesigner: React.FC = () => {
                               setIsLoading({...isLoading, generateFrontCover: true});
                               
                               try {
-                                // Take the user's prompt but add instructions to NOT generate text or book mockups
-                                const modifiedPrompt = state.frontCoverPrompt + " IMPORTANT: Create a flat illustration only. Do not include any mockup, book model, or 3D rendering. The image should be a flat design with no perspective or book cover effects.";
+                                // Enhanced prompt with explicit KDP text placement instructions
+                                const kdpTextInstructions = `
+                                  IMPORTANT FOR AMAZON KDP: 
+                                  - Keep all text at least 0.25 inches from edges
+                                  - Make title large, bold and centered
+                                  - Ensure text has good contrast against background
+                                  - Text should be properly sized and well-proportioned
+                                `;
+                                
+                                // Include KDP-specific instructions if not already in prompt
+                                const modifiedPrompt = state.frontCoverPrompt.includes("AMAZON KDP") 
+                                  ? state.frontCoverPrompt 
+                                  : state.frontCoverPrompt + " " + kdpTextInstructions;
                                 
                                 // Call the book cover generation API
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1223,7 +1263,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     prompt: modifiedPrompt,
                                     width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'text, words, letters, title, writing, font, caption, label, watermark, signature, blurry, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl'
+                                    negative_prompt: 'text too small, text cut off, text outside safe area, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl'
                                   })
                                 });
                                 

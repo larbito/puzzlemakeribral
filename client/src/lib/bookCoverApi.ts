@@ -85,16 +85,36 @@ export async function generateFrontCover({
     console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt });
     console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
     
-    // Add flat image instructions if not already present
+    // Define the safe area for Amazon KDP covers (0.25" from edges)
+    const safeAreaInset = 0.25 * 300; // 0.25 inches at 300 DPI
+
+    // Add KDP-specific instructions to prompt
     let enhancedPrompt = prompt;
+    
+    // Add flat image instructions if not already present
     if (!prompt.toLowerCase().includes('flat image') && !prompt.toLowerCase().includes('flat illustration')) {
-      enhancedPrompt = "Create a flat image design (not a book mockup): " + prompt;
+      enhancedPrompt = "Create a flat image design for a book cover: " + prompt;
+    }
+    
+    // Add KDP-specific safe area instructions
+    if (!prompt.toLowerCase().includes('safe area') && !prompt.toLowerCase().includes('margins')) {
+      enhancedPrompt += `. IMPORTANT: Keep all important text and elements at least 0.25 inches (${safeAreaInset}px) from all edges. Place text in the center area of the cover, not close to the edges. Ensure text is clearly legible with good contrast against the background.`;
+    }
+    
+    // Add text sizing instructions
+    if (!prompt.toLowerCase().includes('text size')) {
+      enhancedPrompt += " Make all text properly sized and well-proportioned - title should be large and prominent, subtitle smaller but clear.";
     }
     
     // Add default negative prompt against book mockups if not provided
     let enhancedNegativePrompt = negative_prompt || '';
     if (!enhancedNegativePrompt.includes('book mockup')) {
       enhancedNegativePrompt += ', book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl';
+    }
+    
+    // Add specifics against tiny, illegible or cut-off text
+    if (!enhancedNegativePrompt.includes('illegible text')) {
+      enhancedNegativePrompt += ', tiny text, illegible text, cut-off text, text too close to edge, blurry text, distorted text';
     }
     
     // Create JSON payload instead of FormData
@@ -119,43 +139,29 @@ export async function generateFrontCover({
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries())
     });
-    
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response text:', errorText);
-      
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch (e) {
-        errorData = { error: 'Failed to parse error response' };
-      }
-      
-      throw new Error(errorData.error || 'Failed to generate cover');
+      const error = await response.json();
+      console.error('Error from backend:', error);
+      throw new Error(error.error || 'Failed to generate cover');
     }
 
     const data = await response.json();
-    console.log('Generation response data:', data);
     
-    // Handle different response formats
-    if (data.status === 'success' && data.url) {
-      // Format from the mock response in the updated backend
-      return { url: data.url };
-    } else if (data.url) {
-      // Direct URL format
-      return { url: data.url };
-    } else if (data.image_url) {
-      // Format from Ideogram API
-      return { url: data.image_url };
-    } else {
-      console.error('Unexpected response format:', data);
-      throw new Error('Unexpected response format from the API');
+    if (!data.url) {
+      console.error('No URL returned from backend:', data);
+      throw new Error('No image URL returned');
     }
+    
+    console.log('Successfully generated front cover:', data.url.substring(0, 100) + '...');
+    return {
+      url: data.url,
+      width: data.width || width,
+      height: data.height || height
+    };
   } catch (error) {
-    console.error('Error generating front cover:', error);
-    // Default to placeholder
-    const placeholderUrl = `https://placehold.co/${width}x${height}/3498DB-2980B9/FFFFFF/png?text=Book+Cover`;
-    return { url: placeholderUrl };
+    console.error('Error in generateFrontCover:', error);
+    throw error;
   }
 }
 
