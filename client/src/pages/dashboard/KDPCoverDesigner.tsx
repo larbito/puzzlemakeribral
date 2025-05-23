@@ -440,23 +440,58 @@ const KDPCoverDesigner: React.FC = () => {
         body: JSON.stringify({
           imageUrl: base64DataUrl,
           instructions: `
-            Extract ALL text visible in this book cover image.
-            Include the book title, subtitle, author name, and any taglines or marketing text.
-            Return ONLY the extracted text, formatted as follows:
-            Title: [extracted title]
-            Subtitle: [extracted subtitle, if any]
-            Author: [extracted author name]
+            You are a specialized OCR system for book covers.
+            
+            Look carefully at this book cover image and extract ALL text visible on it.
+            Focus especially on identifying the book title (usually the largest text), subtitle (smaller text near title), 
+            and author name (often at the bottom of the cover or below the title).
+            
+            IMPORTANT INSTRUCTIONS:
+            1. Even if text is stylized, decorative, or part of the artwork, extract it if it's meant to be read
+            2. Pay attention to different font sizes to distinguish between title, subtitle, and author name
+            3. Title is typically the largest and most prominent text element
+            4. Author name often appears with "by" or just the name alone
+            5. Subtitle often appears below the title in smaller text
+            6. Ignore small text that appears to be publisher information or barcodes
+            7. If you're uncertain about any text, include it rather than omitting it
+            
+            If text is unclear or you can't detect any text, make educated guesses based on the content and style of the cover.
+            
+            FORMAT YOUR RESPONSE AS FOLLOWS (use placeholder text if you can't detect the actual text):
+            Title: [extracted title, or "Untitled" if none detected]
+            Subtitle: [extracted subtitle, or "No subtitle" if none detected]
+            Author: [extracted author name, or "Unknown author" if none detected]
             Tagline: [extracted tagline or marketing text, if any]
             Other text: [any other text visible on the cover]
           `
         })
       });
       
+      let extractedTitle = 'Untitled';
+      let extractedSubtitle = 'No subtitle';
+      let extractedAuthor = 'Unknown author';
+      let extractedTagline = '';
+      let extractedOtherText = '';
       let extractedText = '';
       
       if (textExtractionResponse.ok) {
         const textData = await textExtractionResponse.json();
         extractedText = textData.extractedText || '';
+        
+        // Parse extracted text to get individual components
+        if (extractedText) {
+          const titleMatch = extractedText.match(/Title:\s*(.+)(?:\n|$)/);
+          const subtitleMatch = extractedText.match(/Subtitle:\s*(.+)(?:\n|$)/);
+          const authorMatch = extractedText.match(/Author:\s*(.+)(?:\n|$)/);
+          const taglineMatch = extractedText.match(/Tagline:\s*(.+)(?:\n|$)/);
+          const otherTextMatch = extractedText.match(/Other text:\s*(.+)(?:\n|$)/);
+          
+          if (titleMatch && titleMatch[1] && !titleMatch[1].includes('Untitled')) extractedTitle = titleMatch[1].trim();
+          if (subtitleMatch && subtitleMatch[1] && !subtitleMatch[1].includes('No subtitle')) extractedSubtitle = subtitleMatch[1].trim();
+          if (authorMatch && authorMatch[1] && !authorMatch[1].includes('Unknown')) extractedAuthor = authorMatch[1].trim();
+          if (taglineMatch && taglineMatch[1]) extractedTagline = taglineMatch[1].trim();
+          if (otherTextMatch && otherTextMatch[1]) extractedOtherText = otherTextMatch[1].trim();
+        }
       }
       
       // Get the selected style's prompt addition
@@ -502,7 +537,11 @@ const KDPCoverDesigner: React.FC = () => {
             IMPORTANT - ADD THIS TO THE NEGATIVE PROMPT: "book mockup, 3D model, 3D book, product visualization, perspective view, book cover mockup, angled book, book template, edge visualization, spine, page curl, book pages, dog-eared pages"
             
             EXTRACTED TEXT FROM IMAGE (use this exact text in the prompt):
-            ${extractedText}
+            Title: ${extractedTitle}
+            Subtitle: ${extractedSubtitle}
+            Author: ${extractedAuthor}
+            ${extractedTagline ? `Tagline: ${extractedTagline}` : ''}
+            ${extractedOtherText ? `Other text: ${extractedOtherText}` : ''}
             
             Make the prompt extremely detailed but concise, focusing on creating a professional book cover design suitable for publishing.
           `
@@ -515,35 +554,40 @@ const KDPCoverDesigner: React.FC = () => {
       
       const analyzeData = await analyzeResponse.json();
       
-      // Ensure the prompt includes safe area requirements
+      // Get the raw prompt from the API
       let extractedPrompt = analyzeData.extractedPrompt || '';
       
-      // Add explicit safe area requirements if not already present
-      if (!extractedPrompt.includes("0.25 inches from") && !extractedPrompt.includes("safe area")) {
-        extractedPrompt = `${extractedPrompt} CRITICAL: All text must be placed at least 0.25 inches (75px) from all edges. Title should be centered and positioned well away from edges. Author name should be properly placed in lower area with safe margins.`;
-      }
-      
-      // Add extracted text information if available
-      if (extractedText && !extractedPrompt.includes("Title:")) {
-        extractedPrompt = `${extractedPrompt}\n\nExtracted text from original cover: ${extractedText}`;
-      }
-      
-      // Make sure the selected style is included in the prompt
-      let styleAdded = false;
-      if (selectedStyleObj && !extractedPrompt.toLowerCase().includes(selectedStyleObj.name.toLowerCase())) {
-        extractedPrompt = `${extractedPrompt}\n\nImportant: Apply the ${selectedStyleObj.name} book style (${selectedStyleObj.prompt}) to the final design.`;
-        styleAdded = true;
-      }
-      
-      // Add visual style if not already included
-      if (selectedVisualStyleObj && !extractedPrompt.toLowerCase().includes(selectedVisualStyleObj.name.toLowerCase())) {
-        extractedPrompt = `${extractedPrompt}${styleAdded ? ' ' : '\n\nImportant: '}Use ${selectedVisualStyleObj.name} visual art style (${selectedVisualStyleObj.prompt}) for the artwork.`;
-      }
+      // Create a structured template for the final prompt
+      const structuredPrompt = `
+BOOK COVER DESIGN PROMPT:
+--------------------------
+
+TITLE: ${extractedTitle}
+SUBTITLE: ${extractedSubtitle}
+AUTHOR: ${extractedAuthor}
+${extractedTagline ? `TAGLINE: ${extractedTagline}` : ''}
+
+BOOK GENRE: ${selectedStyleObj?.name || 'General'} 
+VISUAL STYLE: ${selectedVisualStyleObj?.name || 'Realistic'}
+
+${extractedPrompt}
+
+IMPORTANT DESIGN REQUIREMENTS:
+-----------------------------
+- All text MUST be placed at least 0.25 inches (75px) from ALL edges
+- Title should be large, centered, and positioned in the upper half of the cover
+- Author name should be smaller than the title and placed in the lower third
+- Subtitle should be positioned between the title and author name
+- Text must be clearly readable and properly sized for hierarchy
+
+BOOK GENRE STYLE: ${selectedStyleObj?.prompt || ''}
+VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
+`;
       
       // Update state with the enhanced prompt
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: extractedPrompt,
+        frontCoverPrompt: structuredPrompt,
         frontCoverImage: imageUrl,
         originalImageUrl: imageUrl,
         steps: {
