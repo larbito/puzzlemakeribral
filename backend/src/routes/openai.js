@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const fetch = require('node-fetch');
 const { OpenAI } = require('openai');
+const axios = require('axios');
+const multer = require('multer');
+
+// Configure multer for handling form data
+const upload = multer({
+  limits: {
+    fieldSize: 20 * 1024 * 1024, // 20MB limit
+    fileSize: 20 * 1024 * 1024
+  }
+});
 
 // Configure OpenAI API key from environment with fallback
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || 'fallback_key_for_local_development_only';
@@ -1371,6 +1381,110 @@ router.post('/generate-book-outline', async (req, res) => {
       success: false,
       error: 'Failed to generate book outline',
       details: error.message
+    });
+  }
+});
+
+// Add a new endpoint for extracting text from images
+/**
+ * Extract text from an image using OpenAI Vision API
+ * POST /api/openai/extract-text
+ */
+router.post('/extract-text', upload.none(), async (req, res) => {
+  try {
+    console.log('Starting text extraction from image');
+    
+    // Get the image URL from the request body
+    const { imageUrl, instructions = '' } = req.body;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'Image URL is required' });
+    }
+    
+    // Prepare the OpenAI API request
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      console.error('OpenAI API key not configured');
+      return res.status(500).json({ error: 'OpenAI API key not configured' });
+    }
+    
+    // Process the image URL (handle data URLs and regular URLs)
+    let base64Image = '';
+    if (imageUrl.startsWith('data:image')) {
+      // Extract the base64 part from data URL
+      base64Image = imageUrl.split(',')[1];
+    } else {
+      // If it's a URL, download and convert to base64
+      try {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        base64Image = Buffer.from(response.data).toString('base64');
+      } catch (error) {
+        console.error('Error downloading image:', error);
+        return res.status(400).json({ error: 'Failed to download image' });
+      }
+    }
+    
+    // Create a customized instruction for text extraction
+    const extractionInstructions = instructions || `
+      Extract all text from this book cover image.
+      Focus only on text content, including:
+      - Book title
+      - Subtitle (if any)
+      - Author name
+      - Any taglines, quotes, or promotional text
+      
+      Return the extracted text only, formatted neatly.
+    `;
+    
+    // Call the OpenAI API
+    const openaiResponse = await axios.post(
+      'https://api.openai.com/v1/chat/completions',
+      {
+        model: 'gpt-4-vision-preview',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: extractionInstructions },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 1000
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    // Extract the response
+    const extractedText = openaiResponse.data.choices[0].message.content.trim();
+    console.log('Text extraction successful');
+    
+    // Return the extracted text
+    res.json({
+      success: true,
+      extractedText
+    });
+    
+  } catch (error) {
+    console.error('Error extracting text from image:', error);
+    
+    // Provide more detailed error information
+    const errorDetail = error.response?.data?.error?.message || error.message;
+    
+    res.status(500).json({
+      error: 'Failed to extract text from image',
+      detail: errorDetail
     });
   }
 });

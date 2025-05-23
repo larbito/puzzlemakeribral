@@ -80,6 +80,7 @@ interface CoverDesignerState {
   spineFont: string;
   fullCoverImage: string | null;
   uploadedFile?: File;
+  selectedStyle: string; // New field for selected style
 }
 
 // KDP supported trim sizes
@@ -107,6 +108,19 @@ const SPINE_FONTS = [
   { value: 'georgia', label: 'Georgia' },
   { value: 'garamond', label: 'Garamond' },
   { value: 'futura', label: 'Futura' },
+];
+
+// First, around line 57-65, add a new styles array with emojis
+const COVER_STYLES = [
+  { id: 'watercolor', name: 'Watercolor', emoji: '🎨', prompt: 'watercolor style, soft edges, flowing colors, artistic' },
+  { id: 'minimalist', name: 'Minimalist', emoji: '⬜', prompt: 'minimalist style, clean, simple, elegant, plenty of white space' },
+  { id: 'vintage', name: 'Vintage', emoji: '📜', prompt: 'vintage style, retro, aged, classic, distressed texture' },
+  { id: 'fantasy', name: 'Fantasy', emoji: '🧙', prompt: 'fantasy style, magical, mystical, vibrant colors, detailed illustrations' },
+  { id: 'children', name: 'Children', emoji: '🧸', prompt: 'children\'s book style, cute, colorful, playful, simple shapes' },
+  { id: 'scifi', name: 'Sci-Fi', emoji: '🚀', prompt: 'sci-fi style, futuristic, technological, sleek, bold colors' },
+  { id: 'photo', name: 'Photorealistic', emoji: '📸', prompt: 'photorealistic style, detailed, realistic textures and lighting' },
+  { id: 'comic', name: 'Comic', emoji: '💥', prompt: 'comic book style, bold outlines, flat colors, dynamic' },
+  { id: 'noir', name: 'Noir', emoji: '🌃', prompt: 'noir style, dark, moody, high contrast, dramatic shadows' },
 ];
 
 const KDPCoverDesigner: React.FC = () => {
@@ -145,6 +159,7 @@ const KDPCoverDesigner: React.FC = () => {
     spineColor: '#3B82F6', // Default blue color
     spineFont: 'helvetica',
     fullCoverImage: null,
+    selectedStyle: 'fantasy', // Default style
   });
 
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({
@@ -290,14 +305,84 @@ const KDPCoverDesigner: React.FC = () => {
       return;
     }
     
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size exceeds 5MB limit');
+    // Increase file size limit (from 5MB to 20MB)
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('File size exceeds 20MB limit');
       return;
     }
     
     setIsLoading({...isLoading, uploadImage: true});
     
+    // For large images, we'll resize them client-side before upload
+    if (file.size > 10 * 1024 * 1024 && (file.type === 'image/jpeg' || file.type === 'image/png')) {
+      resizeImage(file, 2000, 2000).then(resizedFile => {
+        processUploadedFile(resizedFile);
+      }).catch(error => {
+        console.error('Error resizing image:', error);
+        // Fall back to original file if resize fails
+        processUploadedFile(file);
+      });
+    } else {
+      // Process directly for smaller files
+      processUploadedFile(file);
+    }
+  };
+
+  // Add a helper function to resize large images
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Calculate the new dimensions
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Convert canvas to blob
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('Canvas to Blob conversion failed'));
+            return;
+          }
+          
+          // Create a new file from the blob
+          const resizedFile = new File([blob], file.name, { 
+            type: file.type,
+            lastModified: Date.now()
+          });
+          
+          resolve(resizedFile);
+        }, file.type);
+      };
+      
+      img.onerror = () => {
+        reject(new Error('Image loading failed'));
+      };
+    });
+  };
+
+  // Add a function to process the uploaded file
+  const processUploadedFile = (file: File) => {
     // Create a URL for the uploaded image
     const imageUrl = URL.createObjectURL(file);
     
@@ -305,8 +390,8 @@ const KDPCoverDesigner: React.FC = () => {
     setState(prev => ({
       ...prev,
       frontCoverImage: imageUrl,
-      originalImageUrl: imageUrl, // Store the original image URL
-      uploadedFile: file // Save reference to file for later analysis
+      originalImageUrl: imageUrl,
+      uploadedFile: file
     }));
     
     // After uploading successfully
@@ -314,7 +399,7 @@ const KDPCoverDesigner: React.FC = () => {
     toast.success("Image uploaded successfully! Click 'Generate Prompt' to analyze it with AI.");
   };
   
-  // Modify the analyzeImageWithOpenAI function to include KDP-specific instructions
+  // Modify the analyzeImageWithOpenAI function to extract text better
   const analyzeImageWithOpenAI = async (file: File) => {
     try {
       setIsLoading({...isLoading, analyzeImage: true});
@@ -325,17 +410,52 @@ const KDPCoverDesigner: React.FC = () => {
       // Convert file to data URL to send as imageUrl parameter
       const base64DataUrl = await convertFileToDataURL(file);
       
-      // Use direct image analysis through OpenAI routes instead
+      // First, extract text from the image
+      const textExtractionResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageUrl: base64DataUrl,
+          instructions: `
+            Extract ALL text visible in this book cover image.
+            Include the book title, subtitle, author name, and any taglines or marketing text.
+            Return ONLY the extracted text, formatted as follows:
+            Title: [extracted title]
+            Subtitle: [extracted subtitle, if any]
+            Author: [extracted author name]
+            Tagline: [extracted tagline or marketing text, if any]
+            Other text: [any other text visible on the cover]
+          `
+        })
+      });
+      
+      let extractedText = '';
+      
+      if (textExtractionResponse.ok) {
+        const textData = await textExtractionResponse.json();
+        extractedText = textData.extractedText || '';
+      }
+      
+      // Then, analyze the image for detailed visual description
       const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageUrl: base64DataUrl, // Send as imageUrl parameter
+          imageUrl: base64DataUrl,
           instructions: `
-            This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
-            Focus on the visual style, colors, layout, and overall design.
+            This is a book cover image. Analyze it and create a VERY DETAILED prompt to generate a similar book cover.
+            
+            Please include:
+            1. Exact colors using specific color names (e.g., "deep navy blue", "burnt sienna", "muted teal")
+            2. Detailed description of the layout and composition
+            3. The artistic style (e.g., watercolor, photorealistic, minimalist)
+            4. Description of all visual elements and their placement
+            5. Texture and finishing details
+            6. Mood and atmosphere of the cover
             
             EXTREMELY IMPORTANT KDP REQUIREMENTS - FOLLOW EXACTLY:
             1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
@@ -344,13 +464,10 @@ const KDPCoverDesigner: React.FC = () => {
             4. Any subtitle should be positioned between the title and author name
             5. All text must be clearly readable and properly sized for hierarchy
             
-            Include specific details about:
-            - The book title and author placement
-            - The color scheme and aesthetic 
-            - Any graphic elements or illustrations
-            - The mood and style of the cover
+            EXTRACTED TEXT FROM IMAGE (use this exact text in the prompt):
+            ${extractedText}
             
-            CRITICAL: ENSURE all text stays well within safe margins - 0.25" (75px) from all edges.
+            Make the prompt extremely detailed but concise, focusing on creating a similar visual style.
           `
         })
       });
@@ -369,6 +486,11 @@ const KDPCoverDesigner: React.FC = () => {
         extractedPrompt = `${extractedPrompt} CRITICAL: All text must be placed at least 0.25 inches (75px) from all edges. Title should be centered and positioned well away from edges. Author name should be properly placed in lower area with safe margins.`;
       }
       
+      // Add extracted text information if available
+      if (extractedText && !extractedPrompt.includes("Title:")) {
+        extractedPrompt = `${extractedPrompt}\n\nExtracted text from original cover: ${extractedText}`;
+      }
+      
       // Update state with the enhanced prompt
       setState(prev => ({
         ...prev,
@@ -382,7 +504,7 @@ const KDPCoverDesigner: React.FC = () => {
       }));
       
       // Show success message
-      toast.success("Image analyzed successfully! Prompt created with KDP-safe text placement.");
+      toast.success("Image analyzed successfully! Prompt created with detailed description and KDP-safe text placement.");
       
     } catch (error) {
       console.error('Error analyzing image:', error);
@@ -838,6 +960,33 @@ const KDPCoverDesigner: React.FC = () => {
                       }))
                     }
                   />
+                </div>
+                
+                <div className="space-y-2 mt-4">
+                  <Label>Cover Style</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {COVER_STYLES.map((style) => (
+                      <Button
+                        key={style.id}
+                        type="button"
+                        variant={state.selectedStyle === style.id ? "default" : "outline"}
+                        onClick={() => 
+                          setState(prev => ({
+                            ...prev,
+                            selectedStyle: style.id
+                          }))
+                        }
+                        className={`flex flex-col items-center justify-center h-20 ${
+                          state.selectedStyle === style.id 
+                            ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
+                            : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
+                        }`}
+                      >
+                        <span className="text-2xl mb-1">{style.emoji}</span>
+                        <span className="text-xs font-medium">{style.name}</span>
+                      </Button>
+                    ))}
+                  </div>
                 </div>
                 
                 <div className="flex space-x-2">
@@ -1335,7 +1484,7 @@ const KDPCoverDesigner: React.FC = () => {
                                 const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                 
                                 // Include KDP-specific instructions
-                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt}`;
+                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} ${COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || ''}`;
                                 
                                 // Call the book cover generation API
                                 const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
