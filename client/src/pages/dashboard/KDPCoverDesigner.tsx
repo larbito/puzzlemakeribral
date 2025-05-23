@@ -333,17 +333,22 @@ const KDPCoverDesigner: React.FC = () => {
           imageUrl: base64DataUrl, // Send as imageUrl parameter
           instructions: `
             This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
-            Focus ONLY on the background design, style, colors, and overall aesthetic.
+            Focus on the visual style, colors, layout, and overall design.
             
-            EXTREMELY IMPORTANT INSTRUCTIONS - FOLLOW EXACTLY:
-            1. DO NOT include ANY text-related instructions in your prompt
-            2. DO NOT mention titles, subtitles, author names, or any text elements
-            3. ONLY describe the visual style, background artwork, colors, and design elements
-            4. Focus on creating a prompt for a TEXTLESS background design only
-            5. The text will be added separately later in safe margins
-
-            Output a prompt that will create ONLY the background/artwork with NO TEXT whatsoever.
-            This is critical for Amazon KDP print requirements.
+            EXTREMELY IMPORTANT KDP REQUIREMENTS - FOLLOW EXACTLY:
+            1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
+            2. Title should be large, centered, and positioned in the upper half of the cover
+            3. Author name should be smaller than the title and placed in the lower third
+            4. Any subtitle should be positioned between the title and author name
+            5. All text must be clearly readable and properly sized for hierarchy
+            
+            Include specific details about:
+            - The book title and author placement
+            - The color scheme and aesthetic 
+            - Any graphic elements or illustrations
+            - The mood and style of the cover
+            
+            CRITICAL: ENSURE all text stays well within safe margins - 0.25" (75px) from all edges.
           `
         })
       });
@@ -354,19 +359,15 @@ const KDPCoverDesigner: React.FC = () => {
       
       const analyzeData = await analyzeResponse.json();
       
-      // Ensure the prompt focuses only on background design, not text
+      // Ensure the prompt includes safe area requirements
       let extractedPrompt = analyzeData.extractedPrompt || '';
       
-      // Remove any text placement instructions
-      extractedPrompt = extractedPrompt.replace(/title/gi, 'central area');
-      extractedPrompt = extractedPrompt.replace(/text/gi, 'design element');
-      extractedPrompt = extractedPrompt.replace(/author/gi, 'artwork');
-      extractedPrompt = extractedPrompt.replace(/subtitle/gi, 'visual element');
+      // Add explicit safe area requirements if not already present
+      if (!extractedPrompt.includes("0.25 inches from") && !extractedPrompt.includes("safe area")) {
+        extractedPrompt = `${extractedPrompt} CRITICAL: All text must be placed at least 0.25 inches (75px) from all edges. Title should be centered and positioned well away from edges. Author name should be properly placed in lower area with safe margins.`;
+      }
       
-      // Add explicit instruction to not generate any text
-      extractedPrompt = `Create a book cover background design with NO TEXT: ${extractedPrompt}. IMPORTANT: Generate ONLY the background artwork with absolutely NO TEXT, NO TITLES, NO WORDS of any kind.`;
-      
-      // Update state with the filtered analysis
+      // Update state with the enhanced prompt
       setState(prev => ({
         ...prev,
         frontCoverPrompt: extractedPrompt,
@@ -379,7 +380,7 @@ const KDPCoverDesigner: React.FC = () => {
       }));
       
       // Show success message
-      toast.success("Image analyzed successfully! Prompt created for background only - text will be added separately.");
+      toast.success("Image analyzed successfully! Prompt created with KDP-safe text placement.");
       
     } catch (error) {
       console.error('Error analyzing image:', error);
@@ -784,13 +785,6 @@ const KDPCoverDesigner: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-4 pt-4 border-t border-zinc-700/50">
-                  <div className="flex items-center space-x-2 text-xs text-emerald-400 bg-emerald-950/30 p-3 rounded-lg">
-                    <Info className="w-4 h-4 text-emerald-300" />
-                    <span>These dimensions are based on KDP printing requirements.</span>
-                  </div>
-                </div>
               </div>
             </div>
             
@@ -1002,15 +996,15 @@ const KDPCoverDesigner: React.FC = () => {
               <div className="mt-6">
                 <h3 className="text-md font-medium mb-2">Cover Preview</h3>
                 
-                {/* Add text-free design notice */}
+                {/* Replace text-free design notice with better guidance */}
                 <div className="mb-4 bg-amber-900/30 border border-amber-500/30 rounded-md p-3 text-sm">
                   <div className="flex items-start">
                     <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
                     <div>
-                      <p className="text-amber-300 font-medium">Text-Free Cover Design</p>
+                      <p className="text-amber-300 font-medium">KDP Cover Design Requirements</p>
                       <p className="text-amber-400/90 text-xs mt-1">
-                        For KDP compatibility, we now generate covers without text to ensure proper safe margins.
-                        Our system will overlay the book title and author name in the correct safe area during final export.
+                        Your cover will be generated with exact {state.bookSettings.bookSize} dimensions as specified in your settings.
+                        All text will be placed at least 0.25" from edges to meet KDP's printing requirements.
                       </p>
                     </div>
                   </div>
@@ -1098,6 +1092,11 @@ const KDPCoverDesigner: React.FC = () => {
                             <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-red-500"></div>
                             <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-red-500"></div>
                             
+                            {/* Size indicator */}
+                            <div className="absolute top-1 left-1 bg-emerald-900/80 text-emerald-300 text-xs px-1 py-0.5 rounded">
+                              {state.bookSettings.bookSize} ({state.bookSettings.dimensions.width}" × {state.bookSettings.dimensions.height}")
+                            </div>
+                            
                             {/* Add indicator label */}
                             <div className="absolute top-1 right-1 bg-cyan-900/80 text-cyan-300 text-xs px-1 py-0.5 rounded">
                               Safe Area
@@ -1107,7 +1106,7 @@ const KDPCoverDesigner: React.FC = () => {
                             <div className="absolute bottom-1 right-1 left-1 flex justify-center">
                               <div className="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded">
                                 <AlertTriangle className="h-3 w-3 inline mr-1" />
-                                Text must be within dashed line
+                                KDP requires 0.25" safe margin for text
                               </div>
                             </div>
                           </div>
@@ -1162,9 +1161,8 @@ const KDPCoverDesigner: React.FC = () => {
                       <div className="flex items-center gap-2 text-xs p-3 bg-amber-950/60 border border-amber-900/50 rounded text-amber-400 mt-3">
                         <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500" />
                         <p className="font-medium">
-                          IMPORTANT: This design is intentionally generated without text. In the final export, 
-                          text will be automatically placed within the 0.25" safe margin (within dashed line)
-                          to meet KDP requirements.
+                          IMPORTANT: This design maintains a 0.25" safe margin (shown by dashed lines).
+                          All text is positioned within this safe area to meet KDP requirements.
                         </p>
                       </div>
                     )}
@@ -1326,25 +1324,18 @@ const KDPCoverDesigner: React.FC = () => {
                                 // Enhanced prompt with explicit KDP text placement instructions
                                 const safeAreaPrompt = `
                                   CRITICAL KDP REQUIREMENT: 
-                                  - DO NOT INCLUDE ANY TEXT IN THE IMAGE AT ALL
-                                  - GENERATE ONLY THE BACKGROUND DESIGN WITHOUT ANY TEXT
-                                  - LEAVE SPACE FOR TEXT TO BE ADDED SEPARATELY IN THE CENTER
-                                  - NO TEXT, TITLES, SUBTITLES, OR AUTHOR NAMES IN THE GENERATED IMAGE
-                                  - JUST CREATE THE BACKGROUND ARTWORK/DESIGN
+                                  - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
+                                  - Place title text large and centered in the upper half
+                                  - Place author name in lower third, smaller than title
+                                  - Keep ALL text elements well within the dashed safe area
+                                  - Text must be readable and properly sized for hierarchy
                                 `;
                                 
-                                // Update the generate cover API call with even more explicit dimension requirements
-                                const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio. The image must be precisely proportioned to ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`;
-                                
-                                // Prepare prompt for textless background
-                                let basePrompt = state.frontCoverPrompt;
-                                
-                                // Remove references to text in the prompt
-                                basePrompt = basePrompt.replace(/with\s+title/gi, 'with space for title');
-                                basePrompt = basePrompt.replace(/with\s+text/gi, 'with space for text');
+                                // Update the generate cover API call with explicit dimension requirements
+                                const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                 
                                 // Include KDP-specific instructions
-                                const modifiedPrompt = basePrompt + " " + dimensionsPrompt + " " + safeAreaPrompt;
+                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt}`;
                                 
                                 // Call the book cover generation API
                                 const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1356,7 +1347,7 @@ const KDPCoverDesigner: React.FC = () => {
                                     prompt: modifiedPrompt,
                                     width: Math.round(state.bookSettings.dimensions.width * 300),
                                     height: Math.round(state.bookSettings.dimensions.height * 300),
-                                    negative_prompt: 'any text, any words, any lettering, any titles, author name, subtitles, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
+                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions'
                                   })
                                 });
                                 
@@ -1419,22 +1410,15 @@ const KDPCoverDesigner: React.FC = () => {
                                     // Add a variation modifier to the prompt
                                     const safeAreaPrompt = `
                                       CRITICAL KDP REQUIREMENT: 
-                                      - DO NOT INCLUDE ANY TEXT IN THE IMAGE AT ALL
-                                      - GENERATE ONLY THE BACKGROUND DESIGN WITHOUT ANY TEXT
-                                      - LEAVE SPACE FOR TEXT TO BE ADDED SEPARATELY IN THE CENTER
-                                      - NO TEXT, TITLES, SUBTITLES, OR AUTHOR NAMES IN THE GENERATED IMAGE
-                                      - JUST CREATE THE BACKGROUND ARTWORK/DESIGN
+                                      - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
+                                      - Place title text large and centered in the upper half
+                                      - Place author name in lower third, smaller than title
+                                      - Keep ALL text elements well within the dashed safe area
+                                      - Text must be readable and properly sized for hierarchy
                                     `;
-                                    const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio. The image must be precisely proportioned to ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`;
+                                    const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                     
-                                    // Prepare base prompt for textless background
-                                    let basePrompt = state.frontCoverPrompt;
-                                    
-                                    // Remove references to text in the prompt
-                                    basePrompt = basePrompt.replace(/with\s+title/gi, 'with space for title');
-                                    basePrompt = basePrompt.replace(/with\s+text/gi, 'with space for text');
-                                    
-                                    const variationPrompt = `${basePrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
+                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt}`;
                                     
                                     // Call the book cover generation API for a variation
                                     const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
@@ -1446,7 +1430,7 @@ const KDPCoverDesigner: React.FC = () => {
                                         prompt: variationPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        negative_prompt: 'any text, any words, any lettering, any titles, author name, subtitles, text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
+                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });
