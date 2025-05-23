@@ -319,6 +319,9 @@ const KDPCoverDesigner: React.FC = () => {
       // Create a URL for the uploaded image
       const imageUrl = URL.createObjectURL(file);
       
+      // Convert file to data URL to send as imageUrl parameter
+      const base64DataUrl = await convertFileToDataURL(file);
+      
       // Use direct image analysis through OpenAI routes instead
       const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
@@ -326,7 +329,7 @@ const KDPCoverDesigner: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageBase64: await convertFileToBase64(file),
+          imageUrl: base64DataUrl, // Send as imageUrl parameter
           instructions: `
             This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
             Focus on the visual style, colors, layout, and overall design.
@@ -359,7 +362,7 @@ const KDPCoverDesigner: React.FC = () => {
       // Update state with the analysis and mark the step as complete
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: analyzeData.prompt || analyzeData.enhancedPrompt,
+        frontCoverPrompt: analyzeData.extractedPrompt, // Note: backend returns extractedPrompt, not prompt
         frontCoverImage: imageUrl, // Use the local object URL
         originalImageUrl: imageUrl,
         steps: {
@@ -379,7 +382,19 @@ const KDPCoverDesigner: React.FC = () => {
     }
   };
 
-  // Helper function to convert File to base64
+  // Helper function to convert File to data URL (includes the data:image prefix)
+  const convertFileToDataURL = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+  
+  // Keep the base64 converter for other uses
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
