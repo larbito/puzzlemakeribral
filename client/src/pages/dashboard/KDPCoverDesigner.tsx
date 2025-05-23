@@ -316,31 +316,17 @@ const KDPCoverDesigner: React.FC = () => {
     try {
       setIsLoading({...isLoading, analyzeImage: true});
       
-      // First upload the file to get a URL
-      const formData = new FormData();
-      formData.append('file', file);
+      // Create a URL for the uploaded image
+      const imageUrl = URL.createObjectURL(file);
       
-      const uploadResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/upload', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload image');
-      }
-      
-      const uploadData = await uploadResponse.json();
-      const imageUrl = uploadData.url;
-      
-      // Now analyze the image with the AI service
-      const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/analyze-image', {
+      // Use direct image analysis through OpenAI routes instead
+      const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageUrl,
-          // Add specific instructions for KDP cover analysis
+          imageBase64: await convertFileToBase64(file),
           instructions: `
             This is a book cover image. Analyze it and create a detailed prompt to generate a similar book cover.
             Focus on the visual style, colors, layout, and overall design.
@@ -373,7 +359,8 @@ const KDPCoverDesigner: React.FC = () => {
       // Update state with the analysis and mark the step as complete
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: analyzeData.prompt,
+        frontCoverPrompt: analyzeData.prompt || analyzeData.enhancedPrompt,
+        frontCoverImage: imageUrl, // Use the local object URL
         originalImageUrl: imageUrl,
         steps: {
           ...prev.steps,
@@ -390,6 +377,21 @@ const KDPCoverDesigner: React.FC = () => {
     } finally {
       setIsLoading({...isLoading, analyzeImage: false});
     }
+  };
+
+  // Helper function to convert File to base64
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64String = reader.result as string;
+        // Remove the data:image/xxx;base64, prefix
+        const base64 = base64String.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
   };
 
   // Function to reset uploaded image and prompt
