@@ -2651,21 +2651,20 @@ const KDPCoverDesigner: React.FC = () => {
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // IMPROVED APPROACH: Instead of trying to fit one dimension and potentially cutting off the other,
-        // we'll use a containment approach that ensures the entire image is visible
-        
+        // FIXED APPROACH: For book covers, we want to COVER not CONTAIN
+        // This ensures the image fills the entire canvas without white borders
         // Get original image dimensions
         const imgWidth = img.width;
         const imgHeight = img.height;
         
-        // Calculate the scaling factor to fit the entire image within the canvas
-        // while preserving its aspect ratio
-        const scale = Math.min(
+        // Calculate the scaling factor to COVER the entire canvas
+        // (this may crop some of the image but ensures no white borders)
+        const scale = Math.max(
           canvas.width / imgWidth,
           canvas.height / imgHeight
         );
         
-        // Calculate centered position
+        // Calculate centered position (this will crop equally from both sides/top/bottom)
         const x = (canvas.width - imgWidth * scale) / 2;
         const y = (canvas.height - imgHeight * scale) / 2;
         
@@ -2676,10 +2675,10 @@ const KDPCoverDesigner: React.FC = () => {
           x, y, imgWidth * scale, imgHeight * scale  // Destination rectangle
         );
         
-        // For debugging - add a subtle border to visualize the canvas bounds
-        ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(0, 0, canvas.width, canvas.height);
+        // Remove the debug border that might be showing white space
+        // ctx.strokeStyle = 'rgba(200, 200, 200, 0.2)';
+        // ctx.lineWidth = 1;
+        // ctx.strokeRect(0, 0, canvas.width, canvas.height);
         
         // Convert to a data URL and download
         const dataUrl = canvas.toDataURL('image/png');
