@@ -112,15 +112,18 @@ const SPINE_FONTS = [
 
 // First, around line 57-65, add a new styles array with emojis
 const COVER_STYLES = [
-  { id: 'watercolor', name: 'Watercolor', emoji: '🎨', prompt: 'watercolor style, soft edges, flowing colors, artistic' },
-  { id: 'minimalist', name: 'Minimalist', emoji: '⬜', prompt: 'minimalist style, clean, simple, elegant, plenty of white space' },
-  { id: 'vintage', name: 'Vintage', emoji: '📜', prompt: 'vintage style, retro, aged, classic, distressed texture' },
-  { id: 'fantasy', name: 'Fantasy', emoji: '🧙', prompt: 'fantasy style, magical, mystical, vibrant colors, detailed illustrations' },
-  { id: 'children', name: 'Children', emoji: '🧸', prompt: 'children\'s book style, cute, colorful, playful, simple shapes' },
-  { id: 'scifi', name: 'Sci-Fi', emoji: '🚀', prompt: 'sci-fi style, futuristic, technological, sleek, bold colors' },
-  { id: 'photo', name: 'Photorealistic', emoji: '📸', prompt: 'photorealistic style, detailed, realistic textures and lighting' },
-  { id: 'comic', name: 'Comic', emoji: '💥', prompt: 'comic book style, bold outlines, flat colors, dynamic' },
-  { id: 'noir', name: 'Noir', emoji: '🌃', prompt: 'noir style, dark, moody, high contrast, dramatic shadows' },
+  { id: 'literary', name: 'Literary Fiction', emoji: '📖', prompt: 'elegant literary fiction book cover design, sophisticated, minimalist typography, subtle imagery, understated color palette, high-concept design' },
+  { id: 'thriller', name: 'Thriller/Mystery', emoji: '🔍', prompt: 'suspenseful thriller book cover, dramatic shadows, high contrast, bold title typography, moody atmosphere, tension-building visual elements' },
+  { id: 'romance', name: 'Romance', emoji: '❤️', prompt: 'romantic book cover design, emotionally evocative, soft color palette, elegant typography, relationship-focused imagery, heartfelt visual elements' },
+  { id: 'fantasy', name: 'Fantasy', emoji: '🐉', prompt: 'fantasy book cover design, magical elements, rich detailed illustration, epic scenery, mystical symbols, otherworldly atmosphere' },
+  { id: 'nonfiction', name: 'Non-Fiction', emoji: '📊', prompt: 'professional non-fiction book cover, clean layout, informative design, authoritative typography, subject-appropriate imagery, organized visual hierarchy' },
+  { id: 'scifi', name: 'Science Fiction', emoji: '🚀', prompt: 'science fiction book cover design, futuristic elements, technological aesthetics, innovative typography, cosmic imagery, forward-looking visual style' },
+  { id: 'children', name: 'Children\'s', emoji: '🧸', prompt: 'children\'s book cover design, playful illustrations, bright cheerful colors, fun typography, age-appropriate imagery, engaging visual elements' },
+  { id: 'horror', name: 'Horror', emoji: '👻', prompt: 'horror book cover design, unsettling imagery, dark atmosphere, eerie elements, foreboding typography, suspenseful visual composition' },
+  { id: 'memoir', name: 'Memoir/Biography', emoji: '✍️', prompt: 'memoir or biography book cover design, personal imagery, authentic feel, balanced typography, narrative-focused layout, meaningful visual elements' },
+  { id: 'historical', name: 'Historical', emoji: '⏳', prompt: 'historical book cover design, period-appropriate imagery, classic typography, aged texture, era-specific visual elements, authentic historical aesthetic' },
+  { id: 'ya', name: 'Young Adult', emoji: '🌟', prompt: 'young adult book cover design, contemporary style, relatable imagery, dynamic typography, teen-appropriate visual elements, emotionally resonant design' },
+  { id: 'textbook', name: 'Textbook/Academic', emoji: '🎓', prompt: 'academic or textbook cover design, organized layout, clear typography, educational imagery, professional appearance, subject-focused visual elements' },
 ];
 
 const KDPCoverDesigner: React.FC = () => {
@@ -159,7 +162,7 @@ const KDPCoverDesigner: React.FC = () => {
     spineColor: '#3B82F6', // Default blue color
     spineFont: 'helvetica',
     fullCoverImage: null,
-    selectedStyle: 'fantasy', // Default style
+    selectedStyle: 'literary', // Default style
   });
 
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({
@@ -451,29 +454,36 @@ const KDPCoverDesigner: React.FC = () => {
         body: JSON.stringify({
           imageUrl: base64DataUrl,
           instructions: `
-            This is a book cover image. Analyze it and create a VERY DETAILED prompt to generate a similar book cover.
+            This is a book cover image. Analyze it and create a VERY DETAILED prompt to generate a FLAT 2D book cover design (NOT a 3D mockup or product visualization).
+            
+            Create a prompt for a SINGLE, FLAT BOOK COVER design that could be directly printed on the front of a book. The final image must ONLY be the front cover artwork itself, not a visualization or mockup.
             
             Please include:
             1. Exact colors using specific color names (e.g., "deep navy blue", "burnt sienna", "muted teal")
             2. Detailed description of the layout and composition
-            3. The artistic style (e.g., watercolor, photorealistic, minimalist)
+            3. The artistic style and genre-appropriate elements for book publishing
             4. Description of all visual elements and their placement
             5. Texture and finishing details
             6. Mood and atmosphere of the cover
+            7. Type of typography that should be used for the title and author name
             
             STYLE PREFERENCE: ${stylePrompt}
             
-            EXTREMELY IMPORTANT KDP REQUIREMENTS - FOLLOW EXACTLY:
+            EXTREMELY IMPORTANT KDP PUBLISHING REQUIREMENTS - FOLLOW EXACTLY:
             1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
             2. Title should be large, centered, and positioned in the upper half of the cover
             3. Author name should be smaller than the title and placed in the lower third
             4. Any subtitle should be positioned between the title and author name
             5. All text must be clearly readable and properly sized for hierarchy
+            6. DO NOT include any 3D book mockups, product visualizations, or angled book cover presentations
+            7. ONLY create a prompt for a flat, print-ready book cover design
+            
+            IMPORTANT - ADD THIS TO THE NEGATIVE PROMPT: "book mockup, 3D model, 3D book, product visualization, perspective view, book cover mockup, angled book, book template, edge visualization, spine, page curl, book pages, dog-eared pages"
             
             EXTRACTED TEXT FROM IMAGE (use this exact text in the prompt):
             ${extractedText}
             
-            Make the prompt extremely detailed but concise, focusing on creating a similar visual style.
+            Make the prompt extremely detailed but concise, focusing on creating a professional book cover design suitable for publishing.
           `
         })
       });
@@ -1507,10 +1517,10 @@ const KDPCoverDesigner: React.FC = () => {
                                     'Content-Type': 'application/json',
                                   },
                                   body: JSON.stringify({
-                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
+                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
                                     width: coverWidth,
                                     height: coverHeight,
-                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text'
+                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages'
                                   })
                                 });
                                 
@@ -1597,10 +1607,10 @@ const KDPCoverDesigner: React.FC = () => {
                                         'Content-Type': 'application/json',
                                       },
                                       body: JSON.stringify({
-                                        prompt: variationPrompt + ` DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
+                                        prompt: variationPrompt + ` DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup.`,
                                         width: coverWidth,
                                         height: coverHeight,
-                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text',
+                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
                                         seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
                                       })
                                     });
