@@ -149,30 +149,20 @@ router.post('/generate-front', express.json(), async (req, res) => {
     console.log('Request headers:', req.headers);
     console.log('Request body:', req.body);
     
-    // Check if API key is configured
-    const apiKey = process.env.IDEOGRAM_API_KEY;
-    console.log('API key status:', apiKey ? 'Present' : 'Missing');
-    
-    if (!apiKey) {
-      console.error('Ideogram API key is not set in the environment');
-      return res.status(500).json({ 
-        error: 'API key not configured',
-        details: 'Please set IDEOGRAM_API_KEY in your environment variables'
-      });
-    }
-
     const { 
       prompt, 
       width, 
       height, 
-      negative_prompt 
+      negative_prompt,
+      model = 'ideogram' // Default to ideogram if not specified
     } = req.body;
     
     console.log('Parsed request parameters:', {
       prompt,
       width,
       height,
-      negative_prompt
+      negative_prompt,
+      model
     });
     
     if (!prompt) {
@@ -181,268 +171,105 @@ router.post('/generate-front', express.json(), async (req, res) => {
     }
 
     if (!width || !height) {
-      console.error('Missing required parameters: width and/or height');
+      console.error('Missing required parameters: width and height');
       return res.status(400).json({ error: 'Width and height are required' });
     }
 
-    console.log('Generating front cover with params:', { prompt, width, height, negative_prompt });
-    
-    // Calculate aspect ratio
-    const pixelWidth = parseInt(width);
-    const pixelHeight = parseInt(height);
-    
-    // Calculate the exact aspect ratio for the cover - using precise arithmetic
-    const aspectRatio = parseFloat((pixelWidth / pixelHeight).toFixed(5));
-    console.log('Original dimensions:', { pixelWidth, pixelHeight });
-    console.log('Original aspect ratio:', aspectRatio);
-    
-    // Ideogram API has resolution limits, so we might need to scale down and later scale up
-    const maxDimension = 1024;
-    let targetWidth = pixelWidth;
-    let targetHeight = pixelHeight;
-    
-    // Scale down if needed while maintaining aspect ratio EXACTLY
-    if (pixelWidth > maxDimension || pixelHeight > maxDimension) {
-      if (pixelWidth >= pixelHeight) {
-        targetWidth = maxDimension;
-        targetHeight = Math.round(maxDimension / aspectRatio);
-      } else {
-        targetHeight = maxDimension;
-        targetWidth = Math.round(maxDimension * aspectRatio);
-      }
+    // Choose the appropriate API based on the selected model
+    if (model === 'dalle') {
+      // Use OpenAI DALL-E 3 API
+      console.log('Using DALL-E 3 model for generation');
       
-      // Double-check aspect ratio after rounding - adjust if needed to maintain exact ratio
-      const newRatio = parseFloat((targetWidth / targetHeight).toFixed(5));
-      if (newRatio !== aspectRatio) {
-        console.log('Adjusting dimensions to maintain exact aspect ratio');
-        // Adjust width or height to maintain exact ratio
-        if (targetWidth >= targetHeight) {
-          targetWidth = Math.round(targetHeight * aspectRatio);
-        } else {
-          targetHeight = Math.round(targetWidth / aspectRatio);
+      try {
+        const response = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: `${prompt}. ${negative_prompt ? `Make sure NOT to include: ${negative_prompt}` : ''}`,
+            n: 1,
+            size: `${width}x${height}`,
+            quality: "hd",
+            style: "vivid"
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('DALL-E API error:', errorData);
+          return res.status(response.status).json({ 
+            error: errorData.error?.message || 'Failed to generate image with DALL-E 3' 
+          });
         }
+        
+        const data = await response.json();
+        console.log('DALL-E response:', data);
+        
+        // Return the generated image URL
+        return res.json({ url: data.data[0].url });
+      } catch (error) {
+        console.error('Error generating image with DALL-E 3:', error);
+        return res.status(500).json({ error: 'Failed to generate image with DALL-E 3' });
       }
-    }
-    
-    console.log('Using scaled dimensions:', { targetWidth, targetHeight });
-    
-    // Add aspect ratio information to the prompt with very explicit dimensions
-    const safeMarginPx = Math.round(0.25 * 300); // 0.25 inches at 300 DPI
-    // Create a much more forceful prompt with repeated dimension information
-    const enhancedPrompt = `${prompt} 
-
-CRITICAL EXACT DIMENSIONS: This MUST be EXACTLY ${width}x${height} pixels with an EXACT aspect ratio of ${aspectRatio.toFixed(5)}. 
-Book dimensions are EXACTLY ${width/300}x${height/300} inches at 300 DPI.
-
-CRITICAL DIMENSIONS REQUIREMENT: The final image MUST maintain a ${width}:${height} exact dimension ratio with no deviation.
-
-CRITICAL TEXT REQUIREMENTS: 
-- ALL text must be at least ${safeMarginPx}px (0.25 inches) from ALL edges
-- Title should be placed in upper half, centered
-- Author name should be in lower third
-- All text must stay within safe area - never near edges`;
-    
-    // Modify the API call logic to strongly enforce margins
-    const enforceTextPlacement = true; // Set to true to enforce the text placement rules
-    
-    // For testing when the API key is not available or not valid
-    if (!apiKey || apiKey.includes('your_api_key_here') || !enforceTextPlacement) {
-      console.log('Using mock response for Ideogram API (no valid API key)');
+    } else {
+      // Use Ideogram API (default)
+      console.log('Using Ideogram model for generation');
       
-      // Return a placeholder image with the correct dimensions
-      return res.json({
-        status: 'success',
-        url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
-        width: pixelWidth,
-        height: pixelHeight,
-        message: 'Using placeholder due to missing API key'
-      });
-    }
-    
-    try {
-      // Create form data for the Ideogram API
-      const form = new FormData();
-
-      // Add primary parameters
-      form.append('prompt', enhancedPrompt);
-      form.append('width', targetWidth.toString());
-      form.append('height', targetHeight.toString());
+      // Existing Ideogram implementation
+      const aspect_ratio = `${width}:${height}`;
+      const seed = req.body.seed || Math.floor(Math.random() * 1000000);
       
-      // Determine if we need to enforce text placement with visual guide
-      if (enforceTextPlacement) {
-        // Add text safety parameters to prevent edge placement
-        form.append('text_safety', 'high');
-        // In Ideogram API, "safety_mode" helps avoid problematic content, but it might also influence text placement
-        form.append('safety_mode', 'strict');
-      }
+      // Build the request body
+      const ideogramBody = {
+        prompt,
+        aspect_ratio,
+        seed
+      };
       
       // Add negative prompt if provided
       if (negative_prompt) {
-        form.append('negative_prompt', negative_prompt);
-      } else {
-        form.append('negative_prompt', 'text too close to edges, text outside safe area, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed');
+        ideogramBody.negative_prompt = negative_prompt;
       }
       
-      // Add some default parameters
-      form.append('num_images', '1');
-      form.append('seed', Math.floor(Math.random() * 1000000));
-      form.append('rendering_speed', 'DEFAULT');
+      console.log('Sending request to Ideogram API:', ideogramBody);
       
-      console.log('Form data prepared for Ideogram API');
-      // Directly log what we're sending
-      console.log('Form data contents:', {
-        prompt: enhancedPrompt,
-        width: targetWidth.toString(),
-        height: targetHeight.toString(),
-        negative_prompt: negative_prompt || 'text too close to edges, text outside safe area, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed',
-        num_images: '1',
-        seed: Math.floor(Math.random() * 1000000),
-        rendering_speed: 'DEFAULT'
-      });
-      
-      // The correct Ideogram API URL is v1 not api/v1
-      const ideogramApiUrl = 'https://api.ideogram.ai/v1/ideogram-v3/generate';
-      console.log('Making request to Ideogram API URL:', ideogramApiUrl);
-      
-      // Add API key to headers - make sure it's valid
-      const headers = {
-        'Api-Key': apiKey,
-      };
-      
-      // Merge with form headers
-      Object.assign(headers, form.getHeaders());
-      console.log('Request headers:', headers);
-      
-      // Real API call
-      const response = await fetch(ideogramApiUrl, {
-        method: 'POST',
-        headers,
-        body: form
-      });
-
-      console.log('Ideogram API response status:', response.status);
-      console.log('Ideogram API response headers:', response.headers.raw());
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response from Ideogram API:', errorText);
+      try {
+        const response = await fetch('https://api.ideogram.ai/api/images', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.IDEOGRAM_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(ideogramBody)
+        });
         
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (e) {
-          errorData = { error: 'Failed to parse error response' };
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Ideogram API error:', errorText);
+          return res.status(response.status).json({ error: errorText || 'Failed to generate image' });
         }
         
-        // If API fails, use placeholder as fallback
-        return res.json({
-          status: 'success',
-          url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
-          width: pixelWidth,
-          height: pixelHeight,
-          message: 'Using placeholder due to API error'
-        });
-      }
-
-      const data = await response.json();
-      console.log('Ideogram API response:', data);
-      
-      // Extract the image URL from the response
-      let imageUrl = null;
-      
-      // Handle different response formats
-      if (data?.data?.[0]?.url) {
-        imageUrl = data.data[0].url;
-      } else if (data?.url) {
-        imageUrl = data.url;
-      } else if (data?.image_url) {
-        imageUrl = data.image_url;
-      }
-
-      if (!imageUrl) {
-        console.error('No image URL in response:', data);
-        // Return placeholder if no URL found
-        return res.json({
-          status: 'success',
-          url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
-          width: pixelWidth,
-          height: pixelHeight,
-          message: 'Using placeholder due to missing image URL'
-        });
-      }
-
-      // Add post-processing to ensure the exact dimensions after generation
-      if (data.url || imageUrl) {
-        try {
-          console.log('Enforcing exact dimensions on generated image');
-          // We'll always resample the image to ensure exact dimensions, not just when they don't match
-          const responseUrl = data.url || imageUrl;
-          const response = await fetch(responseUrl);
-          if (response.ok) {
-            const imageBuffer = await response.arrayBuffer();
-            const imageData = Buffer.from(imageBuffer);
-            
-            // Get the actual dimensions of the returned image
-            const metadata = await sharp(imageData).metadata();
-            console.log('Original image dimensions:', metadata.width, 'x', metadata.height);
-            
-            // ALWAYS force resize to ensure EXACT dimensions, even if they seem to match
-            console.log('Resizing to enforce exact dimensions');
-            // Use sharp to resize the image to exact dimensions
-            const resizedImage = await sharp(imageData)
-              .resize({
-                width: pixelWidth,
-                height: pixelHeight,
-                fit: 'fill' // Enforce exact dimensions
-              })
-              .jpeg({ quality: 95 })
-              .toBuffer();
-            
-            // Save to a temporary file with a unique name
-            const uniqueId = Date.now();
-            const fileName = `cover-${uniqueId}-${pixelWidth}x${pixelHeight}.jpg`;
-            const filePath = path.join(staticDir, fileName);
-            await fs.promises.writeFile(filePath, resizedImage);
-            
-            // Generate a URL to the local file
-            const imageUrl = `/static/${fileName}`;
-            console.log('Created resized image at:', imageUrl);
-            
-            return res.json({
-              status: 'success',
-              url: `https://puzzlemakeribral-production.up.railway.app${imageUrl}`,
-              width: pixelWidth,
-              height: pixelHeight,
-              resized: true
-            });
-          }
-        } catch (resizeError) {
-          console.error('Error enforcing dimensions:', resizeError);
-          // Continue with original URL if resize fails
+        const data = await response.json();
+        console.log('Ideogram API response:', data);
+        
+        if (!data.images || data.images.length === 0) {
+          return res.status(500).json({ error: 'No images were generated' });
         }
+        
+        // Return the URL of the first generated image
+        return res.json({ url: data.images[0].url });
+      } catch (error) {
+        console.error('Error generating image with Ideogram:', error);
+        return res.status(500).json({ error: 'Failed to generate image with Ideogram' });
       }
-
-      res.json({
-        status: 'success',
-        url: imageUrl,
-        width: pixelWidth,
-        height: pixelHeight
-      });
-    } catch (apiError) {
-      console.error('Error calling Ideogram API:', apiError);
-      
-      // If API call fails, use a placeholder as fallback
-      return res.json({
-        status: 'success',
-        url: `https://placehold.co/${targetWidth}x${targetHeight}/3498DB-2980B9/FFFFFF/png?text=Book+Cover+Generator`,
-        width: pixelWidth,
-        height: pixelHeight,
-        message: 'Using placeholder due to API error'
-      });
     }
+    
   } catch (error) {
-    console.error('Error generating front cover:', error);
-    res.status(500).json({ error: 'Failed to generate front cover' });
+    console.error('Error in book cover generation:', error);
+    return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 

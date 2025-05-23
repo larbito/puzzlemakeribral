@@ -82,6 +82,8 @@ interface CoverDesignerState {
   uploadedFile?: File;
   selectedStyle: string; // Book genre style
   selectedVisualStyle: string; // Visual/artistic style
+  selectedModel: string; // AI model for generation
+  showGuidelines: boolean; // Toggle for safety margins display
 }
 
 // KDP supported trim sizes
@@ -181,21 +183,20 @@ const KDPCoverDesigner: React.FC = () => {
     fullCoverImage: null,
     selectedStyle: 'literary', // Default style
     selectedVisualStyle: 'realistic', // Default visual style
+    selectedModel: 'ideogram', // Default to ideogram
+    showGuidelines: false // Default to hiding guidelines
   });
+
+  const [activeTab, setActiveTab] = useState<'styles' | 'measurements'>('styles');
 
   const [isLoading, setIsLoading] = useState<{[key: string]: boolean}>({
-    calculateDimensions: false,
-    generateFrontCover: false,
-    generateBackCover: false,
-    generateBackCoverPrompt: false,
-    assembleFullCover: false,
     uploadImage: false,
     analyzeImage: false,
-    downloadingCover: false
+    generatePrompt: false,
+    generateFrontCover: false,
+    generateBackCover: false,
+    assembleCover: false
   });
-
-  // Add a state for showing/hiding safety guidelines at the top near other state declarations
-  const [showSafetyGuides, setShowSafetyGuides] = useState<boolean>(false);
 
   // Calculate spine width based on page count and paper type
   useEffect(() => {
@@ -425,77 +426,19 @@ const KDPCoverDesigner: React.FC = () => {
   
   // Modify the analyzeImageWithOpenAI function to extract text better
   const analyzeImageWithOpenAI = async (file: File) => {
+    setIsLoading({...isLoading, analyzeImage: true});
+    
     try {
-      setIsLoading({...isLoading, analyzeImage: true});
-      
-      // Create a URL for the uploaded image
+      // Convert the file to base64 for the API
       const imageUrl = URL.createObjectURL(file);
-      
-      // Convert file to data URL to send as imageUrl parameter
       const base64DataUrl = await convertFileToDataURL(file);
       
-      // First, extract text from the image
-      const textExtractionResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageUrl: base64DataUrl,
-          instructions: `
-            You are a specialized OCR system for book covers.
-            
-            Look carefully at this book cover image and extract ALL text visible on it.
-            Focus especially on identifying the book title (usually the largest text), subtitle (smaller text near title), 
-            and author name (often at the bottom of the cover or below the title).
-            
-            IMPORTANT INSTRUCTIONS:
-            1. Even if text is stylized, decorative, or part of the artwork, extract it if it's meant to be read
-            2. Pay attention to different font sizes to distinguish between title, subtitle, and author name
-            3. Title is typically the largest and most prominent text element
-            4. Author name often appears with "by" or just the name alone
-            5. Subtitle often appears below the title in smaller text
-            6. Ignore small text that appears to be publisher information or barcodes
-            7. If you're uncertain about any text, include it rather than omitting it
-            
-            If text is unclear or you can't detect any text, make educated guesses based on the content and style of the cover.
-            
-            FORMAT YOUR RESPONSE AS FOLLOWS (use placeholder text if you can't detect the actual text):
-            Title: [extracted title, or "Untitled" if none detected]
-            Subtitle: [extracted subtitle, or "No subtitle" if none detected]
-            Author: [extracted author name, or "Unknown author" if none detected]
-            Tagline: [extracted tagline or marketing text, if any]
-            Other text: [any other text visible on the cover]
-          `
-        })
-      });
-      
-      let extractedTitle = 'Untitled';
-      let extractedSubtitle = 'No subtitle';
-      let extractedAuthor = 'Unknown author';
+      // First, extract the text from the image using our placeholder values
+      let extractedTitle = 'Book Title';
+      let extractedSubtitle = 'Book Subtitle';
+      let extractedAuthor = 'Author Name';
       let extractedTagline = '';
       let extractedOtherText = '';
-      let extractedText = '';
-      
-      if (textExtractionResponse.ok) {
-        const textData = await textExtractionResponse.json();
-        extractedText = textData.extractedText || '';
-        
-        // Parse extracted text to get individual components
-        if (extractedText) {
-          const titleMatch = extractedText.match(/Title:\s*(.+)(?:\n|$)/);
-          const subtitleMatch = extractedText.match(/Subtitle:\s*(.+)(?:\n|$)/);
-          const authorMatch = extractedText.match(/Author:\s*(.+)(?:\n|$)/);
-          const taglineMatch = extractedText.match(/Tagline:\s*(.+)(?:\n|$)/);
-          const otherTextMatch = extractedText.match(/Other text:\s*(.+)(?:\n|$)/);
-          
-          if (titleMatch && titleMatch[1] && !titleMatch[1].includes('Untitled')) extractedTitle = titleMatch[1].trim();
-          if (subtitleMatch && subtitleMatch[1] && !subtitleMatch[1].includes('No subtitle')) extractedSubtitle = subtitleMatch[1].trim();
-          if (authorMatch && authorMatch[1] && !authorMatch[1].includes('Unknown')) extractedAuthor = authorMatch[1].trim();
-          if (taglineMatch && taglineMatch[1]) extractedTagline = taglineMatch[1].trim();
-          if (otherTextMatch && otherTextMatch[1]) extractedOtherText = otherTextMatch[1].trim();
-        }
-      }
       
       // Get the selected style's prompt addition
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
@@ -538,15 +481,6 @@ const KDPCoverDesigner: React.FC = () => {
             7. ONLY create a prompt for a flat, print-ready book cover design
             
             IMPORTANT - ADD THIS TO THE NEGATIVE PROMPT: "book mockup, 3D model, 3D book, product visualization, perspective view, book cover mockup, angled book, book template, edge visualization, spine, page curl, book pages, dog-eared pages"
-            
-            EXTRACTED TEXT FROM IMAGE (use this exact text in the prompt):
-            Title: ${extractedTitle}
-            Subtitle: ${extractedSubtitle}
-            Author: ${extractedAuthor}
-            ${extractedTagline ? `Tagline: ${extractedTagline}` : ''}
-            ${extractedOtherText ? `Other text: ${extractedOtherText}` : ''}
-            
-            Make the prompt extremely detailed but concise, focusing on creating a professional book cover design suitable for publishing.
           `
         })
       });
@@ -559,6 +493,15 @@ const KDPCoverDesigner: React.FC = () => {
       
       // Get the raw prompt from the API
       let extractedPrompt = analyzeData.extractedPrompt || '';
+      
+      // Get the extracted text elements if available
+      if (analyzeData.textElements) {
+        extractedTitle = analyzeData.textElements.title || 'Book Title';
+        extractedSubtitle = analyzeData.textElements.subtitle || 'Book Subtitle';
+        extractedAuthor = analyzeData.textElements.author || 'Author Name';
+        extractedTagline = analyzeData.textElements.tagline || '';
+        extractedOtherText = analyzeData.textElements.otherText || '';
+      }
       
       // Create a structured template for the final prompt
       const structuredPrompt = `
@@ -1089,7 +1032,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                   </p>
                 </div>
                 
-                {/* Visual Art Styles for Upload tab */}
+                {/* Visual Art Styles for prompt tab */}
                 <div className="space-y-2 mt-4">
                   <Label>Visual Art Style</Label>
                   <div className="grid grid-cols-4 gap-2">
@@ -1117,6 +1060,54 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
                     Choose the artistic style for your cover illustration.
+                  </p>
+                </div>
+                
+                {/* AI Model Selection for prompt tab */}
+                <div className="space-y-2 mt-4">
+                  <Label>AI Generator Model</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={state.selectedModel === 'ideogram' ? "default" : "outline"}
+                      onClick={() => 
+                        setState(prev => ({
+                          ...prev,
+                          selectedModel: 'ideogram'
+                        }))
+                      }
+                      className={`flex flex-col items-center justify-center h-14 ${
+                        state.selectedModel === 'ideogram' 
+                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
+                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
+                      }`}
+                    >
+                      <span className="text-lg mb-0.5">🎨</span>
+                      <span className="text-[10px] font-medium">Ideogram</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={state.selectedModel === 'dalle' ? "default" : "outline"}
+                      onClick={() => 
+                        setState(prev => ({
+                          ...prev,
+                          selectedModel: 'dalle'
+                        }))
+                      }
+                      className={`flex flex-col items-center justify-center h-14 ${
+                        state.selectedModel === 'dalle' 
+                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
+                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
+                      }`}
+                    >
+                      <span className="text-lg mb-0.5">🤖</span>
+                      <span className="text-[10px] font-medium">DALL-E 3</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {state.selectedModel === 'ideogram' 
+                      ? "Ideogram excels at detailed illustrations with precise text placement"
+                      : "DALL-E 3 creates highly polished, photorealistic and artistic cover designs"}
                   </p>
                 </div>
                 
@@ -1282,6 +1273,54 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                   </p>
                 </div>
                 
+                {/* AI Model Selection for upload tab */}
+                <div className="space-y-2 mt-4">
+                  <Label>AI Generator Model</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      type="button"
+                      variant={state.selectedModel === 'ideogram' ? "default" : "outline"}
+                      onClick={() => 
+                        setState(prev => ({
+                          ...prev,
+                          selectedModel: 'ideogram'
+                        }))
+                      }
+                      className={`flex flex-col items-center justify-center h-14 ${
+                        state.selectedModel === 'ideogram' 
+                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
+                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
+                      }`}
+                    >
+                      <span className="text-lg mb-0.5">🎨</span>
+                      <span className="text-[10px] font-medium">Ideogram</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={state.selectedModel === 'dalle' ? "default" : "outline"}
+                      onClick={() => 
+                        setState(prev => ({
+                          ...prev,
+                          selectedModel: 'dalle'
+                        }))
+                      }
+                      className={`flex flex-col items-center justify-center h-14 ${
+                        state.selectedModel === 'dalle' 
+                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
+                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
+                      }`}
+                    >
+                      <span className="text-lg mb-0.5">🤖</span>
+                      <span className="text-[10px] font-medium">DALL-E 3</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    {state.selectedModel === 'ideogram' 
+                      ? "Ideogram excels at detailed illustrations with precise text placement"
+                      : "DALL-E 3 creates highly polished, photorealistic and artistic cover designs"}
+                  </p>
+                </div>
+                
                 <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
                   <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center">
                     <span className="mr-2">✨</span> AI Analysis
@@ -1380,7 +1419,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                           />
                           
                           {/* Safe area indicators for KDP */}
-                          <div className={`absolute inset-0 pointer-events-none ${showSafetyGuides ? 'visible' : 'hidden'}`}>
+                          <div className={`absolute inset-0 pointer-events-none ${state.showGuidelines ? 'visible' : 'hidden'}`}>
                             {/* Inner safe area boundary - 0.25 inches from edges */}
                             <div 
                               className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-70"
@@ -1423,9 +1462,9 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                               size="sm"
                               variant="outline"
                               className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-700"
-                              onClick={() => setShowSafetyGuides(!showSafetyGuides)}
+                              onClick={() => setState(prev => ({ ...prev, showGuidelines: !prev.showGuidelines }))}
                             >
-                              {showSafetyGuides ? 'Hide Guidelines' : 'Show Guidelines'}
+                              {state.showGuidelines ? 'Hide Guidelines' : 'Show Guidelines'}
                             </Button>
                           </div>
                           
@@ -1674,7 +1713,8 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                     prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
                                     width: coverWidth,
                                     height: coverHeight,
-                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages'
+                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
+                                    model: state.selectedModel // Add model selection
                                   })
                                 });
                                 
@@ -1768,7 +1808,8 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                         width: coverWidth,
                                         height: coverHeight,
                                         negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
-                                        seed: Math.floor(Math.random() * 1000000) // Use random seed for variation
+                                        seed: Math.floor(Math.random() * 1000000), // Use random seed for variation
+                                        model: state.selectedModel // Add model selection
                                       })
                                     });
                                     
@@ -2087,7 +2128,8 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                           width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                           height: Math.round(state.bookSettings.dimensions.height * 300),
                           negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
-                          seed: Math.floor(Math.random() * 1000000) // Random seed for variation
+                          seed: Math.floor(Math.random() * 1000000), // Random seed for variation
+                          model: state.selectedModel // Add model selection
                         })
                       });
                       
@@ -2209,7 +2251,8 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                               width: Math.round(state.bookSettings.dimensions.width * 300),
                               height: Math.round(state.bookSettings.dimensions.height * 300),
                               negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
-                              seed: Math.floor(Math.random() * 1000000) // Different seed for variation
+                              seed: Math.floor(Math.random() * 1000000), // Different seed for variation
+                              model: state.selectedModel // Add model selection
                             })
                           });
                           
@@ -2527,7 +2570,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                     />
                     
                     {/* Safe Zones Overlay */}
-                    <div className={`absolute inset-0 pointer-events-none ${showSafetyGuides ? 'visible' : 'hidden'}`}>
+                    <div className={`absolute inset-0 pointer-events-none ${state.showGuidelines ? 'visible' : 'hidden'}`}>
                       {/* Spine guides */}
                       <div className="absolute top-0 bottom-0 border-l-2 border-r-2 border-cyan-500 border-dashed"
                         style={{
@@ -2556,9 +2599,9 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                         size="sm"
                         variant="outline"
                         className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-700"
-                        onClick={() => setShowSafetyGuides(!showSafetyGuides)}
+                        onClick={() => setState(prev => ({ ...prev, showGuidelines: !prev.showGuidelines }))}
                       >
-                        {showSafetyGuides ? 'Hide Guidelines' : 'Show Guidelines'}
+                        {state.showGuidelines ? 'Hide Guidelines' : 'Show Guidelines'}
                       </Button>
                     </div>
                   </div>

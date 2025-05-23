@@ -156,56 +156,101 @@ router.post('/extract-prompt', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Image URL is required' });
     }
 
-    const systemPrompt = context || 'You are a helpful assistant that analyses images and produces detailed descriptions.';
+    const systemPrompt = context || `You are an expert book cover designer and publishing professional who analyzes book covers for KDP (Kindle Direct Publishing) and other print-on-demand services.`;
     
     console.log('Calling OpenAI API to extract prompt from image');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: systemPrompt },
-          { 
-            role: 'user', 
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
             content: [
-              { type: 'text', text: 'Create a detailed description of this image that could be used as a prompt to generate a similar flat illustration. Do not mention book covers or mockups in your description.' },
-              { type: 'image_url', image_url: { url: imageUrl } }
+              {
+                type: 'text',
+                text: `Analyze this book cover image carefully. 
+
+1. Extract all visible text elements, separating them into categories:
+   - TITLE: The main title of the book
+   - SUBTITLE: Any secondary title or subtitle
+   - AUTHOR: The author's name
+   - TAGLINE: Any short marketing phrase or tagline
+   - OTHER_TEXT: Any other visible text elements
+
+2. Then provide a detailed description for recreating this cover design, including:
+   - Visual elements and their arrangement
+   - Color scheme with specific color names
+   - Artistic style and mood
+   - Typography styles
+   - Layout and composition
+   - Texture and finishing details
+
+Format your response as a structured JSON object with these fields:
+{
+  "textElements": {
+    "title": "The exact book title",
+    "subtitle": "The exact subtitle if present",
+    "author": "The exact author name",
+    "tagline": "Any marketing tagline if present",
+    "otherText": "Any other text visible on the cover"
+  },
+  "extractedPrompt": "A detailed description of the visual elements, style, colors, layout, etc. that would allow recreating a similar cover design."
+}
+
+IMPORTANT: If text is difficult to read or partially obscured, make your best educated guess, but be accurate with what you can clearly see.`
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageUrl
+                }
+              }
             ]
           }
         ],
-        max_tokens: 500,
-        temperature: 0.5
+        temperature: 0.2, // Lower temperature for more consistent results
+        response_format: { type: 'json_object' },
+        max_tokens: 1500
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       console.error('OpenAI API error:', errorData);
-      return res.status(response.status).json({
-        error: 'Failed to extract prompt from image with OpenAI',
-        details: errorData
-      });
+      throw new Error(errorData.error?.message || 'Error calling OpenAI API');
     }
 
     const data = await response.json();
-    const extractedPrompt = data.choices[0]?.message?.content?.trim();
+    console.log('OpenAI response received');
     
-    if (!extractedPrompt) {
-      return res.status(500).json({ error: 'No extracted prompt received from OpenAI' });
+    try {
+      // Parse the response to extract the content
+      const content = JSON.parse(data.choices[0].message.content);
+      
+      // Return the structured data with both text elements and extracted prompt
+      return res.json({
+        textElements: content.textElements,
+        extractedPrompt: content.extractedPrompt
+      });
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      // If parsing fails, return the raw content
+      return res.json({
+        extractedPrompt: data.choices[0].message.content
+      });
     }
-
-    console.log('Prompt extracted successfully');
-    res.json({ extractedPrompt });
   } catch (error) {
     console.error('Error extracting prompt:', error);
-    res.status(500).json({ 
-      error: 'Failed to extract prompt from image',
-      details: error.message
-    });
+    return res.status(500).json({ error: error.message || 'Failed to extract prompt from image' });
   }
 });
 
