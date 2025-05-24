@@ -258,7 +258,13 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     console.log('Request headers:', req.headers);
     console.log('Request body:', req.body);
     
-    const { frontCoverUrl, width, height } = req.body;
+    const { 
+      frontCoverUrl, 
+      width, 
+      height, 
+      backCoverPrompt, 
+      interiorImages = [] 
+    } = req.body;
     
     if (!frontCoverUrl) {
       console.error('Missing required parameter: frontCoverUrl');
@@ -280,54 +286,30 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       return res.status(500).json({ status: 'error', message: 'Failed to download front cover image' });
     }
 
-    // Extract colors from the front cover to use in the back cover
+    // Get front cover metadata
+    const metadata = await sharp(frontCoverBuffer).metadata();
+    console.log('Front cover metadata:', { width: metadata.width, height: metadata.height });
+
+    // Use provided dimensions or fall back to front cover dimensions
+    const targetWidth = width || metadata.width;
+    const targetHeight = height || metadata.height;
+    
+    console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
+
+    // Create back cover using createBackCover helper which handles interior images and styling
     let backCoverBuffer;
     try {
-      console.log('Creating back cover from front cover');
+      console.log('Creating back cover with interior images:', interiorImages.length);
       
-      // Get image dimensions from the actual front cover rather than parameters
-      const metadata = await sharp(frontCoverBuffer).metadata();
-      const imageWidth = metadata.width;
-      const imageHeight = metadata.height;
+      backCoverBuffer = await createBackCover(
+        targetWidth,
+        targetHeight,
+        interiorImages.filter(img => img && img.trim()), // Filter out empty/null images
+        frontCoverBuffer
+      );
       
-      console.log('Front cover actual dimensions:', { width: imageWidth, height: imageHeight });
-      
-      // Create a back cover that is a mirrored version of the front but with a gradient overlay
-      backCoverBuffer = await sharp(frontCoverBuffer)
-        .flop() // Mirror horizontally
-        .modulate({ saturation: 0.7 }) // Slightly desaturate
-        .composite([{
-          input: {
-            create: {
-              width: imageWidth,
-              height: imageHeight,
-              channels: 4,
-              background: { r: 0, g: 0, b: 0, alpha: 0.5 }
-            }
-          },
-          blend: 'overlay'
-        }])
-        .toBuffer();
-      
-      // Resize to a reasonable size for faster transmission
-      const MAX_SIZE = 1024;
-      if (imageWidth > MAX_SIZE || imageHeight > MAX_SIZE) {
-        const aspectRatio = imageWidth / imageHeight;
-        let newWidth, newHeight;
-        
-        if (imageWidth > imageHeight) {
-          newWidth = MAX_SIZE;
-          newHeight = Math.round(MAX_SIZE / aspectRatio);
-        } else {
-          newHeight = MAX_SIZE;
-          newWidth = Math.round(MAX_SIZE * aspectRatio);
-        }
-        
-        console.log('Resizing back cover to:', { width: newWidth, height: newHeight });
-        backCoverBuffer = await sharp(backCoverBuffer)
-          .resize(newWidth, newHeight)
-          .toBuffer();
-      }
+      // If we have specific back cover prompt requirements, we might enhance this further
+      // For now, the createBackCover function handles the styling based on the front cover
       
       // Save to a temporary file with a unique name
       const uniqueId = Date.now();
@@ -336,7 +318,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       
       // Save with higher JPEG quality
       await sharp(backCoverBuffer)
-        .jpeg({ quality: 92 })
+        .jpeg({ quality: 95 })
         .toFile(filePath);
       
       // Return the URL to the saved file
@@ -347,8 +329,8 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       return res.json({ 
         status: 'success', 
         url: backCoverUrl,
-        width: imageWidth,
-        height: imageHeight 
+        width: targetWidth,
+        height: targetHeight 
       });
     } catch (error) {
       console.error('Error creating back cover:', error);
@@ -898,7 +880,7 @@ async function createBackCover(width, height, interiorImagesUrls, frontCoverBuff
   // If there are interior images, create a grid layout
   if (interiorImagesUrls && interiorImagesUrls.length > 0) {
     try {
-      // Create a white background
+      // Create a white background with target dimensions
       const backCover = sharp({
         create: {
           width,
@@ -933,12 +915,24 @@ async function createBackCover(width, height, interiorImagesUrls, frontCoverBuff
         }
       }
       
-      // If no images were successfully downloaded, return a mirrored front cover
+      // If no images were successfully downloaded, return a styled mirrored front cover
       if (imageBuffers.length === 0) {
         return sharp(frontCoverBuffer)
+          .resize(width, height, { fit: 'fill' }) // Ensure exact target dimensions
           .flop() // Mirror horizontally
-          .modulate({ saturation: 0.7 }) // Slightly desaturate
-          .png()
+          .modulate({ saturation: 0.8, brightness: 0.9 }) // Slightly desaturate and darken
+          .composite([{
+            input: {
+              create: {
+                width,
+                height,
+                channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 0.3 }
+              }
+            },
+            blend: 'overlay'
+          }])
+          .jpeg({ quality: 95 })
           .toBuffer();
       }
       
@@ -947,7 +941,7 @@ async function createBackCover(width, height, interiorImagesUrls, frontCoverBuff
       const cols = imageBuffers.length === 1 ? 1 : 2;
       
       // Calculate image size in the grid
-      const margin = 50; // Margin around the grid and between images
+      const margin = Math.max(30, Math.floor(Math.min(width, height) * 0.05)); // Responsive margin
       const gridWidth = width - (margin * 2);
       const gridHeight = height - (margin * 2);
       const imageWidth = Math.floor((gridWidth - (margin * (cols - 1))) / cols);
@@ -981,31 +975,57 @@ async function createBackCover(width, height, interiorImagesUrls, frontCoverBuff
       }
       
       // Add text "Interior Preview" at the top
-      const textOverlay = await createTextOverlay("Interior Preview", width, 40);
+      const textOverlay = await createTextOverlay("Interior Preview", width, Math.floor(height * 0.08));
       composites.unshift({
         input: textOverlay,
         left: 0,
-        top: 10
+        top: Math.floor(height * 0.02)
       });
       
-      // Composite all images onto the back cover
-      return backCover.composite(composites).png().toBuffer();
+      // Composite all images onto the back cover and ensure exact dimensions
+      return backCover.composite(composites)
+        .resize(width, height, { fit: 'fill' })
+        .jpeg({ quality: 95 })
+        .toBuffer();
     } catch (error) {
       console.error('Error creating back cover with interior images:', error);
-      // Fallback to mirrored front cover
+      // Fallback to styled mirrored front cover with exact dimensions
       return sharp(frontCoverBuffer)
+        .resize(width, height, { fit: 'fill' })
         .flop() // Mirror horizontally
-        .modulate({ saturation: 0.7 }) // Slightly desaturate
-        .png()
+        .modulate({ saturation: 0.8, brightness: 0.9 }) // Slightly desaturate and darken
+        .composite([{
+          input: {
+            create: {
+              width,
+              height,
+              channels: 4,
+              background: { r: 0, g: 0, b: 0, alpha: 0.3 }
+            }
+          },
+          blend: 'overlay'
+        }])
+        .jpeg({ quality: 95 })
         .toBuffer();
     }
   } else {
-    // If no interior images, use a mirrored version of the front cover
-    // but slightly desaturated
+    // If no interior images, use a styled mirrored version of the front cover
     return sharp(frontCoverBuffer)
+      .resize(width, height, { fit: 'fill' }) // Ensure exact target dimensions
       .flop() // Mirror horizontally
-      .modulate({ saturation: 0.7 }) // Slightly desaturate
-      .png()
+      .modulate({ saturation: 0.8, brightness: 0.9 }) // Slightly desaturate and darken
+      .composite([{
+        input: {
+          create: {
+            width,
+            height,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 0.3 }
+          }
+        },
+        blend: 'overlay'
+      }])
+      .jpeg({ quality: 95 })
       .toBuffer();
   }
 }

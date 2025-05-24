@@ -1058,7 +1058,6 @@ const KDPCoverDesigner: React.FC = () => {
                           }));
                           
                           toast.success('Prompt enhanced for Ideogram!');
-                          
                         } catch (error) {
                           console.error('Error enhancing prompt:', error);
                           toast.error('Failed to enhance prompt. Please try again.');
@@ -1987,25 +1986,24 @@ const KDPCoverDesigner: React.FC = () => {
                     toast.info("Generating back cover design...");
                     
                     try {
-                      // Modified approach to use front cover generation API for back cover
-                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
+                      // Use the dedicated back cover generation API that creates a back cover based on the front cover
+                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                          prompt: `Professional book back cover design with: ${state.backCoverPrompt}`,
+                          frontCoverUrl: state.frontCoverImage,
                           width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                           height: Math.round(state.bookSettings.dimensions.height * 300),
-                          negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
-                          seed: Math.floor(Math.random() * 1000000), // Random seed for variation
-                          model: state.selectedModel // Add model selection
+                          backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
+                          interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
                         })
                       });
                       
                       if (!response.ok) {
                         const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to generate back cover');
+                        throw new Error(errorData.message || errorData.error || 'Failed to generate back cover');
                       }
                       
                       const data = await response.json();
@@ -2111,23 +2109,23 @@ const KDPCoverDesigner: React.FC = () => {
                         setIsLoading({...isLoading, generateBackCover: true});
                         try {
                           // Generate a variation with the same prompt
-                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
+                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({
-                              prompt: `Professional book back cover design with: ${state.backCoverPrompt}`,
-                              width: Math.round(state.bookSettings.dimensions.width * 300),
+                              frontCoverUrl: state.frontCoverImage,
+                              width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
                               height: Math.round(state.bookSettings.dimensions.height * 300),
-                              negative_prompt: 'text, watermark, signature, blurry, low quality, distorted, deformed',
-                              seed: Math.floor(Math.random() * 1000000), // Different seed for variation
-                              model: state.selectedModel // Add model selection
+                              backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
+                              interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
                             })
                           });
                           
                           if (!response.ok) {
-                            throw new Error('Failed to regenerate back cover');
+                            const errorData = await response.json();
+                            throw new Error(errorData.message || errorData.error || 'Failed to regenerate back cover');
                           }
                           
                           const data = await response.json();
