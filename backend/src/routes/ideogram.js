@@ -350,12 +350,17 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [
+          // Add system message for KDP cover analysis
+          ...(isKDPCover ? [{
+            role: 'system',
+            content: 'You are an expert KDP cover designer. You are analyzing a book cover image to create a visual prompt suitable for generating a **6x9 inch Amazon KDP front cover** using DALL·E 3 or similar AI.\n\nFocus only on:\n- Title placement\n- Visual hierarchy\n- Main character(s)\n- Scene composition\n- Color scheme\n- Artistic style\n- Mood and layout\n\nDo NOT describe it as a t-shirt or poster.\nDo NOT suggest icons or decorations.\nAvoid extra instructions, markdown, or bullet points.\n\nYour output must be a **single paragraph** prompt that can be used directly with DALL·E 3 to recreate the design.'
+          }] : []),
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: promptText
+                text: isKDPCover ? 'Analyze this book cover image and create a detailed visual prompt for AI generation:' : promptText
               },
               {
                 type: 'image_url',
