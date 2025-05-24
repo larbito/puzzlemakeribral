@@ -349,7 +349,7 @@ console.log('Registered route: /api/kdp-formatter/*');
 // These map the expected frontend endpoints to existing backend functionality
 
 // Route alias: /api/analyze-image -> call ideogram analyze handler directly
-app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
+app.post('/api/analyze-image', async (req, res) => {
   console.log('KDP Cover Generator: Analyzing image with GPT-4 Vision');
   try {
     // Set the path for the ideogram router to recognize
@@ -371,7 +371,7 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
 });
 
 // Route alias: /api/enhance-prompt -> call openai enhance-prompt handler directly  
-app.post('/api/enhance-prompt', express.json(), async (req, res) => {
+app.post('/api/enhance-prompt', async (req, res) => {
   console.log('KDP Cover Generator: Enhancing prompt with GPT-4');
   try {
     // Set the path for the openai router to recognize
@@ -393,7 +393,7 @@ app.post('/api/enhance-prompt', express.json(), async (req, res) => {
 });
 
 // Route alias: /api/generate-cover -> call ideogram generate handler directly
-app.post('/api/generate-cover', express.json(), async (req, res) => {
+app.post('/api/generate-cover', async (req, res) => {
   console.log('KDP Cover Generator: Generating cover image');
   try {
     const { model, prompt, style, kdp_settings, spine_width } = req.body;
