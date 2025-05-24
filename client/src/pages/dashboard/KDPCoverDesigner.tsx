@@ -1,3 +1,4 @@
+// Clean deployment - no visual art styles
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
