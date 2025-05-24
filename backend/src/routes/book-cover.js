@@ -201,24 +201,35 @@ router.post('/generate-front', express.json(), async (req, res) => {
         // For DALL-E, clean the prompt to avoid triggering book mockups
         let cleanedPrompt = prompt;
         
-        // Remove problematic terms that trigger book mockups
-        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'flat design illustration');
-        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'flat illustration design');
-        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?inch.*?with EXACT.*?proportions\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/CRITICAL DIMENSION INFO:.*?specifications\./gi, '');
+        // Remove problematic terms that trigger book mockups (more targeted approach)
+        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'artwork design');
+        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'design');
+        
+        // Remove overly specific technical instructions that can confuse DALL-E
+        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?inch.*?book cover.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/CRITICAL DIMENSION INFO:.*?\./gi, '');
         cleanedPrompt = cleanedPrompt.replace(/Force EXACT.*?ratio\./gi, '');
         cleanedPrompt = cleanedPrompt.replace(/Do not deviate from these specifications\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/This is a flat graphic design illustration.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/CRITICAL:.*?design\./gi, '');
         
-        // Add specific flat design instructions for DALL-E
-        const flatDesignInstruction = "Create a flat, 2D graphic design illustration. This is a rectangular artwork design, not a 3D object. The design should be completely flat with no perspective, shadows, or 3D effects.";
+        // Remove any excessive whitespace
+        cleanedPrompt = cleanedPrompt.replace(/\s+/g, ' ').trim();
         
-        // Enhanced negative prompt specifically for DALL-E
-        const dalleNegativePrompt = "3D mockup, book mockup, perspective view, angled view, shadow effects, 3D rendering, physical book, book spine visible, book pages, book sitting on surface, product photography, realistic book object, book model, curved pages, page curl effects, depth, book template, book visualization, perspective, tilted book, book cover mockup";
+        // Add simple flat design instruction
+        const flatDesignInstruction = "Create a flat, rectangular artwork design.";
         
-        const finalPrompt = `${flatDesignInstruction} ${cleanedPrompt}. Make sure NOT to include: ${dalleNegativePrompt}${negative_prompt ? `, ${negative_prompt}` : ''}`;
+        // Combine and limit length (DALL-E has a 1000 character limit)
+        let finalPrompt = `${flatDesignInstruction} ${cleanedPrompt}`;
         
-        console.log('Original prompt:', prompt);
-        console.log('Cleaned prompt for DALL-E:', finalPrompt);
+        // Truncate if too long (leave room for negative prompt instructions)
+        if (finalPrompt.length > 800) {
+          finalPrompt = finalPrompt.substring(0, 800) + '...';
+        }
+        
+        console.log('Original prompt length:', prompt.length);
+        console.log('Final prompt length:', finalPrompt.length);
+        console.log('Final prompt for DALL-E:', finalPrompt);
         
         const response = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
@@ -238,14 +249,15 @@ router.post('/generate-front', express.json(), async (req, res) => {
         
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('DALL-E API error:', errorData);
+          console.error('DALL-E API error status:', response.status);
+          console.error('DALL-E API error data:', errorData);
           return res.status(response.status).json({ 
             error: errorData.error?.message || 'Failed to generate image with DALL-E 3' 
           });
         }
         
         const data = await response.json();
-        console.log('DALL-E response:', data);
+        console.log('DALL-E response successful');
         
         // Return the generated image URL
         return res.json({ url: data.data[0].url });
