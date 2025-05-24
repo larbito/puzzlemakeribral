@@ -363,10 +363,46 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
       size: req.file.size 
     });
 
+    // Get KDP settings from request body (passed from frontend)
+    const selectedStyle = req.body.style || 'flat-vector';
+    const selectedModel = req.body.model || 'dalle';
+    
+    // Parse KDP settings if provided
+    let kdpSettings;
+    try {
+      kdpSettings = req.body.kdp_settings ? JSON.parse(req.body.kdp_settings) : null;
+    } catch (e) {
+      kdpSettings = null;
+    }
+    
+    // Determine trim size - use selected size or default to 6x9
+    const trimSize = kdpSettings?.trimSize || '6x9';
+    const trimSizeLabel = trimSize.replace('x', '" × ') + '"';
+    
+    console.log(`Using trim size: ${trimSizeLabel}, style: ${selectedStyle}, model: ${selectedModel}`);
+
     // Convert the image buffer to base64
     const base64Image = req.file.buffer.toString('base64');
 
-    // Call OpenAI's GPT-4 Vision API with KDP-specific system prompt
+    // Create dynamic system prompt based on actual trim size
+    const systemPrompt = `You are an expert KDP cover designer. You are analyzing a book cover image to create a visual prompt suitable for generating a **${trimSizeLabel} Amazon KDP front cover** using ${selectedModel.toUpperCase()} or similar AI.
+
+Focus only on:
+- Title placement
+- Visual hierarchy  
+- Main character(s)
+- Scene composition
+- Color scheme
+- Artistic style (${selectedStyle} style)
+- Mood and layout
+
+Do NOT describe it as a t-shirt or poster.
+Do NOT suggest icons or decorations.
+Avoid extra instructions, markdown, or bullet points.
+
+Your output must be a **single paragraph** prompt that can be used directly with ${selectedModel.toUpperCase()} to recreate the design for a ${trimSizeLabel} book cover.`;
+
+    // Call OpenAI's GPT-4 Vision API with dynamic KDP-specific system prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -378,14 +414,14 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert KDP cover designer. You are analyzing a book cover image to create a visual prompt suitable for generating a **6x9 inch Amazon KDP front cover** using DALL·E 3 or similar AI.\n\nFocus only on:\n- Title placement\n- Visual hierarchy\n- Main character(s)\n- Scene composition\n- Color scheme\n- Artistic style\n- Mood and layout\n\nDo NOT describe it as a t-shirt or poster.\nDo NOT suggest icons or decorations.\nAvoid extra instructions, markdown, or bullet points.\n\nYour output must be a **single paragraph** prompt that can be used directly with DALL·E 3 to recreate the design.'
+            content: systemPrompt
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Analyze this book cover image and create a detailed visual prompt for AI generation:'
+                text: `Analyze this ${trimSizeLabel} book cover image and create a detailed visual prompt for ${selectedModel.toUpperCase()} generation:`
               },
               {
                 type: 'image_url',
@@ -407,7 +443,7 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
 
     const data = await response.json();
     const kdpPrompt = data.choices[0].message.content;
-    console.log('Generated KDP cover prompt:', kdpPrompt);
+    console.log(`Generated ${trimSizeLabel} ${selectedModel.toUpperCase()} cover prompt:`, kdpPrompt);
     
     // Return the KDP-specific prompt
     res.json({ prompt: kdpPrompt });
@@ -451,50 +487,108 @@ app.post('/api/generate-cover', async (req, res) => {
     console.log('Selected Model:', model);
     console.log('Style:', style);
     
-    if (model === 'dalle') {
-      // Forward to OpenAI/DALL-E generation (you may need to implement this)
-      // For now, use ideogram as fallback
-      console.log('Using Ideogram as DALL-E implementation pending');
+    // Calculate aspect ratio based on trim size
+    let aspectRatio = '2:3'; // Default for most book covers
+    if (kdp_settings && kdp_settings.trimSize) {
+      const [width, height] = kdp_settings.trimSize.split('x').map(dim => parseFloat(dim));
+      const ratio = width / height;
+      
+      // Map to closest standard aspect ratio
+      if (ratio > 0.85) {
+        aspectRatio = '1:1'; // Square-ish (8.5x11 ≈ 0.77, close to square)
+      } else if (ratio > 0.75) {
+        aspectRatio = '4:5'; // 8.5x11 is actually closer to this
+      } else {
+        aspectRatio = '2:3'; // Standard book ratio
+      }
+      
+      console.log(`Trim size ${kdp_settings.trimSize} mapped to aspect ratio ${aspectRatio}`);
     }
     
-    // Map frontend visual styles to Ideogram style_type values
-    const styleMapping = {
-      'flat-vector': 'DESIGN',
-      'watercolor': 'GENERAL', 
-      'digital-painting': 'REALISTIC',
-      'fantasy': 'GENERAL',
-      'retro': 'DESIGN',
-      'cartoon': 'GENERAL',
-      'storybook': 'GENERAL',
-      'photography': 'REALISTIC'
-    };
-    
-    const ideogramStyleType = styleMapping[style] || 'AUTO';
-    console.log(`Mapped style "${style}" to Ideogram style_type "${ideogramStyleType}"`);
-    
-    // Prepare request for ideogram generation with KDP-optimized parameters
-    req.body = {
-      prompt: prompt,
-      model: model || 'ideogram',
-      // Use correct Ideogram API parameters
-      style_type: ideogramStyleType,
-      aspect_ratio: '2:3', // Standard book cover ratio
-      magic_prompt_option: 'AUTO',
-      num_images: 1
-    };
-    
-    // Set the path for the ideogram router to recognize
-    req.originalUrl = '/api/ideogram/generate';
-    req.url = '/generate';
-    req.baseUrl = '/api/ideogram';
-    
-    // Call the ideogram router directly with the modified request
-    ideogramRoutes(req, res, (err) => {
-      if (err) {
-        console.error('Error in ideogram router:', err);
-        res.status(500).json({ error: 'Failed to generate cover' });
+    if (model === 'dalle') {
+      console.log('Using DALL-E 3 for image generation');
+      
+      // Generate with DALL-E 3
+      const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: prompt,
+          n: 1,
+          size: '1024x1792', // Tall format for book covers (roughly 4:7 ratio)
+          quality: 'hd',
+          style: style === 'photography' ? 'natural' : 'vivid'
+        })
+      });
+
+      if (!dalleResponse.ok) {
+        const errorData = await dalleResponse.json();
+        throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E');
       }
-    });
+
+      const dalleData = await dalleResponse.json();
+      const imageUrl = dalleData.data[0].url;
+      
+      console.log('DALL-E generated image URL:', imageUrl);
+      
+      // Return in the same format as Ideogram for frontend compatibility
+      res.json({
+        success: true,
+        images: [{
+          url: imageUrl,
+          prompt: prompt,
+          model: 'dalle',
+          style: style,
+          resolution: '1024x1792'
+        }]
+      });
+      
+    } else {
+      console.log('Using Ideogram for image generation');
+      
+      // Map frontend visual styles to Ideogram style_type values
+      const styleMapping = {
+        'flat-vector': 'DESIGN',
+        'watercolor': 'GENERAL', 
+        'digital-painting': 'REALISTIC',
+        'fantasy': 'GENERAL',
+        'retro': 'DESIGN',
+        'cartoon': 'GENERAL',
+        'storybook': 'GENERAL',
+        'photography': 'REALISTIC'
+      };
+      
+      const ideogramStyleType = styleMapping[style] || 'AUTO';
+      console.log(`Mapped style "${style}" to Ideogram style_type "${ideogramStyleType}"`);
+      
+      // Prepare request for ideogram generation with KDP-optimized parameters
+      req.body = {
+        prompt: prompt,
+        model: model || 'ideogram',
+        // Use correct Ideogram API parameters
+        style_type: ideogramStyleType,
+        aspect_ratio: aspectRatio,
+        magic_prompt_option: 'AUTO',
+        num_images: 1
+      };
+      
+      // Set the path for the ideogram router to recognize
+      req.originalUrl = '/api/ideogram/generate';
+      req.url = '/generate';
+      req.baseUrl = '/api/ideogram';
+      
+      // Call the ideogram router directly with the modified request
+      ideogramRoutes(req, res, (err) => {
+        if (err) {
+          console.error('Error in ideogram router:', err);
+          res.status(500).json({ error: 'Failed to generate cover' });
+        }
+      });
+    }
   } catch (error) {
     console.error('Error in generate-cover alias:', error);
     res.status(500).json({ error: 'Failed to generate cover' });
