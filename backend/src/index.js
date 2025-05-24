@@ -410,15 +410,30 @@ app.post('/api/generate-cover', async (req, res) => {
       console.log('Using Ideogram as DALL-E implementation pending');
     }
     
+    // Map frontend visual styles to Ideogram style_type values
+    const styleMapping = {
+      'flat-vector': 'DESIGN',
+      'watercolor': 'GENERAL', 
+      'digital-painting': 'REALISTIC',
+      'fantasy': 'GENERAL',
+      'retro': 'DESIGN',
+      'cartoon': 'GENERAL',
+      'storybook': 'GENERAL',
+      'photography': 'REALISTIC'
+    };
+    
+    const ideogramStyleType = styleMapping[style] || 'AUTO';
+    console.log(`Mapped style "${style}" to Ideogram style_type "${ideogramStyleType}"`);
+    
     // Prepare request for ideogram generation with KDP-optimized parameters
     req.body = {
       prompt: prompt,
       model: model || 'ideogram',
-      style: style,
-      // Add KDP-specific parameters
+      // Use correct Ideogram API parameters
+      style_type: ideogramStyleType,
       aspect_ratio: '2:3', // Standard book cover ratio
-      style_type: style || 'flat-vector',
-      magic_prompt_option: 'AUTO'
+      magic_prompt_option: 'AUTO',
+      num_images: 1
     };
     
     // Set the path for the ideogram router to recognize
