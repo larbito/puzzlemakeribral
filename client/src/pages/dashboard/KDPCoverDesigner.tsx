@@ -1730,6 +1730,14 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                   finalPromptAddition = ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`;
                                 }
                                 
+                                console.log('=== COVER GENERATION DEBUG ===');
+                                console.log('Selected model:', state.selectedModel);
+                                console.log('Front cover prompt:', state.frontCoverPrompt);
+                                console.log('Book settings:', state.bookSettings);
+                                console.log('Cover dimensions:', coverWidth, 'x', coverHeight);
+                                console.log('Modified prompt:', modifiedPrompt);
+                                console.log('Final prompt addition:', finalPromptAddition);
+                                
                                 const requestBody = {
                                   prompt: modifiedPrompt + finalPromptAddition,
                                   width: coverWidth,
