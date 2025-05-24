@@ -68,7 +68,7 @@ export async function calculateCoverDimensions({
 }
 
 /**
- * Generate a front cover using the AI image generator
+ * Generate a front cover using Ideogram only
  */
 export async function generateFrontCover({
   title,
@@ -77,7 +77,6 @@ export async function generateFrontCover({
   genre,
   style,
   description,
-  model = 'dalle',
   customInstructions
 }: {
   title?: string;
@@ -86,13 +85,12 @@ export async function generateFrontCover({
   genre?: string;
   style?: string;
   description?: string;
-  model?: string;
   customInstructions?: string;
 }) {
   try {
     console.log('----------------------------------------------------');
     console.log('Starting front cover generation with params:', { 
-      title, subtitle, author, genre, style, description, model, customInstructions 
+      title, subtitle, author, genre, style, description, customInstructions 
     });
     console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
     console.log('----------------------------------------------------');
@@ -104,7 +102,6 @@ export async function generateFrontCover({
       genre,
       style,
       description,
-      model,
       customInstructions
     };
 

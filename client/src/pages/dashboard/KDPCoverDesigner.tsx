@@ -82,8 +82,6 @@ interface CoverDesignerState {
   fullCoverImage: string | null;
   uploadedFile?: File;
   selectedStyle: string; // Book genre style
-  selectedVisualStyle: string; // Visual/artistic style
-  selectedModel: string; // AI model for generation
   showGuidelines: boolean; // Toggle for safety margins display
 }
 
@@ -192,8 +190,6 @@ const KDPCoverDesigner: React.FC = () => {
     spineFont: 'helvetica',
     fullCoverImage: null,
     selectedStyle: 'literary', // Default style
-    selectedVisualStyle: 'realistic', // Default visual style
-    selectedModel: 'ideogram', // Default to ideogram
     showGuidelines: false // Default to hiding guidelines
   });
 
@@ -453,10 +449,7 @@ const KDPCoverDesigner: React.FC = () => {
       
       // Get the selected style's prompt addition
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
-      const selectedVisualStyleObj = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
       const bookStylePrompt = selectedStyleObj ? `${selectedStyleObj.name} book style: ${selectedStyleObj.prompt}` : '';
-      const visualStylePrompt = selectedVisualStyleObj ? `${selectedVisualStyleObj.name} visual style: ${selectedVisualStyleObj.prompt}` : '';
-      const combinedStylePrompt = `${bookStylePrompt} with ${visualStylePrompt}`;
       
       // Then, analyze the image for detailed visual description
       const analyzeResponse = await fetch(`${getApiUrl()}/api/openai/extract-prompt`, {
@@ -480,7 +473,7 @@ const KDPCoverDesigner: React.FC = () => {
             6. Mood and atmosphere of the cover
             7. Type of typography that should be used for the title and author name
             
-            STYLE PREFERENCE: ${combinedStylePrompt}
+            STYLE PREFERENCE: ${bookStylePrompt}
             
             EXTREMELY IMPORTANT KDP PUBLISHING REQUIREMENTS - FOLLOW EXACTLY:
             1. All text MUST be placed at least 0.25 inches (75px at 300dpi) from ALL edges
@@ -1003,7 +996,7 @@ const KDPCoverDesigner: React.FC = () => {
                         try {
                           setIsLoading({...isLoading, enhancePrompt: true});
                           
-                          console.log('Enhancing prompt for model:', state.selectedModel);
+                          console.log('Enhancing prompt for Ideogram');
                           console.log('Original prompt:', state.frontCoverPrompt);
                           
                           const response = await fetch(`${getApiUrl()}/api/book-cover/enhance-prompt`, {
@@ -1013,7 +1006,7 @@ const KDPCoverDesigner: React.FC = () => {
                             },
                             body: JSON.stringify({
                               prompt: state.frontCoverPrompt,
-                              model: state.selectedModel
+                              model: 'ideogram'
                             })
                           });
                           
@@ -1029,7 +1022,7 @@ const KDPCoverDesigner: React.FC = () => {
                             frontCoverPrompt: data.enhancedPrompt
                           }));
                           
-                          toast.success(`Prompt enhanced for ${state.selectedModel === 'dalle' ? 'DALL-E' : 'Ideogram'}!`);
+                          toast.success('Prompt enhanced for Ideogram!');
                           
                         } catch (error) {
                           console.error('Error enhancing prompt:', error);
@@ -1053,7 +1046,7 @@ const KDPCoverDesigner: React.FC = () => {
                     </Button>
                     
                     <div className="text-xs text-zinc-500">
-                      {state.selectedModel === 'dalle' ? 'Optimized for DALL-E: literal & spatial' : 'Optimized for Ideogram: creative & design-focused'}
+                      Optimized for Ideogram: creative & design-focused
                     </div>
                   </div>
                 </div>
@@ -1086,85 +1079,6 @@ const KDPCoverDesigner: React.FC = () => {
                   </div>
                   <p className="text-xs text-zinc-400 mt-1">
                     Select the genre or type of book for your cover design.
-                  </p>
-                </div>
-                
-                {/* Visual Art Styles for prompt tab */}
-                <div className="space-y-2 mt-4">
-                  <Label>Visual Art Style</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {VISUAL_STYLES.map((style) => (
-                      <Button
-                        key={style.id}
-                        type="button"
-                        variant={state.selectedVisualStyle === style.id ? "default" : "outline"}
-                        onClick={() => 
-                          setState(prev => ({
-                            ...prev,
-                            selectedVisualStyle: style.id
-                          }))
-                        }
-                        className={`flex flex-col items-center justify-center h-14 ${
-                          state.selectedVisualStyle === style.id 
-                            ? "bg-blue-600 hover:bg-blue-500 text-white" 
-                            : "border-blue-600/40 text-blue-500 hover:bg-blue-950/30 hover:text-blue-400"
-                        }`}
-                      >
-                        <span className="text-lg mb-0.5">{style.emoji}</span>
-                        <span className="text-[10px] font-medium">{style.name}</span>
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    Choose the artistic style for your cover illustration.
-                  </p>
-                </div>
-                
-                {/* AI Model Selection for prompt tab */}
-                <div className="space-y-2 mt-4">
-                  <Label>AI Generator Model</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={state.selectedModel === 'ideogram' ? "default" : "outline"}
-                      onClick={() => 
-                        setState(prev => ({
-                          ...prev,
-                          selectedModel: 'ideogram'
-                        }))
-                      }
-                      className={`flex flex-col items-center justify-center h-14 ${
-                        state.selectedModel === 'ideogram' 
-                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
-                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
-                      }`}
-                    >
-                      <span className="text-lg mb-0.5">🎨</span>
-                      <span className="text-[10px] font-medium">Ideogram</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={state.selectedModel === 'dalle' ? "default" : "outline"}
-                      onClick={() => 
-                        setState(prev => ({
-                          ...prev,
-                          selectedModel: 'dalle'
-                        }))
-                      }
-                      className={`flex flex-col items-center justify-center h-14 ${
-                        state.selectedModel === 'dalle' 
-                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
-                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
-                      }`}
-                    >
-                      <span className="text-lg mb-0.5">🤖</span>
-                      <span className="text-[10px] font-medium">DALL-E 3</span>
-                    </Button>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    {state.selectedModel === 'ideogram' 
-                      ? "Ideogram excels at detailed illustrations with precise text placement"
-                      : "DALL-E 3 creates highly polished, photorealistic and artistic cover designs"}
                   </p>
                 </div>
                 
@@ -1297,85 +1211,6 @@ const KDPCoverDesigner: React.FC = () => {
                       </Button>
                     ))}
                   </div>
-                </div>
-                
-                {/* Visual Art Styles */}
-                <div className="space-y-2 mt-4">
-                  <Label>Visual Art Style</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {VISUAL_STYLES.map((style) => (
-                      <Button
-                        key={style.id}
-                        type="button"
-                        variant={state.selectedVisualStyle === style.id ? "default" : "outline"}
-                        onClick={() => 
-                          setState(prev => ({
-                            ...prev,
-                            selectedVisualStyle: style.id
-                          }))
-                        }
-                        className={`flex flex-col items-center justify-center h-14 ${
-                          state.selectedVisualStyle === style.id 
-                            ? "bg-blue-600 hover:bg-blue-500 text-white" 
-                            : "border-blue-600/40 text-blue-500 hover:bg-blue-950/30 hover:text-blue-400"
-                        }`}
-                      >
-                        <span className="text-lg mb-0.5">{style.emoji}</span>
-                        <span className="text-[10px] font-medium">{style.name}</span>
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    Choose the artistic style for your cover illustration.
-                  </p>
-                </div>
-                
-                {/* AI Model Selection for upload tab */}
-                <div className="space-y-2 mt-4">
-                  <Label>AI Generator Model</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      type="button"
-                      variant={state.selectedModel === 'ideogram' ? "default" : "outline"}
-                      onClick={() => 
-                        setState(prev => ({
-                          ...prev,
-                          selectedModel: 'ideogram'
-                        }))
-                      }
-                      className={`flex flex-col items-center justify-center h-14 ${
-                        state.selectedModel === 'ideogram' 
-                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
-                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
-                      }`}
-                    >
-                      <span className="text-lg mb-0.5">🎨</span>
-                      <span className="text-[10px] font-medium">Ideogram</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={state.selectedModel === 'dalle' ? "default" : "outline"}
-                      onClick={() => 
-                        setState(prev => ({
-                          ...prev,
-                          selectedModel: 'dalle'
-                        }))
-                      }
-                      className={`flex flex-col items-center justify-center h-14 ${
-                        state.selectedModel === 'dalle' 
-                          ? "bg-purple-600 hover:bg-purple-500 text-white" 
-                          : "border-purple-600/40 text-purple-500 hover:bg-purple-950/30 hover:text-purple-400"
-                      }`}
-                    >
-                      <span className="text-lg mb-0.5">🤖</span>
-                      <span className="text-[10px] font-medium">DALL-E 3</span>
-                    </Button>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    {state.selectedModel === 'ideogram' 
-                      ? "Ideogram excels at detailed illustrations with precise text placement"
-                      : "DALL-E 3 creates highly polished, photorealistic and artistic cover designs"}
-                  </p>
                 </div>
                 
                 <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
@@ -1617,7 +1452,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <Wand2 className="mr-2 h-4 w-4" />
-                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} & {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.name || ''} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Style
+                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || 'Book'} Style
                               </>
                             )}
                           </Button>
@@ -1699,7 +1534,7 @@ const KDPCoverDesigner: React.FC = () => {
                             ) : (
                               <>
                                 <RefreshCcw className="mr-2 h-4 w-4" />
-                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || ''} & {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.name || ''} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Style
+                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || 'Book'} Style
                               </>
                             )}
                           </Button>
@@ -1808,7 +1643,7 @@ const KDPCoverDesigner: React.FC = () => {
                           ) : (
                             <>
                               <Wand2 className="mr-2 h-4 w-4" />
-                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} {VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.emoji} Cover
+                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} Cover
                             </>
                           )}
                         </Button>
