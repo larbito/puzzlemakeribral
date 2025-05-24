@@ -128,21 +128,6 @@ const COVER_STYLES = [
   { id: 'textbook', name: 'Textbook/Academic', emoji: '🎓', prompt: 'academic or textbook cover design, organized layout, clear typography, educational imagery, professional appearance, subject-focused visual elements' },
 ];
 
-// Add visual art styles that work well with AI image generators like Ideogram
-const VISUAL_STYLES = [
-  { id: 'realistic', name: 'Realistic', emoji: '📸', prompt: 'photorealistic style, detailed, high definition, lifelike, hyper-realistic' },
-  { id: 'watercolor', name: 'Watercolor', emoji: '🎨', prompt: 'watercolor painting style, soft edges, flowing colors, translucent layers, artistic brush strokes' },
-  { id: 'minimalist', name: 'Minimalist', emoji: '⬜', prompt: 'minimalist design, clean lines, simple shapes, limited color palette, negative space, essential elements only' },
-  { id: 'vintage', name: 'Vintage', emoji: '🕰️', prompt: 'vintage style, retro aesthetic, aged appearance, classic design, nostalgic feel, antique look' },
-  { id: 'comic', name: 'Comic', emoji: '💥', prompt: 'comic book style, bold outlines, vibrant colors, dynamic composition, graphic novel aesthetic, cell-shaded' },
-  { id: '3d', name: '3D Rendered', emoji: '🧊', prompt: '3D rendering style, volumetric lighting, depth, digital 3D modeling, textured surfaces, dimensional appearance' },
-  { id: 'abstract', name: 'Abstract', emoji: '🔶', prompt: 'abstract style, non-representational, geometric shapes, expressive forms, conceptual design, artistic interpretation' },
-  { id: 'handdrawn', name: 'Hand Drawn', emoji: '✏️', prompt: 'hand-drawn illustration, sketch-like quality, organic lines, artistic, illustration-focused, drawn by hand' },
-  { id: 'noir', name: 'Film Noir', emoji: '🖤', prompt: 'film noir style, black and white, high contrast, moody shadows, dramatic lighting, mysterious atmosphere' },
-  { id: 'surreal', name: 'Surrealism', emoji: '🌀', prompt: 'surrealist style, dreamlike quality, unexpected juxtapositions, imaginative, strange and wonderful, Salvador Dali-inspired' },
-  { id: 'pop', name: 'Pop Art', emoji: '🎭', prompt: 'pop art style, bold colors, Ben-Day dots, comic-inspired, Andy Warhol influence, contemporary, commercial art aesthetic' },
-  { id: 'pixel', name: 'Pixel Art', emoji: '👾', prompt: 'pixel art style, 8-bit aesthetic, retro gaming look, pixelated, low-resolution, blocky shapes' }
-];
 
 const KDPCoverDesigner: React.FC = () => {
   // Helper function to get the correct API URL
@@ -1585,9 +1570,8 @@ const KDPCoverDesigner: React.FC = () => {
                                   return authorMatch ? authorMatch[1].trim() : null;
                                 };
                                 
-                                // Get style and visual style information
+                                // Get style information
                                 const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
-                                const visualStyle = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
                                 
                                 // Prepare simplified API call
                                 const coverParams = {
@@ -1667,9 +1651,8 @@ const KDPCoverDesigner: React.FC = () => {
                                       return authorMatch ? authorMatch[1].trim() : null;
                                     };
                                     
-                                    // Get style and visual style information
+                                    // Get style information
                                     const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
-                                    const visualStyle = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
                                     
                                     // Prepare simplified API call for variation
                                     const coverParams = {
