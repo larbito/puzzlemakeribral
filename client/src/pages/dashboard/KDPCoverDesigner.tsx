@@ -196,7 +196,8 @@ const KDPCoverDesigner: React.FC = () => {
     generatePrompt: false,
     generateFrontCover: false,
     generateBackCover: false,
-    assembleCover: false
+    assembleCover: false,
+    enhancePrompt: false
   });
 
   // Calculate spine width based on page count and paper type
@@ -1000,6 +1001,76 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                       }))
                     }
                   />
+                  
+                  {/* Enhance Prompt Button */}
+                  <div className="flex justify-between items-center mt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="border-amber-600/40 text-amber-500 hover:bg-amber-950/30 hover:text-amber-400"
+                      onClick={async () => {
+                        if (!state.frontCoverPrompt.trim()) {
+                          toast.error('Please enter a prompt first');
+                          return;
+                        }
+                        
+                        try {
+                          setIsLoading({...isLoading, enhancePrompt: true});
+                          
+                          console.log('Enhancing prompt for model:', state.selectedModel);
+                          console.log('Original prompt:', state.frontCoverPrompt);
+                          
+                          const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/enhance-prompt', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              prompt: state.frontCoverPrompt,
+                              model: state.selectedModel
+                            })
+                          });
+                          
+                          if (!response.ok) {
+                            throw new Error('Failed to enhance prompt');
+                          }
+                          
+                          const data = await response.json();
+                          console.log('Enhanced prompt response:', data);
+                          
+                          setState(prev => ({
+                            ...prev,
+                            frontCoverPrompt: data.enhancedPrompt
+                          }));
+                          
+                          toast.success(`Prompt enhanced for ${state.selectedModel === 'dalle' ? 'DALL-E' : 'Ideogram'}!`);
+                          
+                        } catch (error) {
+                          console.error('Error enhancing prompt:', error);
+                          toast.error('Failed to enhance prompt. Please try again.');
+                        } finally {
+                          setIsLoading({...isLoading, enhancePrompt: false});
+                        }
+                      }}
+                      disabled={isLoading.enhancePrompt || !state.frontCoverPrompt.trim()}
+                    >
+                      {isLoading.enhancePrompt ? (
+                        <span className="flex items-center">
+                          <span className="animate-spin mr-2">⏳</span> Enhancing...
+                        </span>
+                      ) : (
+                        <>
+                          <span className="mr-2">✨</span>
+                          Enhance Prompt
+                        </>
+                      )}
+                    </Button>
+                    
+                    <div className="text-xs text-zinc-500">
+                      {state.selectedModel === 'dalle' ? 'Optimized for DALL-E: literal & spatial' : 'Optimized for Ideogram: creative & design-focused'}
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Add style selection */}

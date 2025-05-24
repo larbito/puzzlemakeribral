@@ -40,21 +40,90 @@ router.use((req, res, next) => {
   next();
 });
 
+// Enhanced prompt processing functions
+function enhanceDallePrompt(originalPrompt) {
+  // DALL-E requires literal, spatial descriptions
+  // Remove complex structured formatting and focus on visual elements
+  
+  let prompt = originalPrompt;
+  
+  // Remove structured format headers
+  prompt = prompt.replace(/BOOK COVER DESIGN PROMPT:.*?-{10,}/gs, '');
+  prompt = prompt.replace(/TITLE:.*?\n/gi, '');
+  prompt = prompt.replace(/SUBTITLE:.*?\n/gi, '');
+  prompt = prompt.replace(/AUTHOR:.*?\n/gi, '');
+  
+  // Replace book terminology with flat artwork terms
+  prompt = prompt.replace(/book cover/gi, 'flat artwork design');
+  prompt = prompt.replace(/cover design/gi, 'flat layout');
+  prompt = prompt.replace(/\bbook\b/gi, 'publication');
+  
+  // Remove technical measurements and use general descriptions
+  prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '6x9 inches');
+  prompt = prompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
+  prompt = prompt.replace(/\d+\s*pixels?/gi, '');
+  
+  // Add DALL-E specific formatting instructions
+  const dalleInstructions = "Format: front book cover, flat 2D design, 6x9 inches. Leave clear space around all text. No text near edges. Bold title at top. Central image. Bright, high contrast colors. Simple layout. KDP-safe.";
+  
+  // Clean up and combine
+  prompt = prompt.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  // Ensure we have the formatting instructions
+  if (!prompt.includes('flat 2D design') && !prompt.includes('KDP-safe')) {
+    prompt = `${prompt} ${dalleInstructions}`;
+  }
+  
+  // Keep under 1000 characters for DALL-E
+  if (prompt.length > 1000) {
+    prompt = prompt.substring(0, 950) + '... KDP-safe layout.';
+  }
+  
+  return prompt;
+}
+
+function enhanceIdeogramPrompt(originalPrompt) {
+  // Ideogram works well with design terminology and creative descriptions
+  
+  let prompt = originalPrompt;
+  
+  // Keep structured format but enhance with design language
+  if (!prompt.includes('style') && !prompt.includes('vector') && !prompt.includes('design')) {
+    // Add design style if missing
+    if (prompt.includes('teen') || prompt.includes('young')) {
+      prompt = prompt.replace(/teen/gi, 'teen comic-style');
+    }
+    if (prompt.includes('fantasy')) {
+      prompt = prompt.replace(/fantasy/gi, 'fantasy flat vector style');
+    }
+    if (prompt.includes('mystery')) {
+      prompt = prompt.replace(/mystery/gi, 'mystery noir-style');
+    }
+  }
+  
+  // Enhance with Ideogram-friendly terms
+  prompt = prompt.replace(/book cover/gi, 'KDP book cover design');
+  prompt = prompt.replace(/flat design/gi, 'flat vector design');
+  
+  // Add Ideogram specific formatting if missing
+  const ideogramInstructions = "Format: 6x9 inches. KDP-safe layout. No text near the edges. Leave clear space around all elements. Print-ready front cover. Bold, flat visual style.";
+  
+  if (!prompt.includes('KDP-safe') && !prompt.includes('print-ready')) {
+    prompt = `${prompt} ${ideogramInstructions}`;
+  }
+  
+  // Clean up formatting
+  prompt = prompt.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  return prompt;
+}
+
 /**
  * Test endpoint to verify functionality
  * GET /api/book-cover/test
  */
 router.get('/test', (req, res) => {
-  res.json({
-    status: 'success',
-    message: 'Book cover generator API is working!',
-    features: [
-      'Calculate cover dimensions',
-      'Generate front cover using Ideogram API',
-      'Assemble full cover (front, spine, back)',
-      'Download covers in various formats'
-    ]
-  });
+  res.json({ message: 'Book cover API is working!', timestamp: new Date().toISOString() });
 });
 
 /**
@@ -198,95 +267,11 @@ router.post('/generate-front', express.json(), async (req, res) => {
       console.log(`Mapping ${width}x${height} to DALL-E size: ${dalleSize}`);
       
       try {
-        // For DALL-E, aggressively clean the prompt to avoid triggering book mockups
-        let cleanedPrompt = prompt;
-        
-        // Remove the entire structured prompt format
-        cleanedPrompt = cleanedPrompt.replace(/BOOK COVER DESIGN PROMPT:.*?-{10,}/gs, '');
-        cleanedPrompt = cleanedPrompt.replace(/TITLE:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/SUBTITLE:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/AUTHOR:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/TAGLINE:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/BOOK GENRE:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/VISUAL STYLE:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/-{10,}/g, '');
-        
-        // Remove all book-related terminology
-        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'artwork');
-        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'artwork');
-        cleanedPrompt = cleanedPrompt.replace(/book design/gi, 'artwork');
-        cleanedPrompt = cleanedPrompt.replace(/\bbook\b/gi, 'artwork');
-        cleanedPrompt = cleanedPrompt.replace(/cover/gi, 'design');
-        
-        // Remove technical publishing instructions
-        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/CRITICAL.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/IMPORTANT.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/Force EXACT.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/Do not deviate.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/This is a flat.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/KDP.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/publishing.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/spine.*?\./gi, '');
-        
-        // Remove measurement and technical details
-        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*:\s*\d+\.?\d*/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/300\s*dpi/gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/pixels?/gi, '');
-        
-        // Remove formatting artifacts
-        cleanedPrompt = cleanedPrompt.replace(/\n+/g, ' ');
-        cleanedPrompt = cleanedPrompt.replace(/\s+/g, ' ');
-        cleanedPrompt = cleanedPrompt.trim();
-        
-        // Extract only the visual description parts
-        // Look for descriptive sentences that don't contain technical terms
-        const sentences = cleanedPrompt.split(/[.!?]+/);
-        const visualSentences = sentences.filter(sentence => {
-          const s = sentence.trim().toLowerCase();
-          return s.length > 20 && // Must be substantial
-                 !s.includes('margin') &&
-                 !s.includes('text must') &&
-                 !s.includes('positioned') &&
-                 !s.includes('placed') &&
-                 !s.includes('requirements') &&
-                 !s.includes('specifications') &&
-                 (s.includes('color') || 
-                  s.includes('design') || 
-                  s.includes('style') || 
-                  s.includes('illustration') ||
-                  s.includes('background') ||
-                  s.includes('element') ||
-                  s.includes('theme') ||
-                  s.includes('visual') ||
-                  s.includes('artistic'));
-        });
-        
-        // Reconstruct a clean description
-        let finalDescription = visualSentences.join('. ').trim();
-        
-        // If we don't have enough visual description, create a generic one
-        if (finalDescription.length < 50) {
-          finalDescription = "A colorful, creative artwork design with interesting visual elements and artistic style";
-        }
-        
-        // Add flat design instruction and ensure it's artwork-focused
-        const flatDesignInstruction = "Create a flat, rectangular digital artwork illustration.";
-        
-        // Final prompt (keep it simple and artwork-focused)
-        let finalPrompt = `${flatDesignInstruction} ${finalDescription}. Digital art, flat design, no 3D elements, no perspective.`;
-        
-        // Ensure prompt is not too long
-        if (finalPrompt.length > 500) {
-          finalPrompt = finalPrompt.substring(0, 500) + '.';
-        }
+        // DALL-E specific prompt processing - literal and spatial
+        let enhancedPrompt = enhanceDallePrompt(prompt);
         
         console.log('Original prompt length:', prompt.length);
-        console.log('Final prompt length:', finalPrompt.length);
-        console.log('Final prompt for DALL-E:', finalPrompt);
+        console.log('Enhanced DALL-E prompt:', enhancedPrompt);
         
         const response = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
@@ -296,7 +281,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
           },
           body: JSON.stringify({
             model: "dall-e-3",
-            prompt: finalPrompt,
+            prompt: enhancedPrompt,
             n: 1,
             size: dalleSize,
             quality: "hd",
@@ -326,10 +311,15 @@ router.post('/generate-front', express.json(), async (req, res) => {
       // Use Ideogram API (default)
       console.log('Using Ideogram model for generation');
       
+      // Ideogram specific prompt processing - creative and design-oriented
+      let enhancedPrompt = enhanceIdeogramPrompt(prompt);
+      
+      console.log('Enhanced Ideogram prompt:', enhancedPrompt);
+      
       // Updated Ideogram implementation to use the correct v3 API
       const form = new FormData();
       
-      form.append('prompt', prompt);
+      form.append('prompt', enhancedPrompt);
       
       // Convert width:height to aspect ratio format
       // Map pixel dimensions to closest supported Ideogram aspect ratio
@@ -1006,6 +996,43 @@ router.post('/enhance', upload.none(), async (req, res) => {
       error: 'Failed to enhance book cover',
       details: error.message
     });
+  }
+});
+
+/**
+ * Prompt enhancement endpoint
+ * POST /api/book-cover/enhance-prompt
+ */
+router.post('/enhance-prompt', async (req, res) => {
+  try {
+    const { prompt, model } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    if (!model || !['dalle', 'ideogram'].includes(model)) {
+      return res.status(400).json({ error: 'Valid model (dalle or ideogram) is required' });
+    }
+    
+    let enhancedPrompt;
+    
+    if (model === 'dalle') {
+      enhancedPrompt = enhanceDallePrompt(prompt);
+    } else {
+      enhancedPrompt = enhanceIdeogramPrompt(prompt);
+    }
+    
+    res.json({ 
+      originalPrompt: prompt,
+      enhancedPrompt: enhancedPrompt,
+      model: model,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Error enhancing prompt:', error);
+    res.status(500).json({ error: 'Failed to enhance prompt' });
   }
 });
 
