@@ -42,73 +42,90 @@ router.use((req, res, next) => {
 
 // Enhanced prompt processing functions
 function enhanceDallePrompt(originalPrompt) {
-  // DALL-E requires literal, spatial descriptions
-  // Remove complex structured formatting and focus on visual elements
+  // DALL-E requires literal, spatial descriptions with specific placement
   
   let prompt = originalPrompt;
   
-  // Remove structured format headers
+  // Remove structured format headers and technical jargon
   prompt = prompt.replace(/BOOK COVER DESIGN PROMPT:.*?-{10,}/gs, '');
   prompt = prompt.replace(/TITLE:.*?\n/gi, '');
   prompt = prompt.replace(/SUBTITLE:.*?\n/gi, '');
   prompt = prompt.replace(/AUTHOR:.*?\n/gi, '');
+  prompt = prompt.replace(/BOOK GENRE:.*?\n/gi, '');
+  prompt = prompt.replace(/VISUAL STYLE:.*?\n/gi, '');
+  prompt = prompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
+  prompt = prompt.replace(/-{10,}/g, '');
   
-  // Replace book terminology with flat artwork terms
-  prompt = prompt.replace(/book cover/gi, 'flat artwork design');
-  prompt = prompt.replace(/cover design/gi, 'flat layout');
-  prompt = prompt.replace(/\bbook\b/gi, 'publication');
+  // Replace design terminology with literal descriptions
+  prompt = prompt.replace(/book cover/gi, 'flat book cover');
+  prompt = prompt.replace(/cover design/gi, 'book cover layout');
+  prompt = prompt.replace(/comic-style/gi, 'cartoon-style');
+  prompt = prompt.replace(/flat vector/gi, 'flat illustrated');
+  prompt = prompt.replace(/design elements/gi, 'visual elements');
   
-  // Remove technical measurements and use general descriptions
+  // Remove technical measurements and use descriptive language
   prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '6x9 inches');
   prompt = prompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
   prompt = prompt.replace(/\d+\s*pixels?/gi, '');
+  prompt = prompt.replace(/300\s*dpi/gi, '');
   
-  // Add DALL-E specific formatting instructions
-  const dalleInstructions = "Format: front book cover, flat 2D design, 6x9 inches. Leave clear space around all text. No text near edges. Bold title at top. Central image. Bright, high contrast colors. Simple layout. KDP-safe.";
+  // Add DALL-E specific literal instructions
+  const dalleInstructions = "Use literal spatial descriptions. Title in large bold letters, centered near the top with clear space around it. Use bright, high-contrast colors. No text near edges. Leave clean margins. Format: front book cover, 6x9 inches, flat 2D layout. KDP-safe design.";
   
-  // Clean up and combine
+  // Clean up formatting
   prompt = prompt.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
   
-  // Ensure we have the formatting instructions
-  if (!prompt.includes('flat 2D design') && !prompt.includes('KDP-safe')) {
+  // Ensure we have the literal formatting instructions
+  if (!prompt.includes('literal spatial') && !prompt.includes('flat 2D layout')) {
     prompt = `${prompt} ${dalleInstructions}`;
   }
   
   // Keep under 1000 characters for DALL-E
   if (prompt.length > 1000) {
-    prompt = prompt.substring(0, 950) + '... KDP-safe layout.';
+    prompt = prompt.substring(0, 950) + '... KDP-safe design.';
   }
   
   return prompt;
 }
 
 function enhanceIdeogramPrompt(originalPrompt) {
-  // Ideogram works well with design terminology and creative descriptions
+  // Ideogram works well with design terminology and creative style descriptions
   
   let prompt = originalPrompt;
   
-  // Keep structured format but enhance with design language
+  // Enhance with design-friendly keywords
   if (!prompt.includes('style') && !prompt.includes('vector') && !prompt.includes('design')) {
-    // Add design style if missing
-    if (prompt.includes('teen') || prompt.includes('young')) {
-      prompt = prompt.replace(/teen/gi, 'teen comic-style');
+    // Add design style based on content
+    if (prompt.includes('teen') || prompt.includes('young') || prompt.includes('puzzle')) {
+      prompt = prompt.replace(/teen/gi, 'comic-style teen');
+      prompt = prompt.replace(/puzzle/gi, 'pop-art puzzle');
     }
-    if (prompt.includes('fantasy')) {
+    if (prompt.includes('fantasy') || prompt.includes('magic')) {
       prompt = prompt.replace(/fantasy/gi, 'fantasy flat vector style');
     }
-    if (prompt.includes('mystery')) {
-      prompt = prompt.replace(/mystery/gi, 'mystery noir-style');
+    if (prompt.includes('mystery') || prompt.includes('thriller')) {
+      prompt = prompt.replace(/mystery/gi, 'noir-style mystery');
+    }
+    if (prompt.includes('romance')) {
+      prompt = prompt.replace(/romance/gi, 'elegant romantic');
     }
   }
   
-  // Enhance with Ideogram-friendly terms
-  prompt = prompt.replace(/book cover/gi, 'KDP book cover design');
-  prompt = prompt.replace(/flat design/gi, 'flat vector design');
+  // Replace literal terms with design-friendly language
+  prompt = prompt.replace(/book cover/gi, 'front cover');
+  prompt = prompt.replace(/flat design/gi, 'flat vector style');
+  prompt = prompt.replace(/illustration/gi, 'flat vector illustration');
+  prompt = prompt.replace(/cartoon/gi, 'comic-style');
   
-  // Add Ideogram specific formatting if missing
-  const ideogramInstructions = "Format: 6x9 inches. KDP-safe layout. No text near the edges. Leave clear space around all elements. Print-ready front cover. Bold, flat visual style.";
+  // Add design terminology if missing
+  if (!prompt.includes('vector') && !prompt.includes('comic') && !prompt.includes('pop-art')) {
+    prompt = `Comic-style ${prompt}`;
+  }
   
-  if (!prompt.includes('KDP-safe') && !prompt.includes('print-ready')) {
+  // Add Ideogram specific design instructions
+  const ideogramInstructions = "Use design-friendly keywords. Bold typography with generous space from edges. Fun and bold flat vector style. High-contrast color palette. Leave all text inside print-safe area. Format: 6x9 inches, KDP-compliant front cover.";
+  
+  if (!prompt.includes('KDP-compliant') && !prompt.includes('print-safe')) {
     prompt = `${prompt} ${ideogramInstructions}`;
   }
   
@@ -209,212 +226,76 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
 });
 
 /**
- * Generate front cover using Ideogram API
+ * Generate front cover
  * POST /api/book-cover/generate-front
  */
-router.post('/generate-front', express.json(), async (req, res) => {
+router.post('/generate-front', async (req, res) => {
   try {
-    console.log('=== Book Cover Generation Request ===');
-    console.log('Request headers:', req.headers);
-    console.log('Request body:', req.body);
-    
     const { 
-      prompt, 
-      width, 
-      height, 
-      negative_prompt,
-      model = 'ideogram' // Default to ideogram if not specified
+      title, 
+      subtitle, 
+      author, 
+      genre, 
+      style, 
+      description, 
+      model = 'dalle',
+      customInstructions 
     } = req.body;
-    
-    console.log('Parsed request parameters:', {
-      prompt,
-      width,
-      height,
-      negative_prompt,
-      model
-    });
-    
-    if (!prompt) {
-      console.error('Missing required parameter: prompt');
-      return res.status(400).json({ error: 'Prompt is required' });
-    }
 
-    if (!width || !height) {
-      console.error('Missing required parameters: width and height');
-      return res.status(400).json({ error: 'Width and height are required' });
-    }
-
-    // Choose the appropriate API based on the selected model
-    if (model === 'dalle') {
-      // Use OpenAI DALL-E 3 API
-      console.log('Using DALL-E 3 model for generation');
-      
-      // DALL-E 3 only supports specific sizes, so we need to map the requested size
-      // to the nearest supported size
-      const supportedSizes = ['1024x1024', '1024x1792', '1792x1024'];
-      let dalleSize = '1024x1792'; // Default for portrait book covers
-      
-      // Calculate aspect ratio to choose the best fit
-      const aspectRatio = width / height;
-      if (aspectRatio > 1) {
-        dalleSize = '1792x1024'; // Landscape
-      } else if (aspectRatio === 1) {
-        dalleSize = '1024x1024'; // Square
-      } else {
-        dalleSize = '1024x1792'; // Portrait (default for book covers)
-      }
-      
-      console.log(`Mapping ${width}x${height} to DALL-E size: ${dalleSize}`);
-      
-      try {
-        // DALL-E specific prompt processing - literal and spatial
-        let enhancedPrompt = enhanceDallePrompt(prompt);
-        
-        console.log('Original prompt length:', prompt.length);
-        console.log('Enhanced DALL-E prompt:', enhancedPrompt);
-        
-        const response = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: enhancedPrompt,
-            n: 1,
-            size: dalleSize,
-            quality: "hd",
-            style: "vivid"
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error('DALL-E API error status:', response.status);
-          console.error('DALL-E API error data:', errorData);
-          return res.status(response.status).json({ 
-            error: errorData.error?.message || 'Failed to generate image with DALL-E 3' 
-          });
-        }
-        
-        const data = await response.json();
-        console.log('DALL-E response successful');
-        
-        // Return the generated image URL
-        return res.json({ url: data.data[0].url });
-      } catch (error) {
-        console.error('Error generating image with DALL-E 3:', error);
-        return res.status(500).json({ error: 'Failed to generate image with DALL-E 3' });
-      }
+    // Build base prompt
+    let basePrompt;
+    if (description && description.trim()) {
+      // Use provided description as base
+      basePrompt = description.trim();
     } else {
-      // Use Ideogram API (default)
-      console.log('Using Ideogram model for generation');
+      // Build from components
+      const titleText = title || 'Untitled Book';
+      const genreText = genre || 'fiction';
+      const styleText = style || 'modern';
       
-      // Ideogram specific prompt processing - creative and design-oriented
-      let enhancedPrompt = enhanceIdeogramPrompt(prompt);
-      
-      console.log('Enhanced Ideogram prompt:', enhancedPrompt);
-      
-      // Updated Ideogram implementation to use the correct v3 API
-      const form = new FormData();
-      
-      form.append('prompt', enhancedPrompt);
-      
-      // Convert width:height to aspect ratio format
-      // Map pixel dimensions to closest supported Ideogram aspect ratio
-      const aspectRatio = width / height;
-      console.log('Calculated aspect ratio:', aspectRatio);
-      
-      let ideogramAspectRatio;
-      
-      // Map to closest supported Ideogram aspect ratio
-      if (aspectRatio <= 0.35) {
-        ideogramAspectRatio = '1x3'; // Very tall
-      } else if (aspectRatio <= 0.55) {
-        ideogramAspectRatio = '2x3'; // Portrait (common for book covers)
-      } else if (aspectRatio <= 0.7) {
-        ideogramAspectRatio = '9x16'; // Portrait
-      } else if (aspectRatio <= 0.85) {
-        ideogramAspectRatio = '3x4'; // Portrait
-      } else if (aspectRatio <= 1.15) {
-        ideogramAspectRatio = '1x1'; // Square
-      } else if (aspectRatio <= 1.35) {
-        ideogramAspectRatio = '4x3'; // Landscape
-      } else if (aspectRatio <= 1.65) {
-        ideogramAspectRatio = '3x2'; // Landscape
-      } else if (aspectRatio <= 2.2) {
-        ideogramAspectRatio = '16x9'; // Landscape
-      } else {
-        ideogramAspectRatio = '3x1'; // Very wide
-      }
-      
-      console.log('Mapped to Ideogram aspect ratio:', ideogramAspectRatio);
-      form.append('aspect_ratio', ideogramAspectRatio);
-      
-      // Use higher quality rendering for book covers
-      form.append('rendering_speed', 'DEFAULT');
-      
-      // Add negative prompt if provided
-      if (negative_prompt) {
-        form.append('negative_prompt', negative_prompt);
-      }
-      
-      // Add style
-      form.append('style_type', 'REALISTIC');
-      
-      // Add number of images and seed
-      form.append('num_images', '1');
-      const seed = req.body.seed || Math.floor(Math.random() * 1000000);
-      form.append('seed', seed.toString());
-      
-      console.log('Sending request to Ideogram v3 API with form data');
-      
-      try {
-        const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
-          method: 'POST',
-          headers: {
-            'Api-Key': process.env.IDEOGRAM_API_KEY,
-            ...form.getHeaders()
-          },
-          body: form
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Ideogram API error:', errorText);
-          return res.status(response.status).json({ error: errorText || 'Failed to generate image' });
-        }
-        
-        const data = await response.json();
-        console.log('Ideogram API response:', data);
-        
-        // Handle different response formats
-        let imageUrl = null;
-        if (data?.data?.[0]?.url) {
-          imageUrl = data.data[0].url;
-        } else if (data?.images?.[0]?.url) {
-          imageUrl = data.images[0].url;
-        } else if (data?.url) {
-          imageUrl = data.url;
-        }
-        
-        if (!imageUrl) {
-          console.error('No image URL found in response:', data);
-          return res.status(500).json({ error: 'No image URL in API response' });
-        }
-        
-        // Return the URL of the generated image
-        return res.json({ url: imageUrl });
-      } catch (error) {
-        console.error('Error generating image with Ideogram:', error);
-        return res.status(500).json({ error: 'Failed to generate image with Ideogram' });
-      }
+      basePrompt = `${titleText} book. ${genreText} genre. ${styleText} style.`;
+      if (subtitle) basePrompt += ` Subtitle: ${subtitle}.`;
+      if (author) basePrompt += ` Author: ${author}.`;
     }
-    
+
+    // Add custom instructions if provided
+    if (customInstructions && customInstructions.trim()) {
+      basePrompt += ` ${customInstructions.trim()}`;
+    }
+
+    // Apply model-specific optimization to ALL prompts
+    let optimizedPrompt;
+    if (model === 'dalle') {
+      optimizedPrompt = enhanceDallePrompt(basePrompt);
+    } else if (model === 'ideogram') {
+      optimizedPrompt = enhanceIdeogramPrompt(basePrompt);
+    } else {
+      // Default to DALL-E optimization for unknown models
+      optimizedPrompt = enhanceDallePrompt(basePrompt);
+    }
+
+    console.log(`Generating ${model.toUpperCase()} cover with optimized prompt:`, optimizedPrompt);
+
+    let imageUrl;
+    if (model === 'ideogram') {
+      imageUrl = await generateIdeogramCover(optimizedPrompt);
+    } else {
+      imageUrl = await generateDalleCover(optimizedPrompt);
+    }
+
+    res.json({ 
+      success: true, 
+      imageUrl,
+      prompt: optimizedPrompt,
+      model: model
+    });
+
   } catch (error) {
-    console.error('Error in book cover generation:', error);
-    return res.status(500).json({ error: error.message || 'Internal server error' });
+    console.error('Error generating front cover:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to generate cover'
+    });
   }
 });
 
@@ -1227,6 +1108,79 @@ function parseColor(color) {
   
   // Default to black
   return { r: 0, g: 0, b: 0, alpha: 1 };
+}
+
+// Helper function to generate cover using DALL-E
+async function generateDalleCover(prompt) {
+  // DALL-E 3 only supports specific sizes
+  const dalleSize = '1024x1792'; // Portrait format for book covers
+  
+  console.log('Generating DALL-E cover with prompt:', prompt);
+  
+  const response = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: dalleSize,
+      quality: "hd",
+      style: "vivid"
+    })
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('DALL-E API error:', errorData);
+    throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E 3');
+  }
+  
+  const data = await response.json();
+  return data.data[0].url;
+}
+
+// Helper function to generate cover using Ideogram
+async function generateIdeogramCover(prompt) {
+  console.log('Generating Ideogram cover with prompt:', prompt);
+  
+  const form = new FormData();
+  form.append('prompt', prompt);
+  form.append('aspect_ratio', '2x3'); // Standard book cover ratio
+  form.append('rendering_speed', 'DEFAULT');
+  form.append('style_type', 'REALISTIC');
+  form.append('num_images', '1');
+  form.append('seed', Math.floor(Math.random() * 1000000).toString());
+  
+  const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
+    method: 'POST',
+    headers: {
+      'Api-Key': process.env.IDEOGRAM_API_KEY,
+      ...form.getHeaders()
+    },
+    body: form
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Ideogram API error:', errorText);
+    throw new Error('Failed to generate image with Ideogram');
+  }
+  
+  const data = await response.json();
+  
+  // Handle different response formats
+  let imageUrl = data?.data?.[0]?.url || data?.images?.[0]?.url || data?.url;
+  
+  if (!imageUrl) {
+    console.error('No image URL found in Ideogram response:', data);
+    throw new Error('No image URL in API response');
+  }
+  
+  return imageUrl;
 }
 
 module.exports = router; 

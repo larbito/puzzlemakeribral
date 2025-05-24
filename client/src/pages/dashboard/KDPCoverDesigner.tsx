@@ -514,37 +514,13 @@ const KDPCoverDesigner: React.FC = () => {
         extractedOtherText = analyzeData.textElements.otherText || '';
       }
       
-      // Create a structured template for the final prompt
-      const structuredPrompt = `
-BOOK COVER DESIGN PROMPT:
---------------------------
-
-TITLE: ${extractedTitle}
-SUBTITLE: ${extractedSubtitle}
-AUTHOR: ${extractedAuthor}
-${extractedTagline ? `TAGLINE: ${extractedTagline}` : ''}
-
-BOOK GENRE: ${selectedStyleObj?.name || 'General'} 
-VISUAL STYLE: ${selectedVisualStyleObj?.name || 'Realistic'}
-
-${extractedPrompt}
-
-IMPORTANT DESIGN REQUIREMENTS:
------------------------------
-- All text MUST be placed at least 0.25 inches (75px) from ALL edges
-- Title should be large, centered, and positioned in the upper half of the cover
-- Author name should be smaller than the title and placed in the lower third
-- Subtitle should be positioned between the title and author name
-- Text must be clearly readable and properly sized for hierarchy
-
-BOOK GENRE STYLE: ${selectedStyleObj?.prompt || ''}
-VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
-`;
+      // Create a simple descriptive prompt that will be enhanced by the backend
+      const simplePrompt = `${extractedPrompt}. Title: ${extractedTitle}. Author: ${extractedAuthor}. ${extractedSubtitle ? `Subtitle: ${extractedSubtitle}.` : ''} ${extractedTagline ? `Tagline: ${extractedTagline}.` : ''} ${extractedOtherText ? `Additional text: ${extractedOtherText}.` : ''}`;
       
-      // Update state with the enhanced prompt
+      // Update state with the simple prompt (the backend will apply best practices)
       setState(prev => ({
         ...prev,
-        frontCoverPrompt: structuredPrompt,
+        frontCoverPrompt: simplePrompt,
         frontCoverImage: imageUrl,
         originalImageUrl: imageUrl,
         steps: {
@@ -1758,149 +1734,60 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                               setIsLoading({...isLoading, generateFrontCover: true});
                               
                               try {
-                                // Enhanced debugging information
                                 console.log('=== GENERATE COVER BUTTON CLICKED ===');
                                 console.log('Current state.selectedModel:', state.selectedModel);
                                 console.log('Current state.frontCoverPrompt:', state.frontCoverPrompt);
                                 console.log('Book settings:', state.bookSettings);
                                 
-                                // Enhanced prompt with explicit KDP text placement instructions
-                                const safeAreaPrompt = `
-                                  CRITICAL KDP REQUIREMENT: 
-                                  - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
-                                  - Place title text large and centered in the upper half
-                                  - Place author name in lower third, smaller than title
-                                  - Keep ALL text elements well within the dashed safe area
-                                  - Text must be readable and properly sized for hierarchy
-                                `;
-                                
-                                // Update the generate cover API call with explicit dimension requirements
-                                const dimensionsPrompt = state.selectedModel === 'dalle' 
-                                  ? `This is a flat graphic design illustration with ${state.bookSettings.bookSize.replace('x', ' by ')} inch proportions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`
-                                  : `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
-                                
-                                // Include KDP-specific instructions
-                                const bookStylePrompt = COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || '';
-                                const visualStylePrompt = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.prompt || '';
-                                
-                                // Modify prompt based on model to avoid book mockups
-                                let modifiedPrompt;
-                                if (state.selectedModel === 'dalle') {
-                                  // For DALL-E, avoid "book cover" terminology
-                                  modifiedPrompt = `${state.frontCoverPrompt.replace(/book cover/gi, 'flat design illustration')} ${dimensionsPrompt} ${safeAreaPrompt} Design Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
-                                } else {
-                                  // For Ideogram, use original terminology
-                                  modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
-                                }
-                                
-                                // Call the book cover generation API
-                                const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
-                                const coverHeight = Math.round(state.bookSettings.dimensions.height * 300);
-                                
-                                console.log(`Generating cover with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
-                                console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
-                                
-                                const apiUrl = `${getApiUrl()}/api/book-cover/generate-front`;
-                                
-                                // Create final prompt based on model
-                                let finalPromptAddition;
-                                if (state.selectedModel === 'dalle') {
-                                  finalPromptAddition = ` CRITICAL: This is a flat 2D graphic design illustration, NOT a 3D object. Generate ONLY a flat rectangular artwork design. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT ON THE IMAGE. Do not include any text referring to dimensions or size anywhere in the design.`;
-                                } else {
-                                  finalPromptAddition = ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`;
-                                }
-                                
-                                console.log('=== COVER GENERATION DEBUG ===');
-                                console.log('Selected model:', state.selectedModel);
-                                console.log('Front cover prompt:', state.frontCoverPrompt);
-                                console.log('Book settings:', state.bookSettings);
-                                console.log('Cover dimensions:', coverWidth, 'x', coverHeight);
-                                console.log('Modified prompt:', modifiedPrompt);
-                                console.log('Final prompt addition:', finalPromptAddition);
-                                
-                                const requestBody = {
-                                  prompt: modifiedPrompt + finalPromptAddition,
-                                  width: coverWidth,
-                                  height: coverHeight,
-                                  negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
-                                  model: state.selectedModel // Add model selection
+                                // Extract title, subtitle, author from the prompt or use defaults
+                                const extractTitleFromPrompt = (prompt: string) => {
+                                  const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                  return titleMatch ? titleMatch[1].trim() : null;
                                 };
                                 
-                                console.log('API URL:', apiUrl);
-                                console.log('Request body:', requestBody);
+                                const extractAuthorFromPrompt = (prompt: string) => {
+                                  const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                  return authorMatch ? authorMatch[1].trim() : null;
+                                };
                                 
-                                // Add timeout to the fetch request
-                                const controller = new AbortController();
-                                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+                                // Get style and visual style information
+                                const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
+                                const visualStyle = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
                                 
-                                const response = await fetch(apiUrl, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                  },
-                                  body: JSON.stringify(requestBody),
-                                  signal: controller.signal
-                                });
+                                // Prepare simplified API call
+                                const coverParams = {
+                                  title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
+                                  subtitle: undefined,
+                                  author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
+                                  genre: bookStyle?.name || state.selectedStyle,
+                                  style: visualStyle?.name || state.selectedVisualStyle,
+                                  description: state.frontCoverPrompt,
+                                  model: state.selectedModel,
+                                  customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins.`
+                                };
                                 
-                                clearTimeout(timeoutId);
+                                console.log('Calling generateFrontCover with params:', coverParams);
                                 
-                                console.log('Response status:', response.status);
-                                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                                const result = await generateFrontCover(coverParams);
                                 
-                                if (!response.ok) {
-                                  const errorText = await response.text();
-                                  console.error('API Error Response:', errorText);
-                                  
-                                  let errorData;
-                                  try {
-                                    errorData = JSON.parse(errorText);
-                                  } catch (e) {
-                                    errorData = { error: errorText };
-                                  }
-                                  
-                                  // More specific error handling
-                                  if (response.status === 404) {
-                                    throw new Error('Cover generation service is temporarily unavailable. Please try again later.');
-                                  } else if (response.status === 401) {
-                                    throw new Error('API authentication failed. Please contact support.');
-                                  } else if (response.status === 429) {
-                                    throw new Error('Too many requests. Please wait a moment and try again.');
-                                  } else {
-                                    throw new Error(errorData.error || `API error: ${response.status}`);
-                                  }
-                                }
-                                
-                                const data = await response.json();
-                                console.log('API Response data:', data);
-                                
-                                const imageUrl = data.url;
-                                
-                                if (!imageUrl) {
-                                  throw new Error('No image was generated');
-                                }
-                                
-                                console.log('Generated image URL:', imageUrl);
+                                console.log('Generated cover result:', result);
                                 
                                 setState(prev => ({
                                   ...prev,
-                                  frontCoverImage: imageUrl,
+                                  frontCoverImage: result.url,
                                   steps: {
                                     ...prev.steps,
-                                    frontCover: true // Now we set frontCover to true when generating the final cover
+                                    frontCover: true
                                   },
-                                  // Preserve the original image and uploadedFile reference
                                   originalImageUrl: prev.originalImageUrl,
                                   uploadedFile: prev.uploadedFile
                                 }));
                                 
-                                toast.success("Front cover generated from your edited prompt!");
+                                toast.success("Front cover generated successfully!");
                               } catch (error) {
                                 console.error('=== COVER GENERATION ERROR ===');
                                 console.error('Error details:', error);
-                                console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
-                                console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
                                 
-                                // Check if it's a network error
                                 if (error instanceof Error && error.name === 'AbortError') {
                                   toast.error('Request timed out. The service might be overloaded. Please try again.');
                                 } else if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('network'))) {
@@ -1931,66 +1818,44 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                             <Button 
                               variant="outline" 
                               className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
-                                                              onClick={async () => {
-                                  // Generate a variation using the same prompt but with slight modifications
+                              onClick={async () => {
                                   setIsLoading({...isLoading, generateFrontCover: true});
                                   
                                   try {
-                                    // Add a variation modifier to the prompt
-                                    const safeAreaPrompt = `
-                                      CRITICAL KDP REQUIREMENT: 
-                                      - ALL text MUST be at least 0.25 inches (${Math.round(0.25 * 300)}px) from ALL edges
-                                      - Place title text large and centered in the upper half
-                                      - Place author name in lower third, smaller than title
-                                      - Keep ALL text elements well within the dashed safe area
-                                      - Text must be readable and properly sized for hierarchy
-                                    `;
-                                    const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
+                                    // Extract title, subtitle, author from the prompt or use defaults
+                                    const extractTitleFromPrompt = (prompt: string) => {
+                                      const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                      return titleMatch ? titleMatch[1].trim() : null;
+                                    };
                                     
-                                    const bookStylePrompt = COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || '';
-                                    const visualStylePrompt = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.prompt || '';
+                                    const extractAuthorFromPrompt = (prompt: string) => {
+                                      const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                      return authorMatch ? authorMatch[1].trim() : null;
+                                    };
                                     
-                                    const variationPrompt = `${state.frontCoverPrompt} (alternative version, different style) ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
+                                    // Get style and visual style information
+                                    const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
+                                    const visualStyle = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle);
                                     
-                                    // Calculate pixel dimensions for the cover
-                                    const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
-                                    const coverHeight = Math.round(state.bookSettings.dimensions.height * 300);
+                                    // Prepare simplified API call for variation
+                                    const coverParams = {
+                                      title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
+                                      subtitle: undefined,
+                                      author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
+                                      genre: bookStyle?.name || state.selectedStyle,
+                                      style: visualStyle?.name || state.selectedVisualStyle,
+                                      description: state.frontCoverPrompt + " (alternative version, different style)",
+                                      model: state.selectedModel,
+                                      customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins. Create a variation with different visual approach.`
+                                    };
                                     
-                                    console.log(`Generating variation with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
-                                    console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
+                                    console.log('Calling generateFrontCover variation with params:', coverParams);
                                     
-                                    // Call the book cover generation API for a variation
-                                    const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
-                                      method: 'POST',
-                                      headers: {
-                                        'Content-Type': 'application/json',
-                                      },
-                                      body: JSON.stringify({
-                                        prompt: variationPrompt + ` DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup.`,
-                                        width: coverWidth,
-                                        height: coverHeight,
-                                        negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
-                                        seed: Math.floor(Math.random() * 1000000), // Use random seed for variation
-                                        model: state.selectedModel // Add model selection
-                                      })
-                                    });
-                                    
-                                    if (!response.ok) {
-                                      const errorData = await response.json();
-                                      throw new Error(errorData.error || 'Failed to generate cover variation');
-                                    }
-                                    
-                                    const data = await response.json();
-                                    const imageUrl = data.url;
-                                    
-                                    if (!imageUrl) {
-                                      throw new Error('No variation was generated');
-                                    }
+                                    const result = await generateFrontCover(coverParams);
                                     
                                     setState(prev => ({
                                       ...prev,
-                                      frontCoverImage: imageUrl,
-                                      // Preserve the original image and uploadedFile reference
+                                      frontCoverImage: result.url,
                                       originalImageUrl: prev.originalImageUrl,
                                       uploadedFile: prev.uploadedFile
                                     }));

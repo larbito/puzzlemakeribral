@@ -71,78 +71,42 @@ export async function calculateCoverDimensions({
  * Generate a front cover using the AI image generator
  */
 export async function generateFrontCover({
-  prompt,
-  width,
-  height,
-  negative_prompt,
-  model = 'ideogram', // Default to ideogram if not specified
-  seed // Optional seed for variations
+  title,
+  subtitle,
+  author,
+  genre,
+  style,
+  description,
+  model = 'dalle',
+  customInstructions
 }: {
-  prompt: string;
-  width: number;
-  height: number;
-  negative_prompt?: string;
-  model?: string; // 'ideogram' or 'dalle'
-  seed?: number; // Optional seed for variations
+  title?: string;
+  subtitle?: string;
+  author?: string;
+  genre?: string;
+  style?: string;
+  description?: string;
+  model?: string;
+  customInstructions?: string;
 }) {
   try {
     console.log('----------------------------------------------------');
-    console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt, model, seed });
+    console.log('Starting front cover generation with params:', { 
+      title, subtitle, author, genre, style, description, model, customInstructions 
+    });
     console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
     console.log('----------------------------------------------------');
     
-    // Define the safe area for Amazon KDP covers (0.25" from edges)
-    const safeAreaInset = 0.25 * 300; // 0.25 inches at 300 DPI
-
-    // Add KDP-specific instructions to prompt
-    let enhancedPrompt = prompt;
-    
-    // Add flat image instructions if not already present
-    if (!prompt.toLowerCase().includes('flat image') && !prompt.toLowerCase().includes('flat illustration')) {
-      enhancedPrompt = "Create a flat image design for a book cover: " + prompt;
-    }
-    
-    // Add KDP-specific safe area instructions
-    if (!prompt.toLowerCase().includes('safe area') && !prompt.toLowerCase().includes('margins')) {
-      enhancedPrompt += `. IMPORTANT: Keep all important text and elements at least 0.25 inches (${safeAreaInset}px) from all edges. Place text in the center area of the cover, not close to the edges. Ensure text is clearly legible with good contrast against the background.`;
-    }
-    
-    // Add text sizing instructions
-    if (!prompt.toLowerCase().includes('text size')) {
-      enhancedPrompt += " Make all text properly sized and well-proportioned - title should be large and prominent, subtitle smaller but clear.";
-    }
-    
-    // Add default negative prompt against book mockups if not provided
-    let enhancedNegativePrompt = negative_prompt || '';
-    if (!enhancedNegativePrompt.includes('book mockup')) {
-      enhancedNegativePrompt += ', book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl';
-    }
-    
-    // Add specifics against tiny, illegible or cut-off text
-    if (!enhancedNegativePrompt.includes('illegible text')) {
-      enhancedNegativePrompt += ', tiny text, illegible text, cut-off text, text too close to edge, blurry text, distorted text';
-    }
-    
-    // Create JSON payload instead of FormData with proper type
-    const payload: {
-      prompt: string;
-      width: string;
-      height: string;
-      negative_prompt: string;
-      model: string;
-      seed?: number;
-    } = {
-      prompt: enhancedPrompt,
-      width: width.toString(),
-      height: height.toString(),
-      negative_prompt: enhancedNegativePrompt,
-      model: model // Add model parameter
+    const payload = {
+      title,
+      subtitle,
+      author,
+      genre,
+      style,
+      description,
+      model,
+      customInstructions
     };
-    
-    // Add seed if provided
-    if (seed !== undefined) {
-      payload.seed = seed;
-    }
 
     console.log('Sending request to backend with payload:', payload);
     const response = await fetch(`${API_URL}/api/book-cover/generate-front`, {
@@ -167,16 +131,16 @@ export async function generateFrontCover({
 
     const data = await response.json();
     
-    if (!data.url) {
-      console.error('No URL returned from backend:', data);
-      throw new Error('No image URL returned');
+    if (!data.success || !data.imageUrl) {
+      console.error('Invalid response from backend:', data);
+      throw new Error('Invalid response from backend');
     }
     
-    console.log('Successfully generated front cover:', data.url.substring(0, 100) + '...');
+    console.log('Successfully generated front cover:', data.imageUrl.substring(0, 100) + '...');
     return {
-      url: data.url,
-      width: data.width || width,
-      height: data.height || height
+      url: data.imageUrl,
+      prompt: data.prompt,
+      model: data.model
     };
   } catch (error) {
     console.error('Error in generateFrontCover:', error);
