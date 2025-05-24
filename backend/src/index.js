@@ -399,7 +399,7 @@ Do not describe icons, t-shirts, posters, or branding. This is strictly for book
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4-vision-preview', // Use exact model specified
+        model: 'gpt-4o', // Updated from deprecated gpt-4-vision-preview
         messages: [
           {
             role: 'system',

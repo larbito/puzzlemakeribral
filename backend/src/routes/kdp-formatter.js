@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 const path = require('path');
 const fs = require('fs');
 
@@ -32,11 +32,10 @@ const upload = multer({
   }
 });
 
-// Configure OpenAI API
-const configuration = new Configuration({
+// Configure OpenAI API with new client
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 // Parse and extract content from uploaded document
 router.post('/extract', upload.single('file'), async (req, res) => {
