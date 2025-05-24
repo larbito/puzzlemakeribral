@@ -1674,10 +1674,16 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                       <div className="ml-11 flex flex-wrap gap-3">
                         <Button 
                           className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 px-6"
-                                                      onClick={async () => {
+                          onClick={async () => {
                               setIsLoading({...isLoading, generateFrontCover: true});
                               
                               try {
+                                // Enhanced debugging information
+                                console.log('=== GENERATE COVER BUTTON CLICKED ===');
+                                console.log('Current state.selectedModel:', state.selectedModel);
+                                console.log('Current state.frontCoverPrompt:', state.frontCoverPrompt);
+                                console.log('Book settings:', state.bookSettings);
+                                
                                 // Enhanced prompt with explicit KDP text placement instructions
                                 const safeAreaPrompt = `
                                   CRITICAL KDP REQUIREMENT: 
@@ -1705,48 +1711,97 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                 console.log(`Generating cover with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
                                 console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
                                 
-                                const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
+                                const apiUrl = 'https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front';
+                                const requestBody = {
+                                  prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
+                                  width: coverWidth,
+                                  height: coverHeight,
+                                  negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
+                                  model: state.selectedModel // Add model selection
+                                };
+                                
+                                console.log('API URL:', apiUrl);
+                                console.log('Request body:', requestBody);
+                                
+                                // Add timeout to the fetch request
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+                                
+                                const response = await fetch(apiUrl, {
                                   method: 'POST',
                                   headers: {
                                     'Content-Type': 'application/json',
                                   },
-                                  body: JSON.stringify({
-                                    prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
-                                    width: coverWidth,
-                                    height: coverHeight,
-                                    negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',
-                                    model: state.selectedModel // Add model selection
-                                  })
+                                  body: JSON.stringify(requestBody),
+                                  signal: controller.signal
                                 });
                                 
+                                clearTimeout(timeoutId);
+                                
+                                console.log('Response status:', response.status);
+                                console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+                                
                                 if (!response.ok) {
-                                  const errorData = await response.json();
-                                  throw new Error(errorData.error || 'Failed to generate cover image');
+                                  const errorText = await response.text();
+                                  console.error('API Error Response:', errorText);
+                                  
+                                  let errorData;
+                                  try {
+                                    errorData = JSON.parse(errorText);
+                                  } catch (e) {
+                                    errorData = { error: errorText };
+                                  }
+                                  
+                                  // More specific error handling
+                                  if (response.status === 404) {
+                                    throw new Error('Cover generation service is temporarily unavailable. Please try again later.');
+                                  } else if (response.status === 401) {
+                                    throw new Error('API authentication failed. Please contact support.');
+                                  } else if (response.status === 429) {
+                                    throw new Error('Too many requests. Please wait a moment and try again.');
+                                  } else {
+                                    throw new Error(errorData.error || `API error: ${response.status}`);
+                                  }
                                 }
                                 
                                 const data = await response.json();
+                                console.log('API Response data:', data);
+                                
                                 const imageUrl = data.url;
                                 
                                 if (!imageUrl) {
                                   throw new Error('No image was generated');
                                 }
                                 
-                                                                    setState(prev => ({
-                                      ...prev,
-                                      frontCoverImage: imageUrl,
-                                      steps: {
-                                        ...prev.steps,
-                                        frontCover: true // Now we set frontCover to true when generating the final cover
-                                      },
-                                      // Preserve the original image and uploadedFile reference
-                                      originalImageUrl: prev.originalImageUrl,
-                                      uploadedFile: prev.uploadedFile
-                                    }));
+                                console.log('Generated image URL:', imageUrl);
+                                
+                                setState(prev => ({
+                                  ...prev,
+                                  frontCoverImage: imageUrl,
+                                  steps: {
+                                    ...prev.steps,
+                                    frontCover: true // Now we set frontCover to true when generating the final cover
+                                  },
+                                  // Preserve the original image and uploadedFile reference
+                                  originalImageUrl: prev.originalImageUrl,
+                                  uploadedFile: prev.uploadedFile
+                                }));
                                 
                                 toast.success("Front cover generated from your edited prompt!");
                               } catch (error) {
-                                console.error('Error generating cover:', error);
-                                toast.error(error instanceof Error ? error.message : 'Failed to generate cover. Please try again.');
+                                console.error('=== COVER GENERATION ERROR ===');
+                                console.error('Error details:', error);
+                                console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+                                console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+                                
+                                // Check if it's a network error
+                                if (error instanceof Error && error.name === 'AbortError') {
+                                  toast.error('Request timed out. The service might be overloaded. Please try again.');
+                                } else if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('network'))) {
+                                  toast.error('Network error. Please check your connection and try again.');
+                                } else {
+                                  toast.error(error instanceof Error ? error.message : 'Failed to generate cover. Please try again.');
+                                }
                               } finally {
                                 setIsLoading({...isLoading, generateFrontCover: false});
                               }

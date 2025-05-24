@@ -74,16 +74,22 @@ export async function generateFrontCover({
   prompt,
   width,
   height,
-  negative_prompt
+  negative_prompt,
+  model = 'ideogram', // Default to ideogram if not specified
+  seed // Optional seed for variations
 }: {
   prompt: string;
   width: number;
   height: number;
   negative_prompt?: string;
+  model?: string; // 'ideogram' or 'dalle'
+  seed?: number; // Optional seed for variations
 }) {
   try {
-    console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt });
+    console.log('----------------------------------------------------');
+    console.log('Starting front cover generation with params:', { prompt, width, height, negative_prompt, model, seed });
     console.log('API URL for generation:', `${API_URL}/api/book-cover/generate-front`);
+    console.log('----------------------------------------------------');
     
     // Define the safe area for Amazon KDP covers (0.25" from edges)
     const safeAreaInset = 0.25 * 300; // 0.25 inches at 300 DPI
@@ -117,13 +123,26 @@ export async function generateFrontCover({
       enhancedNegativePrompt += ', tiny text, illegible text, cut-off text, text too close to edge, blurry text, distorted text';
     }
     
-    // Create JSON payload instead of FormData
-    const payload = {
+    // Create JSON payload instead of FormData with proper type
+    const payload: {
+      prompt: string;
+      width: string;
+      height: string;
+      negative_prompt: string;
+      model: string;
+      seed?: number;
+    } = {
       prompt: enhancedPrompt,
       width: width.toString(),
       height: height.toString(),
-      negative_prompt: enhancedNegativePrompt
+      negative_prompt: enhancedNegativePrompt,
+      model: model // Add model parameter
     };
+    
+    // Add seed if provided
+    if (seed !== undefined) {
+      payload.seed = seed;
+    }
 
     console.log('Sending request to backend with payload:', payload);
     const response = await fetch(`${API_URL}/api/book-cover/generate-front`, {
@@ -367,6 +386,50 @@ export async function checkEnhancementStatus(statusEndpoint: string) {
     return data;
   } catch (error) {
     console.error('Error checking enhancement status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Enhance a prompt using OpenAI
+ */
+export async function enhancePrompt({
+  prompt,
+  context
+}: {
+  prompt: string;
+  context?: string;
+}): Promise<{ enhancedPrompt: string }> {
+  try {
+    console.log('Enhancing prompt:', prompt);
+    
+    const response = await fetch(`${API_URL}/api/openai/enhance-prompt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt,
+        context
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to enhance prompt');
+    }
+
+    const data = await response.json();
+    
+    if (!data.enhancedPrompt) {
+      throw new Error('No enhanced prompt was generated');
+    }
+
+    return {
+      enhancedPrompt: data.enhancedPrompt
+    };
+  } catch (error) {
+    console.error('Error enhancing prompt:', error);
     throw error;
   }
 } 

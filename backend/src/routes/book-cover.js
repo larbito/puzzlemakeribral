@@ -180,6 +180,23 @@ router.post('/generate-front', express.json(), async (req, res) => {
       // Use OpenAI DALL-E 3 API
       console.log('Using DALL-E 3 model for generation');
       
+      // DALL-E 3 only supports specific sizes, so we need to map the requested size
+      // to the nearest supported size
+      const supportedSizes = ['1024x1024', '1024x1792', '1792x1024'];
+      let dalleSize = '1024x1792'; // Default for portrait book covers
+      
+      // Calculate aspect ratio to choose the best fit
+      const aspectRatio = width / height;
+      if (aspectRatio > 1) {
+        dalleSize = '1792x1024'; // Landscape
+      } else if (aspectRatio === 1) {
+        dalleSize = '1024x1024'; // Square
+      } else {
+        dalleSize = '1024x1792'; // Portrait (default for book covers)
+      }
+      
+      console.log(`Mapping ${width}x${height} to DALL-E size: ${dalleSize}`);
+      
       try {
         const response = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
@@ -191,7 +208,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
             model: "dall-e-3",
             prompt: `${prompt}. ${negative_prompt ? `Make sure NOT to include: ${negative_prompt}` : ''}`,
             n: 1,
-            size: `${width}x${height}`,
+            size: dalleSize,
             quality: "hd",
             style: "vivid"
           })
@@ -218,32 +235,41 @@ router.post('/generate-front', express.json(), async (req, res) => {
       // Use Ideogram API (default)
       console.log('Using Ideogram model for generation');
       
-      // Existing Ideogram implementation
-      const aspect_ratio = `${width}:${height}`;
-      const seed = req.body.seed || Math.floor(Math.random() * 1000000);
+      // Updated Ideogram implementation to use the correct v3 API
+      const form = new FormData();
       
-      // Build the request body
-      const ideogramBody = {
-        prompt,
-        aspect_ratio,
-        seed
-      };
+      form.append('prompt', prompt);
+      
+      // Convert width:height to aspect ratio format
+      const aspectRatio = `${width}:${height}`;
+      form.append('aspect_ratio', aspectRatio);
+      
+      // Use higher quality rendering for book covers
+      form.append('rendering_speed', 'DEFAULT');
       
       // Add negative prompt if provided
       if (negative_prompt) {
-        ideogramBody.negative_prompt = negative_prompt;
+        form.append('negative_prompt', negative_prompt);
       }
       
-      console.log('Sending request to Ideogram API:', ideogramBody);
+      // Add style
+      form.append('style_type', 'REALISTIC');
+      
+      // Add number of images and seed
+      form.append('num_images', '1');
+      const seed = req.body.seed || Math.floor(Math.random() * 1000000);
+      form.append('seed', seed.toString());
+      
+      console.log('Sending request to Ideogram v3 API with form data');
       
       try {
-        const response = await fetch('https://api.ideogram.ai/api/images', {
+        const response = await fetch('https://api.ideogram.ai/v1/ideogram-v3/generate', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${process.env.IDEOGRAM_API_KEY}`,
-            'Content-Type': 'application/json'
+            'Api-Key': process.env.IDEOGRAM_API_KEY,
+            ...form.getHeaders()
           },
-          body: JSON.stringify(ideogramBody)
+          body: form
         });
         
         if (!response.ok) {
@@ -255,12 +281,23 @@ router.post('/generate-front', express.json(), async (req, res) => {
         const data = await response.json();
         console.log('Ideogram API response:', data);
         
-        if (!data.images || data.images.length === 0) {
-          return res.status(500).json({ error: 'No images were generated' });
+        // Handle different response formats
+        let imageUrl = null;
+        if (data?.data?.[0]?.url) {
+          imageUrl = data.data[0].url;
+        } else if (data?.images?.[0]?.url) {
+          imageUrl = data.images[0].url;
+        } else if (data?.url) {
+          imageUrl = data.url;
         }
         
-        // Return the URL of the first generated image
-        return res.json({ url: data.images[0].url });
+        if (!imageUrl) {
+          console.error('No image URL found in response:', data);
+          return res.status(500).json({ error: 'No image URL in API response' });
+        }
+        
+        // Return the URL of the generated image
+        return res.json({ url: imageUrl });
       } catch (error) {
         console.error('Error generating image with Ideogram:', error);
         return res.status(500).json({ error: 'Failed to generate image with Ideogram' });
