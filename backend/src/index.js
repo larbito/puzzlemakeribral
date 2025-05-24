@@ -385,23 +385,27 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
     const base64Image = req.file.buffer.toString('base64');
 
     // Use EXACT system prompt as specified by user  
-    const systemPrompt = `You are a professional book cover designer and analyst. Your job is to analyze book cover images and create detailed prompts for AI image generation.
+    const systemPrompt = `You are a professional book cover designer and image analyst. Your job is to analyze book cover images and create detailed prompts for AI image generation.
 
-You MUST analyze the uploaded image and describe:
-- Visual style and artistic approach
-- Layout and composition elements  
-- Color scheme and mood
-- Subject matter and characters
-- Text placement areas
-- Overall design aesthetic
+Important:
+- If the image contains well-known figures (such as Albert Einstein), say so clearly.
+- Do not refer to Einstein as "an old man" or "a man with white hair."
+- Use "a famous physicist resembling Albert Einstein" or similar.
+
+Describe:
+- Visual style (e.g. flat vector, watercolor)
+- Layout (title at top, author at bottom, central composition)
+- Background and mood
+- Character identity (if recognizable)
+- Elements like objects, animals, icons
+
+Avoid general language. Output one single-paragraph prompt for ${trimSizeLabel} Amazon KDP DALL·E generation. Keep it clean and specific. Do not include analysis or markdown.
 
 This is for creating a ${trimSizeLabel} Amazon KDP book cover using ${selectedModel.toUpperCase()} or Ideogram.
 
 Focus only on the layout, art style, subject composition, scene details, mood, colors, and where the title and author should go. The result should be usable directly to generate a print-safe, readable cover for publishing.
 
-Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.
-
-You must provide a detailed visual description - this is essential for the book cover generation process.`;
+Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.`;
 
     // Call OpenAI's GPT-4 Vision API with exact specifications
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -422,7 +426,11 @@ You must provide a detailed visual description - this is essential for the book 
             content: [
               {
                 type: 'text',
-                text: `You are analyzing a book cover image. Please describe what you see in detail and then create a prompt for ${selectedModel.toUpperCase()} that starts with "Book cover illustration in ${selectedStyle} style" and includes layout terms like "title at top," "author at bottom," "centered composition". Make it specific for ${trimSizeLabel} KDP format. 
+                text: `Analyze this book cover image and create a single-paragraph prompt for ${selectedModel.toUpperCase()} generation that starts with "Book cover illustration in ${selectedStyle} style". 
+
+CRITICAL: If you see Albert Einstein or any famous figure, identify them by name. Do not use vague descriptions like "older man with white hair" - say "Albert Einstein" clearly.
+
+Output format: One clean paragraph for ${trimSizeLabel} KDP cover generation. Include layout terms like "title at top," "author at bottom," "centered composition".
 
 IMPORTANT: You must analyze and describe the visual elements you see in this image. This is for professional book cover recreation and is essential for the publishing process.`
               },
@@ -710,11 +718,17 @@ app.post('/api/analyze-image-detailed', upload.single('image'), async (req, res)
     // System prompt for detailed image description
     const systemPrompt = `You are an expert image analyst. Your task is to provide a detailed, accurate description of the uploaded image that can be used to recreate a similar image using DALL-E.
 
+CRITICAL INSTRUCTION:
+- If the image contains Albert Einstein, say "Albert Einstein" or "famous physicist resembling Albert Einstein"
+- If the image contains any recognizable public figures, historical figures, or famous people, identify them by name
+- DO NOT use vague descriptions like "an older man with white hair" or "elderly person"
+- BE SPECIFIC about famous figures and iconic elements
+
 When analyzing images, you should:
-1. If the image contains recognizable public figures, historical figures, or famous people, identify them appropriately (e.g., "Albert Einstein", "a famous physicist resembling Einstein")
-2. If the image contains cartoon/illustrated versions of famous people, describe them as such
-3. Focus on visual elements that are essential for recreation
-4. Structure your description for optimal DALL-E generation
+1. Identify recognizable figures by name (e.g., "Albert Einstein", "a famous physicist resembling Einstein")
+2. Focus on visual elements that are essential for recreation
+3. Structure your description for optimal DALL-E generation
+4. Be specific about style (cartoon, realistic, vector, etc.)
 
 Describe EXACTLY what you see in the image, including:
 - Any recognizable figures or famous people by name or clear reference
@@ -750,7 +764,7 @@ Example: Instead of "an older man with white hair" say "Albert Einstein" or "a f
             content: [
               {
                 type: 'text',
-                text: 'Please provide a detailed description of this image that could be used to recreate a similar image with AI:'
+                text: 'CRITICAL: If this image contains Albert Einstein or any famous figure, identify them by name. Do not use vague descriptions like "older man with white hair" - say "Albert Einstein" clearly. Provide a detailed description of this image that could be used to recreate a similar image with AI, being specific about any recognizable figures:'
               },
               {
                 type: 'image_url',
