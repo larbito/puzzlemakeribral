@@ -42,7 +42,7 @@ router.use((req, res, next) => {
 
 // Enhanced prompt processing functions
 function enhanceDallePrompt(originalPrompt) {
-  // DALL-E requires literal, spatial descriptions with specific placement
+  // DALL-E requires simple, clean descriptions that emphasize text readability and minimalism
   
   let prompt = originalPrompt;
   
@@ -56,33 +56,34 @@ function enhanceDallePrompt(originalPrompt) {
   prompt = prompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
   prompt = prompt.replace(/-{10,}/g, '');
   
-  // Replace design terminology with literal descriptions
-  prompt = prompt.replace(/book cover/gi, 'flat book cover');
-  prompt = prompt.replace(/cover design/gi, 'book cover layout');
-  prompt = prompt.replace(/comic-style/gi, 'cartoon-style');
-  prompt = prompt.replace(/flat vector/gi, 'flat illustrated');
-  prompt = prompt.replace(/design elements/gi, 'visual elements');
+  // Replace complex descriptions with simple, clean terms
+  prompt = prompt.replace(/book cover/gi, 'simple book cover');
+  prompt = prompt.replace(/cover design/gi, 'clean cover layout');
+  prompt = prompt.replace(/whimsical and colorful/gi, 'simple and clean');
+  prompt = prompt.replace(/various elements representing/gi, 'simple background with');
+  prompt = prompt.replace(/scattered throughout/gi, 'minimal background elements');
+  prompt = prompt.replace(/lively and engaging atmosphere/gi, 'clean and professional look');
   
-  // Remove technical measurements and use descriptive language
+  // Remove technical measurements and use simple language
   prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '6x9 inches');
   prompt = prompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
   prompt = prompt.replace(/\d+\s*pixels?/gi, '');
   prompt = prompt.replace(/300\s*dpi/gi, '');
   
-  // Add DALL-E specific literal instructions
-  const dalleInstructions = "Use literal spatial descriptions. Title in large bold letters, centered near the top with clear space around it. Use bright, high-contrast colors. No text near edges. Leave clean margins. Format: front book cover, 6x9 inches, flat 2D layout. KDP-safe design.";
+  // Add DALL-E specific simplicity instructions
+  const dalleInstructions = "Simple, clean book cover design. Large, readable title text at the top. Author name clearly visible at the bottom. Minimal background elements. Professional typography. Clean layout with plenty of white space. Focus on text readability. 6x9 format. KDP-safe margins.";
   
   // Clean up formatting
   prompt = prompt.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
   
-  // Ensure we have the literal formatting instructions
-  if (!prompt.includes('literal spatial') && !prompt.includes('flat 2D layout')) {
+  // Ensure we have the simplicity instructions
+  if (!prompt.includes('simple') && !prompt.includes('clean layout')) {
     prompt = `${prompt} ${dalleInstructions}`;
   }
   
   // Keep under 1000 characters for DALL-E
   if (prompt.length > 1000) {
-    prompt = prompt.substring(0, 950) + '... KDP-safe design.';
+    prompt = prompt.substring(0, 950) + '... Simple, clean design.';
   }
   
   return prompt;
