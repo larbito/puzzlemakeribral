@@ -1041,27 +1041,7 @@ const KDPCoverDesigner: React.FC = () => {
                 <div className="space-y-2 mt-4" style={{display: 'none'}}>
                   <Label>Cover Style</Label>
                   <div className="grid grid-cols-4 gap-2">
-                    {COVER_STYLES.map((style) => (
-                      <Button
-                        key={style.id}
-                        type="button"
-                        variant={state.selectedStyle === style.id ? "default" : "outline"}
-                        onClick={() => 
-                          setState(prev => ({
-                            ...prev,
-                            selectedStyle: style.id
-                          }))
-                        }
-                        className={`flex flex-col items-center justify-center h-14 ${
-                          state.selectedStyle === style.id 
-                            ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                            : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
-                        }`}
-                      >
-                        <span className="text-lg mb-0.5">{style.emoji}</span>
-                        <span className="text-[10px] font-medium">{style.name}</span>
-                      </Button>
-                    ))}
+                    {/* REMOVED: Cover style buttons */}
                   </div>
                 </div>
                 
@@ -1169,7 +1149,7 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 {/* Add style selection */}
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4" style={{display: "none"}}>
                   <Label>Cover Style</Label>
                   <div className="grid grid-cols-4 gap-2">
                     {COVER_STYLES.map((style) => (
@@ -1874,7 +1854,7 @@ const KDPCoverDesigner: React.FC = () => {
                   )}
                 </Button>
                 
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4" style={{display: "none"}}>
                   <Label>Interior Preview Images (Optional)</Label>
                   <p className="text-xs text-zinc-500">
                     Upload up to 4 interior pages to showcase on the back cover.
@@ -2198,7 +2178,7 @@ const KDPCoverDesigner: React.FC = () => {
                   </p>
                 </div>
                 
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4" style={{display: "none"}}>
                   <Label htmlFor="spineFont">Font Style</Label>
                   <Select
                     value={state.spineFont}
@@ -2222,7 +2202,7 @@ const KDPCoverDesigner: React.FC = () => {
                   </Select>
                 </div>
                 
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4" style={{display: "none"}}>
                   <Label>Spine Color</Label>
                   <div className="grid grid-cols-6 gap-2">
                     {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#000000'].map((color) => (
