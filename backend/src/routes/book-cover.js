@@ -241,7 +241,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
       form.append('prompt', prompt);
       
       // Convert width:height to aspect ratio format
-      const aspectRatio = `${width}:${height}`;
+      const aspectRatio = `${width}x${height}`;
       form.append('aspect_ratio', aspectRatio);
       
       // Use higher quality rendering for book covers
