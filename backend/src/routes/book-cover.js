@@ -42,7 +42,7 @@ router.use((req, res, next) => {
 
 // Enhanced prompt processing functions
 function enhanceDallePrompt(originalPrompt) {
-  // DALL-E requires simple, clean descriptions that emphasize text readability and minimalism
+  // DALL-E requires extremely simple descriptions - no element lists, just main theme
   
   let prompt = originalPrompt;
   
@@ -56,35 +56,39 @@ function enhanceDallePrompt(originalPrompt) {
   prompt = prompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
   prompt = prompt.replace(/-{10,}/g, '');
   
-  // Replace complex descriptions with simple, clean terms
-  prompt = prompt.replace(/book cover/gi, 'simple book cover');
-  prompt = prompt.replace(/cover design/gi, 'clean cover layout');
-  prompt = prompt.replace(/whimsical and colorful/gi, 'simple and clean');
-  prompt = prompt.replace(/various elements representing/gi, 'simple background with');
-  prompt = prompt.replace(/scattered throughout/gi, 'minimal background elements');
-  prompt = prompt.replace(/lively and engaging atmosphere/gi, 'clean and professional look');
+  // AGGRESSIVELY remove detailed element lists that overwhelm DALL-E
+  prompt = prompt.replace(/Surrounding him are.*?(\.|\n|$)/gi, '');
+  prompt = prompt.replace(/various elements representing.*?(\.|\n|$)/gi, '');
+  prompt = prompt.replace(/: a UFO.*?(\.|\n|$)/gi, '');
+  prompt = prompt.replace(/including.*?(\.|\n|$)/gi, '');
+  prompt = prompt.replace(/such as.*?(\.|\n|$)/gi, '');
+  prompt = prompt.replace(/with.*?rocket.*?(\.|\n|$)/gi, '');
   
-  // Remove technical measurements and use simple language
-  prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '6x9 inches');
+  // Remove specific element mentions that cause clutter
+  prompt = prompt.replace(/(UFO|caveman|telescope|solar panel|black hole|E=mc²|shark|pandas|sunflower|insects|potato|rocket)/gi, '');
+  prompt = prompt.replace(/,\s*and\s*/gi, ' ');
+  prompt = prompt.replace(/,\s*/gi, ' ');
+  
+  // Simplify style descriptions
+  prompt = prompt.replace(/whimsical and educational/gi, 'educational');
+  prompt = prompt.replace(/cartoonish and playful/gi, 'clean');
+  prompt = prompt.replace(/bold outlines and vibrant colors/gi, 'professional typography');
+  prompt = prompt.replace(/engaging and approachable mood/gi, 'professional look');
+  
+  // Remove technical measurements
+  prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '');
   prompt = prompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
   prompt = prompt.replace(/\d+\s*pixels?/gi, '');
   prompt = prompt.replace(/300\s*dpi/gi, '');
   
-  // Add DALL-E specific simplicity instructions
-  const dalleInstructions = "Simple, clean book cover design. Large, readable title text at the top. Author name clearly visible at the bottom. Minimal background elements. Professional typography. Clean layout with plenty of white space. Focus on text readability. 6x9 format. KDP-safe margins.";
+  // Clean up formatting and extra spaces
+  prompt = prompt.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
   
-  // Clean up formatting
-  prompt = prompt.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Create ultra-simple DALL-E prompt focusing only on main theme
+  const simpleInstructions = "Simple book cover. Einstein illustration in center. Clean background. Large readable title at top. Author name at bottom. Professional typography. Minimal design. 6x9 format.";
   
-  // Ensure we have the simplicity instructions
-  if (!prompt.includes('simple') && !prompt.includes('clean layout')) {
-    prompt = `${prompt} ${dalleInstructions}`;
-  }
-  
-  // Keep under 1000 characters for DALL-E
-  if (prompt.length > 1000) {
-    prompt = prompt.substring(0, 950) + '... Simple, clean design.';
-  }
+  // Replace the complex prompt with simple version
+  prompt = `Educational book cover featuring Einstein. ${simpleInstructions}`;
   
   return prompt;
 }
