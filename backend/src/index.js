@@ -4,6 +4,22 @@ const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
+    }
+  }
+});
 
 // STARTUP DEBUG - THIS SHOULD APPEAR IN LOGS
 console.log('=====================================');
@@ -328,6 +344,78 @@ console.log('Registered route: /api/word-search/*');
 // Register KDP Formatter routes
 app.use('/api/kdp-formatter', kdpFormatterRoutes);
 console.log('Registered route: /api/kdp-formatter/*');
+
+// Add route aliases for KDP Cover Generator frontend compatibility
+// These map the expected frontend endpoints to existing backend functionality
+
+// Route alias: /api/analyze-image -> /api/ideogram/analyze
+app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
+  console.log('KDP Cover Generator: Analyzing image with GPT-4 Vision');
+  try {
+    // Forward to existing ideogram analyze endpoint
+    req.url = '/api/ideogram/analyze';
+    ideogramRoutes(req, res);
+  } catch (error) {
+    console.error('Error in analyze-image alias:', error);
+    res.status(500).json({ error: 'Failed to analyze image' });
+  }
+});
+
+// Route alias: /api/enhance-prompt -> /api/openai/enhance-prompt
+app.post('/api/enhance-prompt', express.json(), async (req, res) => {
+  console.log('KDP Cover Generator: Enhancing prompt with GPT-4');
+  try {
+    // Forward to existing OpenAI enhance-prompt endpoint
+    req.url = '/api/openai/enhance-prompt';
+    openaiRoutes(req, res);
+  } catch (error) {
+    console.error('Error in enhance-prompt alias:', error);
+    res.status(500).json({ error: 'Failed to enhance prompt' });
+  }
+});
+
+// Route alias: /api/generate-cover -> /api/ideogram/generate (or DALL-E based on model)
+app.post('/api/generate-cover', express.json(), async (req, res) => {
+  console.log('KDP Cover Generator: Generating cover image');
+  try {
+    const { model, prompt, style, kdp_settings, spine_width } = req.body;
+    
+    // Log KDP settings for debugging
+    console.log('KDP Settings:', kdp_settings);
+    console.log('Spine Width:', spine_width);
+    console.log('Selected Model:', model);
+    console.log('Style:', style);
+    
+    if (model === 'dalle') {
+      // Forward to OpenAI/DALL-E generation (you may need to implement this)
+      // For now, use ideogram as fallback
+      console.log('Using Ideogram as DALL-E implementation pending');
+    }
+    
+    // Prepare request for ideogram generation
+    req.body = {
+      prompt: prompt,
+      model: model || 'ideogram',
+      style: style,
+      // Add KDP-specific parameters
+      aspect_ratio: '2:3', // Standard book cover ratio
+      style_type: style || 'flat-vector',
+      magic_prompt_option: 'AUTO'
+    };
+    
+    // Forward to existing ideogram generate endpoint
+    req.url = '/api/ideogram/generate';
+    ideogramRoutes(req, res);
+  } catch (error) {
+    console.error('Error in generate-cover alias:', error);
+    res.status(500).json({ error: 'Failed to generate cover' });
+  }
+});
+
+console.log('Registered KDP Cover Generator route aliases:');
+console.log('- POST /api/analyze-image -> /api/ideogram/analyze');
+console.log('- POST /api/enhance-prompt -> /api/openai/enhance-prompt');
+console.log('- POST /api/generate-cover -> /api/ideogram/generate');
 
 // Root route for testing
 app.get('/', (req, res) => {
