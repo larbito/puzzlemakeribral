@@ -1695,14 +1695,23 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                 `;
                                 
                                 // Update the generate cover API call with explicit dimension requirements
-                                const dimensionsPrompt = `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
+                                const dimensionsPrompt = state.selectedModel === 'dalle' 
+                                  ? `This is a flat graphic design illustration with ${state.bookSettings.bookSize.replace('x', ' by ')} inch proportions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}.`
+                                  : `This MUST be a ${state.bookSettings.bookSize.replace('x', ' by ')} inch book cover with EXACT ${state.bookSettings.bookSize} dimensions and aspect ratio of ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height}. The image must maintain these exact proportions.`;
                                 
                                 // Include KDP-specific instructions
                                 const bookStylePrompt = COVER_STYLES.find(s => s.id === state.selectedStyle)?.prompt || '';
                                 const visualStylePrompt = VISUAL_STYLES.find(s => s.id === state.selectedVisualStyle)?.prompt || '';
                                 
-                                // Combine both styles into the modified prompt
-                                const modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
+                                // Modify prompt based on model to avoid book mockups
+                                let modifiedPrompt;
+                                if (state.selectedModel === 'dalle') {
+                                  // For DALL-E, avoid "book cover" terminology
+                                  modifiedPrompt = `${state.frontCoverPrompt.replace(/book cover/gi, 'flat design illustration')} ${dimensionsPrompt} ${safeAreaPrompt} Design Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
+                                } else {
+                                  // For Ideogram, use original terminology
+                                  modifiedPrompt = `${state.frontCoverPrompt} ${dimensionsPrompt} ${safeAreaPrompt} Book Type: ${bookStylePrompt} Visual Art Style: ${visualStylePrompt}`;
+                                }
                                 
                                 // Call the book cover generation API
                                 const coverWidth = Math.round(state.bookSettings.dimensions.width * 300);
@@ -1712,8 +1721,17 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                 console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
                                 
                                 const apiUrl = 'https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front';
+                                
+                                // Create final prompt based on model
+                                let finalPromptAddition;
+                                if (state.selectedModel === 'dalle') {
+                                  finalPromptAddition = ` CRITICAL: This is a flat 2D graphic design illustration, NOT a 3D object. Generate ONLY a flat rectangular artwork design. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT ON THE IMAGE. Do not include any text referring to dimensions or size anywhere in the design.`;
+                                } else {
+                                  finalPromptAddition = ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`;
+                                }
+                                
                                 const requestBody = {
-                                  prompt: modifiedPrompt + ` CRITICAL DIMENSION INFO: MUST BE EXACTLY ${state.bookSettings.bookSize.replace('x', ' by ')} inches (${coverWidth} by ${coverHeight} pixels at 300dpi). Force EXACT ${state.bookSettings.dimensions.width}:${state.bookSettings.dimensions.height} ratio. Do not deviate from these specifications. IMPORTANT: Generate ONLY a flat 2D book cover design, NOT a 3D mockup. DO NOT WRITE OR INCLUDE ANY DIMENSION TEXT (LIKE "6X9") ON THE ACTUAL IMAGE ITSELF. Do not include any text referring to dimensions or book size anywhere on the cover.`,
+                                  prompt: modifiedPrompt + finalPromptAddition,
                                   width: coverWidth,
                                   height: coverHeight,
                                   negative_prompt: 'text too close to edges, text outside safe area, text in margins, text cut off, text bleeding to edge, text illegible, blurry text, low quality, distorted, deformed, book mockup, 3D book, book cover mockup, book model, perspective, shadow effects, page curl, wrong aspect ratio, wrong dimensions, dimension text, size text, 6x9 text, pixel dimensions in text, angled book, book sitting on surface, product visualization, book spine, book pages, photorealistic book, 3D rendering of book, book template, edge visualization, dog-eared pages',

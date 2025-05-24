@@ -198,6 +198,28 @@ router.post('/generate-front', express.json(), async (req, res) => {
       console.log(`Mapping ${width}x${height} to DALL-E size: ${dalleSize}`);
       
       try {
+        // For DALL-E, clean the prompt to avoid triggering book mockups
+        let cleanedPrompt = prompt;
+        
+        // Remove problematic terms that trigger book mockups
+        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'flat design illustration');
+        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'flat illustration design');
+        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?inch.*?with EXACT.*?proportions\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/CRITICAL DIMENSION INFO:.*?specifications\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/Force EXACT.*?ratio\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/Do not deviate from these specifications\./gi, '');
+        
+        // Add specific flat design instructions for DALL-E
+        const flatDesignInstruction = "Create a flat, 2D graphic design illustration. This is a rectangular artwork design, not a 3D object. The design should be completely flat with no perspective, shadows, or 3D effects.";
+        
+        // Enhanced negative prompt specifically for DALL-E
+        const dalleNegativePrompt = "3D mockup, book mockup, perspective view, angled view, shadow effects, 3D rendering, physical book, book spine visible, book pages, book sitting on surface, product photography, realistic book object, book model, curved pages, page curl effects, depth, book template, book visualization, perspective, tilted book, book cover mockup";
+        
+        const finalPrompt = `${flatDesignInstruction} ${cleanedPrompt}. Make sure NOT to include: ${dalleNegativePrompt}${negative_prompt ? `, ${negative_prompt}` : ''}`;
+        
+        console.log('Original prompt:', prompt);
+        console.log('Cleaned prompt for DALL-E:', finalPrompt);
+        
         const response = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: {
@@ -206,7 +228,7 @@ router.post('/generate-front', express.json(), async (req, res) => {
           },
           body: JSON.stringify({
             model: "dall-e-3",
-            prompt: `${prompt}. ${negative_prompt ? `Make sure NOT to include: ${negative_prompt}` : ''}`,
+            prompt: finalPrompt,
             n: 1,
             size: dalleSize,
             quality: "hd",
