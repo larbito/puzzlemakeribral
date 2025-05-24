@@ -710,19 +710,26 @@ app.post('/api/analyze-image-detailed', upload.single('image'), async (req, res)
     // System prompt for detailed image description
     const systemPrompt = `You are an expert image analyst. Your task is to provide a detailed, accurate description of the uploaded image that can be used to recreate a similar image using DALL-E.
 
+When analyzing images, you should:
+1. If the image contains recognizable public figures, historical figures, or famous people, identify them appropriately (e.g., "Albert Einstein", "a famous physicist resembling Einstein")
+2. If the image contains cartoon/illustrated versions of famous people, describe them as such
+3. Focus on visual elements that are essential for recreation
+4. Structure your description for optimal DALL-E generation
+
 Describe EXACTLY what you see in the image, including:
+- Any recognizable figures or famous people by name or clear reference
 - All visible objects, people, animals, or subjects
 - Colors, lighting, and mood
 - Composition and layout
-- Style and artistic approach
+- Style and artistic approach (cartoon, realistic, vector, etc.)
 - Background and setting
-- Any text or symbols (describe but don't reproduce)
+- Any text or symbols (describe but don't reproduce exactly)
 - Textures and materials
 - Perspective and viewpoint
 
-Be precise and comprehensive. The description should be detailed enough that someone could recreate a very similar image using your description alone.
+Output a clean, structured description optimized for AI image generation - not a literal analysis but a generation-ready prompt. Be specific about famous figures and iconic elements.
 
-Output only the description - no extra commentary, headers, or formatting.`;
+Example: Instead of "an older man with white hair" say "Albert Einstein" or "a famous physicist resembling Einstein with wild white hair".`;
 
     // Call OpenAI's GPT-4o for detailed image analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -766,9 +773,59 @@ Output only the description - no extra commentary, headers, or formatting.`;
     const data = await response.json();
     const description = data.choices[0].message.content;
     
-    console.log('Generated detailed description:', description);
+    // Post-process the description to improve it for DALL-E generation
+    let improvedDescription = description;
     
-    res.json({ description: description });
+    // Identify common figures and improve descriptions
+    const figureReplacements = [
+      // Einstein patterns
+      {
+        pattern: /an? (?:older?|elderly) (?:man|person) with (?:wild )?white hair (?:and (?:a )?mustache)?/gi,
+        contexts: ['science', 'physics', 'formula', 'e=mc', 'relativity', 'scientist'],
+        replacement: 'a famous physicist resembling Albert Einstein with wild white hair'
+      },
+      // Add more famous figures as needed
+      {
+        pattern: /an? (?:older?|elderly) (?:woman|person) with (?:grey|gray|white) hair/gi,
+        contexts: ['painting', 'art', 'studio'],
+        replacement: 'an elderly artist'
+      }
+    ];
+    
+    // Apply pattern matching with context
+    for (const figureReplacement of figureReplacements) {
+      const hasContext = figureReplacement.contexts.some(context => 
+        improvedDescription.toLowerCase().includes(context)
+      );
+      
+      if (hasContext && figureReplacement.pattern.test(improvedDescription)) {
+        improvedDescription = improvedDescription.replace(
+          figureReplacement.pattern, 
+          figureReplacement.replacement
+        );
+      }
+    }
+    
+    // Clean up and structure the description for DALL-E
+    improvedDescription = improvedDescription
+      .replace(/\s+/g, ' ') // Remove extra whitespace
+      .replace(/\n+/g, ' ') // Replace newlines with spaces
+      .trim();
+    
+    // Ensure it starts with a clear style descriptor if missing
+    if (!improvedDescription.match(/^(cartoon|illustration|vector|realistic|digital|flat|photo)/i)) {
+      // Try to detect style from content
+      if (improvedDescription.includes('cartoon') || improvedDescription.includes('illustrated')) {
+        improvedDescription = 'Cartoon illustration of ' + improvedDescription.replace(/cartoon|illustration/gi, '').trim();
+      } else if (improvedDescription.includes('vector') || improvedDescription.includes('flat')) {
+        improvedDescription = 'Flat vector illustration of ' + improvedDescription.replace(/vector|flat/gi, '').trim();
+      }
+    }
+    
+    console.log('Original description:', description);
+    console.log('Improved description:', improvedDescription);
+    
+    res.json({ description: improvedDescription });
   } catch (error) {
     console.error('Error in detailed image analysis:', error);
     res.status(500).json({ error: error.message });
@@ -787,6 +844,30 @@ app.post('/api/generate-similar-image', async (req, res) => {
     
     console.log('Generating image from description:', description);
     
+    // Clean and optimize the prompt for DALL-E 3
+    let optimizedPrompt = description;
+    
+    // Ensure the prompt is well-structured for DALL-E
+    // Remove any analysis language and make it generation-focused
+    optimizedPrompt = optimizedPrompt
+      .replace(/this image shows|the image contains|visible in the image/gi, '')
+      .replace(/the description should be|for recreation/gi, '')
+      .trim();
+    
+    // Ensure it's under DALL-E's prompt limit (around 400 words)
+    const words = optimizedPrompt.split(' ');
+    if (words.length > 300) {
+      // Keep the most important parts: style, main subject, key elements
+      const sentences = optimizedPrompt.split('.');
+      const importantSentences = sentences.slice(0, 3); // Keep first 3 sentences
+      optimizedPrompt = importantSentences.join('. ').trim();
+      if (!optimizedPrompt.endsWith('.')) {
+        optimizedPrompt += '.';
+      }
+    }
+    
+    console.log('Optimized prompt for DALL-E:', optimizedPrompt);
+    
     // Generate with DALL-E 3
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -796,7 +877,7 @@ app.post('/api/generate-similar-image', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: description,
+        prompt: optimizedPrompt,
         n: 1,
         size: '1024x1024', // Square format for general images
         quality: 'hd',
