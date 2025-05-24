@@ -14,7 +14,8 @@ import {
   Puzzle,
   BookCopy,
   FileText,
-  Clock
+  Clock,
+  Wand2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ const navigation = [
   
   // Creation tools
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
+  { name: 'Cover Generator', href: '/dashboard/cover-generator', icon: Wand2 },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Cover Designer', href: '/dashboard/kdp-covers', icon: BookCopy },
   { name: 'AI Book Generator', href: '/dashboard/ai-book-generator', icon: BookCopy },
