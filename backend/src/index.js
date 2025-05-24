@@ -575,52 +575,71 @@ app.post('/api/generate-cover', async (req, res) => {
     if (model === 'dalle') {
       console.log('Using DALL-E 3 for image generation');
       
+      // Sanitize and clean the prompt - remove any headers or markdown
+      let cleanPrompt = prompt
+        .replace(/\*\*Visual Analysis:\*\*/gi, '')
+        .replace(/\*\*DALLE Prompt:\*\*/gi, '')
+        .replace(/\*\*.*?\*\*/g, '') // Remove any markdown headers
+        .replace(/Visual Analysis:.*?(?=Book cover|$)/gis, '') // Remove analysis sections
+        .replace(/DALLE Prompt:.*?(?=Book cover|$)/gis, '') // Remove prompt labels
+        .trim();
+      
       // Ensure prompt follows required format for DALL-E
-      let finalPrompt = prompt;
-      if (!finalPrompt.toLowerCase().startsWith('book cover illustration')) {
-        finalPrompt = `Book cover illustration in ${style} style featuring ${prompt}. Title at the top, author name at the bottom. Centered composition, designed for a ${kdp_settings?.trimSize?.replace('x', '" × ') + '"' || '6" × 9"'} KDP layout.`;
+      if (!cleanPrompt.toLowerCase().startsWith('book cover illustration') && 
+          !cleanPrompt.toLowerCase().startsWith('flat vector book cover')) {
+        cleanPrompt = `Book cover illustration in ${style} style featuring ${cleanPrompt}. Title at the top, author name at the bottom. Centered composition, designed for a ${kdp_settings?.trimSize?.replace('x', '" × ') + '"' || '6" × 9"'} KDP layout.`;
       }
       
-      console.log('Final DALL-E prompt:', finalPrompt);
-      
-      // Generate with DALL-E 3 using exact specifications
-      const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'dall-e-3',
-          prompt: finalPrompt,
-          n: 1,
-          size: '1024x1792', // Exact size specified for portrait KDP covers
-          quality: 'hd',
-          style: style === 'photography' ? 'natural' : 'vivid'
-        })
-      });
-
-      if (!dalleResponse.ok) {
-        const errorData = await dalleResponse.json();
-        throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E');
+      // Add style anchors for better results
+      if (style === 'flat-vector' && !cleanPrompt.includes('bold outlines')) {
+        cleanPrompt = cleanPrompt.replace('flat-vector style', 'flat-vector style with bold outlines and minimal shading');
       }
+      
+      console.log('Clean DALL-E prompt:', cleanPrompt);
+      
+      try {
+        // Generate with DALL-E 3 using exact specifications
+        const response = await fetch('https://api.openai.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: 'dall-e-3',
+            prompt: cleanPrompt,
+            n: 1,
+            size: '1024x1792', // Exact size specified for portrait KDP covers
+            response_format: 'url'
+          })
+        });
 
-      const dalleData = await dalleResponse.json();
-      const imageUrl = dalleData.data[0].url;
-      
-      console.log('DALL-E generated image URL:', imageUrl);
-      
-      // Return in the same format as Ideogram for frontend compatibility
-      res.json({
-        success: true,
-        images: [{
-          url: imageUrl,
-          prompt: finalPrompt,
-          model: 'dalle',
-          style: style,
-          resolution: '1024x1792'
-        }]
-      });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E');
+        }
+
+        const dalleData = await response.json();
+        const imageUrl = dalleData.data[0].url;
+        
+        console.log('DALL-E generated image URL:', imageUrl);
+        
+        // Return in the exact format specified by user
+        res.json({
+          imageUrl: imageUrl,
+          success: true,
+          images: [{
+            url: imageUrl,
+            prompt: cleanPrompt,
+            model: 'dalle',
+            style: style,
+            resolution: '1024x1792'
+          }]
+        });
+      } catch (error) {
+        console.error('DALL-E generation error:', error);
+        res.status(500).json({ error: 'Image generation failed: ' + error.message });
+      }
       
     } else {
       console.log('Using Ideogram for image generation');
