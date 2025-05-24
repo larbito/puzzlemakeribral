@@ -198,33 +198,90 @@ router.post('/generate-front', express.json(), async (req, res) => {
       console.log(`Mapping ${width}x${height} to DALL-E size: ${dalleSize}`);
       
       try {
-        // For DALL-E, clean the prompt to avoid triggering book mockups
+        // For DALL-E, aggressively clean the prompt to avoid triggering book mockups
         let cleanedPrompt = prompt;
         
-        // Remove problematic terms that trigger book mockups (more targeted approach)
-        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'artwork design');
-        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'design');
+        // Remove the entire structured prompt format
+        cleanedPrompt = cleanedPrompt.replace(/BOOK COVER DESIGN PROMPT:.*?-{10,}/gs, '');
+        cleanedPrompt = cleanedPrompt.replace(/TITLE:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/SUBTITLE:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/AUTHOR:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/TAGLINE:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/BOOK GENRE:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/VISUAL STYLE:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/-{10,}/g, '');
         
-        // Remove overly specific technical instructions that can confuse DALL-E
-        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?inch.*?book cover.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/CRITICAL DIMENSION INFO:.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/Force EXACT.*?ratio\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/Do not deviate from these specifications\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/This is a flat graphic design illustration.*?\./gi, '');
-        cleanedPrompt = cleanedPrompt.replace(/CRITICAL:.*?design\./gi, '');
+        // Remove all book-related terminology
+        cleanedPrompt = cleanedPrompt.replace(/book cover/gi, 'artwork');
+        cleanedPrompt = cleanedPrompt.replace(/cover design/gi, 'artwork');
+        cleanedPrompt = cleanedPrompt.replace(/book design/gi, 'artwork');
+        cleanedPrompt = cleanedPrompt.replace(/\bbook\b/gi, 'artwork');
+        cleanedPrompt = cleanedPrompt.replace(/cover/gi, 'design');
         
-        // Remove any excessive whitespace
-        cleanedPrompt = cleanedPrompt.replace(/\s+/g, ' ').trim();
+        // Remove technical publishing instructions
+        cleanedPrompt = cleanedPrompt.replace(/This MUST be a.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/CRITICAL.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/IMPORTANT.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/Force EXACT.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/Do not deviate.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/This is a flat.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/KDP.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/publishing.*?\./gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/spine.*?\./gi, '');
         
-        // Add simple flat design instruction
-        const flatDesignInstruction = "Create a flat, rectangular artwork design.";
+        // Remove measurement and technical details
+        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/\d+\.?\d*\s*:\s*\d+\.?\d*/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/300\s*dpi/gi, '');
+        cleanedPrompt = cleanedPrompt.replace(/pixels?/gi, '');
         
-        // Combine and limit length (DALL-E has a 1000 character limit)
-        let finalPrompt = `${flatDesignInstruction} ${cleanedPrompt}`;
+        // Remove formatting artifacts
+        cleanedPrompt = cleanedPrompt.replace(/\n+/g, ' ');
+        cleanedPrompt = cleanedPrompt.replace(/\s+/g, ' ');
+        cleanedPrompt = cleanedPrompt.trim();
         
-        // Truncate if too long (leave room for negative prompt instructions)
-        if (finalPrompt.length > 800) {
-          finalPrompt = finalPrompt.substring(0, 800) + '...';
+        // Extract only the visual description parts
+        // Look for descriptive sentences that don't contain technical terms
+        const sentences = cleanedPrompt.split(/[.!?]+/);
+        const visualSentences = sentences.filter(sentence => {
+          const s = sentence.trim().toLowerCase();
+          return s.length > 20 && // Must be substantial
+                 !s.includes('margin') &&
+                 !s.includes('text must') &&
+                 !s.includes('positioned') &&
+                 !s.includes('placed') &&
+                 !s.includes('requirements') &&
+                 !s.includes('specifications') &&
+                 (s.includes('color') || 
+                  s.includes('design') || 
+                  s.includes('style') || 
+                  s.includes('illustration') ||
+                  s.includes('background') ||
+                  s.includes('element') ||
+                  s.includes('theme') ||
+                  s.includes('visual') ||
+                  s.includes('artistic'));
+        });
+        
+        // Reconstruct a clean description
+        let finalDescription = visualSentences.join('. ').trim();
+        
+        // If we don't have enough visual description, create a generic one
+        if (finalDescription.length < 50) {
+          finalDescription = "A colorful, creative artwork design with interesting visual elements and artistic style";
+        }
+        
+        // Add flat design instruction and ensure it's artwork-focused
+        const flatDesignInstruction = "Create a flat, rectangular digital artwork illustration.";
+        
+        // Final prompt (keep it simple and artwork-focused)
+        let finalPrompt = `${flatDesignInstruction} ${finalDescription}. Digital art, flat design, no 3D elements, no perspective.`;
+        
+        // Ensure prompt is not too long
+        if (finalPrompt.length > 500) {
+          finalPrompt = finalPrompt.substring(0, 500) + '.';
         }
         
         console.log('Original prompt length:', prompt.length);
