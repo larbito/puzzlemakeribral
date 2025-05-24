@@ -40,59 +40,7 @@ router.use((req, res, next) => {
   next();
 });
 
-// Enhanced prompt processing functions
-function enhanceDallePrompt(originalPrompt) {
-  // DALL-E requires extremely simple descriptions - no element lists, just main theme
-  
-  let prompt = originalPrompt;
-  
-  // Remove structured format headers and technical jargon
-  prompt = prompt.replace(/BOOK COVER DESIGN PROMPT:.*?-{10,}/gs, '');
-  prompt = prompt.replace(/TITLE:.*?\n/gi, '');
-  prompt = prompt.replace(/SUBTITLE:.*?\n/gi, '');
-  prompt = prompt.replace(/AUTHOR:.*?\n/gi, '');
-  prompt = prompt.replace(/BOOK GENRE:.*?\n/gi, '');
-  prompt = prompt.replace(/VISUAL STYLE:.*?\n/gi, '');
-  prompt = prompt.replace(/IMPORTANT DESIGN REQUIREMENTS:.*?\n/gi, '');
-  prompt = prompt.replace(/-{10,}/g, '');
-  
-  // AGGRESSIVELY remove detailed element lists that overwhelm DALL-E
-  prompt = prompt.replace(/Surrounding him are.*?(\.|\n|$)/gi, '');
-  prompt = prompt.replace(/various elements representing.*?(\.|\n|$)/gi, '');
-  prompt = prompt.replace(/: a UFO.*?(\.|\n|$)/gi, '');
-  prompt = prompt.replace(/including.*?(\.|\n|$)/gi, '');
-  prompt = prompt.replace(/such as.*?(\.|\n|$)/gi, '');
-  prompt = prompt.replace(/with.*?rocket.*?(\.|\n|$)/gi, '');
-  
-  // Remove specific element mentions that cause clutter
-  prompt = prompt.replace(/(UFO|caveman|telescope|solar panel|black hole|E=mc²|shark|pandas|sunflower|insects|potato|rocket)/gi, '');
-  prompt = prompt.replace(/,\s*and\s*/gi, ' ');
-  prompt = prompt.replace(/,\s*/gi, ' ');
-  
-  // Simplify style descriptions
-  prompt = prompt.replace(/whimsical and educational/gi, 'educational');
-  prompt = prompt.replace(/cartoonish and playful/gi, 'clean');
-  prompt = prompt.replace(/bold outlines and vibrant colors/gi, 'professional typography');
-  prompt = prompt.replace(/engaging and approachable mood/gi, 'professional look');
-  
-  // Remove technical measurements
-  prompt = prompt.replace(/\d+\.?\d*\s*x\s*\d+\.?\d*\s*inch(es)?/gi, '');
-  prompt = prompt.replace(/\d+\.?\d*\s*inch(es)?/gi, '');
-  prompt = prompt.replace(/\d+\s*pixels?/gi, '');
-  prompt = prompt.replace(/300\s*dpi/gi, '');
-  
-  // Clean up formatting and extra spaces
-  prompt = prompt.replace(/\s+/g, ' ').replace(/\n+/g, ' ').trim();
-  
-  // Create ultra-simple DALL-E prompt focusing only on main theme
-  const simpleInstructions = "Simple book cover. Einstein illustration in center. Clean background. Large readable title at top. Author name at bottom. Professional typography. Minimal design. 6x9 format.";
-  
-  // Replace the complex prompt with simple version
-  prompt = `Educational book cover featuring Einstein. ${simpleInstructions}`;
-  
-  return prompt;
-}
-
+// Enhanced prompt processing function for Ideogram only
 function enhanceIdeogramPrompt(originalPrompt) {
   // Ideogram works well with design terminology and creative style descriptions
   
@@ -231,7 +179,7 @@ router.post('/calculate-dimensions', express.json(), async (req, res) => {
 });
 
 /**
- * Generate front cover
+ * Generate front cover using Ideogram only
  * POST /api/book-cover/generate-front
  */
 router.post('/generate-front', async (req, res) => {
@@ -243,7 +191,6 @@ router.post('/generate-front', async (req, res) => {
       genre, 
       style, 
       description, 
-      model = 'dalle',
       customInstructions 
     } = req.body;
 
@@ -268,31 +215,18 @@ router.post('/generate-front', async (req, res) => {
       basePrompt += ` ${customInstructions.trim()}`;
     }
 
-    // Apply model-specific optimization to ALL prompts
-    let optimizedPrompt;
-    if (model === 'dalle') {
-      optimizedPrompt = enhanceDallePrompt(basePrompt);
-    } else if (model === 'ideogram') {
-      optimizedPrompt = enhanceIdeogramPrompt(basePrompt);
-    } else {
-      // Default to DALL-E optimization for unknown models
-      optimizedPrompt = enhanceDallePrompt(basePrompt);
-    }
+    // Apply Ideogram optimization to ALL prompts
+    const optimizedPrompt = enhanceIdeogramPrompt(basePrompt);
 
-    console.log(`Generating ${model.toUpperCase()} cover with optimized prompt:`, optimizedPrompt);
+    console.log(`Generating Ideogram cover with optimized prompt:`, optimizedPrompt);
 
-    let imageUrl;
-    if (model === 'ideogram') {
-      imageUrl = await generateIdeogramCover(optimizedPrompt);
-    } else {
-      imageUrl = await generateDalleCover(optimizedPrompt);
-    }
+    const imageUrl = await generateIdeogramCover(optimizedPrompt);
 
     res.json({ 
       success: true, 
       imageUrl,
       prompt: optimizedPrompt,
-      model: model
+      model: 'ideogram'
     });
 
   } catch (error) {
@@ -1113,39 +1047,6 @@ function parseColor(color) {
   
   // Default to black
   return { r: 0, g: 0, b: 0, alpha: 1 };
-}
-
-// Helper function to generate cover using DALL-E
-async function generateDalleCover(prompt) {
-  // DALL-E 3 only supports specific sizes
-  const dalleSize = '1024x1792'; // Portrait format for book covers
-  
-  console.log('Generating DALL-E cover with prompt:', prompt);
-  
-  const response = await fetch('https://api.openai.com/v1/images/generations', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: "dall-e-3",
-      prompt: prompt,
-      n: 1,
-      size: dalleSize,
-      quality: "hd",
-      style: "vivid"
-    })
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('DALL-E API error:', errorData);
-    throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E 3');
-  }
-  
-  const data = await response.json();
-  return data.data[0].url;
 }
 
 // Helper function to generate cover using Ideogram
