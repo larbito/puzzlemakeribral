@@ -348,32 +348,72 @@ console.log('Registered route: /api/kdp-formatter/*');
 // Add route aliases for KDP Cover Generator frontend compatibility
 // These map the expected frontend endpoints to existing backend functionality
 
-// Route alias: /api/analyze-image -> call ideogram analyze handler directly
-app.post('/api/analyze-image', async (req, res) => {
-  console.log('KDP Cover Generator: Analyzing image with GPT-4 Vision');
+// Route alias: /api/analyze-image -> Direct KDP cover analysis (bypass ideogram router)
+app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
+  console.log('KDP Cover Generator: Direct GPT-4 Vision analysis for KDP covers');
   try {
-    // Add KDP book cover analysis type to the request body
-    req.body.type = 'kdp-cover';
-    req.body.style = req.body.style || 'flat-vector';
-    req.body.model = req.body.model || 'dalle';
-    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
     console.log('KDP Cover Analysis - Request body:', req.body);
-    
-    // Set the path for the ideogram router to recognize
-    req.originalUrl = '/api/ideogram/analyze';
-    req.url = '/analyze';
-    req.baseUrl = '/api/ideogram';
-    
-    // Call the ideogram router directly with the modified request
-    ideogramRoutes(req, res, (err) => {
-      if (err) {
-        console.error('Error in ideogram router:', err);
-        res.status(500).json({ error: 'Failed to analyze image' });
-      }
+    console.log('KDP Cover Analysis - File info:', { 
+      originalname: req.file.originalname, 
+      mimetype: req.file.mimetype, 
+      size: req.file.size 
     });
+
+    // Convert the image buffer to base64
+    const base64Image = req.file.buffer.toString('base64');
+
+    // Call OpenAI's GPT-4 Vision API with KDP-specific system prompt
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are an expert KDP cover designer. You are analyzing a book cover image to create a visual prompt suitable for generating a **6x9 inch Amazon KDP front cover** using DALL·E 3 or similar AI.\n\nFocus only on:\n- Title placement\n- Visual hierarchy\n- Main character(s)\n- Scene composition\n- Color scheme\n- Artistic style\n- Mood and layout\n\nDo NOT describe it as a t-shirt or poster.\nDo NOT suggest icons or decorations.\nAvoid extra instructions, markdown, or bullet points.\n\nYour output must be a **single paragraph** prompt that can be used directly with DALL·E 3 to recreate the design.'
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Analyze this book cover image and create a detailed visual prompt for AI generation:'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${req.file.mimetype};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to analyze image');
+    }
+
+    const data = await response.json();
+    const kdpPrompt = data.choices[0].message.content;
+    console.log('Generated KDP cover prompt:', kdpPrompt);
+    
+    // Return the KDP-specific prompt
+    res.json({ prompt: kdpPrompt });
   } catch (error) {
-    console.error('Error in analyze-image alias:', error);
-    res.status(500).json({ error: 'Failed to analyze image' });
+    console.error('Error in KDP cover analysis:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -462,7 +502,7 @@ app.post('/api/generate-cover', async (req, res) => {
 });
 
 console.log('Registered KDP Cover Generator route aliases:');
-console.log('- POST /api/analyze-image -> /api/ideogram/analyze');
+console.log('- POST /api/analyze-image -> Direct KDP cover analysis');
 console.log('- POST /api/enhance-prompt -> /api/openai/enhance-prompt');
 console.log('- POST /api/generate-cover -> /api/ideogram/generate');
 
