@@ -384,25 +384,14 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
     // Convert the image buffer to base64
     const base64Image = req.file.buffer.toString('base64');
 
-    // Create dynamic system prompt based on actual trim size
-    const systemPrompt = `You are an expert KDP cover designer. You are analyzing a book cover image to create a visual prompt suitable for generating a **${trimSizeLabel} Amazon KDP front cover** using ${selectedModel.toUpperCase()} or similar AI.
+    // Use EXACT system prompt as specified by user
+    const systemPrompt = `You're creating a prompt to generate a ${trimSizeLabel} Amazon KDP book cover using ${selectedModel.toUpperCase()} or Ideogram.
 
-Focus only on:
-- Title placement
-- Visual hierarchy  
-- Main character(s)
-- Scene composition
-- Color scheme
-- Artistic style (${selectedStyle} style)
-- Mood and layout
+Focus only on the layout, art style, subject composition, scene details, mood, colors, and where the title and author should go. The result should be usable directly to generate a print-safe, readable cover for publishing.
 
-Do NOT describe it as a t-shirt or poster.
-Do NOT suggest icons or decorations.
-Avoid extra instructions, markdown, or bullet points.
+Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.`;
 
-Your output must be a **single paragraph** prompt that can be used directly with ${selectedModel.toUpperCase()} to recreate the design for a ${trimSizeLabel} book cover.`;
-
-    // Call OpenAI's GPT-4 Vision API with dynamic KDP-specific system prompt
+    // Call OpenAI's GPT-4 Vision API with exact specifications
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -410,7 +399,7 @@ Your output must be a **single paragraph** prompt that can be used directly with
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4-vision-preview', // Use exact model specified
         messages: [
           {
             role: 'system',
@@ -421,7 +410,7 @@ Your output must be a **single paragraph** prompt that can be used directly with
             content: [
               {
                 type: 'text',
-                text: `Analyze this ${trimSizeLabel} book cover image and create a detailed visual prompt for ${selectedModel.toUpperCase()} generation:`
+                text: `Analyze this ${trimSizeLabel} book cover image and create a detailed prompt for ${selectedModel.toUpperCase()} that starts with "Book cover illustration in ${selectedStyle} style" and includes layout terms like "title at top," "author at bottom," "centered composition". Make it specific for ${trimSizeLabel} KDP format.`
               },
               {
                 type: 'image_url',
@@ -442,7 +431,13 @@ Your output must be a **single paragraph** prompt that can be used directly with
     }
 
     const data = await response.json();
-    const kdpPrompt = data.choices[0].message.content;
+    let kdpPrompt = data.choices[0].message.content;
+    
+    // Ensure prompt follows required format - inject if missing
+    if (!kdpPrompt.toLowerCase().startsWith('book cover illustration')) {
+      kdpPrompt = `Book cover illustration in ${selectedStyle} style featuring ${kdpPrompt}. Title at the top, author name at the bottom. Centered composition, designed for a ${trimSizeLabel} KDP layout.`;
+    }
+    
     console.log(`Generated ${trimSizeLabel} ${selectedModel.toUpperCase()} cover prompt:`, kdpPrompt);
     
     // Return the KDP-specific prompt
@@ -457,21 +452,79 @@ Your output must be a **single paragraph** prompt that can be used directly with
 app.post('/api/enhance-prompt', async (req, res) => {
   console.log('KDP Cover Generator: Enhancing prompt with GPT-4');
   try {
-    // Set the path for the openai router to recognize
-    req.originalUrl = '/api/openai/enhance-prompt';
-    req.url = '/enhance-prompt';
-    req.baseUrl = '/api/openai';
+    const { prompt, style, model, kdp_settings } = req.body;
     
-    // Call the openai router directly with the modified request
-    openaiRoutes(req, res, (err) => {
-      if (err) {
-        console.error('Error in openai router:', err);
-        res.status(500).json({ error: 'Failed to enhance prompt' });
-      }
+    if (!prompt) {
+      return res.status(400).json({ error: 'No prompt provided' });
+    }
+    
+    // Parse KDP settings
+    let trimSize = '6x9';
+    if (kdp_settings && kdp_settings.trimSize) {
+      trimSize = kdp_settings.trimSize;
+    }
+    const trimSizeLabel = trimSize.replace('x', '" × ') + '"';
+    
+    console.log(`Enhancing prompt for ${trimSizeLabel} ${model} cover in ${style} style`);
+    
+    // Use EXACT system prompt format as specified
+    const systemPrompt = `You're creating a prompt to generate a ${trimSizeLabel} Amazon KDP book cover using ${model?.toUpperCase() || 'DALL-E'} or Ideogram.
+
+Focus only on the layout, art style, subject composition, scene details, mood, colors, and where the title and author should go. The result should be usable directly to generate a print-safe, readable cover for publishing.
+
+Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.
+
+Rewrite the prompt in the ${style} style.`;
+
+    // Call GPT-4 (not 3.5) for prompt enhancement
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4', // Use GPT-4 as specified, not 3.5
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: `Convert this into a detailed book cover prompt that starts with "Book cover illustration in ${style} style" and includes layout terms like "title at top," "author at bottom," "centered composition": ${prompt}`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to enhance prompt');
+    }
+
+    const data = await response.json();
+    let enhancedPrompt = data.choices[0].message.content;
+    
+    // Ensure prompt follows required format - inject if missing
+    if (!enhancedPrompt.toLowerCase().startsWith('book cover illustration')) {
+      enhancedPrompt = `Book cover illustration in ${style} style featuring ${enhancedPrompt}. Title at the top, author name at the bottom. Centered composition, designed for a ${trimSizeLabel} KDP layout.`;
+    }
+    
+    console.log(`Enhanced ${trimSizeLabel} prompt:`, enhancedPrompt);
+    
+    res.json({ 
+      enhancedPrompt: enhancedPrompt,
+      originalPrompt: prompt,
+      style: style,
+      model: model,
+      trimSize: trimSizeLabel
     });
   } catch (error) {
     console.error('Error in enhance-prompt alias:', error);
-    res.status(500).json({ error: 'Failed to enhance prompt' });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -508,7 +561,15 @@ app.post('/api/generate-cover', async (req, res) => {
     if (model === 'dalle') {
       console.log('Using DALL-E 3 for image generation');
       
-      // Generate with DALL-E 3
+      // Ensure prompt follows required format for DALL-E
+      let finalPrompt = prompt;
+      if (!finalPrompt.toLowerCase().startsWith('book cover illustration')) {
+        finalPrompt = `Book cover illustration in ${style} style featuring ${prompt}. Title at the top, author name at the bottom. Centered composition, designed for a ${kdp_settings?.trimSize?.replace('x', '" × ') + '"' || '6" × 9"'} KDP layout.`;
+      }
+      
+      console.log('Final DALL-E prompt:', finalPrompt);
+      
+      // Generate with DALL-E 3 using exact specifications
       const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
         headers: {
@@ -517,9 +578,9 @@ app.post('/api/generate-cover', async (req, res) => {
         },
         body: JSON.stringify({
           model: 'dall-e-3',
-          prompt: prompt,
+          prompt: finalPrompt,
           n: 1,
-          size: '1024x1792', // Tall format for book covers (roughly 4:7 ratio)
+          size: '1024x1792', // Exact size specified for portrait KDP covers
           quality: 'hd',
           style: style === 'photography' ? 'natural' : 'vivid'
         })
@@ -540,7 +601,7 @@ app.post('/api/generate-cover', async (req, res) => {
         success: true,
         images: [{
           url: imageUrl,
-          prompt: prompt,
+          prompt: finalPrompt,
           model: 'dalle',
           style: style,
           resolution: '1024x1792'
