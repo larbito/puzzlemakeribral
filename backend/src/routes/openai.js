@@ -1610,7 +1610,21 @@ Target audience: ${targetAudience}
 Book title: ${bookTitle}
 Art style: ${artStyle}
 
-Return exactly ${pageCount} unique scenes in JSON format.`;
+IMPORTANT: Return EXACTLY ${pageCount} scenes in a JSON array format like this:
+[
+  {
+    "title": "Scene 1 Title",
+    "description": "Scene 1 description", 
+    "prompt": "Scene 1 AI generation prompt"
+  },
+  {
+    "title": "Scene 2 Title",
+    "description": "Scene 2 description",
+    "prompt": "Scene 2 AI generation prompt"
+  }
+]
+
+Return exactly ${pageCount} unique scenes in JSON array format.`;
     
     console.log('Calling OpenAI API to generate coloring scenes');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1647,23 +1661,55 @@ Return exactly ${pageCount} unique scenes in JSON format.`;
       return res.status(500).json({ error: 'No content received from OpenAI' });
     }
 
+    console.log('Raw content:', content);
+
     try {
       const parsedContent = JSON.parse(content);
       
       // Handle different response formats
       let scenes = [];
+      
       if (Array.isArray(parsedContent)) {
+        // Direct array response
         scenes = parsedContent;
+        console.log('Parsed direct array response');
       } else if (parsedContent.scenes && Array.isArray(parsedContent.scenes)) {
+        // Object with scenes array
         scenes = parsedContent.scenes;
+        console.log('Parsed scenes from object property');
+      } else if (typeof parsedContent === 'object' && parsedContent.title) {
+        // Single scene object - wrap in array and generate more
+        console.log('Got single scene object, converting to array');
+        scenes = [parsedContent];
+        
+        // If we only got one scene but need more, create variations
+        while (scenes.length < pageCount) {
+          const sceneNumber = scenes.length + 1;
+          scenes.push({
+            title: `Scene ${sceneNumber}`,
+            description: `A scene from the story: ${storyInput}`,
+            prompt: `Simple line art coloring page showing scene ${sceneNumber} from the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
+          });
+        }
       } else {
-        throw new Error('Invalid response format');
+        // Try to find any array property in the response
+        const arrayProps = Object.entries(parsedContent)
+          .find(([_, value]) => Array.isArray(value) && value.length > 0);
+        
+        if (arrayProps) {
+          scenes = arrayProps[1];
+          console.log(`Found scenes in property: ${arrayProps[0]}`);
+        } else {
+          throw new Error('No valid scenes array found in response');
+        }
       }
 
       // Validate scenes
       if (!scenes || scenes.length === 0) {
         throw new Error('No scenes generated');
       }
+
+      console.log(`Parsed ${scenes.length} scenes from OpenAI response`);
 
       // Ensure we have the right number of scenes
       if (scenes.length !== pageCount) {
@@ -1672,15 +1718,19 @@ Return exactly ${pageCount} unique scenes in JSON format.`;
         // Adjust the array length
         if (scenes.length > pageCount) {
           scenes = scenes.slice(0, pageCount);
+          console.log(`Trimmed to ${pageCount} scenes`);
         } else {
-          // Duplicate the last scene to reach the target count
+          // Generate additional scenes to reach the target count
           while (scenes.length < pageCount) {
+            const sceneNumber = scenes.length + 1;
             const lastScene = scenes[scenes.length - 1];
             scenes.push({
-              ...lastScene,
-              title: `${lastScene.title} (Part ${scenes.length + 1})`
+              title: `Scene ${sceneNumber}: Continued Adventure`,
+              description: `A continuation of the story: ${storyInput}`,
+              prompt: `Simple line art coloring page showing scene ${sceneNumber} from the story about ${storyInput}, featuring different activities and moments, clean black outlines on white background, suitable for children to color`
             });
           }
+          console.log(`Extended to ${pageCount} scenes`);
         }
       }
 
@@ -1697,17 +1747,24 @@ Return exactly ${pageCount} unique scenes in JSON format.`;
       console.error('Error parsing OpenAI response:', parseError);
       console.log('Raw content:', content);
       
-      // Fallback: create basic scenes from the story input
+      // Enhanced fallback: create basic scenes from the story input
+      console.log('Creating enhanced fallback scenes');
       const fallbackScenes = [];
+      const activities = [
+        'waking up', 'exploring', 'meeting friends', 'playing', 'learning something new', 
+        'facing a challenge', 'helping others', 'discovering something special', 'celebrating', 'going to sleep'
+      ];
+      
       for (let i = 0; i < pageCount; i++) {
+        const activity = activities[i % activities.length];
         fallbackScenes.push({
-          title: `Scene ${i + 1}`,
-          description: `A scene from the story: ${storyInput}`,
-          prompt: `Simple line art coloring page showing scene ${i + 1} from the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
+          title: `Scene ${i + 1}: ${activity.charAt(0).toUpperCase() + activity.slice(1)}`,
+          description: `The character from "${storyInput}" is ${activity} in this scene.`,
+          prompt: `Simple line art coloring page showing a cute character ${activity} in the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
         });
       }
       
-      console.log('Using fallback scenes due to parsing error');
+      console.log(`Using ${fallbackScenes.length} enhanced fallback scenes`);
       res.json({ success: true, scenes: fallbackScenes });
     }
   } catch (error) {
