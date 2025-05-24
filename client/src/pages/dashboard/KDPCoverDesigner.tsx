@@ -1038,7 +1038,7 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 {/* Add style selection */}
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 mt-4" style={{display: 'none'}}>
                   <Label>Cover Style</Label>
                   <div className="grid grid-cols-4 gap-2">
                     {COVER_STYLES.map((style) => (
@@ -1063,9 +1063,6 @@ const KDPCoverDesigner: React.FC = () => {
                       </Button>
                     ))}
                   </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    Select the genre or type of book for your cover design.
-                  </p>
                 </div>
                 
                 <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
