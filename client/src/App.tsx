@@ -28,7 +28,6 @@ import { ToastProvider } from '@/components/ui/toast';
 import { ThemeDebug } from '@/pages/dashboard/puzzles/ThemeDebug';
 import { AIBookGenerator } from '@/pages/dashboard/AIBookGenerator';
 import { KDPBookFormatter } from '@/pages/dashboard/KDPBookFormatter';
-import CoverGenerator from '@/pages/dashboard/CoverGenerator';
 
 function App() {
   return (
@@ -77,7 +76,6 @@ function App() {
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />
                       <Route path="kdp-covers" element={<KDPCoverDesigner />} />
-                      <Route path="cover-generator" element={<CoverGenerator />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                   </DashboardLayout>

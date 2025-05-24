@@ -529,20 +529,28 @@ export const Home = () => {
                 features: ["Prompt-based generation", "Style presets", "SVG + PNG export"]
               },
               {
-                title: "T-Shirt Design Generator",
-                description: "Generate high-quality T-shirt graphics with transparent backgrounds.",
-                icon: <Image className="w-8 h-8" />,
+                title: "T-shirt AI Design Generator",
+                description: "Create unique t-shirt designs with AI. Perfect for POD platforms.",
+                icon: <Shirt className="w-8 h-8" />,
                 color: "green",
                 link: "/t-shirt-generator",
                 features: ["Print-ready PNG (4500x5400)", "Text and graphic prompts", "Commercial-safe mode"]
               },
               {
-                title: "Book Cover Generator",
-                description: "Create full-wrap book covers from simple text prompts.",
-                icon: <BookOpen className="w-8 h-8" />,
-                color: "purple",
-                link: "/book-cover-generator",
-                features: ["Spine & back auto-layout", "CMYK + PDF export", "Fonts & overlays included"]
+                title: "AI Coloring Book Generator",
+                description: "Create unique, kid-friendly coloring books that stand out on Amazon KDP.",
+                icon: <Palette className="w-8 h-8" />,
+                color: "green",
+                link: "/dashboard/coloring",
+                features: ["HD vector illustrations", "Age-specific difficulty", "Full KDP formatting"]
+              },
+              {
+                title: "Sudoku & Logic Puzzles",
+                description: "Generate professional puzzle books with varying difficulty levels.",
+                icon: <PenTool className="w-8 h-8" />,
+                color: "blue",
+                link: "/puzzle-generator",
+                features: ["Multiple difficulty levels", "Solution sheets included", "Professional layout"]
               },
               {
                 title: "KDP & Merch Calculators",
