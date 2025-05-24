@@ -27,6 +27,8 @@ interface ImageToImageState {
 }
 
 const ImageToImage: React.FC = () => {
+  const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
+  
   const [state, setState] = useState<ImageToImageState>({
     uploadedImage: null,
     uploadedImageUrl: null,
@@ -91,7 +93,7 @@ const ImageToImage: React.FC = () => {
       const formData = new FormData();
       formData.append('image', state.uploadedImage);
 
-      const response = await fetch('/api/analyze-image-detailed', {
+      const response = await fetch(`${API_URL}/api/analyze-image-detailed`, {
         method: 'POST',
         body: formData
       });
@@ -121,7 +123,7 @@ const ImageToImage: React.FC = () => {
     setState(prev => ({ ...prev, isGenerating: true, error: null }));
 
     try {
-      const response = await fetch('/api/generate-similar-image', {
+      const response = await fetch(`${API_URL}/api/generate-similar-image`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
