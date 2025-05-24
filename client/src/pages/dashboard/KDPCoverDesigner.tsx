@@ -1595,9 +1595,8 @@ const KDPCoverDesigner: React.FC = () => {
                                   subtitle: undefined,
                                   author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
                                   genre: bookStyle?.name || state.selectedStyle,
-                                  style: visualStyle?.name || state.selectedVisualStyle,
+                                  style: 'modern',
                                   description: state.frontCoverPrompt,
-                                  model: state.selectedModel,
                                   customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins.`
                                 };
                                 
@@ -1678,9 +1677,8 @@ const KDPCoverDesigner: React.FC = () => {
                                       subtitle: undefined,
                                       author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
                                       genre: bookStyle?.name || state.selectedStyle,
-                                      style: visualStyle?.name || state.selectedVisualStyle,
+                                      style: 'modern',
                                       description: state.frontCoverPrompt + " (alternative version, different style)",
-                                      model: state.selectedModel,
                                       customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins. Create a variation with different visual approach.`
                                     };
                                     
