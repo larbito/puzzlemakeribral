@@ -67,13 +67,51 @@ router.post('/generate', upload.none(), async (req, res) => {
     console.log('Generating image with prompt:', prompt);
     console.log('Using Ideogram API key:', process.env.IDEOGRAM_API_KEY.substring(0, 5) + '...');
     
+    // Map aspect ratios to valid Ideogram values
+    const mapToValidIdeogramAspectRatio = (inputRatio) => {
+      // Valid Ideogram ratios: '1x3', '3x1', '1x2', '2x1', '9x16', '16x9', '10x16', '16x10', '2x3', '3x2', '3x4', '4x3', '4x5', '5x4', '1x1'
+      
+      // Handle input formats: "3:4", "3x4", or already valid ratios
+      let cleanRatio = inputRatio || '3x4';
+      if (typeof cleanRatio === 'string') {
+        cleanRatio = cleanRatio.replace(':', 'x');
+      }
+      
+      // If it's already a valid Ideogram ratio, return it
+      const validRatios = ['1x3', '3x1', '1x2', '2x1', '9x16', '16x9', '10x16', '16x10', '2x3', '3x2', '3x4', '4x3', '4x5', '5x4', '1x1'];
+      if (validRatios.includes(cleanRatio)) {
+        return cleanRatio;
+      }
+      
+      // Map common ratios to valid Ideogram ratios
+      const ratioMap = {
+        '8.5x11': '3x4',    // KDP Letter size
+        '8x10': '4x5',      // KDP size
+        '7.5x9.25': '4x5',  // KDP size
+        '7x10': '2x3',      // KDP size
+        '6x9': '2x3',       // KDP Trade size
+        '8x8': '1x1',       // Square KDP size
+      };
+      
+      if (ratioMap[cleanRatio]) {
+        console.log(`Mapped ${cleanRatio} to valid Ideogram ratio ${ratioMap[cleanRatio]}`);
+        return ratioMap[cleanRatio];
+      }
+      
+      // Default fallback
+      console.log(`Using fallback ratio 3x4 for input: ${inputRatio}`);
+      return '3x4';
+    };
+    
     // Create multipart form-data request
     const form = new FormData();
     form.append('prompt', prompt);
     
-    // Handle optional parameters with sensible defaults
-    const aspectRatioFormatted = (aspect_ratio || '3:4').replace(':', 'x');
-    form.append('aspect_ratio', aspectRatioFormatted);
+    // Handle optional parameters with sensible defaults and proper mapping
+    const validAspectRatio = mapToValidIdeogramAspectRatio(aspect_ratio);
+    form.append('aspect_ratio', validAspectRatio);
+    console.log(`Using aspect ratio: ${validAspectRatio}`);
+    
     form.append('rendering_speed', rendering_speed || 'TURBO');
 
     if (negative_prompt) {
@@ -101,7 +139,7 @@ router.post('/generate', upload.none(), async (req, res) => {
       // For Node.js form-data, we can't use entries() method
       // Instead, just log the keys we know we've added
       console.log(`prompt: ${prompt}`);
-      console.log(`aspect_ratio: ${aspectRatioFormatted}`);
+      console.log(`aspect_ratio: ${validAspectRatio}`);
       console.log(`rendering_speed: ${rendering_speed || 'TURBO'}`);
       console.log(`negative_prompt: ${negative_prompt || 'color, shading, watermark, text, grayscale, low quality'}`);
       console.log(`style_type: ${style ? style.toUpperCase() : 'DESIGN'}`);
@@ -796,13 +834,76 @@ router.post('/generate-coloring', upload.none(), async (req, res) => {
     
     console.log('Optimized coloring prompt:', coloringPrompt);
     
+    // Map KDP book sizes to valid Ideogram aspect ratios
+    const mapKDPtoIdeogramAspectRatio = (inputRatio) => {
+      // Valid Ideogram ratios: '1x3', '3x1', '1x2', '2x1', '9x16', '16x9', '10x16', '16x10', '2x3', '3x2', '3x4', '4x3', '4x5', '5x4', '1x1'
+      
+      // Handle input formats: "8.5:11", "8.5x11", or already valid ratios
+      let cleanRatio = inputRatio;
+      if (typeof cleanRatio === 'string') {
+        cleanRatio = cleanRatio.replace(':', 'x');
+      }
+      
+      // If it's already a valid Ideogram ratio, return it
+      const validRatios = ['1x3', '3x1', '1x2', '2x1', '9x16', '16x9', '10x16', '16x10', '2x3', '3x2', '3x4', '4x3', '4x5', '5x4', '1x1'];
+      if (validRatios.includes(cleanRatio)) {
+        return cleanRatio;
+      }
+      
+      // Map common KDP book sizes to closest valid Ideogram ratios
+      const kdpToIdeogramMap = {
+        '8.5x11': '3x4',    // 8.5:11 ≈ 0.77, 3:4 = 0.75 (closest)
+        '8x10': '4x5',      // 8:10 = 0.8, 4:5 = 0.8 (exact match)
+        '7.5x9.25': '4x5',  // 7.5:9.25 ≈ 0.81, 4:5 = 0.8 (closest)
+        '7x10': '2x3',      // 7:10 = 0.7, 2:3 ≈ 0.67 (closest)
+        '6x9': '2x3',       // 6:9 ≈ 0.67, 2:3 ≈ 0.67 (good match)
+        '8x8': '1x1',       // 8:8 = 1.0, 1:1 = 1.0 (exact match)
+      };
+      
+      // Check if we have a direct mapping
+      if (kdpToIdeogramMap[cleanRatio]) {
+        console.log(`Mapped KDP size ${cleanRatio} to Ideogram ratio ${kdpToIdeogramMap[cleanRatio]}`);
+        return kdpToIdeogramMap[cleanRatio];
+      }
+      
+      // If no direct mapping, try to calculate closest ratio
+      try {
+        const [width, height] = cleanRatio.split('x').map(n => parseFloat(n));
+        const inputAspectRatio = width / height;
+        
+        // Calculate which valid ratio is closest
+        const ratioDistances = validRatios.map(ratio => {
+          const [w, h] = ratio.split('x').map(n => parseFloat(n));
+          const validRatio = w / h;
+          return {
+            ratio: ratio,
+            distance: Math.abs(inputAspectRatio - validRatio)
+          };
+        });
+        
+        // Sort by distance and return the closest
+        ratioDistances.sort((a, b) => a.distance - b.distance);
+        const closestRatio = ratioDistances[0].ratio;
+        
+        console.log(`Calculated closest Ideogram ratio for ${cleanRatio}: ${closestRatio}`);
+        return closestRatio;
+      } catch (error) {
+        console.error('Error calculating aspect ratio:', error);
+        // Default fallback for portrait coloring books
+        return '3x4';
+      }
+    };
+    
+    // Apply the mapping
+    const ideogramAspectRatio = mapKDPtoIdeogramAspectRatio(aspect_ratio || '3:4');
+    console.log(`Using Ideogram aspect ratio: ${ideogramAspectRatio}`);
+    
     // Create multipart form-data request optimized for coloring books
     const form = new FormData();
     form.append('prompt', coloringPrompt);
     
-    // Aspect ratio - default to the provided ratio or square
-    const aspectRatioFormatted = (aspect_ratio || '1:1').replace(':', 'x');
-    form.append('aspect_ratio', aspectRatioFormatted);
+    // Use the properly mapped aspect ratio
+    form.append('aspect_ratio', ideogramAspectRatio);
     
     // Use DESIGN style which is best for line art and coloring books
     form.append('style_type', style_type || 'DESIGN');
@@ -892,7 +993,7 @@ router.post('/generate-coloring', upload.none(), async (req, res) => {
         prompt: coloringPrompt,
         model: 'ideogram',
         style: style_type || 'DESIGN',
-        aspect_ratio: aspectRatioFormatted
+        aspect_ratio: ideogramAspectRatio
       }]
     });
   } catch (error) {
