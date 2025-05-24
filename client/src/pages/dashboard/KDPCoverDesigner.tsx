@@ -496,20 +496,69 @@ const KDPCoverDesigner: React.FC = () => {
       // Create a simple descriptive prompt that will be enhanced by the backend
       const simplePrompt = `${extractedPrompt}. Title: ${extractedTitle}. Author: ${extractedAuthor}. ${extractedSubtitle ? `Subtitle: ${extractedSubtitle}.` : ''} ${extractedTagline ? `Tagline: ${extractedTagline}.` : ''} ${extractedOtherText ? `Additional text: ${extractedOtherText}.` : ''}`;
       
-      // Update state with the simple prompt (the backend will apply best practices)
-      setState(prev => ({
-        ...prev,
-        frontCoverPrompt: simplePrompt,
-        frontCoverImage: imageUrl,
-        originalImageUrl: imageUrl,
-        steps: {
-          ...prev.steps,
-          frontCover: true
+      // Auto-enhance the prompt to show user exactly what gets sent to Ideogram
+      try {
+        console.log('Auto-enhancing prompt for Ideogram to match backend...');
+        const enhanceResponse = await fetch(`${getApiUrl()}/api/book-cover/enhance-prompt`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: simplePrompt,
+            model: 'ideogram'
+          })
+        });
+        
+        if (enhanceResponse.ok) {
+          const enhanceData = await enhanceResponse.json();
+          const enhancedPrompt = enhanceData.enhancedPrompt;
+          
+          // Update state with the enhanced prompt (same as what gets sent to backend)
+          setState(prev => ({
+            ...prev,
+            frontCoverPrompt: enhancedPrompt,
+            frontCoverImage: imageUrl,
+            originalImageUrl: imageUrl,
+            steps: {
+              ...prev.steps,
+              frontCover: true
+            }
+          }));
+          
+          toast.success("Image analyzed & prompt auto-enhanced! This is the exact prompt that will be sent to Ideogram.");
+        } else {
+          // Fallback to simple prompt if enhancement fails
+          setState(prev => ({
+            ...prev,
+            frontCoverPrompt: simplePrompt,
+            frontCoverImage: imageUrl,
+            originalImageUrl: imageUrl,
+            steps: {
+              ...prev.steps,
+              frontCover: true
+            }
+          }));
+          
+          toast.success("Image analyzed successfully! Click 'Enhance Prompt' to optimize for Ideogram.");
         }
-      }));
-      
-      // Show success message
-      toast.success("Image analyzed successfully! Prompt created with detailed description and KDP-safe text placement.");
+      } catch (enhanceError) {
+        console.error('Auto-enhancement failed, using simple prompt:', enhanceError);
+        
+        // Fallback to simple prompt if enhancement fails
+        setState(prev => ({
+          ...prev,
+          frontCoverPrompt: simplePrompt,
+          frontCoverImage: imageUrl,
+          originalImageUrl: imageUrl,
+          steps: {
+            ...prev.steps,
+            frontCover: true
+          }
+        }));
+        
+        toast.success("Image analyzed successfully! Click 'Enhance Prompt' to optimize for Ideogram.");
+      }
       
     } catch (error) {
       console.error('Error analyzing image:', error);
