@@ -1557,38 +1557,60 @@ router.post('/generate-coloring-scenes', express.json(), async (req, res) => {
     const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to create engaging, age-appropriate scenes for a coloring book based on a story concept.
 
 Guidelines:
-1. Create exactly ${pageCount} unique scenes that tell a cohesive story
-2. Each scene should be suitable for ${targetAudience || 'children and adults'}
-3. Scenes should progress logically through the story
+1. Create exactly ${pageCount} UNIQUE and DIFFERENT scenes that tell a cohesive story from beginning to end
+2. Each scene should show a DIFFERENT moment, activity, or situation in the story
+3. Progress the story logically - beginning, middle, end with varied activities
 4. Each scene must be descriptive enough for ${artStyle || 'line art'} illustration
-5. Avoid overly complex or frightening elements
-6. Include variety in settings, actions, and compositions
+5. Avoid repetitive scenes - make each one distinct and interesting
+6. Include variety in settings, actions, emotions, and compositions
 7. Make each scene colorable with clear outlines and defined areas
+8. Each scene should advance the narrative and show character development
+
+IMPORTANT: Do NOT repeat similar scenes. Each one should be a completely different moment in the story.
+
+Story Structure Guidelines:
+- Early scenes: Introduction, character meeting new situations
+- Middle scenes: Adventures, challenges, character growth, different activities
+- Later scenes: Resolution, character achieving goals, peaceful moments
 
 Output Format:
 Return a JSON array of exactly ${pageCount} scenes, each with:
-- title: Short, engaging title for the scene (5-8 words)
-- description: Brief story description (1-2 sentences)
-- prompt: Detailed coloring book illustration prompt (optimized for AI generation)
+- title: Short, engaging title that clearly differentiates this scene (5-8 words)
+- description: Brief story description showing what's happening in THIS specific moment (1-2 sentences)
+- prompt: Detailed coloring book illustration prompt optimized for AI generation
 
 Example format:
 [
   {
-    "title": "The Adventure Begins",
-    "description": "Our hero starts their journey in the magical forest.",
-    "prompt": "Simple line art coloring page showing a friendly character standing at the edge of a magical forest with tall trees, flowers, and a winding path ahead, clean black outlines on white background, suitable for children to color"
+    "title": "Character Wakes Up in New World",
+    "description": "Our character opens their eyes for the first time in their new surroundings.",
+    "prompt": "Simple line art coloring page showing [character] waking up and stretching in [setting], with surprised expression, clean black outlines on white background"
+  },
+  {
+    "title": "First Adventure Outside",
+    "description": "The character steps outside and discovers the world around them.",
+    "prompt": "Simple line art coloring page showing [character] stepping outside and looking around in wonder at [different setting], clean black outlines on white background"
   }
 ]`;
 
     const userPrompt = `Story Concept: "${storyInput}"
 
-Create ${pageCount} unique coloring book scenes that tell this story from beginning to end. Each scene should be perfect for a ${artStyle} coloring page, with clear outlines and defined areas to color. Make sure the scenes flow together as a cohesive story while being individually interesting to color.
+Create ${pageCount} COMPLETELY DIFFERENT coloring book scenes that tell this story from beginning to end. 
+
+CRITICAL REQUIREMENTS:
+- Each scene must show a DIFFERENT activity, moment, or situation
+- Progress the story chronologically from start to finish
+- Vary the settings, actions, and emotions in each scene
+- Make each scene title and description clearly distinct from the others
+- Ensure each scene advances the narrative
+
+NO repetitive scenes! Each one should be a unique moment in the character's journey.
 
 Target audience: ${targetAudience}
 Book title: ${bookTitle}
 Art style: ${artStyle}
 
-Return exactly ${pageCount} scenes in JSON format.`;
+Return exactly ${pageCount} unique scenes in JSON format.`;
     
     console.log('Calling OpenAI API to generate coloring scenes');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1714,22 +1736,33 @@ router.post('/regenerate-scene', express.json(), async (req, res) => {
 
 Guidelines:
 1. Keep the scene within the context of the overall story
-2. Make it suitable for coloring book illustration (${artStyle || 'line art'})
-3. Create clear, defined areas for coloring
-4. Avoid overly complex or frightening elements
-5. Make the scene engaging and fun to color
+2. Make it SIGNIFICANTLY DIFFERENT from the current scene - change the activity, setting, or moment
+3. Create a unique moment that advances the story in a new way
+4. Make it suitable for coloring book illustration (${artStyle || 'line art'})
+5. Create clear, defined areas for coloring
+6. Avoid overly complex or frightening elements
+7. Make the scene engaging and fun to color
+8. Ensure this scene feels fresh and different from what was there before
+
+IMPORTANT: Generate a COMPLETELY DIFFERENT scene that tells a different moment in the story.
 
 Output Format:
 Return a JSON object with:
-- title: Improved scene title (5-8 words)
-- description: Brief story description (1-2 sentences)  
+- title: NEW and improved scene title that's clearly different (5-8 words)
+- description: NEW brief story description showing a different moment (1-2 sentences)  
 - prompt: Detailed coloring book illustration prompt (optimized for AI generation)`;
 
     const userPrompt = `Story Context: "${storyInput}"
 Current Scene Title: "${sceneTitle}"
 Current Scene Description: "${sceneDescription}"
 
-Please regenerate this scene with improvements while keeping it within the story context. Make it perfect for a ${artStyle} coloring page with clear outlines and defined areas to color.
+Please generate a COMPLETELY NEW AND DIFFERENT scene that:
+- Shows a different moment or activity in the story
+- Has a different setting or situation than the current scene
+- Advances the story in a unique way
+- Is perfect for a ${artStyle} coloring page with clear outlines
+
+Create something fresh and different while staying true to the story context.
 
 Return the improved scene in JSON format.`;
     
