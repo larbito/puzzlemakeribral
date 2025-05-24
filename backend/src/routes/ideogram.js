@@ -762,4 +762,146 @@ router.post('/generate-custom', upload.none(), async (req, res) => {
   }
 });
 
+/**
+ * Generate coloring book pages with Ideogram API - optimized for line art
+ * POST /api/ideogram/generate-coloring
+ */
+router.post('/generate-coloring', upload.none(), async (req, res) => {
+  try {
+    console.log('Ideogram coloring page generation request received');
+    console.log('Request body:', req.body);
+    
+    if (!process.env.IDEOGRAM_API_KEY) {
+      console.error('Missing IDEOGRAM_API_KEY environment variable');
+      return res.status(500).json({ error: 'Ideogram API key not configured' });
+    }
+    
+    const { prompt, aspect_ratio, style_type, magic_prompt_option } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    // Optimize prompt for coloring book generation
+    let coloringPrompt = prompt.trim();
+    
+    // Ensure it's optimized for coloring book style
+    if (!coloringPrompt.toLowerCase().includes('line art') && 
+        !coloringPrompt.toLowerCase().includes('coloring')) {
+      coloringPrompt = `Simple line art coloring page: ${coloringPrompt}`;
+    }
+    
+    // Add coloring book specific instructions
+    coloringPrompt += ', black and white line art, clean outlines, no shading, no color fills, perfect for coloring, simple design for children and adults';
+    
+    console.log('Optimized coloring prompt:', coloringPrompt);
+    
+    // Create multipart form-data request optimized for coloring books
+    const form = new FormData();
+    form.append('prompt', coloringPrompt);
+    
+    // Aspect ratio - default to the provided ratio or square
+    const aspectRatioFormatted = (aspect_ratio || '1:1').replace(':', 'x');
+    form.append('aspect_ratio', aspectRatioFormatted);
+    
+    // Use DESIGN style which is best for line art and coloring books
+    form.append('style_type', style_type || 'DESIGN');
+    
+    // Magic prompt option
+    form.append('magic_prompt_option', magic_prompt_option || 'ON');
+    
+    // Optimized negative prompt for coloring books
+    form.append('negative_prompt', 'color, colored, shading, gradient, watermark, text, signature, complex details, photorealistic, 3D render, blurry, low quality');
+    
+    // Rendering speed - use TURBO for faster generation
+    form.append('rendering_speed', 'TURBO');
+    
+    // Single image generation
+    form.append('num_images', '1');
+    
+    // Random seed
+    form.append('seed', Math.floor(Math.random() * 1000000));
+    
+    console.log('Making coloring request to Ideogram API');
+    const ideogramApiUrl = 'https://api.ideogram.ai/v1/ideogram-v3/generate';
+    
+    const formHeaders = form.getHeaders ? form.getHeaders() : {};
+    const response = await fetch(ideogramApiUrl, {
+      method: 'POST',
+      headers: {
+        'Api-Key': process.env.IDEOGRAM_API_KEY,
+        ...formHeaders
+      },
+      body: form
+    });
+
+    console.log('Ideogram API response status:', response.status);
+    
+    // Get the raw response text
+    const responseText = await response.text();
+    console.log('Ideogram API raw response preview:', responseText.substring(0, 200));
+
+    // Try to parse the response as JSON
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      console.error('Failed to parse Ideogram API response:', error);
+      return res.status(500).json({ 
+        error: 'Invalid response from coloring page generation service',
+        rawResponse: responseText.substring(0, 500)
+      });
+    }
+
+    // Handle error responses
+    if (!response.ok) {
+      console.error('Ideogram API error:', data);
+      return res.status(response.status).json({ 
+        error: data.message || 'Failed to generate coloring page',
+        details: data
+      });
+    }
+
+    console.log('Ideogram API response data structure:', Object.keys(data));
+    
+    // Extract the image URL from the response
+    let imageUrl = null;
+    if (data?.data?.[0]?.url) {
+      imageUrl = data.data[0].url;
+      console.log('Found coloring page URL in data[0].url');
+    } else if (data?.images?.[0]?.url) {
+      imageUrl = data.images[0].url;
+      console.log('Found coloring page URL in images[0].url');
+    } else if (data?.url) {
+      imageUrl = data.url;
+      console.log('Found coloring page URL in root url property');
+    }
+
+    if (!imageUrl) {
+      console.error('No image URL found in coloring response:', data);
+      return res.status(500).json({ error: 'No coloring page URL in API response' });
+    }
+
+    console.log('Successfully generated coloring page:', imageUrl);
+
+    // Return in consistent format for frontend
+    res.json({ 
+      success: true,
+      images: [{
+        url: imageUrl,
+        prompt: coloringPrompt,
+        model: 'ideogram',
+        style: style_type || 'DESIGN',
+        aspect_ratio: aspectRatioFormatted
+      }]
+    });
+  } catch (error) {
+    console.error('Ideogram coloring generation error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to generate coloring page',
+      type: error.name
+    });
+  }
+});
+
 module.exports = router; 

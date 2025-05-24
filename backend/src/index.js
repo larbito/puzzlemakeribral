@@ -345,8 +345,171 @@ console.log('Registered route: /api/word-search/*');
 app.use('/api/kdp-formatter', kdpFormatterRoutes);
 console.log('Registered route: /api/kdp-formatter/*');
 
-// Add route aliases for KDP Cover Generator frontend compatibility
-// These map the expected frontend endpoints to existing backend functionality
+// Add route aliases for Coloring Book frontend compatibility
+// Map the expected frontend endpoints to existing backend functionality
+
+// Route alias: /api/coloring/create-pdf -> /api/coloring-book/create-pdf
+app.post('/api/coloring/create-pdf', async (req, res) => {
+  console.log('Coloring Book: PDF creation request via alias');
+  try {
+    const { images, bookOptions, scenes } = req.body;
+    
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: 'Images array is required' });
+    }
+
+    // Map the request to the existing coloring-book format
+    const mappedData = {
+      pageUrls: images,
+      trimSize: bookOptions?.bookSize || '8.5x11',
+      addBlankPages: bookOptions?.addBlankPages || false,
+      showPageNumbers: bookOptions?.showPageNumbers || true,
+      includeBleed: bookOptions?.includeBleed || true,
+      bookTitle: bookOptions?.bookTitle || 'Coloring Book',
+      addTitlePage: bookOptions?.addTitlePage || true,
+      authorName: bookOptions?.authorName || '',
+      subtitle: bookOptions?.subtitle || '',
+      safeArea: bookOptions?.safeArea || true
+    };
+
+    console.log('Mapped coloring PDF request:', { 
+      pageCount: images.length, 
+      title: mappedData.bookTitle,
+      size: mappedData.trimSize 
+    });
+
+    // Set the path for the coloring-book router to recognize
+    req.body = mappedData;
+    req.originalUrl = '/api/coloring-book/create-pdf';
+    req.url = '/create-pdf';
+    req.baseUrl = '/api/coloring-book';
+
+    // Call the coloring-book router directly
+    coloringBookRoutes(req, res, (err) => {
+      if (err) {
+        console.error('Error in coloring-book PDF router:', err);
+        res.status(500).json({ error: 'Failed to create PDF' });
+      }
+    });
+  } catch (error) {
+    console.error('Error in coloring PDF alias:', error);
+    res.status(500).json({ error: 'Failed to create PDF' });
+  }
+});
+
+// Route alias: /api/coloring/download-images -> ZIP download functionality  
+app.post('/api/coloring/download-images', async (req, res) => {
+  console.log('Coloring Book: ZIP download request via alias');
+  try {
+    const { images, bookTitle, scenes } = req.body;
+    
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: 'Images array is required' });
+    }
+
+    console.log(`Creating ZIP download for ${images.length} coloring pages`);
+
+    // Create a zip archive
+    const archiver = require('archiver');
+    const archive = archiver('zip', {
+      zlib: { level: 5 } // Compression level
+    });
+
+    // Listen for errors on the archive
+    archive.on('error', (err) => {
+      console.error('Archiver error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Error creating zip archive' });
+      }
+    });
+
+    // Set response headers for zip download
+    const filename = (bookTitle || 'coloring-book').toLowerCase().replace(/\s+/g, '-');
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}-coloring-pages.zip"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+
+    // Pipe the archive to the response
+    archive.pipe(res);
+
+    let failedImages = 0;
+    let successfulImages = 0;
+
+    // Add each image to the zip file
+    for (let i = 0; i < images.length; i++) {
+      const imageUrl = images[i];
+      
+      try {
+        console.log(`Fetching coloring page ${i+1}/${images.length}`);
+        
+        // Generate a filename
+        const sceneTitle = scenes?.[i]?.title || `page-${i+1}`;
+        const cleanTitle = sceneTitle.toLowerCase().replace(/[^a-zA-Z0-9\-_.]/g, '-');
+        const imageFilename = `${String(i+1).padStart(2, '0')}-${cleanTitle}.png`;
+        
+        // Fetch the image
+        const imageResponse = await fetch(imageUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          },
+          timeout: 15000
+        });
+        
+        if (!imageResponse.ok) {
+          console.error(`Failed to fetch coloring image ${i+1}: ${imageResponse.status}`);
+          failedImages++;
+          continue;
+        }
+        
+        // Get the image buffer
+        const imageBuffer = await imageResponse.arrayBuffer().then(Buffer.from);
+        
+        if (!imageBuffer || imageBuffer.length === 0) {
+          console.error(`Empty image buffer for coloring page ${i+1}`);
+          failedImages++;
+          continue;
+        }
+        
+        // Create a readable stream from the buffer
+        const { Readable } = require('stream');
+        const stream = new Readable();
+        stream.push(imageBuffer);
+        stream.push(null);
+        
+        // Add to archive
+        archive.append(stream, { name: imageFilename });
+        
+        successfulImages++;
+        console.log(`Added coloring page ${i+1} as ${imageFilename}`);
+      } catch (error) {
+        console.error(`Error processing coloring image ${i+1}:`, error);
+        failedImages++;
+      }
+    }
+
+    if (successfulImages === 0) {
+      console.error('No coloring images were successfully added to the archive');
+      if (!res.headersSent) {
+        return res.status(400).json({ error: 'Failed to process any of the provided images' });
+      }
+    }
+
+    // Finalize the archive
+    console.log('Finalizing coloring pages zip archive...');
+    await archive.finalize();
+    console.log(`Coloring pages ZIP created with ${successfulImages} images (${failedImages} failed)`);
+  } catch (error) {
+    console.error('Error in coloring ZIP download:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to create ZIP download' });
+    }
+  }
+});
+
+console.log('Registered Coloring Book route aliases:');
+console.log('- POST /api/coloring/create-pdf -> /api/coloring-book/create-pdf');
+console.log('- POST /api/coloring/download-images -> ZIP download functionality');
 
 // Route alias: /api/analyze-image -> Direct KDP cover analysis (bypass ideogram router)
 app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
@@ -913,6 +1076,93 @@ app.post('/api/generate-similar-image', async (req, res) => {
   } catch (error) {
     console.error('Error in similar image generation:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// DALL-E Coloring Page Generation
+app.post('/api/generate-coloring-dalle', async (req, res) => {
+  console.log('DALL-E Coloring Page: Generate request received');
+  try {
+    const { prompt, bookSize, safeArea, style } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    // Clean and optimize the prompt for coloring book generation
+    let coloringPrompt = prompt.trim();
+    
+    // Ensure it's optimized for coloring book style
+    if (!coloringPrompt.toLowerCase().includes('line art') && 
+        !coloringPrompt.toLowerCase().includes('coloring')) {
+      coloringPrompt = `Simple line art coloring page: ${coloringPrompt}`;
+    }
+    
+    // Add coloring book specific instructions
+    coloringPrompt += ', black and white line art, clean outlines, no shading, no color fills, perfect for coloring, simple design, clear defined areas';
+    
+    // Add book size context if provided
+    if (bookSize) {
+      coloringPrompt += `, designed for ${bookSize} format`;
+    }
+    
+    // Add safe area guidelines if requested
+    if (safeArea) {
+      coloringPrompt += ', with adequate margins and safe areas for printing';
+    }
+    
+    console.log('Optimized DALL-E coloring prompt:', coloringPrompt);
+
+    // Generate with DALL-E 3
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: coloringPrompt,
+        n: 1,
+        size: '1024x1024', // Square format for coloring pages
+        quality: 'standard',
+        response_format: 'url'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('DALL-E API error:', errorData);
+      return res.status(response.status).json({
+        error: 'Failed to generate coloring page with DALL-E',
+        details: errorData.error?.message || 'Unknown DALL-E error'
+      });
+    }
+
+    const dalleData = await response.json();
+    const imageUrl = dalleData.data[0].url;
+    
+    console.log('DALL-E generated coloring page URL:', imageUrl);
+    
+    // Return in consistent format
+    res.json({
+      success: true,
+      imageUrl: imageUrl,
+      images: [{
+        url: imageUrl,
+        prompt: coloringPrompt,
+        model: 'dalle',
+        style: style || 'coloring book line art',
+        bookSize: bookSize || 'standard',
+        safeArea: safeArea || false
+      }]
+    });
+  } catch (error) {
+    console.error('DALL-E coloring generation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate coloring page with DALL-E',
+      details: error.message
+    });
   }
 });
 

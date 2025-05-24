@@ -1537,4 +1537,269 @@ router.post('/extract-text', upload.none(), async (req, res) => {
   }
 });
 
+/**
+ * Generate coloring book scenes using ChatGPT
+ * POST /api/openai/generate-coloring-scenes
+ */
+router.post('/generate-coloring-scenes', express.json(), async (req, res) => {
+  try {
+    console.log('Generate coloring scenes request received');
+    const { storyInput, pageCount, bookTitle, targetAudience, artStyle } = req.body;
+    
+    if (!storyInput) {
+      return res.status(400).json({ error: 'Story input is required' });
+    }
+    
+    if (!pageCount || pageCount < 5 || pageCount > 100) {
+      return res.status(400).json({ error: 'Page count must be between 5 and 100' });
+    }
+
+    const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to create engaging, age-appropriate scenes for a coloring book based on a story concept.
+
+Guidelines:
+1. Create exactly ${pageCount} unique scenes that tell a cohesive story
+2. Each scene should be suitable for ${targetAudience || 'children and adults'}
+3. Scenes should progress logically through the story
+4. Each scene must be descriptive enough for ${artStyle || 'line art'} illustration
+5. Avoid overly complex or frightening elements
+6. Include variety in settings, actions, and compositions
+7. Make each scene colorable with clear outlines and defined areas
+
+Output Format:
+Return a JSON array of exactly ${pageCount} scenes, each with:
+- title: Short, engaging title for the scene (5-8 words)
+- description: Brief story description (1-2 sentences)
+- prompt: Detailed coloring book illustration prompt (optimized for AI generation)
+
+Example format:
+[
+  {
+    "title": "The Adventure Begins",
+    "description": "Our hero starts their journey in the magical forest.",
+    "prompt": "Simple line art coloring page showing a friendly character standing at the edge of a magical forest with tall trees, flowers, and a winding path ahead, clean black outlines on white background, suitable for children to color"
+  }
+]`;
+
+    const userPrompt = `Story Concept: "${storyInput}"
+
+Create ${pageCount} unique coloring book scenes that tell this story from beginning to end. Each scene should be perfect for a ${artStyle} coloring page, with clear outlines and defined areas to color. Make sure the scenes flow together as a cohesive story while being individually interesting to color.
+
+Target audience: ${targetAudience}
+Book title: ${bookTitle}
+Art style: ${artStyle}
+
+Return exactly ${pageCount} scenes in JSON format.`;
+    
+    console.log('Calling OpenAI API to generate coloring scenes');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 3000,
+        temperature: 0.8,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      return res.status(response.status).json({
+        error: 'Failed to generate scenes with OpenAI',
+        details: errorData
+      });
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
+    
+    if (!content) {
+      return res.status(500).json({ error: 'No content received from OpenAI' });
+    }
+
+    try {
+      const parsedContent = JSON.parse(content);
+      
+      // Handle different response formats
+      let scenes = [];
+      if (Array.isArray(parsedContent)) {
+        scenes = parsedContent;
+      } else if (parsedContent.scenes && Array.isArray(parsedContent.scenes)) {
+        scenes = parsedContent.scenes;
+      } else {
+        throw new Error('Invalid response format');
+      }
+
+      // Validate scenes
+      if (!scenes || scenes.length === 0) {
+        throw new Error('No scenes generated');
+      }
+
+      // Ensure we have the right number of scenes
+      if (scenes.length !== pageCount) {
+        console.warn(`Generated ${scenes.length} scenes, expected ${pageCount}`);
+        
+        // Adjust the array length
+        if (scenes.length > pageCount) {
+          scenes = scenes.slice(0, pageCount);
+        } else {
+          // Duplicate the last scene to reach the target count
+          while (scenes.length < pageCount) {
+            const lastScene = scenes[scenes.length - 1];
+            scenes.push({
+              ...lastScene,
+              title: `${lastScene.title} (Part ${scenes.length + 1})`
+            });
+          }
+        }
+      }
+
+      // Validate each scene has required fields
+      scenes = scenes.map((scene, index) => ({
+        title: scene.title || `Scene ${index + 1}`,
+        description: scene.description || `A coloring page scene from the story.`,
+        prompt: scene.prompt || scene.description || `Simple line art coloring page for scene ${index + 1}, clean black outlines on white background`
+      }));
+
+      console.log(`Generated ${scenes.length} coloring book scenes successfully`);
+      res.json({ success: true, scenes });
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      console.log('Raw content:', content);
+      
+      // Fallback: create basic scenes from the story input
+      const fallbackScenes = [];
+      for (let i = 0; i < pageCount; i++) {
+        fallbackScenes.push({
+          title: `Scene ${i + 1}`,
+          description: `A scene from the story: ${storyInput}`,
+          prompt: `Simple line art coloring page showing scene ${i + 1} from the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
+        });
+      }
+      
+      console.log('Using fallback scenes due to parsing error');
+      res.json({ success: true, scenes: fallbackScenes });
+    }
+  } catch (error) {
+    console.error('Error generating coloring scenes:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate coloring scenes',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Regenerate a single coloring book scene
+ * POST /api/openai/regenerate-scene
+ */
+router.post('/regenerate-scene', express.json(), async (req, res) => {
+  try {
+    console.log('Regenerate scene request received');
+    const { storyInput, sceneTitle, sceneDescription, artStyle } = req.body;
+    
+    if (!storyInput) {
+      return res.status(400).json({ error: 'Story input is required' });
+    }
+
+    const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to regenerate and improve a single scene for a coloring book while maintaining the story context.
+
+Guidelines:
+1. Keep the scene within the context of the overall story
+2. Make it suitable for coloring book illustration (${artStyle || 'line art'})
+3. Create clear, defined areas for coloring
+4. Avoid overly complex or frightening elements
+5. Make the scene engaging and fun to color
+
+Output Format:
+Return a JSON object with:
+- title: Improved scene title (5-8 words)
+- description: Brief story description (1-2 sentences)  
+- prompt: Detailed coloring book illustration prompt (optimized for AI generation)`;
+
+    const userPrompt = `Story Context: "${storyInput}"
+Current Scene Title: "${sceneTitle}"
+Current Scene Description: "${sceneDescription}"
+
+Please regenerate this scene with improvements while keeping it within the story context. Make it perfect for a ${artStyle} coloring page with clear outlines and defined areas to color.
+
+Return the improved scene in JSON format.`;
+    
+    console.log('Calling OpenAI API to regenerate scene');
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.8,
+        response_format: { type: 'json_object' }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      return res.status(response.status).json({
+        error: 'Failed to regenerate scene with OpenAI',
+        details: errorData
+      });
+    }
+
+    const data = await response.json();
+    const content = data.choices[0]?.message?.content?.trim();
+    
+    if (!content) {
+      return res.status(500).json({ error: 'No content received from OpenAI' });
+    }
+
+    try {
+      const scene = JSON.parse(content);
+      
+      // Validate scene has required fields
+      const validatedScene = {
+        title: scene.title || sceneTitle,
+        description: scene.description || sceneDescription,
+        prompt: scene.prompt || scene.description || `Simple line art coloring page, clean black outlines on white background`
+      };
+
+      console.log('Scene regenerated successfully');
+      res.json({ success: true, scene: validatedScene });
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError);
+      
+      // Fallback: return an improved version of the original
+      const fallbackScene = {
+        title: sceneTitle || 'Improved Scene',
+        description: sceneDescription || 'An improved coloring book scene.',
+        prompt: `Simple line art coloring page showing ${sceneDescription || sceneTitle}, clean black outlines on white background, suitable for children to color`
+      };
+      
+      console.log('Using fallback scene due to parsing error');
+      res.json({ success: true, scene: fallbackScene });
+    }
+  } catch (error) {
+    console.error('Error regenerating scene:', error);
+    res.status(500).json({ 
+      error: 'Failed to regenerate scene',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router; 
