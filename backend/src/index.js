@@ -689,10 +689,146 @@ app.post('/api/generate-cover', async (req, res) => {
   }
 });
 
+// Image to Image API endpoints
+// Route: /api/analyze-image-detailed -> Detailed image analysis for Image to Image
+app.post('/api/analyze-image-detailed', upload.single('image'), async (req, res) => {
+  console.log('Image to Image: Detailed image analysis with GPT-4o');
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    console.log('Image Analysis - File info:', { 
+      originalname: req.file.originalname, 
+      mimetype: req.file.mimetype, 
+      size: req.file.size 
+    });
+
+    // Convert the image buffer to base64
+    const base64Image = req.file.buffer.toString('base64');
+
+    // System prompt for detailed image description
+    const systemPrompt = `You are an expert image analyst. Your task is to provide a detailed, accurate description of the uploaded image that can be used to recreate a similar image using DALL-E.
+
+Describe EXACTLY what you see in the image, including:
+- All visible objects, people, animals, or subjects
+- Colors, lighting, and mood
+- Composition and layout
+- Style and artistic approach
+- Background and setting
+- Any text or symbols (describe but don't reproduce)
+- Textures and materials
+- Perspective and viewpoint
+
+Be precise and comprehensive. The description should be detailed enough that someone could recreate a very similar image using your description alone.
+
+Output only the description - no extra commentary, headers, or formatting.`;
+
+    // Call OpenAI's GPT-4o for detailed image analysis
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Please provide a detailed description of this image that could be used to recreate a similar image with AI:'
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${req.file.mimetype};base64,${base64Image}`
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to analyze image');
+    }
+
+    const data = await response.json();
+    const description = data.choices[0].message.content;
+    
+    console.log('Generated detailed description:', description);
+    
+    res.json({ description: description });
+  } catch (error) {
+    console.error('Error in detailed image analysis:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Route: /api/generate-similar-image -> Generate similar image using DALL-E
+app.post('/api/generate-similar-image', async (req, res) => {
+  console.log('Image to Image: Generating similar image with DALL-E');
+  try {
+    const { description } = req.body;
+    
+    if (!description) {
+      return res.status(400).json({ error: 'No description provided' });
+    }
+    
+    console.log('Generating image from description:', description);
+    
+    // Generate with DALL-E 3
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: description,
+        n: 1,
+        size: '1024x1024', // Square format for general images
+        quality: 'hd',
+        response_format: 'url'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error?.message || 'Failed to generate image with DALL-E');
+    }
+
+    const dalleData = await response.json();
+    const imageUrl = dalleData.data[0].url;
+    
+    console.log('DALL-E generated similar image URL:', imageUrl);
+    
+    res.json({ imageUrl: imageUrl });
+  } catch (error) {
+    console.error('Error in similar image generation:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 console.log('Registered KDP Cover Generator route aliases:');
 console.log('- POST /api/analyze-image -> Direct KDP cover analysis');
 console.log('- POST /api/enhance-prompt -> /api/openai/enhance-prompt');
 console.log('- POST /api/generate-cover -> /api/ideogram/generate');
+
+console.log('Registered Image to Image route aliases:');
+console.log('- POST /api/analyze-image-detailed -> Detailed GPT-4o image analysis');
+console.log('- POST /api/generate-similar-image -> DALL-E similar image generation');
 
 // Root route for testing
 app.get('/', (req, res) => {
