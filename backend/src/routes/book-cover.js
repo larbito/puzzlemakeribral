@@ -190,13 +190,22 @@ router.post('/generate-front', async (req, res) => {
       author, 
       genre, 
       style, 
-      description, 
-      customInstructions 
+      description,
+      prompt, // Add support for direct prompt parameter
+      customInstructions,
+      width,
+      height,
+      negative_prompt,
+      seed,
+      model
     } = req.body;
 
-    // Build base prompt
+    // Build base prompt - prioritize direct prompt parameter for back cover generation
     let basePrompt;
-    if (description && description.trim()) {
+    if (prompt && prompt.trim()) {
+      // Use direct prompt parameter (for back cover generation)
+      basePrompt = prompt.trim();
+    } else if (description && description.trim()) {
       // Use provided description as base
       basePrompt = description.trim();
     } else {
@@ -224,6 +233,7 @@ router.post('/generate-front', async (req, res) => {
 
     res.json({ 
       success: true, 
+      url: imageUrl, // Also return as 'url' for compatibility
       imageUrl,
       prompt: optimizedPrompt,
       model: 'ideogram'
