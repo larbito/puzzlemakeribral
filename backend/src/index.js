@@ -352,6 +352,13 @@ console.log('Registered route: /api/kdp-formatter/*');
 app.post('/api/analyze-image', async (req, res) => {
   console.log('KDP Cover Generator: Analyzing image with GPT-4 Vision');
   try {
+    // Add KDP book cover analysis type to the request body
+    req.body.type = 'kdp-cover';
+    req.body.style = req.body.style || 'flat-vector';
+    req.body.model = req.body.model || 'dalle';
+    
+    console.log('KDP Cover Analysis - Request body:', req.body);
+    
     // Set the path for the ideogram router to recognize
     req.originalUrl = '/api/ideogram/analyze';
     req.url = '/analyze';

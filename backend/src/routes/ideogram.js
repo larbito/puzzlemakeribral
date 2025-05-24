@@ -317,7 +317,8 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
 
     // Check if this is a request for coloring book analysis
     const isColoringBook = req.body.type === 'coloring';
-    console.log('Image analysis request type:', isColoringBook ? 'coloring book' : 't-shirt design');
+    const isKDPCover = req.body.type === 'kdp-cover';
+    console.log('Image analysis request type:', isColoringBook ? 'coloring book' : isKDPCover ? 'KDP book cover' : 't-shirt design');
     console.log('Request body:', req.body);
 
     // Extract other request parameters
@@ -330,9 +331,14 @@ router.post('/analyze', upload.single('image'), async (req, res) => {
     const base64Image = req.file.buffer.toString('base64');
 
     // Create the appropriate prompt text based on the type
-    const promptText = isColoringBook
-      ? 'Analyze this image and determine if it is a coloring book style image or line art suitable for coloring. If it IS suitable for a coloring book, provide a detailed, descriptive prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. Describe all the key elements in detail. The prompt should describe clean line art suitable for coloring books. Make the prompt engaging and child-friendly. Do not include phrases like "coloring book page" or "suitable for a coloring book" in your description - just describe the scene itself. If the image is NOT suitable for a coloring book (e.g., a photograph, complex artwork, t-shirt design, etc.), start your response with "NOT A COLORING PAGE:" and explain why it is not suitable.'
-      : 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.';
+    let promptText;
+    if (isColoringBook) {
+      promptText = 'Analyze this image and determine if it is a coloring book style image or line art suitable for coloring. If it IS suitable for a coloring book, provide a detailed, descriptive prompt that could be used to generate a similar coloring book page. Focus on the characters, objects, scene, and composition. Describe all the key elements in detail. The prompt should describe clean line art suitable for coloring books. Make the prompt engaging and child-friendly. Do not include phrases like "coloring book page" or "suitable for a coloring book" in your description - just describe the scene itself. If the image is NOT suitable for a coloring book (e.g., a photograph, complex artwork, t-shirt design, etc.), start your response with "NOT A COLORING PAGE:" and explain why it is not suitable.';
+    } else if (isKDPCover) {
+      promptText = 'Analyze this book cover image and provide a detailed prompt that could be used to generate a similar KDP book cover design. Focus on the overall composition, visual style, color scheme, typography, character design, background elements, and mood. Describe the artistic style (e.g., realistic, cartoon, flat design, watercolor, etc.), the layout and positioning of elements, any characters or objects featured, the color palette used, and the overall aesthetic appeal. Make the prompt detailed enough to recreate a similar book cover design using AI image generation. Do not include phrases like "book cover" or "KDP" in your description - just describe the visual elements and artistic style of the design itself.';
+    } else {
+      promptText = 'Analyze this image and provide a detailed prompt that could be used to generate a similar t-shirt design. Focus on the style, colors, composition, and key visual elements. Make the prompt suitable for an AI image generation model.';
+    }
 
     // Call OpenAI's GPT-4 Vision API for image analysis
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
