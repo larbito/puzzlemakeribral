@@ -1977,8 +1977,19 @@ const KDPCoverDesigner: React.FC = () => {
                 
                 <Button 
                   onClick={async () => {
+                    console.log('=== Back Cover Generation Debug ===');
+                    console.log('Front cover image:', state.frontCoverImage);
+                    console.log('Back cover prompt:', state.backCoverPrompt);
+                    console.log('Dimensions:', state.bookSettings.dimensions);
+                    console.log('Interior images:', state.interiorImages);
+                    
+                    if (!state.frontCoverImage) {
+                      toast.error("Please generate a front cover first");
+                      return;
+                    }
+                    
                     if (!state.backCoverPrompt) {
-                      toast.error("Please generate a back cover description first");
+                      toast.error("Please generate a back cover description first by clicking 'Generate from Front Cover'");
                       return;
                     }
                     
@@ -1986,31 +1997,40 @@ const KDPCoverDesigner: React.FC = () => {
                     toast.info("Generating back cover design...");
                     
                     try {
+                      const requestBody = {
+                        frontCoverUrl: state.frontCoverImage,
+                        width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
+                        height: Math.round(state.bookSettings.dimensions.height * 300),
+                        backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
+                        interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
+                      };
+                      
+                      console.log('Request body:', requestBody);
+                      
                       // Use the dedicated back cover generation API that creates a back cover based on the front cover
                       const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({
-                          frontCoverUrl: state.frontCoverImage,
-                          width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                          height: Math.round(state.bookSettings.dimensions.height * 300),
-                          backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
-                          interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
-                        })
+                        body: JSON.stringify(requestBody)
                       });
+                      
+                      console.log('Response status:', response.status);
+                      console.log('Response headers:', response.headers);
                       
                       if (!response.ok) {
                         const errorData = await response.json();
-                        throw new Error(errorData.message || errorData.error || 'Failed to generate back cover');
+                        console.error('Error response:', errorData);
+                        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
                       }
                       
                       const data = await response.json();
+                      console.log('Success response:', data);
                       const imageUrl = data.url;
                       
                       if (!imageUrl) {
-                        throw new Error('No image was generated');
+                        throw new Error('No image URL was returned from the server');
                       }
                       
                       setState(prev => ({
@@ -2042,7 +2062,7 @@ const KDPCoverDesigner: React.FC = () => {
                     }
                   }}
                   className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500"
-                  disabled={isLoading.generateBackCover || !state.backCoverPrompt}
+                  disabled={isLoading.generateBackCover || !state.backCoverPrompt || !state.frontCoverImage}
                 >
                   {isLoading.generateBackCover ? (
                     <span className="flex items-center">
