@@ -241,8 +241,35 @@ router.post('/generate-front', express.json(), async (req, res) => {
       form.append('prompt', prompt);
       
       // Convert width:height to aspect ratio format
-      const aspectRatio = `${width}x${height}`;
-      form.append('aspect_ratio', aspectRatio);
+      // Map pixel dimensions to closest supported Ideogram aspect ratio
+      const aspectRatio = width / height;
+      console.log('Calculated aspect ratio:', aspectRatio);
+      
+      let ideogramAspectRatio;
+      
+      // Map to closest supported Ideogram aspect ratio
+      if (aspectRatio <= 0.35) {
+        ideogramAspectRatio = '1x3'; // Very tall
+      } else if (aspectRatio <= 0.55) {
+        ideogramAspectRatio = '2x3'; // Portrait (common for book covers)
+      } else if (aspectRatio <= 0.7) {
+        ideogramAspectRatio = '9x16'; // Portrait
+      } else if (aspectRatio <= 0.85) {
+        ideogramAspectRatio = '3x4'; // Portrait
+      } else if (aspectRatio <= 1.15) {
+        ideogramAspectRatio = '1x1'; // Square
+      } else if (aspectRatio <= 1.35) {
+        ideogramAspectRatio = '4x3'; // Landscape
+      } else if (aspectRatio <= 1.65) {
+        ideogramAspectRatio = '3x2'; // Landscape
+      } else if (aspectRatio <= 2.2) {
+        ideogramAspectRatio = '16x9'; // Landscape
+      } else {
+        ideogramAspectRatio = '3x1'; // Very wide
+      }
+      
+      console.log('Mapped to Ideogram aspect ratio:', ideogramAspectRatio);
+      form.append('aspect_ratio', ideogramAspectRatio);
       
       // Use higher quality rendering for book covers
       form.append('rendering_speed', 'DEFAULT');
