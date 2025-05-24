@@ -384,12 +384,24 @@ app.post('/api/analyze-image', upload.single('image'), async (req, res) => {
     // Convert the image buffer to base64
     const base64Image = req.file.buffer.toString('base64');
 
-    // Use EXACT system prompt as specified by user
-    const systemPrompt = `You're creating a prompt to generate a ${trimSizeLabel} Amazon KDP book cover using ${selectedModel.toUpperCase()} or Ideogram.
+    // Use EXACT system prompt as specified by user  
+    const systemPrompt = `You are a professional book cover designer and analyst. Your job is to analyze book cover images and create detailed prompts for AI image generation.
+
+You MUST analyze the uploaded image and describe:
+- Visual style and artistic approach
+- Layout and composition elements  
+- Color scheme and mood
+- Subject matter and characters
+- Text placement areas
+- Overall design aesthetic
+
+This is for creating a ${trimSizeLabel} Amazon KDP book cover using ${selectedModel.toUpperCase()} or Ideogram.
 
 Focus only on the layout, art style, subject composition, scene details, mood, colors, and where the title and author should go. The result should be usable directly to generate a print-safe, readable cover for publishing.
 
-Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.`;
+Do not describe icons, t-shirts, posters, or branding. This is strictly for book covers.
+
+You must provide a detailed visual description - this is essential for the book cover generation process.`;
 
     // Call OpenAI's GPT-4 Vision API with exact specifications
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -410,7 +422,9 @@ Do not describe icons, t-shirts, posters, or branding. This is strictly for book
             content: [
               {
                 type: 'text',
-                text: `Analyze this ${trimSizeLabel} book cover image and create a detailed prompt for ${selectedModel.toUpperCase()} that starts with "Book cover illustration in ${selectedStyle} style" and includes layout terms like "title at top," "author at bottom," "centered composition". Make it specific for ${trimSizeLabel} KDP format.`
+                text: `You are analyzing a book cover image. Please describe what you see in detail and then create a prompt for ${selectedModel.toUpperCase()} that starts with "Book cover illustration in ${selectedStyle} style" and includes layout terms like "title at top," "author at bottom," "centered composition". Make it specific for ${trimSizeLabel} KDP format. 
+
+IMPORTANT: You must analyze and describe the visual elements you see in this image. This is for professional book cover recreation and is essential for the publishing process.`
               },
               {
                 type: 'image_url',
