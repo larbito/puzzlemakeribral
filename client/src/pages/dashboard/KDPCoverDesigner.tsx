@@ -147,6 +147,15 @@ const VISUAL_STYLES = [
 ];
 
 const KDPCoverDesigner: React.FC = () => {
+  // Helper function to get the correct API URL
+  const getApiUrl = () => {
+    return process.env.NODE_ENV === 'production' 
+      ? window.location.origin.includes('vercel.app') 
+        ? 'https://puzzlemakeribral-production.up.railway.app'
+        : window.location.origin
+      : 'http://localhost:3000';
+  };
+
   // Initialize state
   const [state, setState] = useState<CoverDesignerState>({
     steps: {
@@ -450,7 +459,7 @@ const KDPCoverDesigner: React.FC = () => {
       const combinedStylePrompt = `${bookStylePrompt} with ${visualStylePrompt}`;
       
       // Then, analyze the image for detailed visual description
-      const analyzeResponse = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/extract-prompt', {
+      const analyzeResponse = await fetch(`${getApiUrl()}/api/openai/extract-prompt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1021,7 +1030,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                           console.log('Enhancing prompt for model:', state.selectedModel);
                           console.log('Original prompt:', state.frontCoverPrompt);
                           
-                          const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/enhance-prompt', {
+                          const response = await fetch(`${getApiUrl()}/api/book-cover/enhance-prompt`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
@@ -1791,7 +1800,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                 console.log(`Generating cover with dimensions: ${coverWidth}x${coverHeight} pixels (${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height} inches)`);
                                 console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
                                 
-                                const apiUrl = 'https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front';
+                                const apiUrl = `${getApiUrl()}/api/book-cover/generate-front`;
                                 
                                 // Create final prompt based on model
                                 let finalPromptAddition;
@@ -1951,7 +1960,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                                     console.log(`Aspect ratio: ${state.bookSettings.dimensions.width / state.bookSettings.dimensions.height}`);
                                     
                                     // Call the book cover generation API for a variation
-                                    const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
+                                    const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
                                       method: 'POST',
                                       headers: {
                                         'Content-Type': 'application/json',
@@ -2130,7 +2139,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                     
                     try {
                       // Call OpenAI API to generate back cover description
-                      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/openai/enhance-prompt', {
+                      const response = await fetch(`${getApiUrl()}/api/openai/enhance-prompt`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -2271,7 +2280,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                     
                     try {
                       // Modified approach to use front cover generation API for back cover
-                      const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
+                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
@@ -2394,7 +2403,7 @@ VISUAL ART STYLE: ${selectedVisualStyleObj?.prompt || ''}
                         setIsLoading({...isLoading, generateBackCover: true});
                         try {
                           // Generate a variation with the same prompt
-                          const response = await fetch('https://puzzlemakeribral-production.up.railway.app/api/book-cover/generate-front', {
+                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-front`, {
                             method: 'POST',
                             headers: {
                               'Content-Type': 'application/json',
