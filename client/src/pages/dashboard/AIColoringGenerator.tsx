@@ -140,7 +140,7 @@ export const AIColoringGenerator = () => {
   const getApiUrl = () => {
     return process.env.NODE_ENV === 'production' 
       ? 'https://puzzlemakeribral-production.up.railway.app'
-      : 'http://localhost:5000';
+      : 'http://localhost:3000';
   };
 
   // Navigation helpers
