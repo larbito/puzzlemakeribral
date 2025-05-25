@@ -1675,10 +1675,26 @@ Return exactly ${pageCount} unique scenes in JSON array format.`;
     if (!response.ok) {
       const errorData = await response.json();
       console.error('OpenAI API error:', errorData);
-      return res.status(response.status).json({
-        error: 'Failed to generate scenes with OpenAI',
-        details: errorData
-      });
+      
+      // Instead of returning error, use fallback scenes with user's story
+      console.log('OpenAI API failed, using enhanced fallback scenes with user story');
+      const fallbackScenes = [];
+      const activities = [
+        'beginning the adventure', 'exploring new places', 'meeting new friends', 'learning something important', 'facing a challenge', 
+        'helping others', 'discovering something magical', 'overcoming obstacles', 'celebrating success', 'peaceful ending'
+      ];
+      
+      for (let i = 0; i < pageCount; i++) {
+        const activity = activities[i % activities.length];
+        fallbackScenes.push({
+          title: `Scene ${i + 1}: ${activity.charAt(0).toUpperCase() + activity.slice(1)}`,
+          description: `In this scene from "${storyInput}", the main character is ${activity}.`,
+          prompt: `Simple line art coloring page showing ${activity} in the story about ${storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background, suitable for children to color`
+        });
+      }
+      
+      console.log(`Using ${fallbackScenes.length} API fallback scenes based on user story`);
+      return res.json({ success: true, scenes: fallbackScenes });
     }
 
     const data = await response.json();
@@ -1778,16 +1794,16 @@ Return exactly ${pageCount} unique scenes in JSON array format.`;
       console.log('Creating enhanced fallback scenes');
       const fallbackScenes = [];
       const activities = [
-        'waking up', 'exploring', 'meeting friends', 'playing', 'learning something new', 
-        'facing a challenge', 'helping others', 'discovering something special', 'celebrating', 'going to sleep'
+        'starting the journey', 'discovering something new', 'meeting important characters', 'learning a valuable lesson', 'facing the first challenge', 
+        'finding unexpected help', 'exploring a special place', 'making a difficult choice', 'showing courage and determination', 'reaching a happy conclusion'
       ];
       
       for (let i = 0; i < pageCount; i++) {
         const activity = activities[i % activities.length];
         fallbackScenes.push({
           title: `Scene ${i + 1}: ${activity.charAt(0).toUpperCase() + activity.slice(1)}`,
-          description: `The character from "${storyInput}" is ${activity} in this scene.`,
-          prompt: `Simple line art coloring page showing a cute character ${activity} in the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
+          description: `In this scene from "${storyInput}", we see the story ${activity}.`,
+          prompt: `Simple line art coloring page showing ${activity} in the story about ${storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background, suitable for children to color`
         });
       }
       
