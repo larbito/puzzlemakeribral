@@ -1721,19 +1721,26 @@ Return exactly ${pageCount} unique scenes in JSON array format.`;
         scenes = parsedContent.scenes;
         console.log('Parsed scenes from object property');
       } else if (typeof parsedContent === 'object' && parsedContent.title) {
-        // Single scene object - wrap in array and generate more
-        console.log('Got single scene object, converting to array');
+        // Single scene object - wrap in array and generate more using enhanced fallback
+        console.log('Got single scene object, converting to array with enhanced scenes');
         scenes = [parsedContent];
         
-        // If we only got one scene but need more, create variations
+        // If we only got one scene but need more, use enhanced fallback activities
+        const activities = [
+          'beginning the adventure', 'exploring new places', 'meeting new friends', 'learning something important', 'facing a challenge', 
+          'helping others', 'discovering something magical', 'overcoming obstacles', 'celebrating success', 'peaceful ending'
+        ];
+        
         while (scenes.length < pageCount) {
           const sceneNumber = scenes.length + 1;
+          const activity = activities[(sceneNumber - 1) % activities.length];
           scenes.push({
-            title: `Scene ${sceneNumber}`,
-            description: `A scene from the story: ${storyInput}`,
-            prompt: `Simple line art coloring page showing scene ${sceneNumber} from the story about ${storyInput}, clean black outlines on white background, suitable for children to color`
+            title: `Scene ${sceneNumber}: ${activity.charAt(0).toUpperCase() + activity.slice(1)}`,
+            description: `In this scene from "${storyInput}", the main character is ${activity}.`,
+            prompt: `Simple line art coloring page showing ${activity} in the story about ${storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background, suitable for children to color`
           });
         }
+        console.log(`Extended to ${pageCount} scenes with enhanced activities`);
       } else {
         // Try to find any array property in the response
         const arrayProps = Object.entries(parsedContent)
@@ -1763,17 +1770,22 @@ Return exactly ${pageCount} unique scenes in JSON array format.`;
           scenes = scenes.slice(0, pageCount);
           console.log(`Trimmed to ${pageCount} scenes`);
         } else {
-          // Generate additional scenes to reach the target count
+          // Generate additional scenes to reach the target count using enhanced activities
+          const activities = [
+            'beginning the adventure', 'exploring new places', 'meeting new friends', 'learning something important', 'facing a challenge', 
+            'helping others', 'discovering something magical', 'overcoming obstacles', 'celebrating success', 'peaceful ending'
+          ];
+          
           while (scenes.length < pageCount) {
             const sceneNumber = scenes.length + 1;
-            const lastScene = scenes[scenes.length - 1];
+            const activity = activities[(sceneNumber - 1) % activities.length];
             scenes.push({
-              title: `Scene ${sceneNumber}: Continued Adventure`,
-              description: `A continuation of the story: ${storyInput}`,
-              prompt: `Simple line art coloring page showing scene ${sceneNumber} from the story about ${storyInput}, featuring different activities and moments, clean black outlines on white background, suitable for children to color`
+              title: `Scene ${sceneNumber}: ${activity.charAt(0).toUpperCase() + activity.slice(1)}`,
+              description: `In this scene from "${storyInput}", the main character is ${activity}.`,
+              prompt: `Simple line art coloring page showing ${activity} in the story about ${storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background, suitable for children to color`
             });
           }
-          console.log(`Extended to ${pageCount} scenes`);
+          console.log(`Extended to ${pageCount} scenes with enhanced activities`);
         }
       }
 
