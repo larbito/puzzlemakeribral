@@ -1544,17 +1544,41 @@ router.post('/extract-text', upload.none(), async (req, res) => {
 router.post('/generate-coloring-scenes', express.json(), async (req, res) => {
   try {
     console.log('Generate coloring scenes request received');
-    const { storyInput, pageCount, bookTitle, targetAudience, artStyle } = req.body;
+    const { 
+      storyInput, 
+      pageCount, 
+      bookTitle, 
+      targetAudience, 
+      artStyle,
+      complexity,
+      complexityModifier,
+      batchInfo
+    } = req.body;
     
     if (!storyInput) {
       return res.status(400).json({ error: 'Story input is required' });
     }
     
-    if (!pageCount || pageCount < 5 || pageCount > 100) {
-      return res.status(400).json({ error: 'Page count must be between 5 and 100' });
+    // Updated to support up to 300 pages with batch processing
+    if (!pageCount || pageCount < 1 || pageCount > 300) {
+      return res.status(400).json({ error: 'Page count must be between 1 and 300' });
     }
 
+    // Enhanced system prompt with complexity support
+    const complexityInstructions = {
+      'low': 'Focus on simple shapes, basic objects, minimal detail. Large areas for coloring with clean, bold outlines.',
+      'medium': 'Include moderate detail with balanced complexity. Mix of simple and detailed elements suitable for various ages.',
+      'high': 'Create detailed environments with multiple elements, intricate patterns, and complex scenes with fine details.'
+    };
+
+    const complexityInstruction = complexityInstructions[complexity] || complexityInstructions['medium'];
+    const batchContext = batchInfo ? 
+      `This is batch ${batchInfo.current} of ${batchInfo.total}, covering pages ${batchInfo.startPage}-${batchInfo.endPage}.` : 
+      '';
+
     const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to create engaging, age-appropriate scenes for a coloring book based on a story concept.
+
+${batchContext}
 
 Guidelines:
 1. Create exactly ${pageCount} UNIQUE and DIFFERENT scenes that tell a cohesive story from beginning to end
@@ -1565,6 +1589,9 @@ Guidelines:
 6. Include variety in settings, actions, emotions, and compositions
 7. Make each scene colorable with clear outlines and defined areas
 8. Each scene should advance the narrative and show character development
+
+COMPLEXITY LEVEL (${complexity}): ${complexityInstruction}
+${complexityModifier ? `Specific complexity modifier: ${complexityModifier}` : ''}
 
 IMPORTANT: Do NOT repeat similar scenes. Each one should be a completely different moment in the story.
 
@@ -1577,19 +1604,14 @@ Output Format:
 Return a JSON array of exactly ${pageCount} scenes, each with:
 - title: Short, engaging title that clearly differentiates this scene (5-8 words)
 - description: Brief story description showing what's happening in THIS specific moment (1-2 sentences)
-- prompt: Detailed coloring book illustration prompt optimized for AI generation
+- prompt: Detailed coloring book illustration prompt optimized for AI generation, incorporating the complexity level
 
 Example format:
 [
   {
     "title": "Character Wakes Up in New World",
     "description": "Our character opens their eyes for the first time in their new surroundings.",
-    "prompt": "Simple line art coloring page showing [character] waking up and stretching in [setting], with surprised expression, clean black outlines on white background"
-  },
-  {
-    "title": "First Adventure Outside",
-    "description": "The character steps outside and discovers the world around them.",
-    "prompt": "Simple line art coloring page showing [character] stepping outside and looking around in wonder at [different setting], clean black outlines on white background"
+    "prompt": "Simple line art coloring page showing [character] waking up and stretching in [setting], with surprised expression, ${complexityModifier || 'moderate detail'}, clean black outlines on white background"
   }
 ]`;
 
@@ -1597,30 +1619,35 @@ Example format:
 
 Create ${pageCount} COMPLETELY DIFFERENT coloring book scenes that tell this story from beginning to end. 
 
+${batchContext ? `BATCH CONTEXT: ${batchContext}` : ''}
+
 CRITICAL REQUIREMENTS:
 - Each scene must show a DIFFERENT activity, moment, or situation
 - Progress the story chronologically from start to finish
 - Vary the settings, actions, and emotions in each scene
 - Make each scene title and description clearly distinct from the others
 - Ensure each scene advances the narrative
+- Apply ${complexity} complexity level: ${complexityInstruction}
+${complexityModifier ? `- Use this detail level: ${complexityModifier}` : ''}
 
 NO repetitive scenes! Each one should be a unique moment in the character's journey.
 
 Target audience: ${targetAudience}
 Book title: ${bookTitle}
 Art style: ${artStyle}
+Complexity level: ${complexity}
 
 IMPORTANT: Return EXACTLY ${pageCount} scenes in a JSON array format like this:
 [
   {
     "title": "Scene 1 Title",
     "description": "Scene 1 description", 
-    "prompt": "Scene 1 AI generation prompt"
+    "prompt": "Scene 1 AI generation prompt with ${complexityModifier || 'appropriate detail level'}"
   },
   {
     "title": "Scene 2 Title",
     "description": "Scene 2 description",
-    "prompt": "Scene 2 AI generation prompt"
+    "prompt": "Scene 2 AI generation prompt with ${complexityModifier || 'appropriate detail level'}"
   }
 ]
 
@@ -1783,45 +1810,74 @@ Return exactly ${pageCount} unique scenes in JSON array format.`;
 router.post('/regenerate-scene', express.json(), async (req, res) => {
   try {
     console.log('Regenerate scene request received');
-    const { storyInput, sceneTitle, sceneDescription, artStyle } = req.body;
+    const { 
+      storyInput, 
+      sceneTitle, 
+      sceneDescription, 
+      artStyle,
+      complexity,
+      complexityModifier
+    } = req.body;
     
     if (!storyInput) {
       return res.status(400).json({ error: 'Story input is required' });
     }
 
-    const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to regenerate and improve a single scene for a coloring book while maintaining the story context.
+    // Enhanced system prompt for single scene regeneration
+    const complexityInstructions = {
+      'low': 'Focus on simple shapes, basic objects, minimal detail. Large areas for coloring with clean, bold outlines.',
+      'medium': 'Include moderate detail with balanced complexity. Mix of simple and detailed elements suitable for various ages.',
+      'high': 'Create detailed environments with multiple elements, intricate patterns, and complex scenes with fine details.'
+    };
+
+    const complexityInstruction = complexityInstructions[complexity] || complexityInstructions['medium'];
+
+    const systemPrompt = `You are an expert children's book writer and coloring book designer. Your task is to regenerate a single scene for a coloring book with fresh details while maintaining the core story concept.
 
 Guidelines:
-1. Keep the scene within the context of the overall story
-2. Make it SIGNIFICANTLY DIFFERENT from the current scene - change the activity, setting, or moment
-3. Create a unique moment that advances the story in a new way
-4. Make it suitable for coloring book illustration (${artStyle || 'line art'})
-5. Create clear, defined areas for coloring
-6. Avoid overly complex or frightening elements
-7. Make the scene engaging and fun to color
-8. Ensure this scene feels fresh and different from what was there before
+1. Create ONE unique scene that fits within the story concept
+2. Make it different from the original but maintain the same general theme/moment
+3. The scene should be descriptive enough for ${artStyle || 'line art'} illustration
+4. Make it colorable with clear outlines and defined areas
+5. Apply the specified complexity level consistently
 
-IMPORTANT: Generate a COMPLETELY DIFFERENT scene that tells a different moment in the story.
+COMPLEXITY LEVEL (${complexity}): ${complexityInstruction}
+${complexityModifier ? `Specific complexity modifier: ${complexityModifier}` : ''}
 
 Output Format:
 Return a JSON object with:
-- title: NEW and improved scene title that's clearly different (5-8 words)
-- description: NEW brief story description showing a different moment (1-2 sentences)  
-- prompt: Detailed coloring book illustration prompt (optimized for AI generation)`;
+- title: Short, engaging title (5-8 words)
+- description: Brief story description (1-2 sentences)
+- prompt: Detailed coloring book illustration prompt optimized for AI generation
 
-    const userPrompt = `Story Context: "${storyInput}"
-Current Scene Title: "${sceneTitle}"
-Current Scene Description: "${sceneDescription}"
+Example format:
+{
+  "title": "New Scene Title",
+  "description": "A fresh take on the scene concept.",
+  "prompt": "Simple line art coloring page showing [detailed description], ${complexityModifier || 'appropriate detail level'}, clean black outlines on white background"
+}`;
 
-Please generate a COMPLETELY NEW AND DIFFERENT scene that:
-- Shows a different moment or activity in the story
-- Has a different setting or situation than the current scene
-- Advances the story in a unique way
-- Is perfect for a ${artStyle} coloring page with clear outlines
+    const userPrompt = `Story Concept: "${storyInput}"
 
-Create something fresh and different while staying true to the story context.
+Original Scene Title: "${sceneTitle}"
+Original Scene Description: "${sceneDescription}"
 
-Return the improved scene in JSON format.`;
+Create a NEW variation of this scene that:
+- Maintains the same general story moment/theme
+- Offers fresh visual details and perspectives
+- Shows the same character(s) but in a slightly different situation or pose
+- Applies ${complexity} complexity level: ${complexityInstruction}
+${complexityModifier ? `- Uses this detail level: ${complexityModifier}` : ''}
+
+Art style: ${artStyle}
+Complexity level: ${complexity}
+
+IMPORTANT: Return exactly ONE scene object in JSON format:
+{
+  "title": "New Scene Title",
+  "description": "New scene description",
+  "prompt": "New AI generation prompt with ${complexityModifier || 'appropriate detail level'}"
+}`;
     
     console.log('Calling OpenAI API to regenerate scene');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1836,8 +1892,8 @@ Return the improved scene in JSON format.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 500,
-        temperature: 0.8,
+        max_tokens: 800,
+        temperature: 0.9, // Higher temperature for more creative variations
         response_format: { type: 'json_object' }
       })
     });
@@ -1858,30 +1914,38 @@ Return the improved scene in JSON format.`;
       return res.status(500).json({ error: 'No content received from OpenAI' });
     }
 
+    console.log('Raw regenerated scene content:', content);
+
     try {
       const scene = JSON.parse(content);
       
-      // Validate scene has required fields
+      // Validate the scene has required fields
       const validatedScene = {
-        title: scene.title || sceneTitle,
-        description: scene.description || sceneDescription,
-        prompt: scene.prompt || scene.description || `Simple line art coloring page, clean black outlines on white background`
+        title: scene.title || sceneTitle || 'Regenerated Scene',
+        description: scene.description || 'A regenerated scene from the story.',
+        prompt: scene.prompt || `Simple line art coloring page related to: ${storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background`
       };
 
-      console.log('Scene regenerated successfully');
-      res.json({ success: true, scene: validatedScene });
+      console.log('Successfully regenerated scene:', validatedScene.title);
+
+      res.json({
+        success: true,
+        scene: validatedScene
+      });
     } catch (parseError) {
-      console.error('Error parsing OpenAI response:', parseError);
+      console.error('Error parsing regenerated scene:', parseError);
       
-      // Fallback: return an improved version of the original
+      // Fallback response
       const fallbackScene = {
-        title: sceneTitle || 'Improved Scene',
-        description: sceneDescription || 'An improved coloring book scene.',
-        prompt: `Simple line art coloring page showing ${sceneDescription || sceneTitle}, clean black outlines on white background, suitable for children to color`
+        title: sceneTitle || 'Regenerated Scene',
+        description: 'A fresh take on the scene concept.',
+        prompt: `Simple line art coloring page showing a regenerated version of ${sceneDescription || storyInput}, ${complexityModifier || 'moderate detail'}, clean black outlines on white background`
       };
       
-      console.log('Using fallback scene due to parsing error');
-      res.json({ success: true, scene: fallbackScene });
+      res.json({
+        success: true,
+        scene: fallbackScene
+      });
     }
   } catch (error) {
     console.error('Error regenerating scene:', error);

@@ -1647,8 +1647,8 @@ export async function generateColoringBook({
     throw new Error('Prompt is required');
   }
   
-  if (pageCount < 1 || pageCount > 50) {
-    throw new Error('Page count must be between 1 and 50');
+  if (pageCount < 1 || pageCount > 300) {
+    throw new Error('Page count must be between 1 and 300');
   }
   
   console.log(`Generating ${pageCount}-page coloring book with base prompt: "${prompt}"`);

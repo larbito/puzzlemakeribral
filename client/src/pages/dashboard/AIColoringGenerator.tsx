@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
+import { Slider } from '@/components/ui/slider';
 import { 
   Wand2, 
   Sparkles, 
@@ -33,7 +34,11 @@ import {
   ArrowRight,
   Zap,
   Lightbulb,
-  Save
+  Save,
+  Trash2,
+  Plus,
+  GripVertical,
+  RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -65,6 +70,28 @@ const AI_MODELS = [
   }
 ];
 
+// Complexity levels for image generation
+const COMPLEXITY_LEVELS = [
+  {
+    value: 'low',
+    label: 'Low',
+    description: 'Simple objects, basic shapes, minimal detail',
+    promptModifier: 'simple, basic shapes, minimal details, large areas for coloring'
+  },
+  {
+    value: 'medium',
+    label: 'Medium',
+    description: 'Moderate detail, balanced complexity',
+    promptModifier: 'moderate detail, balanced complexity, suitable for children and adults'
+  },
+  {
+    value: 'high',
+    label: 'High',
+    description: 'Detailed environments, multiple elements, intricate patterns',
+    promptModifier: 'detailed environment, multiple elements, intricate patterns, complex scenes'
+  }
+];
+
 interface ColoringBookOptions {
   bookTitle: string;
   authorName: string;
@@ -78,6 +105,7 @@ interface ColoringBookOptions {
   safeArea: boolean;
   dpi: number;
   aiModel: string;
+  complexity: string;
 }
 
 interface Scene {
@@ -108,14 +136,15 @@ export const AIColoringGenerator = () => {
     authorName: '',
     subtitle: '',
     bookSize: '8.5x11',
-    pageCount: 20,
+    pageCount: 10,
     addTitlePage: true,
     addBlankPages: false,
     showPageNumbers: true,
     includeBleed: true,
     safeArea: true,
     dpi: 300,
-    aiModel: 'ideogram'
+    aiModel: 'ideogram',
+    complexity: 'medium'
   });
 
   // Story input (Step 2)
@@ -170,8 +199,8 @@ export const AIColoringGenerator = () => {
       toast.error('Please enter an author name');
       return;
     }
-    if (bookOptions.pageCount < 5 || bookOptions.pageCount > 100) {
-      toast.error('Page count must be between 5 and 100');
+    if (bookOptions.pageCount < 1 || bookOptions.pageCount > 300) {
+      toast.error('Page count must be between 1 and 300');
       return;
     }
     goToNextStep();
@@ -190,48 +219,79 @@ export const AIColoringGenerator = () => {
     goToNextStep();
   };
 
-  // Step 3: Generate scenes using ChatGPT
-  const generateScenes = async () => {
+  // Enhanced prompt generation with complexity and batch processing
+  const generateScenesWithComplexity = async () => {
     setIsGeneratingScenes(true);
     try {
       console.log('Generating scenes for story:', storyInput);
       console.log('Page count:', bookOptions.pageCount);
+      console.log('Complexity level:', bookOptions.complexity);
 
-      const response = await fetch(`${getApiUrl()}/api/openai/generate-coloring-scenes`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          storyInput: storyInput.trim(),
-          pageCount: bookOptions.pageCount,
-          bookTitle: bookOptions.bookTitle,
-          targetAudience: 'children and adults', // Could be made configurable
-          artStyle: 'coloring book line art'
-        }),
-      });
+      const complexity = COMPLEXITY_LEVELS.find(c => c.value === bookOptions.complexity);
+      const complexityModifier = complexity?.promptModifier || 'moderate detail';
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Server error: ${response.status}`);
-      }
+      let allScenes: Scene[] = [];
+      const batchSize = bookOptions.pageCount > 50 ? 25 : bookOptions.pageCount;
+      const totalBatches = Math.ceil(bookOptions.pageCount / batchSize);
 
-      const data = await response.json();
-      
-      if (data.success && data.scenes) {
-        const generatedScenes: Scene[] = data.scenes.map((scene: any, index: number) => ({
-          id: `scene-${index + 1}`,
-          title: scene.title || `Scene ${index + 1}`,
-          description: scene.description || '',
-          prompt: scene.prompt || scene.description || ''
-        }));
+      for (let batch = 0; batch < totalBatches; batch++) {
+        const startPage = batch * batchSize + 1;
+        const endPage = Math.min((batch + 1) * batchSize, bookOptions.pageCount);
+        const batchPageCount = endPage - startPage + 1;
+
+        console.log(`Generating batch ${batch + 1}/${totalBatches}: pages ${startPage}-${endPage}`);
+
+        const response = await fetch(`${getApiUrl()}/api/openai/generate-coloring-scenes`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            storyInput: storyInput.trim(),
+            pageCount: batchPageCount,
+            bookTitle: bookOptions.bookTitle,
+            targetAudience: 'children and adults',
+            artStyle: 'coloring book line art',
+            complexity: bookOptions.complexity,
+            complexityModifier: complexityModifier,
+            batchInfo: {
+              current: batch + 1,
+              total: totalBatches,
+              startPage: startPage,
+              endPage: endPage
+            }
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
         
-        setScenes(generatedScenes);
-        toast.success(`Generated ${generatedScenes.length} scenes successfully!`);
-        goToNextStep(); // Automatically proceed to scene review
-      } else {
-        throw new Error(data.error || 'Invalid response format');
+        if (data.success && data.scenes) {
+          const batchScenes: Scene[] = data.scenes.map((scene: any, index: number) => ({
+            id: `scene-${startPage + index}`,
+            title: scene.title || `Scene ${startPage + index}`,
+            description: scene.description || '',
+            prompt: `${scene.prompt || scene.description}, ${complexityModifier}, black and white line art, clean outlines, suitable for coloring`
+          }));
+          
+          allScenes = [...allScenes, ...batchScenes];
+        } else {
+          throw new Error(data.error || 'Invalid response format');
+        }
+
+        // Add delay between batches to avoid rate limiting
+        if (batch < totalBatches - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
+      
+      setScenes(allScenes);
+      toast.success(`Generated ${allScenes.length} scenes successfully!`);
+      goToNextStep(); // Automatically proceed to scene review
     } catch (error) {
       console.error('Error generating scenes:', error);
       toast.error(`Failed to generate scenes: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -247,6 +307,37 @@ export const AIColoringGenerator = () => {
     ));
   };
 
+  // Step 4: Add new scene
+  const addNewScene = () => {
+    const newScene: Scene = {
+      id: `scene-${Date.now()}`,
+      title: `Scene ${scenes.length + 1}`,
+      description: 'A new coloring page scene',
+      prompt: 'Simple line art coloring page, black and white outlines, suitable for coloring'
+    };
+    setScenes(prev => [...prev, newScene]);
+  };
+
+  // Step 4: Delete scene
+  const deleteScene = (sceneId: string) => {
+    setScenes(prev => prev.filter(scene => scene.id !== sceneId));
+  };
+
+  // Step 4: Reorder scenes
+  const moveScene = (sceneId: string, direction: 'up' | 'down') => {
+    setScenes(prev => {
+      const index = prev.findIndex(scene => scene.id === sceneId);
+      if (index === -1) return prev;
+      
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
+      if (newIndex < 0 || newIndex >= prev.length) return prev;
+      
+      const newScenes = [...prev];
+      [newScenes[index], newScenes[newIndex]] = [newScenes[newIndex], newScenes[index]];
+      return newScenes;
+    });
+  };
+
   // Step 4: Regenerate single scene
   const regenerateScene = async (sceneId: string) => {
     const scene = scenes.find(s => s.id === sceneId);
@@ -254,6 +345,9 @@ export const AIColoringGenerator = () => {
 
     try {
       updateScene(sceneId, { isGenerating: true });
+      
+      const complexity = COMPLEXITY_LEVELS.find(c => c.value === bookOptions.complexity);
+      const complexityModifier = complexity?.promptModifier || 'moderate detail';
       
       const response = await fetch(`${getApiUrl()}/api/openai/regenerate-scene`, {
         method: 'POST',
@@ -264,7 +358,9 @@ export const AIColoringGenerator = () => {
           storyInput: storyInput.trim(),
           sceneTitle: scene.title,
           sceneDescription: scene.description,
-          artStyle: 'coloring book line art'
+          artStyle: 'coloring book line art',
+          complexity: bookOptions.complexity,
+          complexityModifier: complexityModifier
         }),
       });
 
@@ -278,7 +374,7 @@ export const AIColoringGenerator = () => {
         updateScene(sceneId, {
           title: data.scene.title || scene.title,
           description: data.scene.description || scene.description,
-          prompt: data.scene.prompt || data.scene.description,
+          prompt: `${data.scene.prompt || data.scene.description}, ${complexityModifier}, black and white line art, clean outlines, suitable for coloring`,
           isGenerating: false
         });
         toast.success('Scene regenerated successfully!');
@@ -378,7 +474,7 @@ export const AIColoringGenerator = () => {
     }
   };
 
-  // Step 6: Create PDF
+  // Step 6: Create PDF with enhanced settings
   const createPDF = async () => {
     setIsCreatingPdf(true);
     try {
@@ -601,13 +697,13 @@ export const AIColoringGenerator = () => {
                         <Input
                           id="pageCount"
                           type="number"
-                          min="5"
-                          max="100"
+                          min="1"
+                          max="300"
                           value={bookOptions.pageCount}
-                          onChange={(e) => setBookOptions(prev => ({ ...prev, pageCount: parseInt(e.target.value) || 20 }))}
+                          onChange={(e) => setBookOptions(prev => ({ ...prev, pageCount: parseInt(e.target.value) || 10 }))}
                           className="bg-background/50 border-primary/20 focus:border-primary/50"
                         />
-                        <span className="text-sm text-muted-foreground">5-100 pages</span>
+                        <span className="text-sm text-muted-foreground">1-300 pages</span>
                       </div>
                     </div>
                   </div>
@@ -666,6 +762,32 @@ export const AIColoringGenerator = () => {
                           );
                         })}
                       </div>
+                    </div>
+
+                    {/* NEW: Image Complexity Selector */}
+                    <div className="space-y-2">
+                      <Label>Image Complexity</Label>
+                      <Select
+                        value={bookOptions.complexity}
+                        onValueChange={(value) => setBookOptions(prev => ({ ...prev, complexity: value }))}
+                      >
+                        <SelectTrigger className="bg-background/50 border-primary/20 focus:border-primary/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COMPLEXITY_LEVELS.map((level) => (
+                            <SelectItem key={level.value} value={level.value}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{level.label}</span>
+                                <span className="text-xs text-muted-foreground">{level.description}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {COMPLEXITY_LEVELS.find(l => l.value === bookOptions.complexity)?.description}
+                      </p>
                     </div>
 
                     {/* KDP Options */}
@@ -757,8 +879,14 @@ export const AIColoringGenerator = () => {
                       AI Scene Generation
                     </h3>
                     <p className="text-sm text-muted-foreground">
-                      Our AI will analyze your story concept and automatically generate <strong>{bookOptions.pageCount} unique scenes</strong> that follow your theme. Each scene will be designed as a coloring page with appropriate line art suitable for both children and adults.
+                      Our AI will analyze your story concept and automatically generate <strong>{bookOptions.pageCount} unique scenes</strong> that follow your theme. Each scene will be designed as a coloring page with <strong>{COMPLEXITY_LEVELS.find(c => c.value === bookOptions.complexity)?.label.toLowerCase()}</strong> complexity suitable for both children and adults.
                     </p>
+                    {bookOptions.pageCount > 50 && (
+                      <p className="text-xs text-amber-600 mt-2 flex items-center">
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Large batch detected: Scenes will be generated in multiple batches to ensure quality.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex justify-between pt-6">
@@ -810,6 +938,12 @@ export const AIColoringGenerator = () => {
                       <div>
                         <span className="font-medium">AI Model:</span> {AI_MODELS.find(m => m.id === bookOptions.aiModel)?.name}
                       </div>
+                      <div>
+                        <span className="font-medium">Complexity:</span> {COMPLEXITY_LEVELS.find(c => c.value === bookOptions.complexity)?.label}
+                      </div>
+                      <div>
+                        <span className="font-medium">Batches:</span> {bookOptions.pageCount > 50 ? Math.ceil(bookOptions.pageCount / 25) : 1}
+                      </div>
                     </div>
                   </div>
 
@@ -823,7 +957,7 @@ export const AIColoringGenerator = () => {
                       Back to Story Input
                     </Button>
                     <Button 
-                      onClick={generateScenes}
+                      onClick={generateScenesWithComplexity}
                       disabled={isGeneratingScenes}
                       className="px-8"
                     >
@@ -845,24 +979,7 @@ export const AIColoringGenerator = () => {
             </Card>
           )}
 
-          {/* Navigation buttons for other steps will be added here */}
-          {currentStep !== 'book-settings' && currentStep !== 'story-input' && currentStep !== 'scene-generation' && (
-            <div className="text-center p-8">
-              <p className="text-muted-foreground">Steps 4-6 will be implemented next...</p>
-              <div className="flex justify-center space-x-4 mt-4">
-                <Button variant="outline" onClick={goToPreviousStep}>
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous Step
-                </Button>
-                <Button onClick={goToNextStep}>
-                  Next Step
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 4: Scene Review */}
+          {/* STEP 4: Scene Review - Enhanced with reordering, adding, deleting */}
           {currentStep === 'scene-review' && (
             <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
@@ -878,6 +995,32 @@ export const AIColoringGenerator = () => {
                       {scenes.length} scenes ready for "{storyInput.substring(0, 50)}..."
                     </div>
                   </div>
+
+                  {/* Scene Management Controls */}
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={addNewScene}
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Scene
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScenes([])}
+                        disabled={scenes.length === 0}
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        Clear All
+                      </Button>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Total scenes: {scenes.length}
+                    </div>
+                  </div>
                   
                   <div className="grid gap-6">
                     {scenes.map((scene, index) => (
@@ -890,6 +1033,25 @@ export const AIColoringGenerator = () => {
                             <h3 className="text-lg font-semibold">Scene {index + 1}</h3>
                           </div>
                           <div className="flex space-x-2">
+                            {/* Reorder buttons */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveScene(scene.id, 'up')}
+                              disabled={index === 0}
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => moveScene(scene.id, 'down')}
+                              disabled={index === scenes.length - 1}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                            
+                            {/* Action buttons */}
                             <Button
                               variant="outline"
                               size="sm"
@@ -911,6 +1073,15 @@ export const AIColoringGenerator = () => {
                                 <Shuffle className="w-4 h-4 mr-2" />
                               )}
                               {scene.isGenerating ? 'Regenerating...' : 'Regenerate'}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteScene(scene.id)}
+                              disabled={scene.isGenerating}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </div>
@@ -985,6 +1156,7 @@ export const AIColoringGenerator = () => {
                     <Button
                       onClick={goToNextStep}
                       className="px-8"
+                      disabled={scenes.length === 0}
                     >
                       Generate Coloring Pages
                       <ArrowRight className="w-4 h-4 ml-2" />
@@ -1143,7 +1315,22 @@ export const AIColoringGenerator = () => {
                         <span className="font-medium">AI Model:</span> {AI_MODELS.find(m => m.id === bookOptions.aiModel)?.name}
                       </div>
                       <div>
-                        <span className="font-medium">Story:</span> {storyInput.substring(0, 50)}...
+                        <span className="font-medium">Complexity:</span> {COMPLEXITY_LEVELS.find(c => c.value === bookOptions.complexity)?.label}
+                      </div>
+                      <div>
+                        <span className="font-medium">DPI:</span> {bookOptions.dpi}
+                      </div>
+                      <div>
+                        <span className="font-medium">Bleed:</span> {bookOptions.includeBleed ? 'Yes' : 'No'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Page Numbers:</span> {bookOptions.showPageNumbers ? 'Yes' : 'No'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Title Page:</span> {bookOptions.addTitlePage ? 'Yes' : 'No'}
+                      </div>
+                      <div className="md:col-span-2">
+                        <span className="font-medium">Story:</span> {storyInput.substring(0, 100)}{storyInput.length > 100 ? '...' : ''}
                       </div>
                     </div>
                   </div>
