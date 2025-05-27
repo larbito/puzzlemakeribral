@@ -22,12 +22,14 @@ import { Badge } from '@/components/ui/badge';
 // Define which routes are coming soon
 const comingSoonRoutes = [
   '/dashboard/ai-book-generator',
-  '/dashboard/kdp-formatter',
   '/dashboard/puzzle-generator',
   '/dashboard/content',
   '/dashboard/pricing',
   '/dashboard/merch-calculator',
 ];
+
+console.log('Coming soon routes:', comingSoonRoutes);
+console.log('KDP Formatter in coming soon?', comingSoonRoutes.includes('/dashboard/kdp-formatter'));
 
 const navigation = [
   // Dashboard overview
@@ -91,6 +93,16 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const isComingSoon = comingSoonRoutes.includes(item.href);
+              
+              // Debug logging for KDP formatter
+              if (item.name === 'KDP Book Formatter') {
+                console.log('KDP Formatter debug:', {
+                  name: item.name,
+                  href: item.href,
+                  isComingSoon,
+                  comingSoonRoutes
+                });
+              }
               
               // For coming soon items, render a div instead of a Link to completely prevent navigation
               return isComingSoon ? (

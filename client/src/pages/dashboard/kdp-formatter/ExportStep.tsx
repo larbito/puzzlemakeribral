@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   FileDown, 
   CheckCircle, 
@@ -37,7 +38,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({
   const [highQuality, setHighQuality] = useState(true);
   const { toast } = useToast();
 
-  // Export to PDF
+  // Export to PDF with better HTML rendering
   const exportToPDF = async () => {
     if (formattedContent.length === 0) {
       toast({
@@ -58,7 +59,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       const pdf = new jsPDF({
         orientation: dimensions.width > dimensions.height ? 'landscape' : 'portrait',
         unit: 'mm',
-        format: [dimensions.width, dimensions.height]
+        format: [dimensions.width, dimensions.height],
+        compress: highQuality
       });
       
       // Add metadata
@@ -70,74 +72,76 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         creator: 'KDP Book Formatter'
       });
       
-      // Set font
-      if (embedFonts) {
-        // In a real implementation, we would load and embed fonts
-        // For this demo, we'll use standard fonts
-        pdf.setFont('helvetica');
-      } else {
-        pdf.setFont('helvetica');
-      }
-      
       // Calculate margins in mm
       const marginTop = settings.marginTop * 25.4;      // convert inches to mm
       const marginBottom = settings.marginBottom * 25.4;
       const marginInside = settings.marginInside * 25.4;
       const marginOutside = settings.marginOutside * 25.4;
       
-      // Function to add text with proper wrapping and styling
-      const addTextToPage = (content: string, pageIndex: number) => {
+      // Function to render HTML content to PDF page
+      const addHtmlPageToPDF = async (content: string, pageIndex: number) => {
         // Add a new page if needed (skip for first page)
         if (pageIndex > 0) {
           pdf.addPage();
         }
         
-        // Use html renderer for better formatting
-        const html = `
-          <div style="
-            font-family: ${settings.fontFamily};
-            font-size: ${settings.fontSize}pt;
-            line-height: ${settings.lineSpacing};
-          ">
-            ${content}
-          </div>
-        `;
+        // Create a temporary container for rendering
+        const container = document.createElement('div');
+        container.style.position = 'absolute';
+        container.style.left = '-9999px';
+        container.style.top = '-9999px';
+        container.style.width = `${dimensions.width}mm`;
+        container.style.height = `${dimensions.height}mm`;
+        container.style.fontFamily = settings.fontFamily;
+        container.style.fontSize = `${settings.fontSize}pt`;
+        container.style.lineHeight = String(settings.lineSpacing);
+        container.style.backgroundColor = 'white';
+        container.style.padding = `${marginTop}mm ${marginOutside}mm ${marginBottom}mm ${marginInside}mm`;
+        container.style.boxSizing = 'border-box';
+        container.innerHTML = content;
         
-        // In a real implementation, we would use a proper HTML renderer
-        // For this demo, we'll just add basic text
-        const leftMargin = pageIndex % 2 === 0 ? marginOutside : marginInside;
-        const rightMargin = pageIndex % 2 === 0 ? marginInside : marginOutside;
+        document.body.appendChild(container);
         
-        // Use browser's HTML parser to extract text
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
-        const text = tempDiv.textContent || '';
-        
-        // Add text to PDF
-        pdf.text(text, leftMargin, marginTop + 10);
-        
-        // Add page numbers if enabled
-        if (settings.includePageNumbers && pageIndex > 0) { // Skip page number on title page
-          const pageNumber = pageIndex.toString();
-          const textWidth = pdf.getTextWidth(pageNumber);
+        try {
+          // Convert HTML to canvas
+          const canvas = await html2canvas(container, {
+            scale: 2, // Higher scale for better quality
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff'
+          });
           
-          pdf.text(
-            pageNumber,
-            (dimensions.width - textWidth) / 2,
-            dimensions.height - marginBottom / 2
-          );
+          // Convert canvas to image data
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          
+          // Add image to PDF
+          pdf.addImage(imgData, 'JPEG', 0, 0, dimensions.width, dimensions.height);
+          
+          // Add page numbers if enabled
+          if (settings.includePageNumbers && pageIndex > 0) { // Skip page number on title page
+            const pageNumber = pageIndex.toString();
+            pdf.setFontSize(10);
+            const textWidth = pdf.getTextWidth(pageNumber);
+            
+            pdf.text(
+              pageNumber,
+              (dimensions.width - textWidth) / 2,
+              dimensions.height - marginBottom / 2
+            );
+          }
+        } finally {
+          // Clean up
+          document.body.removeChild(container);
         }
       };
       
-      // Add each page to the PDF
+      // Process each page
       for (let i = 0; i < formattedContent.length; i++) {
-        addTextToPage(formattedContent[i], i);
-      }
-      
-      // Apply high quality settings if requested
-      if (highQuality) {
-        // In a real implementation, we would set PDF quality options
-        // For this demo, we'll assume it's already high quality
+        await addHtmlPageToPDF(formattedContent[i], i);
+        
+        // Update progress (optional - could add progress bar)
+        const progress = ((i + 1) / formattedContent.length) * 100;
+        console.log(`Processing page ${i + 1}/${formattedContent.length} (${progress.toFixed(1)}%)`);
       }
       
       // Generate the PDF blob

@@ -76,8 +76,8 @@ function App() {
                       <Route path="ai-book" element={<AIBookPage />} />
                       {/* Coming Soon: AI Book Generator */}
                       <Route path="ai-book-generator" element={<ComingSoon title="AI Book Generator" />} />
-                      {/* Coming Soon: KDP Book Formatter */}
-                      <Route path="kdp-formatter" element={<ComingSoon title="KDP Book Formatter" />} />
+                      {/* KDP Book Formatter - Now Available */}
+                      <Route path="kdp-formatter" element={<KDPBookFormatter />} />
                       <Route path="t-shirts" element={<TShirtDesigner />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="vectorizer" element={<Vectorizer />} />

@@ -60,219 +60,71 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
     setExtractError(null);
 
     try {
-      let text = '';
-      const fileType = selectedFile.type;
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('file', selectedFile);
 
-      // Create a synthetic progress simulation
-      const progressInterval = setInterval(() => {
-        setExtractProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 500);
+      setExtractProgress(30);
 
-      if (fileType === 'text/plain') {
-        // Handle .txt files
-        text = await readTextFile(selectedFile);
-      } else if (fileType === 'application/pdf') {
-        // Handle PDF files
-        text = await extractPdfText(selectedFile);
-      } else if (fileType.includes('wordprocessingml.document')) {
-        // Handle .docx files
-        text = await extractDocxText(selectedFile);
-      } else {
-        throw new Error('Unsupported file type');
+      // Send file to backend for processing
+      const response = await fetch(`http://localhost:3000/api/kdp-formatter/extract`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      setExtractProgress(70);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to process file');
       }
 
-      clearInterval(progressInterval);
-      setExtractProgress(100);
+      const data = await response.json();
       
-      // Set the raw text preview
-      setPreviewText(text.substring(0, 1000) + (text.length > 1000 ? '...' : ''));
-      
-      // Process the text into structured content
-      const structuredContent = processTextIntoChapters(text);
-      
-      // Update the parent component with the extracted content
-      onContentExtracted({
-        rawText: text,
-        ...structuredContent
-      });
-      
-      // Notify that text has been successfully extracted
-      onTextExtracted();
+      if (data.success && data.content) {
+        setExtractProgress(100);
+        
+        // Set the raw text preview
+        const rawText = data.content.rawText || '';
+        setPreviewText(rawText.substring(0, 1000) + (rawText.length > 1000 ? '...' : ''));
+        
+        // Update the parent component with the extracted content
+        onContentExtracted(data.content);
+        
+        // Notify that text has been successfully extracted
+        onTextExtracted();
 
-      toast({
-        title: 'Content extracted successfully',
-        description: `Extracted ${text.length} characters from ${selectedFile.name}`,
-      });
+        toast({
+          title: 'Content extracted successfully',
+          description: `Extracted ${rawText.length} characters from ${selectedFile.name}`,
+        });
+      } else {
+        throw new Error('Invalid response from server');
+      }
     } catch (error) {
       console.error('Error extracting content:', error);
-      setExtractError(error instanceof Error ? error.message : 'Unknown error');
+      
+      let errorMessage = 'There was a problem processing your file. Please try another file or format.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('file type')) {
+          errorMessage = 'Unsupported file type. Please upload a PDF, DOCX, or TXT file.';
+        } else if (error.message.includes('size')) {
+          errorMessage = 'File is too large. Please upload a file smaller than 50MB.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+      }
+      
+      setExtractError(errorMessage);
       
       toast({
         title: 'Error extracting content',
-        description: 'There was a problem processing your file. Please try another file or format.',
+        description: errorMessage,
       });
     } finally {
       setExtracting(false);
     }
-  };
-
-  // Read text file
-  const readTextFile = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new Error('Failed to read text file'));
-        }
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsText(file);
-    });
-  };
-
-  // Extract text from PDF
-  const extractPdfText = async (file: File): Promise<string> => {
-    try {
-      // For actual implementation, we'd need to use a library like pdf.js
-      // This is a placeholder implementation - in production, you would:
-      // 1. Load pdf.js
-      // 2. Parse the PDF
-      // 3. Extract text from each page
-      
-      // For now, we'll mock this with a simple file reader and notify that proper parsing would be needed
-      const text = await readTextFile(file);
-      
-      toast({
-        title: 'PDF parsing limited',
-        description: 'Full PDF parsing requires pdf.js integration. Text extraction may be incomplete.',
-      });
-      
-      return text;
-    } catch (error) {
-      console.error('PDF extraction error:', error);
-      throw new Error('Failed to extract text from PDF');
-    }
-  };
-
-  // Extract text from DOCX
-  const extractDocxText = async (file: File): Promise<string> => {
-    try {
-      // For actual implementation, we'd need to use a library like mammoth.js
-      // This is a placeholder implementation
-      
-      // For now, we'll mock this with a simple file reader and notify that proper parsing would be needed
-      const text = await readTextFile(file);
-      
-      toast({
-        title: 'DOCX parsing limited',
-        description: 'Full DOCX parsing requires mammoth.js integration. Text extraction may be incomplete.',
-      });
-      
-      return text;
-    } catch (error) {
-      console.error('DOCX extraction error:', error);
-      throw new Error('Failed to extract text from DOCX');
-    }
-  };
-
-  // Process text into chapters
-  const processTextIntoChapters = (text: string): Partial<BookContent> => {
-    // Extract title (assume first line is title if it's short enough)
-    const lines = text.split('\n').filter(line => line.trim() !== '');
-    let title = 'Untitled Book';
-    
-    if (lines.length > 0 && lines[0].length < 100) {
-      title = lines[0].trim();
-    }
-    
-    // Try to identify chapters - look for patterns like:
-    // "Chapter X" or "X. Chapter Title" or lines in all caps or lines that start with #
-    const chapterPatterns = [
-      /^Chapter\s+\d+(?:[:.]\s*|\s+)(.+)$/i,  // "Chapter 1: Title" or "Chapter 1. Title" or "Chapter 1 Title"
-      /^(\d+)\.\s+(.+)$/,                     // "1. Chapter Title"
-      /^#+\s+(.+)$/,                          // "# Chapter Title" (Markdown heading)
-      /^([A-Z][A-Z\s]+[A-Z])$/                // "ALL CAPS LINE"
-    ];
-    
-    const chapters = [];
-    let currentChapterTitle = 'Introduction';
-    let currentChapterContent = '';
-    let chapterStarted = false;
-    
-    for (const line of lines) {
-      let isChapterHeading = false;
-      
-      // Skip the first line if it's the title
-      if (line === title && !chapterStarted) {
-        continue;
-      }
-      
-      // Check if the line is a chapter heading
-      for (const pattern of chapterPatterns) {
-        const match = line.match(pattern);
-        if (match) {
-          // If we already have content, save the previous chapter
-          if (chapterStarted && currentChapterContent.trim()) {
-            chapters.push({
-              id: uuidv4(),
-              title: currentChapterTitle,
-              content: currentChapterContent.trim(),
-              level: 1
-            });
-          }
-          
-          // Start a new chapter
-          currentChapterTitle = match[1] || line;
-          currentChapterContent = '';
-          chapterStarted = true;
-          isChapterHeading = true;
-          break;
-        }
-      }
-      
-      // If not a chapter heading, add to current chapter
-      if (!isChapterHeading) {
-        // If we haven't started a chapter yet, start the introduction
-        if (!chapterStarted) {
-          chapterStarted = true;
-        }
-        currentChapterContent += line + '\n\n';
-      }
-    }
-    
-    // Add the last chapter
-    if (chapterStarted && currentChapterContent.trim()) {
-      chapters.push({
-        id: uuidv4(),
-        title: currentChapterTitle,
-        content: currentChapterContent.trim(),
-        level: 1
-      });
-    }
-    
-    // If no chapters were identified, create a single chapter with all content
-    if (chapters.length === 0 && text.trim()) {
-      chapters.push({
-        id: uuidv4(),
-        title: 'Chapter 1',
-        content: text.trim(),
-        level: 1
-      });
-    }
-    
-    return {
-      title,
-      chapters,
-      metadata: {}
-    };
   };
 
   return (

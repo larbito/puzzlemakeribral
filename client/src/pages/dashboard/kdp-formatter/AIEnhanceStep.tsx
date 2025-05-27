@@ -42,7 +42,7 @@ export const AIEnhanceStep: React.FC<AIEnhanceStepProps> = ({
   const { toast } = useToast();
 
   // API URL from environment
-  const API_URL = import.meta.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
+  const API_URL = 'http://localhost:3000';
 
   // Select chapter
   const handleChapterSelect = (chapterId: string) => {
@@ -81,101 +81,56 @@ export const AIEnhanceStep: React.FC<AIEnhanceStepProps> = ({
     setErrorMessage('');
     
     try {
-      // Create prompt based on enhancement type
-      let prompt = '';
-      
-      switch (enhancementType) {
-        case 'improve':
-          prompt = `Improve the following text to make it more engaging, clear, and professional while maintaining the original meaning and style:\n\n${originalText}`;
-          break;
-        case 'simplify':
-          prompt = `Simplify the following text to make it easier to understand, using simpler vocabulary and shorter sentences while preserving the meaning:\n\n${originalText}`;
-          break;
-        case 'formal':
-          prompt = `Rewrite the following text in a more formal, academic style with sophisticated vocabulary while maintaining the original meaning:\n\n${originalText}`;
-          break;
-        case 'creative':
-          prompt = `Rewrite the following text in a more creative, descriptive, and evocative way while maintaining the original meaning and narrative flow:\n\n${originalText}`;
-          break;
-        case 'grammar':
-          prompt = `Correct any grammar, spelling, punctuation, and stylistic issues in the following text while preserving the original meaning and voice:\n\n${originalText}`;
-          break;
-      }
-      
-      // Simulate API call (in a real implementation, replace with actual OpenAI API call)
-      // For demonstration purposes, we'll use a setTimeout
-      // In production, you would use:
-      // const response = await fetch(`${API_URL}/api/openai/enhance-text`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({ prompt, enhancementType }),
-      // });
-      // const data = await response.json();
-      // const enhancedContent = data.enhancedText;
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // For demo, we'll just modify the text based on the enhancement type
-      let enhancedContent = '';
-      
-      if (enhancementType === 'improve') {
-        enhancedContent = originalText
-          .replace(/\b(good|nice|bad)\b/gi, match => {
-            if (match.toLowerCase() === 'good') return 'excellent';
-            if (match.toLowerCase() === 'nice') return 'wonderful';
-            if (match.toLowerCase() === 'bad') return 'terrible';
-            return match;
-          })
-          .replace(/\./g, '. ') // Add space after periods
-          .trim();
-      } else if (enhancementType === 'simplify') {
-        enhancedContent = originalText
-          .replace(/\b(\w{12,})\b/g, 'simpler word') // Replace long words
-          .split(/\. /).map(s => s.trim()).join('.\n\n') // Break into shorter paragraphs
-          .trim();
-      } else if (enhancementType === 'formal') {
-        enhancedContent = originalText
-          .replace(/\b(use|make|do)\b/gi, match => {
-            if (match.toLowerCase() === 'use') return 'utilize';
-            if (match.toLowerCase() === 'make') return 'construct';
-            if (match.toLowerCase() === 'do') return 'perform';
-            return match;
-          })
-          .trim();
-      } else if (enhancementType === 'creative') {
-        enhancedContent = originalText
-          .replace(/\b(saw|looked|heard)\b/gi, match => {
-            if (match.toLowerCase() === 'saw') return 'glimpsed';
-            if (match.toLowerCase() === 'looked') return 'gazed intently';
-            if (match.toLowerCase() === 'heard') return 'perceived the melodious sound of';
-            return match;
-          })
-          .trim();
-      } else if (enhancementType === 'grammar') {
-        enhancedContent = originalText
-          .replace(/\s+([,.!?])/g, '$1') // Fix spacing before punctuation
-          .replace(/([,.!?])([a-zA-Z])/g, '$1 $2') // Add space after punctuation
-          .trim();
-      }
-      
-      setEnhancedText(enhancedContent);
-      setEnhancementStatus('complete');
-      
-      toast({
-        title: 'Enhancement complete',
-        description: `Your text has been enhanced using the "${enhancementType}" style.`
+      const response = await fetch(`${API_URL}/api/kdp-formatter/enhance-text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          text: originalText, 
+          enhancementType 
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to enhance text');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.enhancedText) {
+        setEnhancedText(data.enhancedText);
+        setEnhancementStatus('complete');
+        
+        toast({
+          title: 'Enhancement complete',
+          description: `Your text has been enhanced using the "${enhancementType}" style.`
+        });
+      } else {
+        throw new Error('Invalid response from AI service');
+      }
     } catch (error) {
       console.error('Error enhancing text:', error);
       setEnhancementStatus('error');
-      setErrorMessage('There was a problem connecting to the AI service. Please try again.');
+      
+      let errorMessage = 'There was a problem enhancing your text. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('quota')) {
+          errorMessage = 'AI service quota exceeded. Please try again later.';
+        } else if (error.message.includes('API key') || error.message.includes('AI_SERVICE_UNAVAILABLE')) {
+          errorMessage = 'AI enhancement service is not configured. This feature requires an OpenAI API key.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+      }
+      
+      setErrorMessage(errorMessage);
       
       toast({
         title: 'Enhancement failed',
-        description: 'There was a problem enhancing your text. Please try again.',
+        description: errorMessage,
       });
     }
   };

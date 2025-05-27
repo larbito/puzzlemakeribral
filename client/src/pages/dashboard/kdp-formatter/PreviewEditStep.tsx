@@ -49,6 +49,15 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
   const previewRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // State for inline editing
+  const [inlineEditMode, setInlineEditMode] = useState(false);
+  const [editingElement, setEditingElement] = useState<{
+    type: 'title' | 'chapter-title' | 'paragraph';
+    chapterId?: string;
+    paragraphIndex?: number;
+    content: string;
+  } | null>(null);
+
   // When chapters change, select the first chapter as default
   useEffect(() => {
     if (bookContent.chapters.length > 0 && !selectedChapterId) {
@@ -73,13 +82,29 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     formatBook();
   }, [settings, bookContent]);
 
+  // Get dimensions (in inches) based on trim size
+  const getTrimSizeDimensions = (trimSize: string) => {
+    switch (trimSize) {
+      case '6x9':
+        return { width: 6, height: 9 };
+      case '5x8':
+        return { width: 5, height: 8 };
+      case '7x10':
+        return { width: 7, height: 10 };
+      case '8.5x11':
+        return { width: 8.5, height: 11 };
+      default:
+        return { width: 6, height: 9 };
+    }
+  };
+
+  // Calculate current dimensions
+  const dimensions = getTrimSizeDimensions(settings.trimSize);
+
   // Format the book content into pages
   const formatBook = () => {
     if (!bookContent.chapters.length) return;
 
-    // Calculate the page dimensions based on trim size
-    const dimensions = getTrimSizeDimensions(settings.trimSize);
-    
     // Create a mock page to calculate capacity
     const mockPage = document.createElement('div');
     mockPage.style.fontFamily = settings.fontFamily;
@@ -169,22 +194,6 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     onFormattedContent(formattedPages);
   };
 
-  // Get dimensions (in inches) based on trim size
-  const getTrimSizeDimensions = (trimSize: string) => {
-    switch (trimSize) {
-      case '6x9':
-        return { width: 6, height: 9 };
-      case '5x8':
-        return { width: 5, height: 8 };
-      case '7x10':
-        return { width: 7, height: 10 };
-      case '8.5x11':
-        return { width: 8.5, height: 11 };
-      default:
-        return { width: 6, height: 9 };
-    }
-  };
-
   // Page navigation handlers
   const goToNextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -255,8 +264,133 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     setEditedContent(value);
   };
 
-  // Calculate current dimensions
-  const dimensions = getTrimSizeDimensions(settings.trimSize);
+  // Handle inline editing
+  const handleInlineEdit = (element: HTMLElement, event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Determine what type of element was clicked
+    const isTitle = element.tagName === 'H1' || element.closest('.title-page h1');
+    const isChapterTitle = element.tagName === 'H2' || element.closest('h2');
+    const isParagraph = element.tagName === 'P' || element.closest('p');
+    
+    if (isTitle) {
+      setEditingElement({
+        type: 'title',
+        content: bookContent.title
+      });
+    } else if (isChapterTitle && selectedChapterId) {
+      const chapter = bookContent.chapters.find(c => c.id === selectedChapterId);
+      if (chapter) {
+        setEditingElement({
+          type: 'chapter-title',
+          chapterId: selectedChapterId,
+          content: chapter.title
+        });
+      }
+    } else if (isParagraph && selectedChapterId) {
+      // Find which paragraph was clicked
+      const paragraphText = element.textContent || '';
+      const chapter = bookContent.chapters.find(c => c.id === selectedChapterId);
+      if (chapter) {
+        const paragraphs = chapter.content.split('\n\n');
+        const paragraphIndex = paragraphs.findIndex(p => p.trim() === paragraphText.trim());
+        if (paragraphIndex !== -1) {
+          setEditingElement({
+            type: 'paragraph',
+            chapterId: selectedChapterId,
+            paragraphIndex,
+            content: paragraphs[paragraphIndex]
+          });
+        }
+      }
+    }
+    
+    setInlineEditMode(true);
+  };
+
+  // Save inline edit
+  const saveInlineEdit = (newContent: string) => {
+    if (!editingElement) return;
+    
+    switch (editingElement.type) {
+      case 'title':
+        onContentChange({ title: newContent });
+        break;
+      case 'chapter-title':
+        if (editingElement.chapterId) {
+          const chapter = bookContent.chapters.find(c => c.id === editingElement.chapterId);
+          if (chapter) {
+            onChapterEdit(editingElement.chapterId, chapter.content);
+            onContentChange({
+              chapters: bookContent.chapters.map(c => 
+                c.id === editingElement.chapterId ? { ...c, title: newContent } : c
+              )
+            });
+          }
+        }
+        break;
+      case 'paragraph':
+        if (editingElement.chapterId && editingElement.paragraphIndex !== undefined) {
+          const chapter = bookContent.chapters.find(c => c.id === editingElement.chapterId);
+          if (chapter) {
+            const paragraphs = chapter.content.split('\n\n');
+            paragraphs[editingElement.paragraphIndex] = newContent;
+            const updatedContent = paragraphs.join('\n\n');
+            onChapterEdit(editingElement.chapterId, updatedContent);
+          }
+        }
+        break;
+    }
+    
+    setInlineEditMode(false);
+    setEditingElement(null);
+  };
+
+  // Cancel inline edit
+  const cancelInlineEdit = () => {
+    setInlineEditMode(false);
+    setEditingElement(null);
+  };
+
+  // Enhanced page renderer with click-to-edit
+  const renderInteractivePage = (pageContent: string, pageIndex: number) => {
+    return (
+      <div
+        className="page-preview bg-white rounded-md overflow-auto cursor-text"
+        style={{
+          width: `${dimensions.width * 100}px`,
+          height: `${dimensions.height * 100}px`,
+          maxWidth: '100%',
+          margin: '0 auto',
+          padding: `
+            ${settings.marginTop * 100}px 
+            ${settings.marginOutside * 100}px
+            ${settings.marginBottom * 100}px
+            ${settings.marginInside * 100}px
+          `,
+          fontFamily: settings.fontFamily,
+          fontSize: `${settings.fontSize}pt`,
+          lineHeight: String(settings.lineSpacing),
+          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          border: '1px solid #e5e7eb',
+          position: 'relative'
+        }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.tagName === 'H1' || target.tagName === 'H2' || target.tagName === 'P') {
+            handleInlineEdit(target, e);
+          }
+        }}
+        dangerouslySetInnerHTML={{ 
+          __html: pageContent.replace(
+            /<(h1|h2|p)([^>]*)>/g, 
+            '<$1$2 style="cursor: pointer; padding: 2px; border-radius: 2px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor=\'rgba(59, 130, 246, 0.1)\'" onmouseout="this.style.backgroundColor=\'transparent\'">'
+          )
+        }}
+      />
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -390,30 +524,10 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
               <TabsContent value="preview" className="border rounded-md p-0 min-h-[600px]">
                 {pages.length > 0 ? (
                   <div className="relative min-h-[600px]">
-                    {/* Page preview */}
-                    <div
-                      ref={previewRef}
-                      className="page-preview bg-white rounded-md overflow-auto"
-                      style={{
-                        width: `${dimensions.width * 100}px`,
-                        height: `${dimensions.height * 100}px`,
-                        maxWidth: '100%',
-                        margin: '0 auto',
-                        padding: `
-                          ${settings.marginTop * 100}px 
-                          ${settings.marginOutside * 100}px
-                          ${settings.marginBottom * 100}px
-                          ${settings.marginInside * 100}px
-                        `,
-                        fontFamily: settings.fontFamily,
-                        fontSize: `${settings.fontSize}pt`,
-                        lineHeight: String(settings.lineSpacing),
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                        border: '1px solid #e5e7eb',
-                        position: 'relative'
-                      }}
-                      dangerouslySetInnerHTML={{ __html: pages[currentPage] || '' }}
-                    />
+                    {/* Interactive Page preview */}
+                    <div ref={previewRef}>
+                      {renderInteractivePage(pages[currentPage] || '', currentPage)}
+                    </div>
                     
                     {/* Add page number if enabled */}
                     {settings.includePageNumbers && currentPage > 0 && (
@@ -464,6 +578,54 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
                         </Button>
                       </div>
                     </div>
+
+                    {/* Inline Edit Modal */}
+                    {inlineEditMode && editingElement && (
+                      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-96 max-w-[90vw]">
+                          <h3 className="text-lg font-semibold mb-4">
+                            Edit {editingElement.type === 'title' ? 'Book Title' : 
+                                 editingElement.type === 'chapter-title' ? 'Chapter Title' : 'Paragraph'}
+                          </h3>
+                          
+                          {editingElement.type === 'paragraph' ? (
+                            <Textarea
+                              value={editingElement.content}
+                              onChange={(e) => setEditingElement({
+                                ...editingElement,
+                                content: e.target.value
+                              })}
+                              className="min-h-[200px] mb-4"
+                              placeholder="Enter your content here..."
+                            />
+                          ) : (
+                            <Input
+                              value={editingElement.content}
+                              onChange={(e) => setEditingElement({
+                                ...editingElement,
+                                content: e.target.value
+                              })}
+                              className="mb-4"
+                              placeholder="Enter title here..."
+                            />
+                          )}
+                          
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              onClick={cancelInlineEdit}
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              onClick={() => saveInlineEdit(editingElement.content)}
+                            >
+                              Save Changes
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex items-center justify-center min-h-[600px] text-muted-foreground">
