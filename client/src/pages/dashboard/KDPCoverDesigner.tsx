@@ -967,12 +967,7 @@ const KDPCoverDesigner: React.FC = () => {
             </div>
             
             {/* Navigation buttons */}
-            <div className="flex justify-between pt-4 border-t border-zinc-700">
-              <Button variant="outline" disabled className="border-zinc-700 text-zinc-400">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                ⬅️ Back
-              </Button>
-              
+            <div className="flex justify-end pt-4 border-t border-zinc-700">
               <Button
                 onClick={async () => {
                   // First calculate dimensions if not already done
