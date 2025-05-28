@@ -974,12 +974,30 @@ const KDPCoverDesigner: React.FC = () => {
               </Button>
               
               <Button
-                onClick={() => state.steps.settings && completeStep('settings', 'frontCover')}
-                disabled={!state.steps.settings}
+                onClick={async () => {
+                  // First calculate dimensions if not already done
+                  if (!state.steps.settings) {
+                    await calculateDimensions();
+                  }
+                  // Then proceed to next step
+                  if (state.steps.settings) {
+                    completeStep('settings', 'frontCover');
+                  }
+                }}
+                disabled={isLoading.calculateDimensions}
                 className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold shadow-md"
               >
-                Continue ➡️
-                <ArrowRight className="ml-2 h-4 w-4" />
+                {isLoading.calculateDimensions ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Calculating & Continuing...
+                  </>
+                ) : (
+                  <>
+                    📏 Calculate & Continue ➡️
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -1581,7 +1599,6 @@ const KDPCoverDesigner: React.FC = () => {
                               
                               try {
                                 console.log('=== GENERATE COVER BUTTON CLICKED ===');
-                                console.log('Current state.selectedModel:', state.selectedModel);
                                 console.log('Current state.frontCoverPrompt:', state.frontCoverPrompt);
                                 console.log('Book settings:', state.bookSettings);
                                 
