@@ -849,18 +849,6 @@ const KDPCoverDesigner: React.FC = () => {
                     </div>
                   </div>
                   
-                  <Button 
-                    onClick={calculateDimensions}
-                    className="w-full mt-6 bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold text-white shadow-lg" 
-                    disabled={isLoading.calculateDimensions}
-                  >
-                    {isLoading.calculateDimensions ? 
-                      '⏳ Calculating...' : 
-                      state.steps.settings ? 
-                        '🔄 Recalculate Dimensions' : 
-                        '📏 Calculate Cover Dimensions'
-                    }
-                  </Button>
                 </div>
               </div>
               
