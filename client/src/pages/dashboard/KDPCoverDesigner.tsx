@@ -29,7 +29,9 @@ import {
   Maximize,
   Monitor,
   Loader2,
-  Ruler
+  Ruler,
+  Sparkles,
+  EyeOff
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -1140,531 +1142,196 @@ const KDPCoverDesigner: React.FC = () => {
       case 'frontCover':
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-white">Front Cover Design</h2>
-            <p className="text-zinc-400 text-sm mb-6">
-              Design your book's front cover by uploading an image or generating one with AI.
-            </p>
-            
-            <Tabs defaultValue="prompt" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-800">
-                <TabsTrigger value="prompt" className="data-[state=active]:bg-zinc-700">Write Prompt</TabsTrigger>
-                <TabsTrigger value="upload" className="data-[state=active]:bg-zinc-700">Upload Image</TabsTrigger>
-              </TabsList>
+            {/* Enhanced Header */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-white">Front Cover Design</h2>
+              <p className="text-zinc-400 text-sm">
+                Create your book's front cover by uploading an image for AI analysis or writing a custom prompt.
+              </p>
               
-              <TabsContent value="prompt" className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="frontCoverPrompt">Describe your cover</Label>
-                  <Textarea
-                    id="frontCoverPrompt"
-                    placeholder="Describe what you want on your book cover in detail..."
-                    className="min-h-[120px]"
-                    value={state.frontCoverPrompt}
-                    onChange={(e) => 
-                      setState(prev => ({
-                        ...prev,
-                        frontCoverPrompt: e.target.value
-                      }))
-                    }
-                  />
+              {/* Progress Indicator */}
+              <div className="flex items-center gap-4 p-4 bg-zinc-800 rounded-lg border border-zinc-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">2</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Step 2: Front Cover</h3>
+                    <p className="text-xs text-zinc-400">Upload image or write prompt → Generate AI cover</p>
+                  </div>
+                </div>
+                <div className="ml-auto text-xs text-zinc-500">
+                  Book Size: {state.bookSettings.bookSize} • {state.bookSettings.pageCount} pages
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Input Methods */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Input Method Selection */}
+                <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <Wand2 className="h-5 w-5 text-emerald-400" />
+                    Choose Your Method
+                  </h3>
                   
-                  {/* Enhance Prompt Button */}
-                  <div className="flex justify-between items-center mt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-amber-600/40 text-amber-500 hover:bg-amber-950/30 hover:text-amber-400"
-                      onClick={async () => {
-                        if (!state.frontCoverPrompt.trim()) {
-                          toast.error('Please enter a prompt first');
-                          return;
-                        }
-                        
-                        try {
-                          setIsLoading({...isLoading, enhancePrompt: true});
-                          
-                          console.log('Enhancing prompt for Ideogram');
-                          console.log('Original prompt:', state.frontCoverPrompt);
-                          
-                          const response = await fetch(`${getApiUrl()}/api/book-cover/enhance-prompt`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              prompt: state.frontCoverPrompt,
-                              model: 'ideogram'
-                            })
-                          });
-                          
-                          if (!response.ok) {
-                            throw new Error('Failed to enhance prompt');
-                          }
-                          
-                          const data = await response.json();
-                          console.log('Enhanced prompt response:', data);
-                          
-                          setState(prev => ({
-                            ...prev,
-                            frontCoverPrompt: data.enhancedPrompt
-                          }));
-                          
-                          toast.success('Prompt enhanced for Ideogram!');
-                        } catch (error) {
-                          console.error('Error enhancing prompt:', error);
-                          toast.error('Failed to enhance prompt. Please try again.');
-                        } finally {
-                          setIsLoading({...isLoading, enhancePrompt: false});
-                        }
-                      }}
-                      disabled={isLoading.enhancePrompt || !state.frontCoverPrompt.trim()}
-                    >
-                      {isLoading.enhancePrompt ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⏳</span> Enhancing...
-                        </span>
-                      ) : (
-                        <>
-                          <span className="mr-2">✨</span>
-                          Enhance Prompt
-                        </>
-                      )}
-                    </Button>
+                  <Tabs defaultValue="upload" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-900">
+                      <TabsTrigger value="upload" className="data-[state=active]:bg-zinc-700 data-[state=active]:text-white">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload & Analyze
+                      </TabsTrigger>
+                      <TabsTrigger value="prompt" className="data-[state=active]:bg-zinc-700 data-[state=active]:text-white">
+                        <PencilRuler className="h-4 w-4 mr-2" />
+                        Write Prompt
+                      </TabsTrigger>
+                    </TabsList>
                     
-                    <div className="text-xs text-zinc-500">
-                      Optimized for Ideogram: creative & design-focused
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Add style selection */}
-                <div className="space-y-2 mt-4" style={{display: 'none'}}>
-                  <Label>Cover Style</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {/* REMOVED: Cover style buttons */}
-                  </div>
-                </div>
-                
-                <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
-                  <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center">
-                    <span className="mr-2">✨</span> AI Analysis
-                  </h4>
-                  <p className="text-xs text-emerald-300">
-                    Upload your image and our AI will analyze it to create a detailed prompt that captures its style and elements.
-                    We'll then use this prompt to generate variations or enhancements.
-                  </p>
-                </div>
-                
-                <p className="text-xs text-zinc-500">
-                  Images should be at least 300 DPI and match the dimensions from your book settings.
-                </p>
-              </TabsContent>
-              
-              <TabsContent value="upload" className="space-y-4">
-                <div
-                  className={`border-2 border-dashed ${isLoading.uploadImage || isLoading.analyzeImage ? 'border-emerald-500' : 'border-zinc-700'} rounded-lg p-6 text-center bg-zinc-800/30 relative overflow-hidden transition-colors`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDragEnter={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.classList.add('border-emerald-500');
-                    e.currentTarget.classList.add('bg-emerald-950/20');
-                  }}
-                  onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.classList.remove('border-emerald-500');
-                    e.currentTarget.classList.remove('bg-emerald-950/20');
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.currentTarget.classList.remove('border-emerald-500');
-                    e.currentTarget.classList.remove('bg-emerald-950/20');
-                    
-                    const dt = e.dataTransfer;
-                    const files = dt.files;
-                    
-                    if (files && files.length > 0) {
-                      handleFileUpload(files[0]);
-                    }
-                  }}
-                >
-                  <input
-                    type="file"
-                    id="fileUpload"
-                    className="hidden"
-                    accept="image/png,image/jpeg,application/pdf"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files.length > 0) {
-                        handleFileUpload(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="flex flex-col items-center justify-center space-y-3">
-                    <Upload className={`h-10 w-10 ${isLoading.uploadImage || isLoading.analyzeImage ? 'text-emerald-500 animate-pulse' : 'text-zinc-500'}`} />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-zinc-300">
-                        {isLoading.uploadImage ? 'Uploading...' : 
-                         isLoading.analyzeImage ? 'Analyzing with OpenAI...' : 
-                         'Drag and drop file or click to upload'}
-                      </p>
-                      <p className="text-xs text-zinc-500">PNG, JPG or PDF (Max 5MB)</p>
-                    </div>
-                    <label htmlFor="fileUpload">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="border-zinc-700 hover:bg-zinc-800"
-                        disabled={isLoading.uploadImage || isLoading.analyzeImage}
-                        onClick={() => document.getElementById('fileUpload')?.click()}
-                      >
-                        {isLoading.uploadImage || isLoading.analyzeImage ? 
-                          <span className="flex items-center">
-                            <span className="animate-spin mr-2">⏳</span> Processing...
-                          </span> :
-                          <span className="flex items-center">
-                            <span className="mr-1">📁</span> Browse Files
-                          </span>
-                        }
-                      </Button>
-                    </label>
-                  </div>
-                  
-                  {/* Upload progress overlay */}
-                  {(isLoading.uploadImage || isLoading.analyzeImage) && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-emerald-900">
-                      <div 
-                        className="h-full bg-emerald-500 transition-all duration-300" 
-                        style={{ 
-                          width: isLoading.analyzeImage ? '70%' : '30%',
-                          transition: 'width 0.5s ease-in-out'
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-                
-                {/* Add style selection */}
-                <div className="space-y-2 mt-4" style={{display: "none"}}>
-                  <Label>Cover Style</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {COVER_STYLES.map((style) => (
-                      <Button
-                        key={style.id}
-                        type="button"
-                        variant={state.selectedStyle === style.id ? "default" : "outline"}
-                        onClick={() => 
-                          setState(prev => ({
-                            ...prev,
-                            selectedStyle: style.id
-                          }))
-                        }
-                        className={`flex flex-col items-center justify-center h-14 ${
-                          state.selectedStyle === style.id 
-                            ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                            : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
-                        }`}
-                      >
-                        <span className="text-lg mb-0.5">{style.emoji}</span>
-                        <span className="text-[10px] font-medium">{style.name}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
-                  <h4 className="text-sm font-medium text-emerald-400 mb-2 flex items-center">
-                    <span className="mr-2">✨</span> AI Analysis
-                  </h4>
-                  <p className="text-xs text-emerald-300">
-                    Upload your image and our AI will analyze it to create a detailed prompt that captures its style and elements.
-                    We'll then use this prompt to generate variations or enhancements.
-                  </p>
-                </div>
-                
-                <p className="text-xs text-zinc-500">
-                  Images should be at least 300 DPI and match the dimensions from your book settings.
-                </p>
-              </TabsContent>
-            </Tabs>
-            
-            {/* Preview area */}
-            {(state.uploadedFile || state.frontCoverImage) && (
-              <div className="mt-6">
-                <h3 className="text-md font-medium mb-2">Cover Preview</h3>
-                
-                {/* Replace text-free design notice with better guidance */}
-                <div className="mb-4 bg-amber-900/30 border border-amber-500/30 rounded-md p-3 text-sm">
-                  <div className="flex items-start">
-                    <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5 mr-2 flex-shrink-0" />
-                    <div>
-                      <p className="text-amber-300 font-medium">KDP Cover Design Requirements</p>
-                      <p className="text-amber-400/90 text-xs mt-1">
-                        Your cover will be generated with exact {state.bookSettings.bookSize} dimensions as specified in your settings.
-                        All text will be placed at least 0.25" from edges to meet KDP's printing requirements.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[550px]">
-                  {/* Original Uploaded Image */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-sm font-medium text-zinc-300">Uploaded Image</h4>
-                      {state.uploadedFile && (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
-                          onClick={resetUpload}
+                    {/* Upload Tab */}
+                    <TabsContent value="upload" className="space-y-4">
+                      <div className="space-y-4">
+                        {/* Upload Area */}
+                        <div
+                          className={`border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 ${
+                            isLoading.uploadImage || isLoading.analyzeImage 
+                              ? 'border-emerald-500 bg-emerald-950/20' 
+                              : 'border-zinc-600 bg-zinc-900/50 hover:border-emerald-600 hover:bg-emerald-950/10'
+                          }`}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDragEnter={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.currentTarget.classList.add('border-emerald-500', 'bg-emerald-950/20');
+                          }}
+                          onDragLeave={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.currentTarget.classList.remove('border-emerald-500', 'bg-emerald-950/20');
+                            
+                            const dt = e.dataTransfer;
+                            const files = dt.files;
+                            
+                            if (files && files.length > 0) {
+                              handleFileUpload(files[0]);
+                            }
+                          }}
                         >
-                          <span className="mr-2">🔄</span> Reset & Upload New
-                        </Button>
-                      )}
-                    </div>
-                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
-                      {state.uploadedFile ? (
-                        <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`, // Matched size multiplier
-                          height: `${state.bookSettings.dimensions.height * 70}px`, // Matched size multiplier
-                          maxWidth: '100%',
-                          maxHeight: '550px' // Increased max height
-                        }}>
-                          <img 
-                            src={state.originalImageUrl || ''}
-                            alt="Uploaded Image" 
-                            className="w-full h-full object-contain rounded-md shadow-lg" // Keep as object-contain
-                          />
-                        </div>
-                      ) : (
-                        <div className="text-zinc-500 text-center">
-                          <p>No image uploaded</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* AI Generated Cover */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium text-zinc-300">
-                      {state.steps.frontCover ? "AI Generated Cover" : "Cover Preview"}
-                    </h4>
-                    <div className="bg-zinc-900/80 rounded-lg p-4 border border-zinc-700 h-full flex items-center justify-center">
-                      {state.frontCoverImage && state.steps.frontCover ? (
-                        <div className="relative" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`, // Fixed width based on inches * 70
-                          height: `${state.bookSettings.dimensions.height * 70}px`, // Fixed height based on inches * 70
-                          aspectRatio: `${state.bookSettings.dimensions.width} / ${state.bookSettings.dimensions.height}`, // Enforce exact aspect ratio
-                          maxWidth: '100%',
-                          margin: '0 auto', // Center the container
-                          overflow: 'hidden' // Ensure nothing spills outside
-                        }}>
-                          <img 
-                            src={state.frontCoverImage} 
-                            alt="AI Generated Cover" 
-                            className="w-full h-full object-contain rounded-md shadow-lg"
-                            style={{
-                              objectFit: 'contain'
+                          <input
+                            type="file"
+                            id="fileUpload"
+                            className="hidden"
+                            accept="image/png,image/jpeg,application/pdf"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files.length > 0) {
+                                handleFileUpload(e.target.files[0]);
+                              }
                             }}
                           />
                           
-                          {/* Safe area indicators for KDP */}
-                          <div className={`absolute inset-0 pointer-events-none ${state.showGuidelines ? 'visible' : 'hidden'}`}>
-                            {/* Inner safe area boundary - 0.25 inches from edges */}
-                            <div 
-                              className="absolute border-2 border-cyan-500 border-dashed rounded-sm opacity-70"
-                              style={{
-                                top: 0.25 * 70,
-                                left: 0.25 * 70,
-                                right: 0.25 * 70,
-                                bottom: 0.25 * 70
-                              }}
-                            />
-                            
-                            {/* Red corners to emphasize safe area */}
-                            <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-red-500"></div>
-                            <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-red-500"></div>
-                            <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-red-500"></div>
-                            <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-red-500"></div>
-                            
-                            {/* Size indicator */}
-                            <div className="absolute top-1 left-1 bg-emerald-900/80 text-emerald-300 text-xs px-1 py-0.5 rounded">
-                              {state.bookSettings.bookSize} ({state.bookSettings.dimensions.width}" × {state.bookSettings.dimensions.height}")
+                          <div className="space-y-4">
+                            <div className="mx-auto w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                              <Upload className={`h-8 w-8 ${
+                                isLoading.uploadImage || isLoading.analyzeImage 
+                                  ? 'text-emerald-500 animate-pulse' 
+                                  : 'text-zinc-400'
+                              }`} />
                             </div>
                             
-                            {/* Add indicator label */}
-                            <div className="absolute top-1 right-1 bg-cyan-900/80 text-cyan-300 text-xs px-1 py-0.5 rounded">
-                              Safe Area
+                            <div className="space-y-2">
+                              <h4 className="text-lg font-medium text-white">
+                                {isLoading.uploadImage ? 'Uploading Image...' : 
+                                 isLoading.analyzeImage ? 'Analyzing with AI...' : 
+                                 'Upload Your Cover Image'}
+                              </h4>
+                              <p className="text-sm text-zinc-400">
+                                {isLoading.uploadImage || isLoading.analyzeImage 
+                                  ? 'Please wait while we process your image'
+                                  : 'Drag and drop your image here, or click to browse'}
+                              </p>
+                              <p className="text-xs text-zinc-500">
+                                Supports PNG, JPG, PDF • Max 20MB • Recommended: 300 DPI
+                              </p>
                             </div>
                             
-                            {/* Add warning if text appears to be outside safe area */}
-                            <div className="absolute bottom-1 right-1 left-1 flex justify-center">
-                              <div className="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded">
-                                <AlertTriangle className="h-3 w-3 inline mr-1" />
-                                KDP requires 0.25" safe margin for text
-                              </div>
-                            </div>
+                            <label htmlFor="fileUpload">
+                              <Button 
+                                variant="outline" 
+                                className="border-zinc-600 hover:bg-zinc-800 hover:border-emerald-600"
+                                disabled={isLoading.uploadImage || isLoading.analyzeImage}
+                                onClick={() => document.getElementById('fileUpload')?.click()}
+                              >
+                                {isLoading.uploadImage || isLoading.analyzeImage ? (
+                                  <>
+                                    <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                    Processing...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Choose File
+                                  </>
+                                )}
+                              </Button>
+                            </label>
                           </div>
                           
-                          {/* Add a toggle button to show/hide guides */}
-                          <div className="absolute top-2 right-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-700"
-                              onClick={() => setState(prev => ({ ...prev, showGuidelines: !prev.showGuidelines }))}
-                            >
-                              {state.showGuidelines ? 'Hide Guidelines' : 'Show Guidelines'}
-                            </Button>
-                          </div>
-                          
-                          {/* Download button overlay */}
-                          <div className="absolute top-2 left-2">
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              className="bg-emerald-700/90 hover:bg-emerald-600 text-white"
-                              onClick={() => {
-                                if (state.frontCoverImage) {
-                                  // Use our new download function
-                                  downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
-                                }
-                              }}
-                            >
-                              <Download className="h-3 w-3 mr-1" /> View & Save
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        // Placeholder when no image
-                        <div className="text-zinc-500 text-center flex flex-col items-center justify-center" style={{
-                          width: `${state.bookSettings.dimensions.width * 70}px`,
-                          height: `${state.bookSettings.dimensions.height * 70}px`,
-                          aspectRatio: `${state.bookSettings.dimensions.width} / ${state.bookSettings.dimensions.height}`, // Enforce exact aspect ratio here too
-                          maxWidth: '100%',
-                          maxHeight: '550px',
-                          margin: '0 auto' // Center the container
-                        }}>
-                          <Wand2 className="h-10 w-10 mb-2 text-zinc-700" />
-                          <p className="text-zinc-500">
-                            {state.frontCoverPrompt 
-                              ? "Click 'Generate Cover' button to create your AI cover" 
-                              : "Generate a cover to see preview"}
-                          </p>
-                          {state.frontCoverPrompt && (
-                            <div className="mt-3 border border-zinc-700 rounded p-3 bg-zinc-800/50 w-full max-w-xs">
-                              <div className="text-xs text-zinc-400 text-center">
-                                Edit your prompt and then click<br/>the "Generate Cover" button below
+                          {/* Progress Bar */}
+                          {(isLoading.uploadImage || isLoading.analyzeImage) && (
+                            <div className="mt-4">
+                              <div className="w-full bg-zinc-700 rounded-full h-2">
+                                <div 
+                                  className="bg-emerald-500 h-2 rounded-full transition-all duration-500" 
+                                  style={{ 
+                                    width: isLoading.analyzeImage ? '85%' : '45%'
+                                  }}
+                                />
                               </div>
+                              <p className="text-xs text-zinc-400 mt-2">
+                                {isLoading.uploadImage ? 'Uploading and processing image...' : 'Analyzing image with AI...'}
+                              </p>
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                    
-                    {/* Text placement guidelines */}
-                    {state.frontCoverImage && (
-                      <div className="flex items-center gap-2 text-xs p-3 bg-amber-950/60 border border-amber-900/50 rounded text-amber-400 mt-3">
-                        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-500" />
-                        <p className="font-medium">
-                          IMPORTANT: This design maintains a 0.25" safe margin for all text elements.
-                          Text is positioned to meet KDP requirements. Use the "Show Guidelines" button to view safety margins.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Workflow Steps and Actions */}
-                <div className="mt-6 bg-zinc-800/50 rounded-lg border border-zinc-700 p-4">
-                  <h3 className="text-lg font-medium text-white mb-4">Cover Generation Workflow</h3>
-                  
-                  {/* Step 1: Analyze Image */}
-                  <div className="space-y-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
-                        <span className="text-emerald-400 font-medium">1</span>
-                      </div>
-                      <h4 className="text-md font-medium text-emerald-400">Analyze Image</h4>
-                    </div>
-                    
-                    {state.uploadedFile && !state.frontCoverPrompt ? (
-                      <div className="ml-11">
-                        <p className="text-sm text-zinc-400 mb-3">
-                          Your image has been uploaded. Click the button below to analyze it with AI and generate a prompt.
-                        </p>
-                        <div className="flex space-x-2">
-                          <Button 
-                            className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400"
-                            onClick={() => {
-                              if (state.uploadedFile) {
-                                analyzeImageWithOpenAI(state.uploadedFile);
-                              }
-                            }}
-                            disabled={isLoading.analyzeImage}
-                          >
-                            {isLoading.analyzeImage ? (
-                              <span className="flex items-center">
-                                <span className="animate-spin mr-2">⏳</span> Analyzing...
-                              </span>
-                            ) : (
-                              <>
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Generate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || 'Book'} Style
-                              </>
-                            )}
-                          </Button>
-                          <Button 
-                            variant="outline"
-                            className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
-                            onClick={resetUpload}
-                          >
-                            Reset & Upload New
-                          </Button>
-                        </div>
-                      </div>
-                    ) : state.frontCoverPrompt && (
-                      <div className="ml-11">
-                        <p className="text-sm text-zinc-400 mb-2">
-                          <span className="text-emerald-400">✓</span> Image analyzed successfully
-                        </p>
-                        <Button 
-                          variant="outline"
-                          size="sm"
-                          className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
-                          onClick={resetUpload}
-                        >
-                          <span className="mr-2">🔄</span> Reset & Upload Different Image
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Step 2: Edit Prompt */}
-                  {state.frontCoverPrompt && (
-                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
-                          <span className="text-emerald-400 font-medium">2</span>
-                        </div>
-                        <h4 className="text-md font-medium text-emerald-400">Edit Prompt</h4>
-                      </div>
-                      
-                      <div className="ml-11 space-y-3">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm text-zinc-400">
-                            Review and edit the AI-generated prompt to get your perfect cover design
-                          </p>
-                          <div className="text-xs text-emerald-300 italic">Feel free to edit before generating</div>
-                        </div>
                         
-                        <div className="bg-emerald-950/30 p-3 rounded-lg">
+                        {/* AI Analysis Info */}
+                        <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+                              <Sparkles className="h-4 w-4 text-emerald-400" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-emerald-300 mb-1">AI-Powered Analysis</h4>
+                              <p className="text-xs text-emerald-400/80">
+                                Our AI will analyze your uploaded image to extract visual elements, colors, style, and text. 
+                                It then creates a detailed prompt that captures the essence of your design for generating variations.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                    
+                    {/* Prompt Tab */}
+                    <TabsContent value="prompt" className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          <Label htmlFor="frontCoverPrompt" className="text-base font-medium text-zinc-300">
+                            Describe Your Cover Design
+                          </Label>
                           <Textarea
+                            id="frontCoverPrompt"
+                            placeholder="Describe your ideal book cover in detail... Include style, colors, mood, imagery, and any specific elements you want to see."
+                            className="min-h-[140px] bg-zinc-900 border-zinc-700 focus:border-emerald-500 text-white placeholder:text-zinc-500"
                             value={state.frontCoverPrompt}
                             onChange={(e) => 
                               setState(prev => ({
@@ -1672,276 +1339,543 @@ const KDPCoverDesigner: React.FC = () => {
                                 frontCoverPrompt: e.target.value
                               }))
                             }
-                            className="min-h-[200px] text-sm bg-emerald-950/40 border-emerald-900/50 focus:border-emerald-500"
                           />
-                        </div>
-                        
-                        {/* Add buttons for actions */}
-                        <div className="flex justify-between">
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            className="border-emerald-700 text-emerald-400 hover:bg-emerald-950/30 hover:border-emerald-600"
-                            onClick={() => {
-                              if (state.uploadedFile) {
-                                analyzeImageWithOpenAI(state.uploadedFile);
-                                toast.info("Regenerating prompt from your image...");
-                              }
-                            }}
-                            disabled={isLoading.analyzeImage}
-                          >
-                            {isLoading.analyzeImage ? (
-                              <span className="flex items-center">
-                                <span className="animate-spin mr-2">⏳</span> Regenerating...
-                              </span>
-                            ) : (
-                              <>
-                                <RefreshCcw className="mr-2 h-4 w-4" />
-                                Regenerate Prompt with {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name || 'Book'} Style
-                              </>
-                            )}
-                          </Button>
-                          
-                          <Button 
-                            variant="outline"
-                            size="sm"
-                            className="border-zinc-700 text-red-400 hover:bg-red-950/30 hover:border-red-700"
-                            onClick={resetUpload}
-                          >
-                            <span className="mr-2">🔄</span> Reset & Upload Different Image
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Step 3: Generate Cover */}
-                  {state.frontCoverPrompt && (
-                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
-                          <span className="text-emerald-400 font-medium">3</span>
-                        </div>
-                        <h4 className="text-md font-medium text-emerald-400">Generate Cover</h4>
-                      </div>
-                      
-                      <div className="ml-11 flex flex-wrap gap-3">
-                        <Button 
-                          className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 px-6"
-                          onClick={async () => {
-                              setIsLoading({...isLoading, generateFrontCover: true});
-                              
-                              try {
-                                console.log('=== GENERATE COVER BUTTON CLICKED ===');
-                                console.log('Current state.frontCoverPrompt:', state.frontCoverPrompt);
-                                console.log('Book settings:', state.bookSettings);
-                                
-                                // Extract title, subtitle, author from the prompt or use defaults
-                                const extractTitleFromPrompt = (prompt: string) => {
-                                  const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
-                                  return titleMatch ? titleMatch[1].trim() : null;
-                                };
-                                
-                                const extractAuthorFromPrompt = (prompt: string) => {
-                                  const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
-                                  return authorMatch ? authorMatch[1].trim() : null;
-                                };
-                                
-                                // Get style information
-                                const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
-                                
-                                // Prepare simplified API call
-                                const coverParams = {
-                                  title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
-                                  subtitle: undefined,
-                                  author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
-                                  genre: bookStyle?.name || state.selectedStyle,
-                                  style: 'modern',
-                                  description: state.frontCoverPrompt,
-                                  customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins.`
-                                };
-                                
-                                console.log('Calling generateFrontCover with params:', coverParams);
-                                
-                                const result = await generateFrontCover(coverParams);
-                                
-                                console.log('Generated cover result:', result);
-                                
-                                setState(prev => ({
-                                  ...prev,
-                                  frontCoverImage: result.url,
-                                  steps: {
-                                    ...prev.steps,
-                                    frontCover: true
-                                  },
-                                  originalImageUrl: prev.originalImageUrl,
-                                  uploadedFile: prev.uploadedFile
-                                }));
-                                
-                                toast.success("Front cover generated successfully!");
-                              } catch (error) {
-                                console.error('=== COVER GENERATION ERROR ===');
-                                console.error('Error details:', error);
-                                
-                                if (error instanceof Error && error.name === 'AbortError') {
-                                  toast.error('Request timed out. The service might be overloaded. Please try again.');
-                                } else if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('network'))) {
-                                  toast.error('Network error. Please check your connection and try again.');
-                                } else {
-                                  toast.error(error instanceof Error ? error.message : 'Failed to generate cover. Please try again.');
-                                }
-                              } finally {
-                                setIsLoading({...isLoading, generateFrontCover: false});
-                              }
-                          }}
-                          disabled={isLoading.generateFrontCover}
-                        >
-                          {isLoading.generateFrontCover ? (
-                            <span className="flex items-center">
-                              <span className="animate-spin mr-2">⏳</span> Generating...
-                            </span>
-                          ) : (
-                            <>
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Generate {COVER_STYLES.find(s => s.id === state.selectedStyle)?.name} Cover
-                            </>
-                          )}
-                        </Button>
-                        
-                        {state.frontCoverImage && (
-                          <>
-                            <Button 
-                              variant="outline" 
-                              className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30"
+                          <div className="flex justify-between items-center">
+                            <div className="text-xs text-zinc-500">
+                              {state.frontCoverPrompt.length} characters
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="border-amber-600/40 text-amber-400 hover:bg-amber-950/30 hover:text-amber-300"
                               onClick={async () => {
-                                  setIsLoading({...isLoading, generateFrontCover: true});
+                                if (!state.frontCoverPrompt.trim()) {
+                                  toast.error('Please enter a prompt first');
+                                  return;
+                                }
+                                
+                                try {
+                                  setIsLoading({...isLoading, enhancePrompt: true});
                                   
-                                  try {
-                                    // Extract title, subtitle, author from the prompt or use defaults
-                                    const extractTitleFromPrompt = (prompt: string) => {
-                                      const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
-                                      return titleMatch ? titleMatch[1].trim() : null;
-                                    };
-                                    
-                                    const extractAuthorFromPrompt = (prompt: string) => {
-                                      const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
-                                      return authorMatch ? authorMatch[1].trim() : null;
-                                    };
-                                    
-                                    // Get style information
-                                    const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
-                                    
-                                    // Prepare simplified API call for variation
-                                    const coverParams = {
-                                      title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
-                                      subtitle: undefined,
-                                      author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
-                                      genre: bookStyle?.name || state.selectedStyle,
-                                      style: 'modern',
-                                      description: state.frontCoverPrompt + " (alternative version, different style)",
-                                      customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins. Create a variation with different visual approach.`
-                                    };
-                                    
-                                    console.log('Calling generateFrontCover variation with params:', coverParams);
-                                    
-                                    const result = await generateFrontCover(coverParams);
-                                    
+                                  const response = await fetch(`${getApiUrl()}/api/book-cover/enhance-prompt`, {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                      prompt: state.frontCoverPrompt,
+                                      model: 'ideogram'
+                                    })
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    throw new Error('Failed to enhance prompt');
+                                  }
+                                  
+                                  const data = await response.json();
+                                  
+                                  setState(prev => ({
+                                    ...prev,
+                                    frontCoverPrompt: data.enhancedPrompt
+                                  }));
+                                  
+                                  toast.success('Prompt enhanced for Ideogram!');
+                                } catch (error) {
+                                  console.error('Error enhancing prompt:', error);
+                                  toast.error('Failed to enhance prompt. Please try again.');
+                                } finally {
+                                  setIsLoading({...isLoading, enhancePrompt: false});
+                                }
+                              }}
+                              disabled={isLoading.enhancePrompt || !state.frontCoverPrompt.trim()}
+                            >
+                              {isLoading.enhancePrompt ? (
+                                <>
+                                  <Loader2 className="animate-spin mr-2 h-3 w-3" />
+                                  Enhancing...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="mr-2 h-3 w-3" />
+                                  Enhance Prompt
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {/* Prompt Tips */}
+                        <div className="bg-blue-950/20 rounded-lg p-4 border border-blue-900/30">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                              <Info className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-blue-300 mb-2">Writing Great Prompts</h4>
+                              <ul className="text-xs text-blue-400/80 space-y-1">
+                                <li>• Be specific about style (modern, vintage, minimalist, etc.)</li>
+                                <li>• Mention colors, mood, and atmosphere</li>
+                                <li>• Include genre-specific elements</li>
+                                <li>• Describe layout and composition preferences</li>
+                                <li>• Specify any text placement requirements</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+
+                {/* Workflow Steps */}
+                {(state.uploadedFile || state.frontCoverPrompt) && (
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-emerald-400" />
+                      Generation Workflow
+                    </h3>
+                    
+                    <div className="space-y-6">
+                      {/* Step 1: Image Analysis */}
+                      {state.uploadedFile && (
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">1</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-base font-medium text-white mb-2">Analyze Uploaded Image</h4>
+                            {!state.frontCoverPrompt ? (
+                              <div className="space-y-3">
+                                <p className="text-sm text-zinc-400">
+                                  Your image is ready for AI analysis. Click below to extract design elements and generate a detailed prompt.
+                                </p>
+                                <div className="flex gap-3">
+                                  <Button 
+                                    className="bg-emerald-600 hover:bg-emerald-500"
+                                    onClick={() => {
+                                      if (state.uploadedFile) {
+                                        analyzeImageWithOpenAI(state.uploadedFile);
+                                      }
+                                    }}
+                                    disabled={isLoading.analyzeImage}
+                                  >
+                                    {isLoading.analyzeImage ? (
+                                      <>
+                                        <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                        Analyzing...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Sparkles className="mr-2 h-4 w-4" />
+                                        Analyze with AI
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    className="border-zinc-600 text-red-400 hover:bg-red-950/30 hover:border-red-600"
+                                    onClick={resetUpload}
+                                  >
+                                    <RefreshCcw className="mr-2 h-4 w-4" />
+                                    Reset & Upload New
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-sm text-emerald-400">
+                                <CheckCircle2 className="h-4 w-4" />
+                                Image analyzed successfully
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Step 2: Edit Prompt */}
+                      {state.frontCoverPrompt && (
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">{state.uploadedFile ? '2' : '1'}</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-base font-medium text-white mb-2">Review & Edit Prompt</h4>
+                            <div className="space-y-3">
+                              <div className="bg-zinc-900 rounded-lg p-4 border border-zinc-700">
+                                <Textarea
+                                  value={state.frontCoverPrompt}
+                                  onChange={(e) => 
                                     setState(prev => ({
                                       ...prev,
-                                      frontCoverImage: result.url,
-                                      originalImageUrl: prev.originalImageUrl,
-                                      uploadedFile: prev.uploadedFile
-                                    }));
-                                    
-                                    toast.success("Generated a new cover variation!");
-                                  } catch (error) {
-                                    console.error('Error generating variation:', error);
-                                    toast.error(error instanceof Error ? error.message : 'Failed to generate variation. Please try again.');
-                                  } finally {
-                                    setIsLoading({...isLoading, generateFrontCover: false});
+                                      frontCoverPrompt: e.target.value
+                                    }))
                                   }
-                              }}
-                              disabled={isLoading.generateFrontCover}
-                            >
-                              <Wand2 className="mr-2 h-4 w-4" />
-                              Generate Variation
-                            </Button>
-                            
-                            <Button 
-                              className="bg-gradient-to-r from-blue-600 to-indigo-500 hover:from-blue-500 hover:to-indigo-400"
-                              onClick={() => {
-                                setState(prev => ({
-                                  ...prev,
-                                  steps: {
-                                    ...prev.steps,
-                                    frontCover: true
-                                  }
-                                }));
-                                toast.success("Front cover design saved!");
-                              }}
-                            >
-                              <Check className="mr-2 h-4 w-4" />
-                              Use This Design
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {state.frontCoverImage && (
-                    <div className="mt-6 pt-6 border-t border-zinc-700 space-y-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center mr-3">
-                          <span className="text-emerald-400 font-medium">3</span>
+                                  className="min-h-[120px] bg-transparent border-none p-0 text-sm resize-none focus:ring-0"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                {state.uploadedFile && (
+                                  <Button 
+                                    variant="outline"
+                                    size="sm"
+                                    className="border-zinc-600 text-emerald-400 hover:bg-emerald-950/30"
+                                    onClick={() => {
+                                      if (state.uploadedFile) {
+                                        analyzeImageWithOpenAI(state.uploadedFile);
+                                        toast.info("Regenerating prompt from your image...");
+                                      }
+                                    }}
+                                    disabled={isLoading.analyzeImage}
+                                  >
+                                    {isLoading.analyzeImage ? (
+                                      <>
+                                        <Loader2 className="animate-spin mr-2 h-3 w-3" />
+                                        Regenerating...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <RefreshCcw className="mr-2 h-3 w-3" />
+                                        Regenerate from Image
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                                <Button 
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-zinc-600 text-red-400 hover:bg-red-950/30"
+                                  onClick={resetUpload}
+                                >
+                                  <RefreshCcw className="mr-2 h-3 w-3" />
+                                  Start Over
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <h4 className="text-md font-medium text-emerald-400">Export Options</h4>
-                      </div>
+                      )}
                       
-                      <div className="ml-11 space-y-3">
-                        <p className="text-sm text-zinc-400">
-                          Download your cover image or continue with the design process
-                        </p>
-                        
-                        <div className="flex flex-wrap gap-3">
-                          <Button 
-                            className="bg-emerald-600 hover:bg-emerald-500 flex items-center"
-                            onClick={() => {
-                              if (state.frontCoverImage) {
-                                // Instead of just opening in a new tab, create a proper download
-                                downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
-                              } else {
-                                toast.error("No cover image to download");
-                              }
-                            }}
-                          >
-                            <Download className="mr-2 h-4 w-4" />
-                            Open Image for Download
-                          </Button>
-                          
-                          <Button
-                            variant="outline"
-                            className="border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
-                            onClick={() => {
-                              // Open the image in a new tab
-                              if (state.frontCoverImage) {
-                                downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
-                              }
-                            }}
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Full Size
-                          </Button>
+                      {/* Step 3: Generate Cover */}
+                      {state.frontCoverPrompt && (
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">{state.uploadedFile ? '3' : '2'}</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-base font-medium text-white mb-2">Generate AI Cover</h4>
+                            <div className="space-y-3">
+                              <p className="text-sm text-zinc-400">
+                                Create your book cover using the {state.uploadedFile ? 'analyzed' : 'written'} prompt with our AI generator.
+                              </p>
+                              <div className="flex flex-wrap gap-3">
+                                <Button 
+                                  className="bg-emerald-600 hover:bg-emerald-500"
+                                  onClick={async () => {
+                                      setIsLoading({...isLoading, generateFrontCover: true});
+                                      
+                                      try {
+                                        const extractTitleFromPrompt = (prompt: string) => {
+                                          const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                          return titleMatch ? titleMatch[1].trim() : null;
+                                        };
+                                        
+                                        const extractAuthorFromPrompt = (prompt: string) => {
+                                          const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                          return authorMatch ? authorMatch[1].trim() : null;
+                                        };
+                                        
+                                        const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
+                                        
+                                        const coverParams = {
+                                          title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
+                                          subtitle: undefined,
+                                          author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
+                                          genre: bookStyle?.name || state.selectedStyle,
+                                          style: 'modern',
+                                          description: state.frontCoverPrompt,
+                                          customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins.`
+                                        };
+                                        
+                                        const result = await generateFrontCover(coverParams);
+                                        
+                                        setState(prev => ({
+                                          ...prev,
+                                          frontCoverImage: result.url,
+                                          steps: {
+                                            ...prev.steps,
+                                            frontCover: true
+                                          },
+                                          originalImageUrl: prev.originalImageUrl,
+                                          uploadedFile: prev.uploadedFile
+                                        }));
+                                        
+                                        toast.success("Front cover generated successfully!");
+                                      } catch (error) {
+                                        console.error('Cover generation error:', error);
+                                        
+                                        if (error instanceof Error && error.name === 'AbortError') {
+                                          toast.error('Request timed out. Please try again.');
+                                        } else if (error instanceof Error && (error.message.includes('Failed to fetch') || error.message.includes('network'))) {
+                                          toast.error('Network error. Please check your connection and try again.');
+                                        } else {
+                                          toast.error(error instanceof Error ? error.message : 'Failed to generate cover. Please try again.');
+                                        }
+                                      } finally {
+                                        setIsLoading({...isLoading, generateFrontCover: false});
+                                      }
+                                  }}
+                                  disabled={isLoading.generateFrontCover}
+                                >
+                                  {isLoading.generateFrontCover ? (
+                                    <>
+                                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                      Generate Cover
+                                    </>
+                                  )}
+                                </Button>
+                                
+                                {state.frontCoverImage && (
+                                  <>
+                                    <Button 
+                                      variant="outline" 
+                                      className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/30"
+                                      onClick={async () => {
+                                          setIsLoading({...isLoading, generateFrontCover: true});
+                                          
+                                          try {
+                                            const extractTitleFromPrompt = (prompt: string) => {
+                                              const titleMatch = prompt.match(/(?:title|book)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                              return titleMatch ? titleMatch[1].trim() : null;
+                                            };
+                                            
+                                            const extractAuthorFromPrompt = (prompt: string) => {
+                                              const authorMatch = prompt.match(/(?:author|by)\s*[:\-]?\s*['""]?([^'"".\n]+)['""]?/i);
+                                              return authorMatch ? authorMatch[1].trim() : null;
+                                            };
+                                            
+                                            const bookStyle = COVER_STYLES.find(s => s.id === state.selectedStyle);
+                                            
+                                            const coverParams = {
+                                              title: extractTitleFromPrompt(state.frontCoverPrompt) || "Book Title",
+                                              subtitle: undefined,
+                                              author: extractAuthorFromPrompt(state.frontCoverPrompt) || "Author Name",
+                                              genre: bookStyle?.name || state.selectedStyle,
+                                              style: 'modern',
+                                              description: state.frontCoverPrompt + " (alternative version, different style)",
+                                              customInstructions: `Book size: ${state.bookSettings.bookSize}. Keep all text within safe margins. Create a variation with different visual approach.`
+                                            };
+                                            
+                                            const result = await generateFrontCover(coverParams);
+                                            
+                                            setState(prev => ({
+                                              ...prev,
+                                              frontCoverImage: result.url,
+                                              originalImageUrl: prev.originalImageUrl,
+                                              uploadedFile: prev.uploadedFile
+                                            }));
+                                            
+                                            toast.success("Generated a new cover variation!");
+                                          } catch (error) {
+                                            console.error('Error generating variation:', error);
+                                            toast.error(error instanceof Error ? error.message : 'Failed to generate variation. Please try again.');
+                                          } finally {
+                                            setIsLoading({...isLoading, generateFrontCover: false});
+                                          }
+                                      }}
+                                      disabled={isLoading.generateFrontCover}
+                                    >
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                      Generate Variation
+                                    </Button>
+                                    
+                                    <Button 
+                                      className="bg-blue-600 hover:bg-blue-500"
+                                      onClick={() => {
+                                        setState(prev => ({
+                                          ...prev,
+                                          steps: {
+                                            ...prev.steps,
+                                            frontCover: true
+                                          }
+                                        }));
+                                        toast.success("Front cover design saved!");
+                                      }}
+                                    >
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Use This Design
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column - Preview */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-6 space-y-6">
+                  {/* Cover Preview */}
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Eye className="h-5 w-5 text-emerald-400" />
+                      Cover Preview
+                    </h3>
+                    
+                    {/* KDP Requirements Notice */}
+                    <div className="mb-4 bg-amber-950/30 border border-amber-600/30 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-amber-300">KDP Requirements</p>
+                          <p className="text-xs text-amber-400/80 mt-1">
+                            Generated at {state.bookSettings.bookSize} with 0.25" safe margins for text
+                          </p>
                         </div>
                       </div>
                     </div>
-                  )}
+                    
+                    {/* Preview Container */}
+                    <div className="bg-zinc-900 rounded-lg p-4 border border-zinc-700 min-h-[400px] flex items-center justify-center">
+                      {state.frontCoverImage && state.steps.frontCover ? (
+                        <div className="relative" style={{
+                          width: `${state.bookSettings.dimensions.width * 60}px`,
+                          height: `${state.bookSettings.dimensions.height * 60}px`,
+                          maxWidth: '100%',
+                          maxHeight: '400px'
+                        }}>
+                          <img 
+                            src={state.frontCoverImage} 
+                            alt="Generated Cover" 
+                            className="w-full h-full object-contain rounded-md shadow-lg"
+                          />
+                          
+                          {/* Guidelines Overlay */}
+                          <div className={`absolute inset-0 pointer-events-none ${state.showGuidelines ? 'visible' : 'hidden'}`}>
+                            <div 
+                              className="absolute border-2 border-cyan-400 border-dashed rounded-sm opacity-70"
+                              style={{
+                                top: 0.25 * 60,
+                                left: 0.25 * 60,
+                                right: 0.25 * 60,
+                                bottom: 0.25 * 60
+                              }}
+                            />
+                            <div className="absolute top-1 right-1 bg-cyan-900/80 text-cyan-300 text-xs px-2 py-1 rounded">
+                              Safe Area
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="absolute top-2 left-2 flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-zinc-800/90 hover:bg-zinc-700/90 border-zinc-600"
+                              onClick={() => setState(prev => ({ ...prev, showGuidelines: !prev.showGuidelines }))}
+                            >
+                              {state.showGuidelines ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600/90 hover:bg-emerald-500/90"
+                              onClick={() => {
+                                if (state.frontCoverImage) {
+                                  downloadCoverWithExactDimensions(state.frontCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_cover.png`);
+                                }
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : state.uploadedFile ? (
+                        <div className="text-center" style={{
+                          width: `${state.bookSettings.dimensions.width * 60}px`,
+                          height: `${state.bookSettings.dimensions.height * 60}px`,
+                          maxWidth: '100%',
+                          maxHeight: '400px'
+                        }}>
+                          <div className="relative w-full h-full">
+                            <img 
+                              src={state.originalImageUrl || ''}
+                              alt="Uploaded Image" 
+                              className="w-full h-full object-contain rounded-md shadow-lg opacity-50"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-md">
+                              <div className="text-center">
+                                <Wand2 className="h-8 w-8 mx-auto mb-2 text-zinc-400" />
+                                <p className="text-sm text-zinc-300">Original Image</p>
+                                <p className="text-xs text-zinc-500">Generate AI cover to see result</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-zinc-500">
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-zinc-800 flex items-center justify-center">
+                            <BookOpen className="h-8 w-8 text-zinc-600" />
+                          </div>
+                          <p className="text-sm font-medium">No Cover Generated</p>
+                          <p className="text-xs text-zinc-600 mt-1">
+                            Upload an image or write a prompt to get started
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Cover Info */}
+                    {state.frontCoverImage && (
+                      <div className="mt-4 p-3 bg-emerald-950/20 rounded-lg border border-emerald-900/30">
+                        <div className="flex items-center gap-2 text-xs text-emerald-300 mb-2">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Cover generated successfully
+                        </div>
+                        <div className="text-xs text-emerald-400/80">
+                          Size: {state.bookSettings.bookSize} • Resolution: 300 DPI • Format: PNG
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Quick Stats */}
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-4">
+                    <h4 className="text-sm font-medium text-zinc-300 mb-3">Book Specifications</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Trim Size:</span>
+                        <span className="text-zinc-300">{state.bookSettings.bookSize}"</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Page Count:</span>
+                        <span className="text-zinc-300">{state.bookSettings.pageCount}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Paper Type:</span>
+                        <span className="text-zinc-300 capitalize">{state.bookSettings.paperType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Bleed:</span>
+                        <span className="text-zinc-300">{state.bookSettings.includeBleed ? '0.125"' : 'None'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
+            </div>
             
-            {/* Navigation buttons */}
-            <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => goToStep('settings')}>
+            {/* Navigation */}
+            <div className="flex justify-between pt-6 border-t border-zinc-700">
+              <Button variant="outline" onClick={() => goToStep('settings')} className="border-zinc-600 hover:bg-zinc-800">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Settings
               </Button>
