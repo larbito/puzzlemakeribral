@@ -315,13 +315,23 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       
       console.log('Creating back cover with same style as front cover but clean text areas...');
       
-      // Download the front cover image
-      const response = await fetch(frontCoverUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
+      // Download the front cover image or handle data URL
+      let frontBuffer;
+      if (frontCoverUrl.startsWith('data:image')) {
+        console.log('Processing data URL for front cover...');
+        // Handle data URL (base64 image)
+        const base64Data = frontCoverUrl.split(',')[1];
+        frontBuffer = Buffer.from(base64Data, 'base64');
+      } else {
+        console.log('Fetching front cover from URL...');
+        // Handle regular HTTP URL
+        const response = await fetch(frontCoverUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
+        }
+        const frontCoverBuffer = await response.arrayBuffer();
+        frontBuffer = Buffer.from(frontCoverBuffer);
       }
-      const frontCoverBuffer = await response.arrayBuffer();
-      const frontBuffer = Buffer.from(frontCoverBuffer);
       
       // Create back cover that maintains the same visual style but with clean text areas
       let backCoverBuffer = await createStyledBackCover(

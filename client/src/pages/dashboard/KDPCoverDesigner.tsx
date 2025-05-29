@@ -2181,8 +2181,21 @@ const KDPCoverDesigner: React.FC = () => {
                                     toast.info("Creating styled back cover...");
                                     
                                     try {
+                                      // Convert blob URL to base64 if needed
+                                      let frontCoverUrl = state.frontCoverImage;
+                                      if (frontCoverUrl.startsWith('blob:')) {
+                                        console.log('Converting blob URL to base64...');
+                                        const response = await fetch(frontCoverUrl);
+                                        const blob = await response.blob();
+                                        frontCoverUrl = await new Promise<string>((resolve) => {
+                                          const reader = new FileReader();
+                                          reader.onload = () => resolve(reader.result as string);
+                                          reader.readAsDataURL(blob);
+                                        });
+                                      }
+                                      
                                       const requestBody = {
-                                        frontCoverUrl: state.frontCoverImage,
+                                        frontCoverUrl: frontCoverUrl,
                                         width: Math.round(state.bookSettings.dimensions.width * 300),
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
                                         backCoverPrompt: state.backCoverPrompt,
@@ -2254,13 +2267,26 @@ const KDPCoverDesigner: React.FC = () => {
                                       onClick={async () => {
                                         setIsLoading({...isLoading, generateBackCover: true});
                                         try {
+                                          // Convert blob URL to base64 if needed
+                                          let frontCoverUrl = state.frontCoverImage;
+                                          if (frontCoverUrl && frontCoverUrl.startsWith('blob:')) {
+                                            console.log('Converting blob URL to base64 for variation...');
+                                            const response = await fetch(frontCoverUrl);
+                                            const blob = await response.blob();
+                                            frontCoverUrl = await new Promise<string>((resolve) => {
+                                              const reader = new FileReader();
+                                              reader.onload = () => resolve(reader.result as string);
+                                              reader.readAsDataURL(blob);
+                                            });
+                                          }
+                                          
                                           const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                                             method: 'POST',
                                             headers: {
                                               'Content-Type': 'application/json',
                                             },
                                             body: JSON.stringify({
-                                              frontCoverUrl: state.frontCoverImage,
+                                              frontCoverUrl: frontCoverUrl,
                                               width: Math.round(state.bookSettings.dimensions.width * 300),
                                               height: Math.round(state.bookSettings.dimensions.height * 300),
                                               backCoverPrompt: state.backCoverPrompt,
@@ -2270,7 +2296,7 @@ const KDPCoverDesigner: React.FC = () => {
                                           
                                           if (!response.ok) {
                                             const errorData = await response.json();
-                                            throw new Error(errorData.message || errorData.error || 'Failed to regenerate back cover');
+                                            throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
                                           }
                                           
                                           const data = await response.json();
