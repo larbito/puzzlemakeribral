@@ -1110,68 +1110,179 @@ async function generateIdeogramCover(prompt) {
  */
 async function createStyledBackCover(width, height, frontCoverBuffer, interiorImagesUrls) {
   try {
-    // Extract the dominant colors from the front cover
-    const frontCoverImage = sharp(frontCoverBuffer);
-    const { dominant } = await frontCoverImage.stats();
+    console.log('Creating styled back cover that matches front cover...');
     
-    // Create a base background using the dominant color from the front cover
-    const baseColor = {
-      r: Math.round(dominant.r),
-      g: Math.round(dominant.g), 
-      b: Math.round(dominant.b)
-    };
+    // First, resize the front cover to our target dimensions to get proper color sampling
+    const resizedFrontCover = await sharp(frontCoverBuffer)
+      .resize(width, height, { fit: 'cover' })
+      .toBuffer();
     
-    // Create a gradient background similar to the front cover style
-    const gradientSvg = `
+    // Extract multiple color samples from different regions of the front cover
+    const frontImage = sharp(resizedFrontCover);
+    
+    // Get overall image stats
+    const { dominant } = await frontImage.stats();
+    
+    // Sample colors from different regions of the front cover
+    const regionSize = 100;
+    const regions = [
+      { left: 0, top: 0, width: regionSize, height: regionSize }, // Top-left
+      { left: width - regionSize, top: 0, width: regionSize, height: regionSize }, // Top-right
+      { left: 0, top: height - regionSize, width: regionSize, height: regionSize }, // Bottom-left
+      { left: width - regionSize, top: height - regionSize, width: regionSize, height: regionSize }, // Bottom-right
+      { left: Math.floor(width/2) - 50, top: Math.floor(height/2) - 50, width: regionSize, height: regionSize } // Center
+    ];
+    
+    const regionColors = [];
+    for (const region of regions) {
+      try {
+        const { dominant: regionDominant } = await frontImage
+          .extract(region)
+          .stats();
+        regionColors.push({
+          r: Math.round(regionDominant.r),
+          g: Math.round(regionDominant.g),
+          b: Math.round(regionDominant.b)
+        });
+      } catch (error) {
+        // If region extraction fails, use the overall dominant color
+        regionColors.push({
+          r: Math.round(dominant.r),
+          g: Math.round(dominant.g),
+          b: Math.round(dominant.b)
+        });
+      }
+    }
+    
+    // Create a more sophisticated background that uses the actual front cover colors
+    const primaryColor = regionColors[4]; // Center color
+    const secondaryColor = regionColors[0]; // Top-left color
+    const accentColor = regionColors[2]; // Bottom-left color
+    
+    // Create a complex gradient background using the extracted colors
+    const backgroundSvg = `
       <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="backCoverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:rgb(${baseColor.r},${baseColor.g},${baseColor.b});stop-opacity:1" />
-            <stop offset="50%" style="stop-color:rgb(${Math.max(0, baseColor.r - 30)},${Math.max(0, baseColor.g - 30)},${Math.max(0, baseColor.b - 30)});stop-opacity:1" />
-            <stop offset="100%" style="stop-color:rgb(${Math.max(0, baseColor.r - 50)},${Math.max(0, baseColor.g - 50)},${Math.max(0, baseColor.b - 50)});stop-opacity:1" />
+          <radialGradient id="mainGradient" cx="30%" cy="20%" r="80%">
+            <stop offset="0%" style="stop-color:rgb(${primaryColor.r},${primaryColor.g},${primaryColor.b});stop-opacity:0.9" />
+            <stop offset="40%" style="stop-color:rgb(${secondaryColor.r},${secondaryColor.g},${secondaryColor.b});stop-opacity:0.8" />
+            <stop offset="100%" style="stop-color:rgb(${accentColor.r},${accentColor.g},${accentColor.b});stop-opacity:0.9" />
+          </radialGradient>
+          <linearGradient id="overlayGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:rgb(${regionColors[1].r},${regionColors[1].g},${regionColors[1].b});stop-opacity:0.3" />
+            <stop offset="100%" style="stop-color:rgb(${regionColors[3].r},${regionColors[3].g},${regionColors[3].b});stop-opacity:0.2" />
           </linearGradient>
         </defs>
-        <rect width="100%" height="100%" fill="url(#backCoverGradient)" />
+        <rect width="100%" height="100%" fill="url(#mainGradient)" />
+        <rect width="100%" height="100%" fill="url(#overlayGradient)" />
       </svg>
     `;
     
     // Create the base background
-    let baseBackCover = await sharp(Buffer.from(gradientSvg))
+    let baseBackCover = await sharp(Buffer.from(backgroundSvg))
       .resize(width, height)
-      .jpeg({ quality: 95 })
       .toBuffer();
     
-    // Create overlays for text areas
+    // Extract a blurred, low-opacity version of parts of the front cover for texture
+    const textureOverlay = await sharp(resizedFrontCover)
+      .blur(20)
+      .modulate({ brightness: 0.3, saturation: 0.5 })
+      .composite([{
+        input: {
+          create: {
+            width,
+            height,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 0.7 }
+          }
+        },
+        blend: 'overlay'
+      }])
+      .toBuffer();
+    
+    // Start building overlays
     const overlays = [];
     
-    // Main content area (book description) - large semi-transparent white area
-    const mainContentHeight = Math.floor(height * 0.5);
-    const mainContentWidth = Math.floor(width * 0.85);
+    // Add the texture overlay first
+    overlays.push({
+      input: textureOverlay,
+      blend: 'soft-light'
+    });
+    
+    // Create text areas with colors that complement the front cover
+    const textAreaColor = {
+      r: Math.min(255, Math.max(primaryColor.r, secondaryColor.r, accentColor.r) + 40),
+      g: Math.min(255, Math.max(primaryColor.g, secondaryColor.g, accentColor.g) + 40),
+      b: Math.min(255, Math.max(primaryColor.b, secondaryColor.b, accentColor.b) + 40)
+    };
+    
+    // Main content area (book description)
+    const mainContentHeight = Math.floor(height * 0.45);
+    const mainContentWidth = Math.floor(width * 0.82);
     const mainContentSvg = `
       <svg width="${mainContentWidth}" height="${mainContentHeight}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="rgba(255,255,255,0.9)" rx="15" ry="15"/>
+        <defs>
+          <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="rgba(0,0,0,0.3)"/>
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(${textAreaColor.r},${textAreaColor.g},${textAreaColor.b},0.95)" rx="12" ry="12" filter="url(#shadow)"/>
+        <rect x="3" y="3" width="${mainContentWidth-6}" height="${mainContentHeight-6}" fill="none" stroke="rgba(${primaryColor.r},${primaryColor.g},${primaryColor.b},0.3)" stroke-width="1" rx="9" ry="9"/>
       </svg>
     `;
     
     overlays.push({
       input: Buffer.from(mainContentSvg),
       left: Math.floor((width - mainContentWidth) / 2),
-      top: Math.floor(height * 0.15)
+      top: Math.floor(height * 0.18)
     });
     
-    // Author bio area - smaller area at the bottom
-    const authorBioHeight = Math.floor(height * 0.12);
-    const authorBioWidth = Math.floor(width * 0.7);
+    // Author bio area
+    const authorBioHeight = Math.floor(height * 0.15);
+    const authorBioWidth = Math.floor(width * 0.75);
     const authorBioSvg = `
       <svg width="${authorBioWidth}" height="${authorBioHeight}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="100%" height="100%" fill="rgba(240,240,240,0.85)" rx="10" ry="10"/>
+        <defs>
+          <filter id="bioShadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="rgba(0,0,0,0.2)"/>
+          </filter>
+        </defs>
+        <rect width="100%" height="100%" fill="rgba(${textAreaColor.r},${textAreaColor.g},${textAreaColor.b},0.9)" rx="8" ry="8" filter="url(#bioShadow)"/>
+        <rect x="2" y="2" width="${authorBioWidth-4}" height="${authorBioHeight-4}" fill="none" stroke="rgba(${secondaryColor.r},${secondaryColor.g},${secondaryColor.b},0.4)" stroke-width="1" rx="6" ry="6"/>
       </svg>
     `;
     
     overlays.push({
       input: Buffer.from(authorBioSvg),
       left: Math.floor((width - authorBioWidth) / 2),
-      top: Math.floor(height * 0.75)
+      top: Math.floor(height * 0.72)
+    });
+    
+    // Add decorative elements using the front cover colors
+    const decorativeElements = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="accent1" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:rgb(${primaryColor.r},${primaryColor.g},${primaryColor.b});stop-opacity:0.6" />
+            <stop offset="100%" style="stop-color:rgb(${primaryColor.r},${primaryColor.g},${primaryColor.b});stop-opacity:0" />
+          </radialGradient>
+          <radialGradient id="accent2" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:rgb(${secondaryColor.r},${secondaryColor.g},${secondaryColor.b});stop-opacity:0.4" />
+            <stop offset="100%" style="stop-color:rgb(${secondaryColor.r},${secondaryColor.g},${secondaryColor.b});stop-opacity:0" />
+          </radialGradient>
+        </defs>
+        <circle cx="${width * 0.15}" cy="${height * 0.12}" r="40" fill="url(#accent1)"/>
+        <circle cx="${width * 0.88}" cy="${height * 0.15}" r="25" fill="url(#accent2)"/>
+        <circle cx="${width * 0.12}" cy="${height * 0.85}" r="30" fill="url(#accent1)"/>
+        <circle cx="${width * 0.85}" cy="${height * 0.88}" r="20" fill="url(#accent2)"/>
+      </svg>
+    `;
+    
+    overlays.push({
+      input: Buffer.from(decorativeElements),
+      left: 0,
+      top: 0,
+      blend: 'soft-light'
     });
     
     // Add interior images if provided
@@ -1194,15 +1305,30 @@ async function createStyledBackCover(width, height, frontCoverBuffer, interiorIm
         }
       }
       
-      // Add interior images in a grid layout
       if (imageBuffers.length > 0) {
-        const imageSize = Math.floor(width * 0.12);
-        const spacing = 15;
-        const totalWidth = Math.min(imageBuffers.length, 4) * imageSize + (Math.min(imageBuffers.length, 4) - 1) * spacing;
+        const imageSize = Math.floor(width * 0.11);
+        const spacing = 12;
+        const maxImages = Math.min(imageBuffers.length, 4);
+        const totalWidth = maxImages * imageSize + (maxImages - 1) * spacing;
         const startX = Math.floor((width - totalWidth) / 2);
-        const startY = Math.floor(height * 0.68);
+        const startY = Math.floor(height * 0.67);
         
-        for (let i = 0; i < Math.min(imageBuffers.length, 4); i++) {
+        for (let i = 0; i < maxImages; i++) {
+          // Create a frame for each interior image using front cover colors
+          const frameSize = imageSize + 8;
+          const frameSvg = `
+            <svg width="${frameSize}" height="${frameSize}" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100%" height="100%" fill="rgba(${primaryColor.r},${primaryColor.g},${primaryColor.b},0.8)" rx="6"/>
+              <rect x="4" y="4" width="${imageSize}" height="${imageSize}" fill="white" rx="3"/>
+            </svg>
+          `;
+          
+          overlays.push({
+            input: Buffer.from(frameSvg),
+            left: startX + (i * (imageSize + spacing)) - 4,
+            top: startY - 4
+          });
+          
           const resizedImage = await sharp(imageBuffers[i])
             .resize(imageSize, imageSize, { fit: 'cover' })
             .jpeg({ quality: 90 })
@@ -1217,49 +1343,72 @@ async function createStyledBackCover(width, height, frontCoverBuffer, interiorIm
       }
     }
     
-    // Add some decorative elements that match the front cover style
-    const decorativeSvg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="${width * 0.1}" cy="${height * 0.1}" r="20" fill="rgba(255,255,255,0.1)"/>
-        <circle cx="${width * 0.9}" cy="${height * 0.9}" r="15" fill="rgba(255,255,255,0.08)"/>
-        <circle cx="${width * 0.85}" cy="${height * 0.15}" r="10" fill="rgba(255,255,255,0.06)"/>
-      </svg>
-    `;
-    
-    overlays.push({
-      input: Buffer.from(decorativeSvg),
-      left: 0,
-      top: 0
-    });
-    
     // Composite all overlays onto the base back cover
     const finalBackCover = await sharp(baseBackCover)
       .composite(overlays)
       .jpeg({ quality: 95 })
       .toBuffer();
     
+    console.log('Successfully created styled back cover matching front cover colors');
     return finalBackCover;
+    
   } catch (error) {
     console.error('Error in createStyledBackCover:', error);
     
-    // Fallback: create a simple colored background
-    const fallbackSvg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="fallbackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#fallbackGradient)" />
-        <rect x="${width * 0.1}" y="${height * 0.2}" width="${width * 0.8}" height="${height * 0.4}" fill="rgba(255,255,255,0.9)" rx="15"/>
-        <rect x="${width * 0.15}" y="${height * 0.7}" width="${width * 0.7}" height="${height * 0.15}" fill="rgba(240,240,240,0.85)" rx="10"/>
-      </svg>
-    `;
-    
-    return sharp(Buffer.from(fallbackSvg))
-      .jpeg({ quality: 95 })
-      .toBuffer();
+    // Enhanced fallback that still tries to use front cover
+    try {
+      console.log('Using enhanced fallback approach...');
+      
+      // Create a blurred, desaturated version of the front cover as base
+      const blurredFront = await sharp(frontCoverBuffer)
+        .resize(width, height, { fit: 'cover' })
+        .blur(15)
+        .modulate({ brightness: 0.7, saturation: 0.6 })
+        .toBuffer();
+      
+      // Add semi-transparent overlays for text areas
+      const overlays = [
+        {
+          input: Buffer.from(`
+            <svg width="${Math.floor(width * 0.8)}" height="${Math.floor(height * 0.4)}" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100%" height="100%" fill="rgba(255,255,255,0.92)" rx="12"/>
+            </svg>
+          `),
+          left: Math.floor(width * 0.1),
+          top: Math.floor(height * 0.2)
+        },
+        {
+          input: Buffer.from(`
+            <svg width="${Math.floor(width * 0.7)}" height="${Math.floor(height * 0.12)}" xmlns="http://www.w3.org/2000/svg">
+              <rect width="100%" height="100%" fill="rgba(240,240,240,0.9)" rx="8"/>
+            </svg>
+          `),
+          left: Math.floor(width * 0.15),
+          top: Math.floor(height * 0.75)
+        }
+      ];
+      
+      return sharp(blurredFront)
+        .composite(overlays)
+        .jpeg({ quality: 95 })
+        .toBuffer();
+        
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+      
+      // Final fallback - simple colored background
+      const simpleFallback = `
+        <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="#2563eb"/>
+          <rect x="${width * 0.1}" y="${height * 0.2}" width="${width * 0.8}" height="${height * 0.4}" fill="rgba(255,255,255,0.95)" rx="12"/>
+          <rect x="${width * 0.15}" y="${height * 0.75}" width="${width * 0.7}" height="${height * 0.12}" fill="rgba(240,240,240,0.9)" rx="8"/>
+        </svg>
+      `;
+      
+      return sharp(Buffer.from(simpleFallback))
+        .jpeg({ quality: 95 })
+        .toBuffer();
+    }
   }
 }
 
