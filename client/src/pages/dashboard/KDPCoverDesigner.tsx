@@ -1935,11 +1935,11 @@ const KDPCoverDesigner: React.FC = () => {
                   <div className="space-y-4">
                     <div className="space-y-3">
                       <Label htmlFor="backCoverPrompt" className="text-base font-medium text-zinc-300">
-                        Book Description & Marketing Copy
+                        Back Cover Design Prompt
                       </Label>
                       <Textarea
                         id="backCoverPrompt"
-                        placeholder="Enter your book description, author bio, testimonials, or any text you want on the back cover..."
+                        placeholder="Describe the visual style and layout for your back cover, or click 'Generate Style from Front Cover' to automatically create a matching design prompt..."
                         className="min-h-[140px] bg-zinc-900 border-zinc-700 focus:border-emerald-500 text-white placeholder:text-zinc-500"
                         value={state.backCoverPrompt}
                         onChange={(e) => 
@@ -1964,44 +1964,39 @@ const KDPCoverDesigner: React.FC = () => {
                             }
                             
                             setIsLoading({...isLoading, generateBackCoverPrompt: true});
-                            toast.info("Generating back cover description from front cover...");
+                            toast.info("Generating back cover style from front cover...");
                             
                             try {
-                              const response = await fetch(`${getApiUrl()}/api/openai/enhance-prompt`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                  prompt: `Based on this front cover design: "${state.frontCoverPrompt}", create a complementary back cover description that would work well with this design.`,
-                                  context: "You are a professional book cover designer. Create a back cover description that includes placeholders for book summary, author bio, and complements the front cover style."
-                                })
-                              });
-                              
-                              if (!response.ok) {
-                                const errorData = await response.json();
-                                throw new Error(errorData.error || 'Failed to generate back cover description');
-                              }
-                              
-                              const data = await response.json();
-                              const backCoverDesc = data.enhancedPrompt;
-                              
-                              if (!backCoverDesc) {
-                                throw new Error('No back cover description was generated');
-                              }
+                              // Create a back cover prompt that maintains the same visual style as front cover
+                              // but adapts it for back cover layout and content
+                              const backCoverStylePrompt = `${state.frontCoverPrompt.replace(/front cover/gi, 'back cover')
+                                .replace(/title/gi, 'back cover text')
+                                .replace(/main title/gi, 'book description')
+                                .replace(/book title/gi, 'book summary')}. 
+                                
+                                BACK COVER SPECIFIC REQUIREMENTS:
+                                - Same artistic style, colors, and visual theme as the front cover
+                                - Layout optimized for back cover with space for book description text
+                                - Include space for author bio section
+                                - Maintain the same color palette and design elements
+                                - Complementary composition that works with the front cover design
+                                - Space for book summary, author information, and testimonials
+                                ${state.bookSettings.includeISBN ? '- Reserve bottom-right corner for ISBN barcode' : ''}
+                                
+                                IMPORTANT: This should look like it belongs to the same book as the front cover, with consistent visual style and branding.`;
                               
                               setState(prev => ({
                                 ...prev,
-                                backCoverPrompt: backCoverDesc
+                                backCoverPrompt: backCoverStylePrompt
                               }));
                               
-                              toast.success("Back cover description generated!");
+                              toast.success("Back cover style prompt generated! Same visual style as front cover.");
                             } catch (error) {
-                              console.error('Error generating back cover description:', error);
-                              toast.error(error instanceof Error ? error.message : 'Failed to generate back cover description');
+                              console.error('Error generating back cover style:', error);
+                              toast.error('Failed to generate back cover style');
                               setState(prev => ({
                                 ...prev,
-                                backCoverPrompt: "A professional back cover matching the front design, with space for book description text and author bio."
+                                backCoverPrompt: `${state.frontCoverPrompt.replace(/front cover/gi, 'back cover')}. Back cover layout with space for book description and author bio. Same visual style and colors as front cover.`
                               }));
                             } finally {
                               setIsLoading({...isLoading, generateBackCoverPrompt: false});
@@ -2017,7 +2012,7 @@ const KDPCoverDesigner: React.FC = () => {
                           ) : (
                             <>
                               <Sparkles className="mr-2 h-3 w-3" />
-                              Generate from Front Cover
+                              Generate Style from Front Cover
                             </>
                           )}
                         </Button>
@@ -2031,13 +2026,13 @@ const KDPCoverDesigner: React.FC = () => {
                           <Info className="h-4 w-4 text-blue-400" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-blue-300 mb-2">Back Cover Best Practices</h4>
+                          <h4 className="text-sm font-medium text-blue-300 mb-2">Back Cover Design Tips</h4>
                           <ul className="text-xs text-blue-400/80 space-y-1">
-                            <li>• Write a compelling hook that grabs readers' attention</li>
-                            <li>• Include a brief author bio and credentials</li>
-                            <li>• Add testimonials or reviews if available</li>
-                            <li>• Keep text readable (14-16pt font minimum)</li>
-                            <li>• Leave space for ISBN barcode if enabled</li>
+                            <li>• Use "Generate Style from Front Cover" to maintain visual consistency</li>
+                            <li>• The generated prompt will match your front cover's artistic style</li>
+                            <li>• You can edit the prompt to add specific content requirements</li>
+                            <li>• Include space for book description, author bio, and testimonials</li>
+                            <li>• Keep the same color palette and design elements as front cover</li>
                           </ul>
                         </div>
                       </div>
@@ -2200,11 +2195,11 @@ const KDPCoverDesigner: React.FC = () => {
                             <span className="text-white text-sm font-medium">2</span>
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-base font-medium text-white mb-2">Content Preparation</h4>
+                            <h4 className="text-base font-medium text-white mb-2">Style Preparation</h4>
                             {state.backCoverPrompt ? (
                               <div className="flex items-center gap-2 text-sm text-emerald-400">
                                 <CheckCircle2 className="h-4 w-4" />
-                                Description ready
+                                Style prompt ready
                                 {state.interiorImages.some(img => img) && (
                                   <span className="text-zinc-400">
                                     • {state.interiorImages.filter(img => img).length} interior image(s)
@@ -2213,7 +2208,7 @@ const KDPCoverDesigner: React.FC = () => {
                               </div>
                             ) : (
                               <p className="text-sm text-zinc-400">
-                                Add a description above to proceed with back cover generation.
+                                Generate a style prompt above to proceed with back cover generation.
                               </p>
                             )}
                           </div>
@@ -2476,7 +2471,7 @@ const KDPCoverDesigner: React.FC = () => {
                           </div>
                           <p className="text-sm font-medium">No Back Cover Generated</p>
                           <p className="text-xs text-zinc-600 mt-1">
-                            Add description and generate to see preview
+                            Generate style prompt and create back cover to see preview
                           </p>
                         </div>
                       )}
@@ -2498,10 +2493,10 @@ const KDPCoverDesigner: React.FC = () => {
                   
                   {/* Content Summary */}
                   <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-4">
-                    <h4 className="text-sm font-medium text-zinc-300 mb-3">Content Summary</h4>
+                    <h4 className="text-sm font-medium text-zinc-300 mb-3">Design Summary</h4>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Description:</span>
+                        <span className="text-zinc-500">Style Prompt:</span>
                         <span className="text-zinc-300">
                           {state.backCoverPrompt ? `${state.backCoverPrompt.length} chars` : 'None'}
                         </span>
