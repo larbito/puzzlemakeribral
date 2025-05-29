@@ -1110,57 +1110,70 @@ async function generateIdeogramCover(prompt) {
  */
 async function createStyledBackCover(width, height, frontCoverBuffer, interiorImagesUrls) {
   try {
-    // First, create a base back cover by flipping and slightly modifying the front cover
-    let baseBackCover = await sharp(frontCoverBuffer)
-      .resize(width, height, { fit: 'fill' })
-      .flop() // Mirror horizontally to create a different but related composition
-      .modulate({ 
-        saturation: 0.9, // Slightly reduce saturation
-        brightness: 0.95 // Slightly reduce brightness
-      })
+    // Extract the dominant colors from the front cover
+    const frontCoverImage = sharp(frontCoverBuffer);
+    const { dominant } = await frontCoverImage.stats();
+    
+    // Create a base background using the dominant color from the front cover
+    const baseColor = {
+      r: Math.round(dominant.r),
+      g: Math.round(dominant.g), 
+      b: Math.round(dominant.b)
+    };
+    
+    // Create a gradient background similar to the front cover style
+    const gradientSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="backCoverGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:rgb(${baseColor.r},${baseColor.g},${baseColor.b});stop-opacity:1" />
+            <stop offset="50%" style="stop-color:rgb(${Math.max(0, baseColor.r - 30)},${Math.max(0, baseColor.g - 30)},${Math.max(0, baseColor.b - 30)});stop-opacity:1" />
+            <stop offset="100%" style="stop-color:rgb(${Math.max(0, baseColor.r - 50)},${Math.max(0, baseColor.g - 50)},${Math.max(0, baseColor.b - 50)});stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#backCoverGradient)" />
+      </svg>
+    `;
+    
+    // Create the base background
+    let baseBackCover = await sharp(Buffer.from(gradientSvg))
+      .resize(width, height)
+      .jpeg({ quality: 95 })
       .toBuffer();
-
-    // Create text overlay areas (clean spaces for content)
-    const textOverlays = [];
-
-    // Main content area (upper 60% of the cover for book description)
-    const mainContentHeight = Math.floor(height * 0.6);
-    const mainContentOverlay = await sharp({
-      create: {
-        width: Math.floor(width * 0.8),
-        height: mainContentHeight,
-        channels: 4,
-        background: { r: 255, g: 255, b: 255, alpha: 0.85 } // Semi-transparent white
-      }
-    })
-    .blur(2) // Slight blur for softer edges
-    .toBuffer();
-
-    textOverlays.push({
-      input: mainContentOverlay,
-      left: Math.floor(width * 0.1), // Center horizontally
-      top: Math.floor(height * 0.15) // Start from 15% down
+    
+    // Create overlays for text areas
+    const overlays = [];
+    
+    // Main content area (book description) - large semi-transparent white area
+    const mainContentHeight = Math.floor(height * 0.5);
+    const mainContentWidth = Math.floor(width * 0.85);
+    const mainContentSvg = `
+      <svg width="${mainContentWidth}" height="${mainContentHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="rgba(255,255,255,0.9)" rx="15" ry="15"/>
+      </svg>
+    `;
+    
+    overlays.push({
+      input: Buffer.from(mainContentSvg),
+      left: Math.floor((width - mainContentWidth) / 2),
+      top: Math.floor(height * 0.15)
     });
-
-    // Author bio area (lower section)
-    const authorBioHeight = Math.floor(height * 0.15);
-    const authorBioOverlay = await sharp({
-      create: {
-        width: Math.floor(width * 0.7),
-        height: authorBioHeight,
-        channels: 4,
-        background: { r: 240, g: 240, b: 240, alpha: 0.8 } // Slightly different shade
-      }
-    })
-    .blur(1)
-    .toBuffer();
-
-    textOverlays.push({
-      input: authorBioOverlay,
-      left: Math.floor(width * 0.15),
-      top: Math.floor(height * 0.78) // Near the bottom
+    
+    // Author bio area - smaller area at the bottom
+    const authorBioHeight = Math.floor(height * 0.12);
+    const authorBioWidth = Math.floor(width * 0.7);
+    const authorBioSvg = `
+      <svg width="${authorBioWidth}" height="${authorBioHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="rgba(240,240,240,0.85)" rx="10" ry="10"/>
+      </svg>
+    `;
+    
+    overlays.push({
+      input: Buffer.from(authorBioSvg),
+      left: Math.floor((width - authorBioWidth) / 2),
+      top: Math.floor(height * 0.75)
     });
-
+    
     // Add interior images if provided
     if (interiorImagesUrls && interiorImagesUrls.length > 0) {
       const imageBuffers = [];
@@ -1180,45 +1193,71 @@ async function createStyledBackCover(width, height, frontCoverBuffer, interiorIm
           console.error('Error processing interior image:', error);
         }
       }
-
-      // Add interior images in a small grid in the middle section
+      
+      // Add interior images in a grid layout
       if (imageBuffers.length > 0) {
-        const imageSize = Math.floor(width * 0.15); // Small preview size
-        const startX = Math.floor(width * 0.1);
-        const startY = Math.floor(height * 0.45);
-
+        const imageSize = Math.floor(width * 0.12);
+        const spacing = 15;
+        const totalWidth = Math.min(imageBuffers.length, 4) * imageSize + (Math.min(imageBuffers.length, 4) - 1) * spacing;
+        const startX = Math.floor((width - totalWidth) / 2);
+        const startY = Math.floor(height * 0.68);
+        
         for (let i = 0; i < Math.min(imageBuffers.length, 4); i++) {
-          const col = i % 2;
-          const row = Math.floor(i / 2);
-          
           const resizedImage = await sharp(imageBuffers[i])
             .resize(imageSize, imageSize, { fit: 'cover' })
+            .jpeg({ quality: 90 })
             .toBuffer();
-
-          textOverlays.push({
+          
+          overlays.push({
             input: resizedImage,
-            left: startX + (col * (imageSize + 10)),
-            top: startY + (row * (imageSize + 10))
+            left: startX + (i * (imageSize + spacing)),
+            top: startY
           });
         }
       }
     }
-
+    
+    // Add some decorative elements that match the front cover style
+    const decorativeSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${width * 0.1}" cy="${height * 0.1}" r="20" fill="rgba(255,255,255,0.1)"/>
+        <circle cx="${width * 0.9}" cy="${height * 0.9}" r="15" fill="rgba(255,255,255,0.08)"/>
+        <circle cx="${width * 0.85}" cy="${height * 0.15}" r="10" fill="rgba(255,255,255,0.06)"/>
+      </svg>
+    `;
+    
+    overlays.push({
+      input: Buffer.from(decorativeSvg),
+      left: 0,
+      top: 0
+    });
+    
     // Composite all overlays onto the base back cover
     const finalBackCover = await sharp(baseBackCover)
-      .composite(textOverlays)
+      .composite(overlays)
       .jpeg({ quality: 95 })
       .toBuffer();
-
+    
     return finalBackCover;
   } catch (error) {
     console.error('Error in createStyledBackCover:', error);
     
-    // Fallback: simple flipped version
-    return sharp(frontCoverBuffer)
-      .resize(width, height, { fit: 'fill' })
-      .flop()
-      .modulate({ saturation: 0.8, brightness: 0.9 })
+    // Fallback: create a simple colored background
+    const fallbackSvg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="fallbackGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#4f46e5;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#fallbackGradient)" />
+        <rect x="${width * 0.1}" y="${height * 0.2}" width="${width * 0.8}" height="${height * 0.4}" fill="rgba(255,255,255,0.9)" rx="15"/>
+        <rect x="${width * 0.15}" y="${height * 0.7}" width="${width * 0.7}" height="${height * 0.15}" fill="rgba(240,240,240,0.85)" rx="10"/>
+      </svg>
+    `;
+    
+    return sharp(Buffer.from(fallbackSvg))
       .jpeg({ quality: 95 })
       .toBuffer();
   }
