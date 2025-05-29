@@ -2082,6 +2082,22 @@ const KDPCoverDesigner: React.FC = () => {
                       Back Cover Generation
                     </h3>
                     
+                    {/* Back Cover Prompt Input */}
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-zinc-300 mb-2">
+                        Back Cover Content (Optional)
+                      </label>
+                      <textarea
+                        value={state.backCoverPrompt}
+                        onChange={(e) => setState(prev => ({ ...prev, backCoverPrompt: e.target.value }))}
+                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials). Leave empty to use automatic style matching with clean text areas."
+                        className="w-full h-24 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                      />
+                      <p className="text-xs text-zinc-500 mt-1">
+                        If provided, this will be used to generate custom back cover content. Otherwise, clean areas will be created for your own text.
+                      </p>
+                    </div>
+                    
                     <div className="space-y-6">
                       {/* Step 1: Requirements Check */}
                       <div className="flex items-start gap-4">
@@ -2169,6 +2185,7 @@ const KDPCoverDesigner: React.FC = () => {
                                         frontCoverUrl: state.frontCoverImage,
                                         width: Math.round(state.bookSettings.dimensions.width * 300),
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
+                                        backCoverPrompt: state.backCoverPrompt,
                                         interiorImages: state.interiorImages.filter(img => img)
                                       };
                                       
@@ -2246,6 +2263,7 @@ const KDPCoverDesigner: React.FC = () => {
                                               frontCoverUrl: state.frontCoverImage,
                                               width: Math.round(state.bookSettings.dimensions.width * 300),
                                               height: Math.round(state.bookSettings.dimensions.height * 300),
+                                              backCoverPrompt: state.backCoverPrompt,
                                               interiorImages: state.interiorImages.filter(img => img)
                                             })
                                           });

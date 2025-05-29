@@ -276,8 +276,43 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     const targetHeight = height || 2700;
     
     console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
+    console.log('Back cover prompt provided:', !!backCoverPrompt);
 
     try {
+      // If a prompt is provided, use AI generation
+      if (backCoverPrompt && backCoverPrompt.trim()) {
+        console.log('Generating AI back cover with prompt:', backCoverPrompt);
+        
+        // Use the existing front cover generation endpoint with the back cover prompt
+        const aiResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3001'}/api/book-cover/generate-front`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: `Back cover design: ${backCoverPrompt.trim()}. Professional book back cover layout with clean typography and space for text content.`,
+            width: targetWidth,
+            height: targetHeight
+          })
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          if (aiData.success && aiData.imageUrl) {
+            console.log('Successfully generated AI back cover');
+            return res.json({ 
+              status: 'success', 
+              url: aiData.imageUrl,
+              width: targetWidth,
+              height: targetHeight,
+              method: 'ai_generated'
+            });
+          }
+        }
+        
+        console.log('AI generation failed, falling back to styled approach');
+      }
+      
       console.log('Creating back cover with same style as front cover but clean text areas...');
       
       // Download the front cover image
@@ -315,15 +350,16 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         status: 'success', 
         url: backCoverUrl,
         width: targetWidth,
-        height: targetHeight 
+        height: targetHeight,
+        method: 'style_matched'
       });
     } catch (error) {
-      console.error('Error creating styled back cover:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
+      console.error('Error creating back cover:', error);
+      res.status(500).json({ status: 'error', message: 'Failed to create back cover', details: error.message });
     }
   } catch (error) {
     console.error('Error in back cover generation:', error);
-    res.status(500).json({ status: 'error', message: 'Server error' });
+    res.status(500).json({ status: 'error', message: 'Server error', details: error.message });
   }
 });
 
