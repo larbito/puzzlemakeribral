@@ -1929,110 +1929,40 @@ const KDPCoverDesigner: React.FC = () => {
                 <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
                   <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                     <FileText className="h-5 w-5 text-emerald-400" />
-                    Back Cover Description
+                    Back Cover Style
                   </h3>
                   
                   <div className="space-y-4">
-                    <div className="space-y-3">
-                      <Label htmlFor="backCoverPrompt" className="text-base font-medium text-zinc-300">
-                        Back Cover Design Prompt
-                      </Label>
-                      <Textarea
-                        id="backCoverPrompt"
-                        placeholder="Describe the visual style and layout for your back cover, or click 'Generate Style from Front Cover' to automatically create a matching design prompt..."
-                        className="min-h-[140px] bg-zinc-900 border-zinc-700 focus:border-emerald-500 text-white placeholder:text-zinc-500"
-                        value={state.backCoverPrompt}
-                        onChange={(e) => 
-                          setState(prev => ({
-                            ...prev,
-                            backCoverPrompt: e.target.value
-                          }))
-                        }
-                      />
-                      <div className="flex justify-between items-center">
-                        <div className="text-xs text-zinc-500">
-                          {state.backCoverPrompt.length} characters
+                    <div className="bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-emerald-900/50 flex items-center justify-center flex-shrink-0">
+                          <Sparkles className="h-4 w-4 text-emerald-400" />
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/30"
-                          onClick={async () => {
-                            if (!state.frontCoverPrompt) {
-                              toast.error("Please generate a front cover prompt first");
-                              return;
-                            }
-                            
-                            setIsLoading({...isLoading, generateBackCoverPrompt: true});
-                            toast.info("Generating back cover style from front cover...");
-                            
-                            try {
-                              // Create a back cover prompt that maintains the same visual style as front cover
-                              // but adapts it for back cover layout and content
-                              const backCoverStylePrompt = `${state.frontCoverPrompt.replace(/front cover/gi, 'back cover')
-                                .replace(/title/gi, 'back cover text')
-                                .replace(/main title/gi, 'book description')
-                                .replace(/book title/gi, 'book summary')}. 
-                                
-                                BACK COVER SPECIFIC REQUIREMENTS:
-                                - Same artistic style, colors, and visual theme as the front cover
-                                - Layout optimized for back cover with space for book description text
-                                - Include space for author bio section
-                                - Maintain the same color palette and design elements
-                                - Complementary composition that works with the front cover design
-                                - Space for book summary, author information, and testimonials
-                                ${state.bookSettings.includeISBN ? '- Reserve bottom-right corner for ISBN barcode' : ''}
-                                
-                                IMPORTANT: This should look like it belongs to the same book as the front cover, with consistent visual style and branding.`;
-                              
-                              setState(prev => ({
-                                ...prev,
-                                backCoverPrompt: backCoverStylePrompt
-                              }));
-                              
-                              toast.success("Back cover style prompt generated! Same visual style as front cover.");
-                            } catch (error) {
-                              console.error('Error generating back cover style:', error);
-                              toast.error('Failed to generate back cover style');
-                              setState(prev => ({
-                                ...prev,
-                                backCoverPrompt: `${state.frontCoverPrompt.replace(/front cover/gi, 'back cover')}. Back cover layout with space for book description and author bio. Same visual style and colors as front cover.`
-                              }));
-                            } finally {
-                              setIsLoading({...isLoading, generateBackCoverPrompt: false});
-                            }
-                          }}
-                          disabled={isLoading.generateBackCoverPrompt || !state.frontCoverPrompt}
-                        >
-                          {isLoading.generateBackCoverPrompt ? (
-                            <>
-                              <Loader2 className="animate-spin mr-2 h-3 w-3" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-3 w-3" />
-                              Generate Style from Front Cover
-                            </>
-                          )}
-                        </Button>
+                        <div>
+                          <h4 className="text-sm font-medium text-emerald-300 mb-2">Automatic Style Matching</h4>
+                          <p className="text-xs text-emerald-400/80">
+                            Your back cover will automatically use the same background, colors, and visual style as your front cover. 
+                            We'll create clean areas where you can add your book description, author bio, and other text content.
+                          </p>
+                        </div>
                       </div>
                     </div>
                     
-                    {/* Description Tips */}
+                    {/* Style Preview Info */}
                     <div className="bg-blue-950/20 rounded-lg p-4 border border-blue-900/30">
                       <div className="flex items-start gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
                           <Info className="h-4 w-4 text-blue-400" />
                         </div>
                         <div>
-                          <h4 className="text-sm font-medium text-blue-300 mb-2">Back Cover Design Tips</h4>
+                          <h4 className="text-sm font-medium text-blue-300 mb-2">What You'll Get</h4>
                           <ul className="text-xs text-blue-400/80 space-y-1">
-                            <li>• Use "Generate Style from Front Cover" to maintain visual consistency</li>
-                            <li>• The generated prompt will match your front cover's artistic style</li>
-                            <li>• You can edit the prompt to add specific content requirements</li>
-                            <li>• Include space for book description, author bio, and testimonials</li>
-                            <li>• Keep the same color palette and design elements as front cover</li>
+                            <li>• Same background and color scheme as your front cover</li>
+                            <li>• Clean, semi-transparent areas for your text content</li>
+                            <li>• Space for book description in the main area</li>
+                            <li>• Dedicated area for author bio at the bottom</li>
+                            <li>• Optional interior image previews if uploaded</li>
+                            <li>• Professional layout ready for your content</li>
                           </ul>
                         </div>
                       </div>
@@ -2145,7 +2075,7 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
 
                 {/* Generation Workflow */}
-                {(state.backCoverPrompt || state.interiorImages.some(img => img)) && (
+                {(state.interiorImages.some(img => img) || state.frontCoverImage) && (
                   <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
                       <Settings className="h-5 w-5 text-emerald-400" />
@@ -2165,12 +2095,12 @@ const KDPCoverDesigner: React.FC = () => {
                           {state.frontCoverImage ? (
                             <div className="flex items-center gap-2 text-sm text-emerald-400">
                               <CheckCircle2 className="h-4 w-4" />
-                              Front cover is ready
+                              Front cover is ready - style will be automatically matched
                             </div>
                           ) : (
                             <div className="space-y-2">
                               <p className="text-sm text-zinc-400">
-                                A front cover is required to generate a matching back cover design.
+                                A front cover is required to create a matching back cover design.
                               </p>
                               <Button 
                                 variant="outline"
@@ -2186,29 +2116,24 @@ const KDPCoverDesigner: React.FC = () => {
                         </div>
                       </div>
                       
-                      {/* Step 2: Content Ready */}
+                      {/* Step 2: Optional Interior Images */}
                       {state.frontCoverImage && (
                         <div className="flex items-start gap-4">
                           <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                            state.backCoverPrompt ? 'bg-emerald-600' : 'bg-zinc-600'
+                            state.interiorImages.some(img => img) ? 'bg-emerald-600' : 'bg-blue-600'
                           }`}>
                             <span className="text-white text-sm font-medium">2</span>
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-base font-medium text-white mb-2">Style Preparation</h4>
-                            {state.backCoverPrompt ? (
+                            <h4 className="text-base font-medium text-white mb-2">Interior Images (Optional)</h4>
+                            {state.interiorImages.some(img => img) ? (
                               <div className="flex items-center gap-2 text-sm text-emerald-400">
                                 <CheckCircle2 className="h-4 w-4" />
-                                Style prompt ready
-                                {state.interiorImages.some(img => img) && (
-                                  <span className="text-zinc-400">
-                                    • {state.interiorImages.filter(img => img).length} interior image(s)
-                                  </span>
-                                )}
+                                {state.interiorImages.filter(img => img).length} interior image(s) ready
                               </div>
                             ) : (
                               <p className="text-sm text-zinc-400">
-                                Generate a style prompt above to proceed with back cover generation.
+                                Upload interior images above to include them in your back cover preview.
                               </p>
                             )}
                           </div>
@@ -2216,16 +2141,16 @@ const KDPCoverDesigner: React.FC = () => {
                       )}
                       
                       {/* Step 3: Generate */}
-                      {state.frontCoverImage && state.backCoverPrompt && (
+                      {state.frontCoverImage && (
                         <div className="flex items-start gap-4">
                           <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
                             <span className="text-white text-sm font-medium">3</span>
                           </div>
                           <div className="flex-1">
-                            <h4 className="text-base font-medium text-white mb-2">Generate Back Cover</h4>
+                            <h4 className="text-base font-medium text-white mb-2">Generate Styled Back Cover</h4>
                             <div className="space-y-3">
                               <p className="text-sm text-zinc-400">
-                                Create a back cover that complements your front cover design with your content.
+                                Create a back cover that uses the same visual style as your front cover with clean areas for your content.
                               </p>
                               <div className="flex flex-wrap gap-3">
                                 <Button 
@@ -2236,20 +2161,14 @@ const KDPCoverDesigner: React.FC = () => {
                                       return;
                                     }
                                     
-                                    if (!state.backCoverPrompt) {
-                                      toast.error("Please add a back cover description first");
-                                      return;
-                                    }
-                                    
                                     setIsLoading({...isLoading, generateBackCover: true});
-                                    toast.info("Generating back cover design...");
+                                    toast.info("Creating styled back cover...");
                                     
                                     try {
                                       const requestBody = {
                                         frontCoverUrl: state.frontCoverImage,
                                         width: Math.round(state.bookSettings.dimensions.width * 300),
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        backCoverPrompt: state.backCoverPrompt,
                                         interiorImages: state.interiorImages.filter(img => img)
                                       };
                                       
@@ -2287,20 +2206,10 @@ const KDPCoverDesigner: React.FC = () => {
                                         }
                                       }));
                                       
-                                      toast.success("Back cover generated successfully!");
+                                      toast.success("Styled back cover created successfully!");
                                     } catch (error) {
                                       console.error('Error generating back cover:', error);
                                       toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
-                                      
-                                      setState(prev => ({
-                                        ...prev,
-                                        backCoverImage: 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover',
-                                        steps: {
-                                          ...prev.steps,
-                                          backCover: true
-                                        }
-                                      }));
-                                      toast.info("Using placeholder back cover - you can continue to the next step.");
                                     } finally {
                                       setIsLoading({...isLoading, generateBackCover: false});
                                     }
@@ -2310,12 +2219,12 @@ const KDPCoverDesigner: React.FC = () => {
                                   {isLoading.generateBackCover ? (
                                     <>
                                       <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                                      Generating...
+                                      Creating...
                                     </>
                                   ) : (
                                     <>
                                       <Wand2 className="mr-2 h-4 w-4" />
-                                      Generate Back Cover
+                                      Create Styled Back Cover
                                     </>
                                   )}
                                 </Button>
@@ -2337,7 +2246,6 @@ const KDPCoverDesigner: React.FC = () => {
                                               frontCoverUrl: state.frontCoverImage,
                                               width: Math.round(state.bookSettings.dimensions.width * 300),
                                               height: Math.round(state.bookSettings.dimensions.height * 300),
-                                              backCoverPrompt: state.backCoverPrompt,
                                               interiorImages: state.interiorImages.filter(img => img)
                                             })
                                           });
@@ -2358,10 +2266,10 @@ const KDPCoverDesigner: React.FC = () => {
                                               ...prev,
                                               backCoverImage: fullImageUrl
                                             }));
-                                            toast.success("Back cover regenerated successfully!");
+                                            toast.success("New styled back cover created!");
                                           }
                                         } catch (error) {
-                                          toast.error("Failed to regenerate back cover");
+                                          toast.error("Failed to create new back cover");
                                         } finally {
                                           setIsLoading({...isLoading, generateBackCover: false});
                                         }
@@ -2506,9 +2414,9 @@ const KDPCoverDesigner: React.FC = () => {
                     <h4 className="text-sm font-medium text-zinc-300 mb-3">Design Summary</h4>
                     <div className="space-y-2 text-xs">
                       <div className="flex justify-between">
-                        <span className="text-zinc-500">Style Prompt:</span>
+                        <span className="text-zinc-500">Style Source:</span>
                         <span className="text-zinc-300">
-                          {state.backCoverPrompt ? `${state.backCoverPrompt.length} chars` : 'None'}
+                          {state.frontCoverImage ? 'Front Cover' : 'None'}
                         </span>
                       </div>
                       <div className="flex justify-between">

@@ -271,49 +271,34 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Missing frontCoverUrl parameter' });
     }
 
-    if (!backCoverPrompt) {
-      console.error('Missing required parameter: backCoverPrompt');
-      return res.status(400).json({ status: 'error', message: 'Missing backCoverPrompt parameter' });
-    }
-
     // Use provided dimensions or default to standard book cover size
     const targetWidth = width || 1800;
     const targetHeight = height || 2700;
     
     console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
-    console.log('Back cover prompt:', backCoverPrompt.substring(0, 200) + '...');
 
-    // Generate AI back cover using the prompt
-    let backCoverBuffer;
     try {
-      console.log('Generating AI back cover with Ideogram...');
+      console.log('Creating back cover with same style as front cover but clean text areas...');
       
-      // Use the generateIdeogramCover function to create the back cover
-      const aiGeneratedUrl = await generateIdeogramCover(backCoverPrompt);
-      
-      if (!aiGeneratedUrl) {
-        throw new Error('Failed to generate AI back cover - no URL returned');
-      }
-      
-      console.log('AI back cover generated successfully:', aiGeneratedUrl);
-      
-      // Download the generated image
-      const response = await fetch(aiGeneratedUrl);
+      // Download the front cover image
+      const response = await fetch(frontCoverUrl);
       if (!response.ok) {
-        throw new Error(`Failed to fetch generated back cover: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
       }
-      backCoverBuffer = await response.arrayBuffer();
-      backCoverBuffer = Buffer.from(backCoverBuffer);
+      const frontCoverBuffer = await response.arrayBuffer();
+      const frontBuffer = Buffer.from(frontCoverBuffer);
       
-      // Resize to exact target dimensions
-      backCoverBuffer = await sharp(backCoverBuffer)
-        .resize(targetWidth, targetHeight, { fit: 'fill' })
-        .jpeg({ quality: 95 })
-        .toBuffer();
+      // Create back cover that maintains the same visual style but with clean text areas
+      let backCoverBuffer = await createStyledBackCover(
+        targetWidth,
+        targetHeight,
+        frontBuffer,
+        interiorImages.filter(img => img && img.trim())
+      );
       
       // Save to a temporary file with a unique name
       const uniqueId = Date.now();
-      const fileName = `back-cover-${uniqueId}.jpg`;
+      const fileName = `back-cover-styled-${uniqueId}.jpg`;
       const filePath = path.join(staticDir, fileName);
       
       // Save the final image
@@ -323,7 +308,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       
       // Return the URL to the saved file
       const backCoverUrl = `/static/${fileName}`;
-      console.log('Successfully created back cover:', backCoverUrl);
+      console.log('Successfully created styled back cover:', backCoverUrl);
       
       res.set('Content-Type', 'application/json');
       return res.json({ 
@@ -333,52 +318,8 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         height: targetHeight 
       });
     } catch (error) {
-      console.error('Error generating AI back cover:', error);
-      
-      // Fallback: Create a styled version of the front cover if AI generation fails
-      console.log('Falling back to styled front cover...');
-      try {
-        // Download the front cover image
-        const response = await fetch(frontCoverUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
-        }
-        const frontCoverBuffer = await response.arrayBuffer();
-        const frontBuffer = Buffer.from(frontCoverBuffer);
-        
-        // Create back cover using createBackCover helper as fallback
-        backCoverBuffer = await createBackCover(
-          targetWidth,
-          targetHeight,
-          interiorImages.filter(img => img && img.trim()),
-          frontBuffer
-        );
-        
-        // Save to a temporary file with a unique name
-        const uniqueId = Date.now();
-        const fileName = `back-cover-fallback-${uniqueId}.jpg`;
-        const filePath = path.join(staticDir, fileName);
-        
-        await sharp(backCoverBuffer)
-          .jpeg({ quality: 95 })
-          .toFile(filePath);
-        
-        // Return the URL to the saved file
-        const backCoverUrl = `/static/${fileName}`;
-        console.log('Successfully created fallback back cover:', backCoverUrl);
-        
-        res.set('Content-Type', 'application/json');
-        return res.json({ 
-          status: 'success', 
-          url: backCoverUrl,
-          width: targetWidth,
-          height: targetHeight,
-          fallback: true
-        });
-      } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
-        res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
-      }
+      console.error('Error creating styled back cover:', error);
+      res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
     }
   } catch (error) {
     console.error('Error in back cover generation:', error);
@@ -1161,6 +1102,126 @@ async function generateIdeogramCover(prompt) {
   }
   
   return imageUrl;
+}
+
+/**
+ * Helper function to create a styled back cover that matches the front cover
+ * but with clean areas for text content
+ */
+async function createStyledBackCover(width, height, frontCoverBuffer, interiorImagesUrls) {
+  try {
+    // First, create a base back cover by flipping and slightly modifying the front cover
+    let baseBackCover = await sharp(frontCoverBuffer)
+      .resize(width, height, { fit: 'fill' })
+      .flop() // Mirror horizontally to create a different but related composition
+      .modulate({ 
+        saturation: 0.9, // Slightly reduce saturation
+        brightness: 0.95 // Slightly reduce brightness
+      })
+      .toBuffer();
+
+    // Create text overlay areas (clean spaces for content)
+    const textOverlays = [];
+
+    // Main content area (upper 60% of the cover for book description)
+    const mainContentHeight = Math.floor(height * 0.6);
+    const mainContentOverlay = await sharp({
+      create: {
+        width: Math.floor(width * 0.8),
+        height: mainContentHeight,
+        channels: 4,
+        background: { r: 255, g: 255, b: 255, alpha: 0.85 } // Semi-transparent white
+      }
+    })
+    .blur(2) // Slight blur for softer edges
+    .toBuffer();
+
+    textOverlays.push({
+      input: mainContentOverlay,
+      left: Math.floor(width * 0.1), // Center horizontally
+      top: Math.floor(height * 0.15) // Start from 15% down
+    });
+
+    // Author bio area (lower section)
+    const authorBioHeight = Math.floor(height * 0.15);
+    const authorBioOverlay = await sharp({
+      create: {
+        width: Math.floor(width * 0.7),
+        height: authorBioHeight,
+        channels: 4,
+        background: { r: 240, g: 240, b: 240, alpha: 0.8 } // Slightly different shade
+      }
+    })
+    .blur(1)
+    .toBuffer();
+
+    textOverlays.push({
+      input: authorBioOverlay,
+      left: Math.floor(width * 0.15),
+      top: Math.floor(height * 0.78) // Near the bottom
+    });
+
+    // Add interior images if provided
+    if (interiorImagesUrls && interiorImagesUrls.length > 0) {
+      const imageBuffers = [];
+      for (const imageUrl of interiorImagesUrls) {
+        try {
+          let imageBuffer;
+          if (imageUrl.startsWith('data:image')) {
+            const base64Data = imageUrl.split(',')[1];
+            imageBuffer = Buffer.from(base64Data, 'base64');
+          } else {
+            const imageResponse = await fetch(imageUrl);
+            if (!imageResponse.ok) continue;
+            imageBuffer = await imageResponse.buffer();
+          }
+          imageBuffers.push(imageBuffer);
+        } catch (error) {
+          console.error('Error processing interior image:', error);
+        }
+      }
+
+      // Add interior images in a small grid in the middle section
+      if (imageBuffers.length > 0) {
+        const imageSize = Math.floor(width * 0.15); // Small preview size
+        const startX = Math.floor(width * 0.1);
+        const startY = Math.floor(height * 0.45);
+
+        for (let i = 0; i < Math.min(imageBuffers.length, 4); i++) {
+          const col = i % 2;
+          const row = Math.floor(i / 2);
+          
+          const resizedImage = await sharp(imageBuffers[i])
+            .resize(imageSize, imageSize, { fit: 'cover' })
+            .toBuffer();
+
+          textOverlays.push({
+            input: resizedImage,
+            left: startX + (col * (imageSize + 10)),
+            top: startY + (row * (imageSize + 10))
+          });
+        }
+      }
+    }
+
+    // Composite all overlays onto the base back cover
+    const finalBackCover = await sharp(baseBackCover)
+      .composite(textOverlays)
+      .jpeg({ quality: 95 })
+      .toBuffer();
+
+    return finalBackCover;
+  } catch (error) {
+    console.error('Error in createStyledBackCover:', error);
+    
+    // Fallback: simple flipped version
+    return sharp(frontCoverBuffer)
+      .resize(width, height, { fit: 'fill' })
+      .flop()
+      .modulate({ saturation: 0.8, brightness: 0.9 })
+      .jpeg({ quality: 95 })
+      .toBuffer();
+  }
 }
 
 module.exports = router; 
