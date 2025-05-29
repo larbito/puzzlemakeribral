@@ -20,7 +20,16 @@ import {
   RefreshCcw,
   AlertTriangle,
   Plus,
-  Minus
+  Minus,
+  Settings,
+  FileText,
+  Palette,
+  Scissors,
+  BarChart3,
+  Maximize,
+  Monitor,
+  Loader2,
+  Ruler
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -40,6 +49,8 @@ import {
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/config';
 import { generateFrontCover } from '../../lib/bookCoverApi';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 // Define the main types we'll use
 type Step = 'settings' | 'frontCover' | 'backCover' | 'spine' | 'preview' | 'export';
@@ -668,317 +679,437 @@ const KDPCoverDesigner: React.FC = () => {
     switch(state.activeStep) {
       case 'settings':
         return (
-          <div className="space-y-6">
-            <div className="flex justify-between">
-              <div className="space-y-4 w-1/2 pr-6">
-                <h2 className="text-xl font-semibold text-white">Book Settings</h2>
-                <p className="text-zinc-400 text-sm">
-                  Configure your book specifications according to KDP requirements.
-                  All dimensions will be calculated based on these settings.
-                </p>
-                
-                <div className="space-y-4 mt-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="bookSize" className="text-zinc-300">Book Size</Label>
-                    <Select
-                      value={state.bookSettings.bookSize}
-                      onValueChange={(value) => 
-                        setState(prev => ({
-                          ...prev, 
-                          bookSettings: {
-                            ...prev.bookSettings,
-                            bookSize: value
-                          }
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="bookSize">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {KDP_TRIM_SIZES.map((size) => (
-                          <SelectItem key={size.value} value={size.value}>
-                            {size.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="pageCount">Page Count</Label>
-                    <div className="flex items-center space-x-2">
-                      <Slider
-                        id="pageCount"
-                        value={[state.bookSettings.pageCount]}
-                        min={24}
-                        max={900}
-                        step={1}
-                        onValueChange={(values) => 
-                          setState(prev => ({
-                            ...prev, 
-                            bookSettings: {
-                              ...prev.bookSettings,
-                              pageCount: values[0]
-                            }
-                          }))
-                        }
-                      />
-                      <input
-                        type="text"
-                        value={state.bookSettings.pageCount}
-                        onChange={(e) => {
-                          // Allow empty string for easier editing
-                          if (e.target.value === '') {
-                            setState(prev => ({
-                              ...prev,
-                              bookSettings: {
-                                ...prev.bookSettings,
-                                pageCount: '' as any
-                              }
-                            }));
-                            return;
-                          }
-                          
-                          // Only allow numeric input
-                          const numericValue = e.target.value.replace(/[^0-9]/g, '');
-                          if (numericValue !== e.target.value) return;
-                          
-                          const value = parseInt(numericValue);
-                          if (!isNaN(value)) {
+          <div className="space-y-8">
+            {/* Enhanced Header */}
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-full border border-emerald-200">
+                <Settings className="h-6 w-6 text-emerald-600" />
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
+                  Book Settings
+                </h2>
+                <BookOpen className="h-5 w-5 text-green-500" />
+              </div>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Configure your book specifications according to KDP requirements. All dimensions will be calculated based on these settings.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Settings Panel */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Book Dimensions Card */}
+                <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-slate-50 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-emerald-500 to-green-500 text-white">
+                    <CardTitle className="flex items-center gap-3 text-lg">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <Ruler className="h-5 w-5" />
+                      </div>
+                      Book Dimensions
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <Label htmlFor="bookSize" className="text-base font-medium flex items-center gap-2">
+                          <BookOpen className="h-4 w-4 text-emerald-600" />
+                          Book Size
+                        </Label>
+                        <Select
+                          value={state.bookSettings.bookSize}
+                          onValueChange={(value) => 
                             setState(prev => ({
                               ...prev, 
                               bookSettings: {
                                 ...prev.bookSettings,
-                                pageCount: value
-                              }
-                            }));
-                          }
-                        }}
-                        onBlur={(e) => {
-                          let value = parseInt(e.target.value as string);
-                          if (isNaN(value)) value = 24;
-                          if (value < 24) value = 24;
-                          if (value > 900) value = 900;
-                          
-                          setState(prev => ({
-                            ...prev, 
-                            bookSettings: {
-                              ...prev.bookSettings,
-                              pageCount: value
-                            }
-                          }));
-                        }}
-                        className="w-20 rounded-md border border-zinc-600 bg-zinc-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
-                    </div>
-                    <p className="text-xs text-zinc-400">Minimum 24 pages, maximum 900 pages</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Paper Type</Label>
-                    <div className="flex space-x-2">
-                      {PAPER_TYPES.map((type) => (
-                        <Button
-                          key={type.value}
-                          type="button"
-                          variant={state.bookSettings.paperType === type.value ? "default" : "outline"}
-                          onClick={() => 
-                            setState(prev => ({
-                              ...prev, 
-                              bookSettings: {
-                                ...prev.bookSettings,
-                                paperType: type.value as 'white' | 'cream' | 'color'
+                                bookSize: value
                               }
                             }))
                           }
-                          className={`flex-1 ${
-                            state.bookSettings.paperType === type.value 
-                              ? "bg-emerald-600 hover:bg-emerald-500 text-white" 
-                              : "border-emerald-600/40 text-emerald-500 hover:bg-emerald-950/30 hover:text-emerald-400"
-                          }`}
                         >
-                          {type.value === 'white' ? '⚪ ' : type.value === 'cream' ? '🟡 ' : '🎨 '}
-                          {type.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Include Bleed (0.125")</Label>
-                        <p className="text-xs text-zinc-500">
-                          Recommended for designs that extend to the edge
-                        </p>
+                          <SelectTrigger className="h-12 border-2 hover:border-emerald-300 transition-colors bg-white">
+                            <SelectValue placeholder="Select size" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {KDP_TRIM_SIZES.map((size) => (
+                              <SelectItem key={size.value} value={size.value} className="py-3">
+                                <div className="flex items-center justify-between w-full">
+                                  <span>{size.label}</span>
+                                  {size.value === '6x9' && (
+                                    <Badge className="ml-2 bg-green-100 text-green-800">Most Popular</Badge>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                          <div className="flex items-start gap-3">
+                            <Info className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+                            <div>
+                              <p className="text-sm font-medium text-emerald-900 mb-1">
+                                Perfect for {state.bookSettings.bookSize === '6x9' ? 'novels and non-fiction' : 
+                                           state.bookSettings.bookSize === '5x8' ? 'romance and poetry' :
+                                           state.bookSettings.bookSize === '7x10' ? 'textbooks and workbooks' :
+                                           'manuals and large format books'}
+                              </p>
+                              <p className="text-xs text-emerald-700">
+                                Standard paperback dimensions for professional publishing
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <Switch
-                        checked={state.bookSettings.includeBleed}
-                        onCheckedChange={(checked) => 
-                          setState(prev => ({
-                            ...prev, 
-                            bookSettings: {
-                              ...prev.bookSettings,
-                              includeBleed: checked
+
+                      <div className="space-y-4">
+                        <Label htmlFor="pageCount" className="text-base font-medium flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-emerald-600" />
+                          Page Count
+                        </Label>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-4">
+                            <Slider
+                              id="pageCount"
+                              value={[state.bookSettings.pageCount]}
+                              min={24}
+                              max={900}
+                              step={1}
+                              onValueChange={(values) => 
+                                setState(prev => ({
+                                  ...prev, 
+                                  bookSettings: {
+                                    ...prev.bookSettings,
+                                    pageCount: values[0]
+                                  }
+                                }))
+                              }
+                              className="flex-1"
+                            />
+                            <input
+                              type="text"
+                              value={state.bookSettings.pageCount}
+                              onChange={(e) => {
+                                if (e.target.value === '') {
+                                  setState(prev => ({
+                                    ...prev,
+                                    bookSettings: {
+                                      ...prev.bookSettings,
+                                      pageCount: '' as any
+                                    }
+                                  }));
+                                  return;
+                                }
+                                
+                                const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                                if (numericValue !== e.target.value) return;
+                                
+                                const value = parseInt(numericValue);
+                                if (!isNaN(value)) {
+                                  setState(prev => ({
+                                    ...prev, 
+                                    bookSettings: {
+                                      ...prev.bookSettings,
+                                      pageCount: value
+                                    }
+                                  }));
+                                }
+                              }}
+                              onBlur={(e) => {
+                                let value = parseInt(e.target.value as string);
+                                if (isNaN(value)) value = 24;
+                                if (value < 24) value = 24;
+                                if (value > 900) value = 900;
+                                
+                                setState(prev => ({
+                                  ...prev, 
+                                  bookSettings: {
+                                    ...prev.bookSettings,
+                                    pageCount: value
+                                  }
+                                }));
+                              }}
+                              className="w-20 h-10 text-center font-mono border-2 border-gray-300 rounded-lg focus:border-emerald-500 focus:outline-none"
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>24 pages</span>
+                            <span>{state.bookSettings.pageCount} pages</span>
+                            <span>900 pages</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Paper Type & Options Card */}
+                <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-slate-50 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-500 text-white">
+                    <CardTitle className="flex items-center gap-3 text-lg">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <Palette className="h-5 w-5" />
+                      </div>
+                      Paper & Options
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="space-y-4">
+                      <Label className="text-base font-medium">Paper Type</Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {PAPER_TYPES.map((type) => (
+                          <button
+                            key={type.value}
+                            type="button"
+                            onClick={() => 
+                              setState(prev => ({
+                                ...prev, 
+                                bookSettings: {
+                                  ...prev.bookSettings,
+                                  paperType: type.value as 'white' | 'cream' | 'color'
+                                }
+                              }))
                             }
-                          }))
-                        }
-                      />
+                            className={`p-4 rounded-xl border-2 transition-all duration-200 ${
+                              state.bookSettings.paperType === type.value 
+                                ? "border-emerald-500 bg-emerald-50 shadow-lg scale-105" 
+                                : "border-gray-200 bg-white hover:border-emerald-300 hover:shadow-md"
+                            }`}
+                          >
+                            <div className="text-center">
+                              <div className="text-2xl mb-2">
+                                {type.value === 'white' ? '⚪' : type.value === 'cream' ? '🟡' : '🎨'}
+                              </div>
+                              <div className={`font-medium ${
+                                state.bookSettings.paperType === type.value ? 'text-emerald-700' : 'text-gray-700'
+                              }`}>
+                                {type.label}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label>Include ISBN Barcode</Label>
-                        <p className="text-xs text-zinc-500">
-                          Space for KDP to add ISBN barcode on back cover
-                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-emerald-300 transition-colors">
+                        <div className="space-y-1">
+                          <Label className="text-base font-medium flex items-center gap-2">
+                            <Scissors className="h-4 w-4 text-emerald-600" />
+                            Include Bleed (0.125")
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Recommended for designs that extend to the edge
+                          </p>
+                        </div>
+                        <Switch
+                          checked={state.bookSettings.includeBleed}
+                          onCheckedChange={(checked) => 
+                            setState(prev => ({
+                              ...prev, 
+                              bookSettings: {
+                                ...prev.bookSettings,
+                                includeBleed: checked
+                              }
+                            }))
+                          }
+                          className="data-[state=checked]:bg-emerald-600"
+                        />
                       </div>
-                      <Switch
-                        checked={state.bookSettings.includeISBN}
-                        onCheckedChange={(checked) => 
-                          setState(prev => ({
-                            ...prev, 
-                            bookSettings: {
-                              ...prev.bookSettings,
-                              includeISBN: checked
-                            }
-                          }))
-                        }
-                      />
+                      
+                      <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:border-emerald-300 transition-colors">
+                        <div className="space-y-1">
+                          <Label className="text-base font-medium flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-emerald-600" />
+                            Include ISBN Barcode
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Space for KDP to add ISBN barcode on back cover
+                          </p>
+                        </div>
+                        <Switch
+                          checked={state.bookSettings.includeISBN}
+                          onCheckedChange={(checked) => 
+                            setState(prev => ({
+                              ...prev, 
+                              bookSettings: {
+                                ...prev.bookSettings,
+                                includeISBN: checked
+                              }
+                            }))
+                          }
+                          className="data-[state=checked]:bg-emerald-600"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  
-                </div>
+                  </CardContent>
+                </Card>
               </div>
-              
-              {/* Live Preview Panel */}
-              <div className="w-1/2 border border-emerald-800/30 rounded-lg p-5 bg-zinc-800/50 shadow-lg">
-                <h3 className="text-sm font-medium text-emerald-400 mb-4 flex items-center">
-                  <span className="mr-2">📐</span> Live Dimension Preview
-                </h3>
-                
-                <div className="relative border border-zinc-700 bg-gradient-to-br from-zinc-900 to-zinc-800 mb-6 overflow-hidden rounded-lg shadow-inner" style={{ 
-                  aspectRatio: `${Math.max(1.4, state.bookSettings.dimensions.totalWidth / state.bookSettings.dimensions.totalHeight)}`,
-                }}>
-                  {/* Preview rendering area */}
-                  <div className="absolute inset-0 flex items-center justify-center p-6">
-                    {/* Dynamic preview based on settings */}
-                    <div className="relative flex shadow-2xl">
-                      {/* Back cover */}
-                      <div 
-                        className="h-full bg-white border border-zinc-400 relative shadow-md"
-                        style={{ 
-                          width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
-                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
-                        }}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs font-medium">
-                          Back Cover
-                        </div>
-                        {state.bookSettings.includeISBN && (
-                          <div className="absolute bottom-3 right-3 w-16 h-8 bg-zinc-200 rounded-sm flex items-center justify-center text-[8px] text-zinc-600 border border-zinc-300">
-                            ISBN
+
+              {/* Enhanced Live Preview Panel */}
+              <div className="lg:col-span-1">
+                <Card className="sticky top-6 shadow-2xl border-0 bg-gradient-to-br from-white to-emerald-50 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-emerald-600 to-green-600 text-white">
+                    <CardTitle className="flex items-center gap-3 text-lg">
+                      <div className="p-2 bg-white/20 rounded-lg">
+                        <Eye className="h-5 w-5" />
+                      </div>
+                      Live Dimension Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+                    {/* 3D Book Preview */}
+                    <div className="relative border-2 border-dashed border-emerald-300 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 overflow-hidden" style={{ 
+                      aspectRatio: `${Math.max(1.4, state.bookSettings.dimensions.totalWidth / state.bookSettings.dimensions.totalHeight)}`,
+                    }}>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="relative flex shadow-2xl transform hover:scale-105 transition-transform duration-300">
+                          {/* Back cover */}
+                          <div 
+                            className="h-full bg-white border-2 border-gray-300 relative shadow-lg rounded-l-md"
+                            style={{ 
+                              width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
+                              height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
+                            }}
+                          >
+                            <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-xs font-medium bg-gradient-to-br from-gray-50 to-gray-100">
+                              Back Cover
+                            </div>
+                            {state.bookSettings.includeISBN && (
+                              <div className="absolute bottom-3 right-3 w-16 h-8 bg-gray-200 rounded-sm flex items-center justify-center text-[8px] text-gray-700 border border-gray-400 shadow-sm">
+                                ISBN
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      
-                      {/* Spine */}
-                      <div 
-                        className="h-full bg-emerald-100 border-t border-b border-zinc-400 flex items-center justify-center"
-                        style={{ 
-                          width: `${Math.max(10, Math.floor(state.bookSettings.dimensions.spineWidth * 20))}px`,
-                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`
-                        }}
-                      >
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] text-emerald-800 font-medium">
-                          Spine ({state.bookSettings.dimensions.spineWidth.toFixed(3)}")
+                          
+                          {/* Spine */}
+                          <div 
+                            className="h-full bg-gradient-to-b from-emerald-400 to-green-500 border-t-2 border-b-2 border-gray-300 flex items-center justify-center shadow-inner"
+                            style={{ 
+                              width: `${Math.max(10, Math.floor(state.bookSettings.dimensions.spineWidth * 20))}px`,
+                              height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`
+                            }}
+                          >
+                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-90 whitespace-nowrap text-[8px] text-white font-bold drop-shadow-sm">
+                              Spine ({state.bookSettings.dimensions.spineWidth.toFixed(3)}")
+                            </div>
+                          </div>
+                          
+                          {/* Front cover */}
+                          <div 
+                            className="h-full bg-white border-2 border-gray-300 relative shadow-lg rounded-r-md"
+                            style={{ 
+                              width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
+                              height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
+                            }}
+                          >
+                            <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-xs font-medium bg-gradient-to-br from-blue-50 to-purple-50">
+                              Front Cover
+                            </div>
+                          </div>
                         </div>
                       </div>
                       
-                      {/* Front cover */}
-                      <div 
-                        className="h-full bg-white border border-zinc-400 relative shadow-md"
-                        style={{ 
-                          width: `${Math.floor(state.bookSettings.dimensions.width * 20)}px`,
-                          height: `${Math.floor(state.bookSettings.dimensions.height * 20)}px`,
-                        }}
-                      >
-                        <div className="absolute inset-0 flex items-center justify-center text-zinc-500 text-xs font-medium">
-                          Front Cover
+                      {/* Bleed indicator */}
+                      {state.bookSettings.includeBleed && (
+                        <div className="absolute inset-0 border-2 border-emerald-500 border-dashed m-2 pointer-events-none rounded-xl">
+                          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-emerald-600 px-3 py-1 text-xs text-white rounded-full shadow-lg">
+                            Bleed Area (0.125")
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Enhanced Specifications */}
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200">
+                      <h4 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <Settings className="h-4 w-4 text-emerald-600" />
+                        Specifications
+                      </h4>
+                      <div className="space-y-3 text-sm">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <Ruler className="h-3 w-3" />
+                            Trim Size:
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            {state.bookSettings.bookSize.replace('x', '" × ')}"
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <FileText className="h-3 w-3" />
+                            Page Count:
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            {state.bookSettings.pageCount} pages
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <BookOpen className="h-3 w-3" />
+                            Spine Width:
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            {state.bookSettings.dimensions.spineWidth.toFixed(3)}"
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <Maximize className="h-3 w-3" />
+                            Total Cover Size:
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            {state.bookSettings.dimensions.totalWidth.toFixed(2)}" × {state.bookSettings.dimensions.totalHeight.toFixed(2)}"
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-gray-200">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <Scissors className="h-3 w-3" />
+                            Bleed:
+                          </span>
+                          <Badge variant={state.bookSettings.includeBleed ? "default" : "outline"} className="font-mono">
+                            {state.bookSettings.includeBleed ? '0.125" (included)' : 'None'}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-emerald-600 font-medium flex items-center gap-2">
+                            <Monitor className="h-3 w-3" />
+                            Resolution:
+                          </span>
+                          <Badge variant="outline" className="font-mono">
+                            300 DPI
+                          </Badge>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Bleed indicator */}
-                  {state.bookSettings.includeBleed && (
-                    <div className="absolute inset-0 border-2 border-emerald-500/60 border-dashed m-2 pointer-events-none rounded">
-                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-zinc-900 px-2 py-0.5 text-[8px] text-emerald-400 rounded">
-                        Bleed Area (0.125")
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="bg-zinc-900/60 rounded-lg p-4 shadow-inner">
-                  <div className="space-y-3 text-sm divide-y divide-zinc-800">
-                    <div className="flex justify-between pb-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📏</span> Trim Size:</span>
-                      <span className="font-semibold text-white">{state.bookSettings.bookSize.replace('x', ' × "')}"</span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📄</span> Page Count:</span>
-                      <span className="font-semibold text-white">{state.bookSettings.pageCount} pages</span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📚</span> Spine Width:</span>
-                      <span className="font-semibold text-white">{state.bookSettings.dimensions.spineWidth.toFixed(3)}"</span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">📐</span> Total Cover Size:</span>
-                      <span className="font-semibold text-white">
-                        {state.bookSettings.dimensions.totalWidth.toFixed(2)}" × {state.bookSettings.dimensions.totalHeight.toFixed(2)}"
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">✂️</span> Bleed:</span>
-                      <span className="font-semibold text-white">{state.bookSettings.includeBleed ? '0.125" (included)' : 'None'}</span>
-                    </div>
-                    <div className="flex justify-between pt-2">
-                      <span className="text-emerald-400 flex items-center"><span className="mr-1">🔍</span> Resolution:</span>
-                      <span className="font-semibold text-white">300 DPI</span>
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
             
-            {/* Navigation buttons */}
-            <div className="flex justify-end pt-4 border-t border-zinc-700">
+            {/* Enhanced Navigation */}
+            <div className="flex justify-end pt-6 border-t border-gray-200">
               <Button
                 onClick={async () => {
-                  // First calculate dimensions if not already done
                   if (!state.steps.settings) {
                     await calculateDimensions();
                   }
-                  // Then proceed to next step
                   if (state.steps.settings) {
                     completeStep('settings', 'frontCover');
                   }
                 }}
                 disabled={isLoading.calculateDimensions}
-                className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold shadow-md"
+                className="bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 font-semibold shadow-lg px-8 py-3 text-lg"
               >
                 {isLoading.calculateDimensions ? (
                   <>
-                    <span className="animate-spin mr-2">⏳</span>
+                    <Loader2 className="animate-spin mr-2 h-5 w-5" />
                     Calculating & Continuing...
                   </>
                 ) : (
                   <>
-                    📏 Calculate & Continue ➡️
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    Calculate & Continue
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </>
                 )}
               </Button>
