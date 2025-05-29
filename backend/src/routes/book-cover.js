@@ -271,52 +271,52 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Missing frontCoverUrl parameter' });
     }
 
-    // Download the front cover image
-    let frontCoverBuffer;
-    try {
-      const response = await fetch(frontCoverUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
-      }
-      frontCoverBuffer = await response.arrayBuffer();
-      frontCoverBuffer = Buffer.from(frontCoverBuffer);
-      console.log('Successfully downloaded front cover image:', frontCoverUrl.substring(0, 100) + '...');
-    } catch (error) {
-      console.error('Error downloading front cover:', error);
-      return res.status(500).json({ status: 'error', message: 'Failed to download front cover image' });
+    if (!backCoverPrompt) {
+      console.error('Missing required parameter: backCoverPrompt');
+      return res.status(400).json({ status: 'error', message: 'Missing backCoverPrompt parameter' });
     }
 
-    // Get front cover metadata
-    const metadata = await sharp(frontCoverBuffer).metadata();
-    console.log('Front cover metadata:', { width: metadata.width, height: metadata.height });
-
-    // Use provided dimensions or fall back to front cover dimensions
-    const targetWidth = width || metadata.width;
-    const targetHeight = height || metadata.height;
+    // Use provided dimensions or default to standard book cover size
+    const targetWidth = width || 1800;
+    const targetHeight = height || 2700;
     
     console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
+    console.log('Back cover prompt:', backCoverPrompt.substring(0, 200) + '...');
 
-    // Create back cover using createBackCover helper which handles interior images and styling
+    // Generate AI back cover using the prompt
     let backCoverBuffer;
     try {
-      console.log('Creating back cover with interior images:', interiorImages.length);
+      console.log('Generating AI back cover with Ideogram...');
       
-      backCoverBuffer = await createBackCover(
-        targetWidth,
-        targetHeight,
-        interiorImages.filter(img => img && img.trim()), // Filter out empty/null images
-        frontCoverBuffer
-      );
+      // Use the generateIdeogramCover function to create the back cover
+      const aiGeneratedUrl = await generateIdeogramCover(backCoverPrompt);
       
-      // If we have specific back cover prompt requirements, we might enhance this further
-      // For now, the createBackCover function handles the styling based on the front cover
+      if (!aiGeneratedUrl) {
+        throw new Error('Failed to generate AI back cover - no URL returned');
+      }
+      
+      console.log('AI back cover generated successfully:', aiGeneratedUrl);
+      
+      // Download the generated image
+      const response = await fetch(aiGeneratedUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch generated back cover: ${response.status} ${response.statusText}`);
+      }
+      backCoverBuffer = await response.arrayBuffer();
+      backCoverBuffer = Buffer.from(backCoverBuffer);
+      
+      // Resize to exact target dimensions
+      backCoverBuffer = await sharp(backCoverBuffer)
+        .resize(targetWidth, targetHeight, { fit: 'fill' })
+        .jpeg({ quality: 95 })
+        .toBuffer();
       
       // Save to a temporary file with a unique name
       const uniqueId = Date.now();
       const fileName = `back-cover-${uniqueId}.jpg`;
       const filePath = path.join(staticDir, fileName);
       
-      // Save with higher JPEG quality
+      // Save the final image
       await sharp(backCoverBuffer)
         .jpeg({ quality: 95 })
         .toFile(filePath);
@@ -333,8 +333,52 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         height: targetHeight 
       });
     } catch (error) {
-      console.error('Error creating back cover:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
+      console.error('Error generating AI back cover:', error);
+      
+      // Fallback: Create a styled version of the front cover if AI generation fails
+      console.log('Falling back to styled front cover...');
+      try {
+        // Download the front cover image
+        const response = await fetch(frontCoverUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
+        }
+        const frontCoverBuffer = await response.arrayBuffer();
+        const frontBuffer = Buffer.from(frontCoverBuffer);
+        
+        // Create back cover using createBackCover helper as fallback
+        backCoverBuffer = await createBackCover(
+          targetWidth,
+          targetHeight,
+          interiorImages.filter(img => img && img.trim()),
+          frontBuffer
+        );
+        
+        // Save to a temporary file with a unique name
+        const uniqueId = Date.now();
+        const fileName = `back-cover-fallback-${uniqueId}.jpg`;
+        const filePath = path.join(staticDir, fileName);
+        
+        await sharp(backCoverBuffer)
+          .jpeg({ quality: 95 })
+          .toFile(filePath);
+        
+        // Return the URL to the saved file
+        const backCoverUrl = `/static/${fileName}`;
+        console.log('Successfully created fallback back cover:', backCoverUrl);
+        
+        res.set('Content-Type', 'application/json');
+        return res.json({ 
+          status: 'success', 
+          url: backCoverUrl,
+          width: targetWidth,
+          height: targetHeight,
+          fallback: true
+        });
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+        res.status(500).json({ status: 'error', message: 'Failed to create back cover' });
+      }
     }
   } catch (error) {
     console.error('Error in back cover generation:', error);
