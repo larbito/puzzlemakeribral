@@ -2273,9 +2273,14 @@ const KDPCoverDesigner: React.FC = () => {
                                         throw new Error('No image URL was returned from the server');
                                       }
                                       
+                                      // Convert relative URLs to full URLs
+                                      const fullImageUrl = imageUrl.startsWith('/static/') 
+                                        ? `${getApiUrl()}${imageUrl}` 
+                                        : imageUrl;
+                                      
                                       setState(prev => ({
                                         ...prev,
-                                        backCoverImage: imageUrl,
+                                        backCoverImage: fullImageUrl,
                                         steps: {
                                           ...prev.steps,
                                           backCover: true
@@ -2344,9 +2349,14 @@ const KDPCoverDesigner: React.FC = () => {
                                           
                                           const data = await response.json();
                                           if (data.url) {
+                                            // Convert relative URLs to full URLs
+                                            const fullImageUrl = data.url.startsWith('/static/') 
+                                              ? `${getApiUrl()}${data.url}` 
+                                              : data.url;
+                                              
                                             setState(prev => ({
                                               ...prev,
-                                              backCoverImage: data.url
+                                              backCoverImage: fullImageUrl
                                             }));
                                             toast.success("Back cover regenerated successfully!");
                                           }
