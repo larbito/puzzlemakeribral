@@ -308,6 +308,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
           },
           body: JSON.stringify({
             prompt: systematicBackPrompt,
+            negative_prompt: 'text, letters, words, titles, ISBN, barcode, numbers, typography, writing, alphabet',
             width: targetWidth,
             height: targetHeight
           })
@@ -342,6 +343,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
           },
           body: JSON.stringify({
             prompt: `Back cover design: ${backCoverPrompt.trim()}. Professional book back cover layout with clean typography and space for text content.`,
+            negative_prompt: 'text, letters, words, titles, ISBN, barcode, numbers, typography, writing, alphabet',
             width: targetWidth,
             height: targetHeight
           })
@@ -1597,17 +1599,17 @@ function parseAndBuildBackCoverPrompt(frontPrompt, userBackText = '', interiorIm
   // Start with artistic style
   const styles = [...new Set(extracted.style)].filter(s => s.length > 2);
   if (styles.length > 0) {
-    backPrompt += `${styles[0]}. `;
+    backPrompt += `${styles[0]} back cover design with no text. `;
   } else {
-    backPrompt += 'Professional book cover design. ';
+    backPrompt += 'Professional back cover design with no text. ';
   }
 
   // Add background description
   const backgrounds = [...new Set(extracted.background)].filter(b => b.length > 3);
   if (backgrounds.length > 0) {
-    backPrompt += `The back cover features ${backgrounds[0]}, `;
+    backPrompt += `The back cover features ${backgrounds[0]} with no text or lettering, `;
   } else {
-    backPrompt += 'The back cover features a complementary background design, ';
+    backPrompt += 'The back cover features a complementary background design with no text or lettering, ';
   }
 
   // Add color scheme
@@ -1644,7 +1646,7 @@ function parseAndBuildBackCoverPrompt(frontPrompt, userBackText = '', interiorIm
   }
 
   // Add KDP compliance and consistency requirements
-  backPrompt += `\n\nFormat: 6x9 inches, KDP-compliant back cover. Ensure full visual consistency with the front cover's design style, background treatment, and colors. Professional layout with clean areas for text content.`;
+  backPrompt += `\n\nFormat: 6x9 inches, KDP-compliant back cover. Ensure full visual consistency with the front cover's design style, background treatment, and colors. Professional layout with clean areas for text content. NO TEXT, NO TITLES, NO LETTERS, NO ISBN BARCODE - completely clean visual design only.`;
 
   console.log('Generated back cover prompt from front cover analysis');
   return backPrompt;
