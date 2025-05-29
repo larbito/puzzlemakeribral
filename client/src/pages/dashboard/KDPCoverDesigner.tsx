@@ -1064,14 +1064,58 @@ const KDPCoverDesigner: React.FC = () => {
             </div>
             
             {/* Navigation */}
-            <div className="flex justify-end pt-6 border-t border-zinc-700">
+            <div className="flex justify-center pt-6 border-t border-zinc-700">
               <Button
                 onClick={async () => {
-                  if (!state.steps.settings) {
-                    await calculateDimensions();
-                  }
-                  if (state.steps.settings) {
-                    completeStep('settings', 'frontCover');
+                  const currentLoading = {...isLoading, calculateDimensions: true};
+                  setIsLoading(currentLoading);
+                  
+                  try {
+                    // Calculate dimensions
+                    const { bookSize, pageCount, paperType, includeBleed } = state.bookSettings;
+                    const [width, height] = bookSize.split('x').map(Number);
+                    
+                    // Calculate spine width based on page count and paper type
+                    let multiplier = 0.002252; // white paper
+                    
+                    if (paperType === 'cream') {
+                      multiplier = 0.0025;
+                    } else if (paperType === 'color') {
+                      multiplier = 0.002347;
+                    }
+                    
+                    const spineWidth = pageCount * multiplier;
+                    const bleedAmount = includeBleed ? 0.125 : 0;
+                    
+                    // Calculate total dimensions
+                    const totalWidth = width * 2 + spineWidth + (bleedAmount * 2);
+                    const totalHeight = height + (bleedAmount * 2);
+                    
+                    setState(prev => ({
+                      ...prev,
+                      bookSettings: {
+                        ...prev.bookSettings,
+                        dimensions: {
+                          width,
+                          height,
+                          spineWidth,
+                          totalWidth,
+                          totalHeight
+                        }
+                      },
+                      steps: {
+                        ...prev.steps,
+                        settings: true
+                      },
+                      activeStep: 'frontCover'
+                    }));
+                    
+                    toast.success('Cover dimensions calculated successfully!');
+                  } catch (error) {
+                    console.error('Error calculating dimensions:', error);
+                    toast.error('Failed to calculate dimensions. Please try again.');
+                  } finally {
+                    setIsLoading({...isLoading, calculateDimensions: false});
                   }
                 }}
                 disabled={isLoading.calculateDimensions}
