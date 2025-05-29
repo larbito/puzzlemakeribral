@@ -281,11 +281,6 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     console.log('Front cover prompt available:', !!frontCoverPrompt);
 
     try {
-      // Determine the correct base URL for API calls
-      const baseUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://puzzlemakeribral-production.up.railway.app'
-        : 'http://localhost:3001';
-      
       // NEW SYSTEMATIC APPROACH: Parse front cover prompt and build back cover prompt
       if (frontCoverPrompt && frontCoverPrompt.trim()) {
         console.log('Using systematic approach: parsing front cover prompt...');
@@ -300,70 +295,13 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         
         console.log('Generated systematic back cover prompt:', systematicBackPrompt);
         
-        // Use AI generation with the systematic prompt
-        const aiResponse = await fetch(`${baseUrl}/api/book-cover/generate-front`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: systematicBackPrompt,
-            negative_prompt: 'text, letters, words, titles, ISBN, barcode, numbers, typography, writing, alphabet',
-            width: targetWidth,
-            height: targetHeight
-          })
-        });
-        
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          if (aiData.success && aiData.imageUrl) {
-            console.log('Successfully generated systematic back cover');
-            return res.json({ 
-              status: 'success', 
-              url: aiData.imageUrl,
-              width: targetWidth,
-              height: targetHeight,
-              method: 'systematic_ai_generated',
-              prompt: systematicBackPrompt
-            });
-          }
-        }
-        
-        console.log('Systematic AI generation failed, falling back to style matching');
+        // Skip AI generation and go directly to style matching to avoid text/ISBN issues
+        console.log('Skipping AI generation to prevent text/ISBN issues, using style matching approach...');
       }
       
       // FALLBACK: If a custom prompt is provided (legacy approach)
       else if (backCoverPrompt && backCoverPrompt.trim()) {
-        console.log('Using legacy approach: generating AI back cover with custom prompt...');
-        
-        const aiResponse = await fetch(`${baseUrl}/api/book-cover/generate-front`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            prompt: `Visual design: ${backCoverPrompt.trim()}. Clean artwork with no text, no letters, no words.`,
-            negative_prompt: 'text, letters, words, titles, ISBN, barcode, numbers, typography, writing, alphabet',
-            width: targetWidth,
-            height: targetHeight
-          })
-        });
-        
-        if (aiResponse.ok) {
-          const aiData = await aiResponse.json();
-          if (aiData.success && aiData.imageUrl) {
-            console.log('Successfully generated custom prompt back cover');
-            return res.json({ 
-              status: 'success', 
-              url: aiData.imageUrl,
-              width: targetWidth,
-              height: targetHeight,
-              method: 'custom_ai_generated'
-            });
-          }
-        }
-        
-        console.log('Custom AI generation failed, falling back to style matching');
+        console.log('Using legacy approach: skipping AI generation to prevent text/ISBN issues...');
       }
       
       console.log('Creating back cover with same style as front cover but clean text areas...');
@@ -391,7 +329,8 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         targetWidth,
         targetHeight,
         frontBuffer,
-        interiorImages.filter(img => img && img.trim())
+        interiorImages.filter(img => img && img.trim()),
+        frontCoverPrompt // Pass the front cover prompt for better style matching
       );
       
       // Save to a temporary file with a unique name
@@ -1207,9 +1146,16 @@ async function generateIdeogramCover(prompt) {
  * Helper function to create a styled back cover that matches the front cover
  * but with clean areas for text content
  */
-async function createStyledBackCover(width, height, frontCoverBuffer, interiorImagesUrls) {
+async function createStyledBackCover(width, height, frontCoverBuffer, interiorImagesUrls, frontCoverPrompt) {
   try {
     console.log('Creating styled back cover that matches front cover...');
+    
+    // Parse front cover prompt for style information if available
+    let styleInfo = null;
+    if (frontCoverPrompt) {
+      styleInfo = parseAndBuildBackCoverPrompt(frontCoverPrompt, '', 0);
+      console.log('Using front cover style information for enhanced matching');
+    }
     
     // First, resize the front cover to our target dimensions to get proper color sampling
     const resizedFrontCover = await sharp(frontCoverBuffer)
