@@ -281,6 +281,11 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     console.log('Front cover prompt available:', !!frontCoverPrompt);
 
     try {
+      // Determine the correct base URL for API calls
+      const baseUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://puzzlemakeribral-production.up.railway.app'
+        : 'http://localhost:3001';
+      
       // NEW SYSTEMATIC APPROACH: Parse front cover prompt and build back cover prompt
       if (frontCoverPrompt && frontCoverPrompt.trim()) {
         console.log('Using systematic approach: parsing front cover prompt...');
@@ -296,7 +301,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         console.log('Generated systematic back cover prompt:', systematicBackPrompt);
         
         // Use AI generation with the systematic prompt
-        const aiResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3001'}/api/book-cover/generate-front`, {
+        const aiResponse = await fetch(`${baseUrl}/api/book-cover/generate-front`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -330,7 +335,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       else if (backCoverPrompt && backCoverPrompt.trim()) {
         console.log('Using legacy approach: generating AI back cover with custom prompt...');
         
-        const aiResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3001'}/api/book-cover/generate-front`, {
+        const aiResponse = await fetch(`${baseUrl}/api/book-cover/generate-front`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
