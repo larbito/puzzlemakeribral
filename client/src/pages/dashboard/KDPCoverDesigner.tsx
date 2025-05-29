@@ -31,7 +31,9 @@ import {
   Loader2,
   Ruler,
   Sparkles,
-  EyeOff
+  EyeOff,
+  Trash2,
+  ImageIcon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -1895,394 +1897,642 @@ const KDPCoverDesigner: React.FC = () => {
       case 'backCover':
         return (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-white">Back Cover Design</h2>
-            <p className="text-zinc-400 text-sm mb-6">
-              Create your book's back cover with a description and optional interior preview images.
-            </p>
-            
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="backCoverPrompt">Back Cover Description</Label>
-                  <Textarea
-                    id="backCoverPrompt"
-                    placeholder="Enter your book description or prompt for the back cover..."
-                    className="min-h-[120px]"
-                    value={state.backCoverPrompt}
-                    onChange={(e) => 
-                      setState(prev => ({
-                        ...prev,
-                        backCoverPrompt: e.target.value
-                      }))
-                    }
-                  />
+            {/* Enhanced Header */}
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-white">Back Cover Design</h2>
+              <p className="text-zinc-400 text-sm">
+                Create your book's back cover with compelling description and optional interior preview images.
+              </p>
+              
+              {/* Progress Indicator */}
+              <div className="flex items-center gap-4 p-4 bg-zinc-800 rounded-lg border border-zinc-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">3</span>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-white">Step 3: Back Cover</h3>
+                    <p className="text-xs text-zinc-400">Generate description → Add interior images → Create back cover</p>
+                  </div>
                 </div>
-                
-                <Button 
-                  variant="outline"
-                  onClick={async () => {
-                    if (!state.frontCoverPrompt) {
-                      toast.error("Please generate a front cover prompt first");
-                      return;
-                    }
-                    
-                    setIsLoading({...isLoading, generateBackCoverPrompt: true});
-                    toast.info("Generating back cover description from front cover...");
-                    
-                    try {
-                      // Call OpenAI API to generate back cover description
-                      const response = await fetch(`${getApiUrl()}/api/openai/enhance-prompt`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          prompt: `Based on this front cover design: "${state.frontCoverPrompt}", create a complementary back cover description that would work well with this design.`,
-                          context: "You are a professional book cover designer. Create a back cover description that includes placeholders for book summary, author bio, and complements the front cover style."
-                        })
-                      });
-                      
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Failed to generate back cover description');
-                      }
-                      
-                      const data = await response.json();
-                      const backCoverDesc = data.enhancedPrompt;
-                      
-                      if (!backCoverDesc) {
-                        throw new Error('No back cover description was generated');
-                      }
-                      
-                      setState(prev => ({
-                        ...prev,
-                        backCoverPrompt: backCoverDesc
-                      }));
-                      
-                      toast.success("Back cover description generated!");
-                    } catch (error) {
-                      console.error('Error generating back cover description:', error);
-                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover description');
-                      // Fallback to a default description if API fails
-                      setState(prev => ({
-                        ...prev,
-                        backCoverPrompt: "A professional back cover matching the front design, with space for book description text and author bio."
-                      }));
-                    } finally {
-                      setIsLoading({...isLoading, generateBackCoverPrompt: false});
-                    }
-                  }}
-                  className="w-full border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
-                  disabled={isLoading.generateBackCoverPrompt || !state.frontCoverPrompt}
-                >
-                  {isLoading.generateBackCoverPrompt ? (
-                    <span className="flex items-center">
-                      <span className="animate-spin mr-2">⏳</span> Generating...
-                    </span>
-                  ) : (
-                    <>
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Generate from Front Cover
-                    </>
-                  )}
-                </Button>
-                
-                <div className="space-y-2 mt-4" style={{display: "none"}}>
-                  <Label>Interior Preview Images (Optional)</Label>
-                  <p className="text-xs text-zinc-500">
-                    Upload up to 4 interior pages to showcase on the back cover.
-                  </p>
+                <div className="ml-auto text-xs text-zinc-500">
+                  Front Cover: {state.frontCoverImage ? '✓ Generated' : '⚠ Required'}
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column - Content Creation */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Description Section */}
+                <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-emerald-400" />
+                    Back Cover Description
+                  </h3>
                   
-                  <div className="grid grid-cols-2 gap-2">
-                    {[1, 2, 3, 4].map((idx) => {
-                      const interiorImage = state.interiorImages[idx - 1];
-                      return (
-                        <div 
-                          key={idx}
-                          className={`aspect-square border border-dashed ${interiorImage ? 'border-emerald-600' : 'border-zinc-700'} rounded-md flex items-center justify-center p-2 relative overflow-hidden`}
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/png,image/jpeg';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === 'string') {
+                  <div className="space-y-4">
+                    <div className="space-y-3">
+                      <Label htmlFor="backCoverPrompt" className="text-base font-medium text-zinc-300">
+                        Book Description & Marketing Copy
+                      </Label>
+                      <Textarea
+                        id="backCoverPrompt"
+                        placeholder="Enter your book description, author bio, testimonials, or any text you want on the back cover..."
+                        className="min-h-[140px] bg-zinc-900 border-zinc-700 focus:border-emerald-500 text-white placeholder:text-zinc-500"
+                        value={state.backCoverPrompt}
+                        onChange={(e) => 
+                          setState(prev => ({
+                            ...prev,
+                            backCoverPrompt: e.target.value
+                          }))
+                        }
+                      />
+                      <div className="flex justify-between items-center">
+                        <div className="text-xs text-zinc-500">
+                          {state.backCoverPrompt.length} characters
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/30"
+                          onClick={async () => {
+                            if (!state.frontCoverPrompt) {
+                              toast.error("Please generate a front cover prompt first");
+                              return;
+                            }
+                            
+                            setIsLoading({...isLoading, generateBackCoverPrompt: true});
+                            toast.info("Generating back cover description from front cover...");
+                            
+                            try {
+                              const response = await fetch(`${getApiUrl()}/api/openai/enhance-prompt`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  prompt: `Based on this front cover design: "${state.frontCoverPrompt}", create a complementary back cover description that would work well with this design.`,
+                                  context: "You are a professional book cover designer. Create a back cover description that includes placeholders for book summary, author bio, and complements the front cover style."
+                                })
+                              });
+                              
+                              if (!response.ok) {
+                                const errorData = await response.json();
+                                throw new Error(errorData.error || 'Failed to generate back cover description');
+                              }
+                              
+                              const data = await response.json();
+                              const backCoverDesc = data.enhancedPrompt;
+                              
+                              if (!backCoverDesc) {
+                                throw new Error('No back cover description was generated');
+                              }
+                              
+                              setState(prev => ({
+                                ...prev,
+                                backCoverPrompt: backCoverDesc
+                              }));
+                              
+                              toast.success("Back cover description generated!");
+                            } catch (error) {
+                              console.error('Error generating back cover description:', error);
+                              toast.error(error instanceof Error ? error.message : 'Failed to generate back cover description');
+                              setState(prev => ({
+                                ...prev,
+                                backCoverPrompt: "A professional back cover matching the front design, with space for book description text and author bio."
+                              }));
+                            } finally {
+                              setIsLoading({...isLoading, generateBackCoverPrompt: false});
+                            }
+                          }}
+                          disabled={isLoading.generateBackCoverPrompt || !state.frontCoverPrompt}
+                        >
+                          {isLoading.generateBackCoverPrompt ? (
+                            <>
+                              <Loader2 className="animate-spin mr-2 h-3 w-3" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-3 w-3" />
+                              Generate from Front Cover
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Description Tips */}
+                    <div className="bg-blue-950/20 rounded-lg p-4 border border-blue-900/30">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                          <Info className="h-4 w-4 text-blue-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-medium text-blue-300 mb-2">Back Cover Best Practices</h4>
+                          <ul className="text-xs text-blue-400/80 space-y-1">
+                            <li>• Write a compelling hook that grabs readers' attention</li>
+                            <li>• Include a brief author bio and credentials</li>
+                            <li>• Add testimonials or reviews if available</li>
+                            <li>• Keep text readable (14-16pt font minimum)</li>
+                            <li>• Leave space for ISBN barcode if enabled</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interior Images Section */}
+                <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <ImageIcon className="h-5 w-5 text-emerald-400" />
+                    Interior Preview Images
+                    <span className="text-xs text-zinc-500 font-normal ml-2">(Optional)</span>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <p className="text-sm text-zinc-400">
+                      Upload up to 4 interior pages to showcase your book's content on the back cover.
+                    </p>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[1, 2, 3, 4].map((idx) => {
+                        const interiorImage = state.interiorImages[idx - 1];
+                        return (
+                          <div 
+                            key={idx}
+                            className={`aspect-square border-2 border-dashed rounded-xl p-4 transition-all duration-200 cursor-pointer ${
+                              interiorImage 
+                                ? 'border-emerald-500 bg-emerald-950/20' 
+                                : 'border-zinc-600 bg-zinc-900/50 hover:border-emerald-600 hover:bg-emerald-950/10'
+                            }`}
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/png,image/jpeg';
+                              input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    if (typeof reader.result === 'string') {
+                                      const newInteriorImages = [...state.interiorImages];
+                                      newInteriorImages[idx - 1] = reader.result;
+                                      setState(prev => ({
+                                        ...prev,
+                                        interiorImages: newInteriorImages
+                                      }));
+                                      toast.success(`Interior image ${idx} uploaded`);
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              };
+                              input.click();
+                            }}
+                          >
+                            {interiorImage ? (
+                              <div className="relative w-full h-full group">
+                                <img 
+                                  src={interiorImage} 
+                                  alt={`Interior Preview ${idx}`}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                                <div 
+                                  className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
                                     const newInteriorImages = [...state.interiorImages];
-                                    newInteriorImages[idx - 1] = reader.result;
+                                    newInteriorImages[idx - 1] = '';
                                     setState(prev => ({
                                       ...prev,
                                       interiorImages: newInteriorImages
                                     }));
-                                    toast.success(`Interior image ${idx} uploaded`);
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            };
-                            input.click();
-                          }}
-                        >
-                          {interiorImage ? (
-                            <>
-                              <img 
-                                src={interiorImage} 
-                                alt={`Interior Preview ${idx}`}
-                                className="w-full h-full object-cover rounded"
-                              />
-                              <div 
-                                className="absolute inset-0 bg-black/60 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const newInteriorImages = [...state.interiorImages];
-                                  newInteriorImages[idx - 1] = '';
-                                  setState(prev => ({
-                                    ...prev,
-                                    interiorImages: newInteriorImages
-                                  }));
-                                  toast.info(`Interior image ${idx} removed`);
-                                }}
-                              >
-                                <Button size="sm" variant="destructive">Remove</Button>
+                                    toast.info(`Interior image ${idx} removed`);
+                                  }}
+                                >
+                                  <Button size="sm" variant="destructive" className="text-xs">
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Remove
+                                  </Button>
+                                </div>
                               </div>
-                            </>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center h-full text-center">
+                                <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center mb-2">
+                                  <Plus className="h-4 w-4 text-zinc-400" />
+                                </div>
+                                <span className="text-xs text-zinc-400 font-medium">Add Image {idx}</span>
+                                <span className="text-xs text-zinc-600 mt-1">PNG, JPG</span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Interior Images Info */}
+                    <div className="bg-amber-950/20 rounded-lg p-3 border border-amber-600/30">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-amber-300">Interior Images Tips</p>
+                          <p className="text-xs text-amber-400/80 mt-1">
+                            Choose high-quality pages that showcase your book's content. Images will be automatically resized and positioned on the back cover.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Generation Workflow */}
+                {(state.backCoverPrompt || state.interiorImages.some(img => img)) && (
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-emerald-400" />
+                      Back Cover Generation
+                    </h3>
+                    
+                    <div className="space-y-6">
+                      {/* Step 1: Requirements Check */}
+                      <div className="flex items-start gap-4">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                          state.frontCoverImage ? 'bg-emerald-600' : 'bg-zinc-600'
+                        }`}>
+                          <span className="text-white text-sm font-medium">1</span>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-base font-medium text-white mb-2">Front Cover Required</h4>
+                          {state.frontCoverImage ? (
+                            <div className="flex items-center gap-2 text-sm text-emerald-400">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Front cover is ready
+                            </div>
                           ) : (
-                            <div className="text-center cursor-pointer">
-                              <Upload className="h-6 w-6 text-zinc-400 mx-auto" />
-                              <span className="text-xs text-zinc-500">Image {idx}</span>
+                            <div className="space-y-2">
+                              <p className="text-sm text-zinc-400">
+                                A front cover is required to generate a matching back cover design.
+                              </p>
+                              <Button 
+                                variant="outline"
+                                size="sm"
+                                className="border-zinc-600 text-zinc-400"
+                                onClick={() => goToStep('frontCover')}
+                              >
+                                <ArrowLeft className="mr-2 h-3 w-3" />
+                                Go to Front Cover
+                              </Button>
                             </div>
                           )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={async () => {
-                    console.log('=== Back Cover Generation Debug ===');
-                    console.log('Front cover image:', state.frontCoverImage);
-                    console.log('Back cover prompt:', state.backCoverPrompt);
-                    console.log('Dimensions:', state.bookSettings.dimensions);
-                    console.log('Interior images:', state.interiorImages);
-                    
-                    if (!state.frontCoverImage) {
-                      toast.error("Please generate a front cover first");
-                      return;
-                    }
-                    
-                    if (!state.backCoverPrompt) {
-                      toast.error("Please generate a back cover description first by clicking 'Generate from Front Cover'");
-                      return;
-                    }
-                    
-                    setIsLoading({...isLoading, generateBackCover: true});
-                    toast.info("Generating back cover design...");
-                    
-                    try {
-                      const requestBody = {
-                        frontCoverUrl: state.frontCoverImage,
-                        width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                        height: Math.round(state.bookSettings.dimensions.height * 300),
-                        backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
-                        interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
-                      };
+                      </div>
                       
-                      console.log('Request body:', requestBody);
-                      
-                      // Use the dedicated back cover generation API that creates a back cover based on the front cover
-                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestBody)
-                      });
-                      
-                      console.log('Response status:', response.status);
-                      console.log('Response headers:', response.headers);
-                      
-                      if (!response.ok) {
-                        const errorData = await response.json();
-                        console.error('Error response:', errorData);
-                        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
-                      }
-                      
-                      const data = await response.json();
-                      console.log('Success response:', data);
-                      const imageUrl = data.url;
-                      
-                      if (!imageUrl) {
-                        throw new Error('No image URL was returned from the server');
-                      }
-                      
-                      setState(prev => ({
-                        ...prev,
-                        backCoverImage: imageUrl,
-                        steps: {
-                          ...prev.steps,
-                          backCover: true
-                        }
-                      }));
-                      
-                      toast.success("Back cover generated successfully!");
-                    } catch (error) {
-                      console.error('Error generating back cover:', error);
-                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
-                      
-                      // Better fallback that still allows user to proceed
-                      setState(prev => ({
-                        ...prev,
-                        backCoverImage: 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover',
-                        steps: {
-                          ...prev.steps,
-                          backCover: true
-                        }
-                      }));
-                      toast.info("Using placeholder back cover - you can continue to the next step.");
-                    } finally {
-                      setIsLoading({...isLoading, generateBackCover: false});
-                    }
-                  }}
-                  className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500"
-                  disabled={isLoading.generateBackCover || !state.backCoverPrompt || !state.frontCoverImage}
-                >
-                  {isLoading.generateBackCover ? (
-                    <span className="flex items-center">
-                      <span className="animate-spin mr-2">⏳</span> Generating...
-                    </span>
-                  ) : 'Generate Back Cover'}
-                </Button>
-              </div>
-              
-              {/* Back Cover Preview */}
-              <div className="space-y-4">
-                <h3 className="text-md font-medium">Back Cover Preview</h3>
-                <div 
-                  className="rounded-lg border border-zinc-700 bg-zinc-800 flex items-center justify-center"
-                  style={{
-                    width: `${state.bookSettings.dimensions.width * 50}px`,
-                    height: `${state.bookSettings.dimensions.height * 50}px`,
-                    maxWidth: '100%',
-                    maxHeight: '400px'
-                  }}
-                >
-                  {state.backCoverImage ? (
-                    <div className="relative w-full h-full">
-                      <img 
-                        src={state.backCoverImage} 
-                        alt="Back Cover Preview" 
-                        className="w-full h-full object-cover rounded-md"
-                      />
-                      
-                      {/* Interior Images */}
-                      {state.interiorImages.some(img => img) && (
-                        <div className="absolute inset-x-4 bottom-16 top-1/3 flex flex-wrap gap-2 pointer-events-none">
-                          {state.interiorImages.filter(img => img).map((img, idx) => (
-                            <div key={idx} className="w-1/4 h-1/2 min-w-[60px] shadow-lg rounded overflow-hidden border border-white/30">
-                              <img src={img} alt={`Interior ${idx + 1}`} className="w-full h-full object-cover" />
-                            </div>
-                          ))}
+                      {/* Step 2: Content Ready */}
+                      {state.frontCoverImage && (
+                        <div className="flex items-start gap-4">
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                            state.backCoverPrompt ? 'bg-emerald-600' : 'bg-zinc-600'
+                          }`}>
+                            <span className="text-white text-sm font-medium">2</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-base font-medium text-white mb-2">Content Preparation</h4>
+                            {state.backCoverPrompt ? (
+                              <div className="flex items-center gap-2 text-sm text-emerald-400">
+                                <CheckCircle2 className="h-4 w-4" />
+                                Description ready
+                                {state.interiorImages.some(img => img) && (
+                                  <span className="text-zinc-400">
+                                    • {state.interiorImages.filter(img => img).length} interior image(s)
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-zinc-400">
+                                Add a description above to proceed with back cover generation.
+                              </p>
+                            )}
+                          </div>
                         </div>
                       )}
                       
-                      {/* ISBN Placeholder */}
-                      {state.bookSettings.includeISBN && (
-                        <div className="absolute bottom-4 right-4 w-20 h-10 bg-white/80 rounded-sm flex items-center justify-center text-xs text-gray-800 border border-zinc-700">
-                          <div className="flex flex-col items-center">
-                            <span className="text-[8px] font-bold">ISBN</span>
-                            <div className="bg-black h-4 w-16 mt-1"></div>
+                      {/* Step 3: Generate */}
+                      {state.frontCoverImage && state.backCoverPrompt && (
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+                            <span className="text-white text-sm font-medium">3</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-base font-medium text-white mb-2">Generate Back Cover</h4>
+                            <div className="space-y-3">
+                              <p className="text-sm text-zinc-400">
+                                Create a back cover that complements your front cover design with your content.
+                              </p>
+                              <div className="flex flex-wrap gap-3">
+                                <Button 
+                                  className="bg-emerald-600 hover:bg-emerald-500"
+                                  onClick={async () => {
+                                    if (!state.frontCoverImage) {
+                                      toast.error("Please generate a front cover first");
+                                      return;
+                                    }
+                                    
+                                    if (!state.backCoverPrompt) {
+                                      toast.error("Please add a back cover description first");
+                                      return;
+                                    }
+                                    
+                                    setIsLoading({...isLoading, generateBackCover: true});
+                                    toast.info("Generating back cover design...");
+                                    
+                                    try {
+                                      const requestBody = {
+                                        frontCoverUrl: state.frontCoverImage,
+                                        width: Math.round(state.bookSettings.dimensions.width * 300),
+                                        height: Math.round(state.bookSettings.dimensions.height * 300),
+                                        backCoverPrompt: state.backCoverPrompt,
+                                        interiorImages: state.interiorImages.filter(img => img)
+                                      };
+                                      
+                                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
+                                        method: 'POST',
+                                        headers: {
+                                          'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(requestBody)
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const errorData = await response.json();
+                                        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
+                                      }
+                                      
+                                      const data = await response.json();
+                                      const imageUrl = data.url;
+                                      
+                                      if (!imageUrl) {
+                                        throw new Error('No image URL was returned from the server');
+                                      }
+                                      
+                                      setState(prev => ({
+                                        ...prev,
+                                        backCoverImage: imageUrl,
+                                        steps: {
+                                          ...prev.steps,
+                                          backCover: true
+                                        }
+                                      }));
+                                      
+                                      toast.success("Back cover generated successfully!");
+                                    } catch (error) {
+                                      console.error('Error generating back cover:', error);
+                                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
+                                      
+                                      setState(prev => ({
+                                        ...prev,
+                                        backCoverImage: 'https://placehold.co/600x900/1e293b/ffffff?text=AI+Generated+Back+Cover',
+                                        steps: {
+                                          ...prev.steps,
+                                          backCover: true
+                                        }
+                                      }));
+                                      toast.info("Using placeholder back cover - you can continue to the next step.");
+                                    } finally {
+                                      setIsLoading({...isLoading, generateBackCover: false});
+                                    }
+                                  }}
+                                  disabled={isLoading.generateBackCover}
+                                >
+                                  {isLoading.generateBackCover ? (
+                                    <>
+                                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                      Generating...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                      Generate Back Cover
+                                    </>
+                                  )}
+                                </Button>
+                                
+                                {state.backCoverImage && (
+                                  <>
+                                    <Button 
+                                      variant="outline"
+                                      className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/30"
+                                      onClick={async () => {
+                                        setIsLoading({...isLoading, generateBackCover: true});
+                                        try {
+                                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
+                                            method: 'POST',
+                                            headers: {
+                                              'Content-Type': 'application/json',
+                                            },
+                                            body: JSON.stringify({
+                                              frontCoverUrl: state.frontCoverImage,
+                                              width: Math.round(state.bookSettings.dimensions.width * 300),
+                                              height: Math.round(state.bookSettings.dimensions.height * 300),
+                                              backCoverPrompt: state.backCoverPrompt,
+                                              interiorImages: state.interiorImages.filter(img => img)
+                                            })
+                                          });
+                                          
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.message || errorData.error || 'Failed to regenerate back cover');
+                                          }
+                                          
+                                          const data = await response.json();
+                                          if (data.url) {
+                                            setState(prev => ({
+                                              ...prev,
+                                              backCoverImage: data.url
+                                            }));
+                                            toast.success("Back cover regenerated successfully!");
+                                          }
+                                        } catch (error) {
+                                          toast.error("Failed to regenerate back cover");
+                                        } finally {
+                                          setIsLoading({...isLoading, generateBackCover: false});
+                                        }
+                                      }}
+                                      disabled={isLoading.generateBackCover}
+                                    >
+                                      <Wand2 className="mr-2 h-4 w-4" />
+                                      Generate Variation
+                                    </Button>
+                                    
+                                    <Button 
+                                      className="bg-blue-600 hover:bg-blue-500"
+                                      onClick={() => {
+                                        setState(prev => ({
+                                          ...prev,
+                                          steps: {
+                                            ...prev.steps,
+                                            backCover: true
+                                          }
+                                        }));
+                                        toast.success("Back cover design confirmed!");
+                                      }}
+                                    >
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Use This Design
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="text-center text-zinc-400">
-                      <BookOpen className="h-12 w-12 mx-auto mb-2" />
-                      <p>Back cover preview will appear here</p>
-                    </div>
-                  )}
-                </div>
-                
-                {state.backCoverImage && (
-                  <div className="flex justify-end space-x-2">
-                    <Button 
-                      variant="outline"
-                      onClick={async () => {
-                        setIsLoading({...isLoading, generateBackCover: true});
-                        try {
-                          // Generate a variation with the same prompt
-                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              frontCoverUrl: state.frontCoverImage,
-                              width: Math.round(state.bookSettings.dimensions.width * 300), // Convert inches to pixels at 300 DPI
-                              height: Math.round(state.bookSettings.dimensions.height * 300),
-                              backCoverPrompt: state.backCoverPrompt, // Include the back cover description for context
-                              interiorImages: state.interiorImages.filter(img => img) // Include interior images if any
-                            })
-                          });
-                          
-                          if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(errorData.message || errorData.error || 'Failed to regenerate back cover');
-                          }
-                          
-                          const data = await response.json();
-                          if (data.url) {
-                            setState(prev => ({
-                              ...prev,
-                              backCoverImage: data.url
-                            }));
-                            toast.success("Back cover regenerated successfully!");
-                          }
-                        } catch (error) {
-                          toast.error("Failed to regenerate back cover");
-                        } finally {
-                          setIsLoading({...isLoading, generateBackCover: false});
-                        }
-                      }}
-                    >
-                      {isLoading.generateBackCover ? 'Regenerating...' : 'Regenerate'}
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        setState(prev => ({
-                          ...prev,
-                          steps: {
-                            ...prev.steps,
-                            backCover: true
-                          }
-                        }));
-                        toast.success("Back cover design confirmed!");
-                      }}
-                    >
-                      Use This Design
-                    </Button>
                   </div>
                 )}
-                
-                <div className="mt-6 p-4 bg-emerald-950/30 rounded-lg border border-emerald-900">
-                  <h4 className="text-sm font-medium text-emerald-300 mb-2">Back Cover Tips</h4>
-                  <ul className="text-xs text-emerald-400 space-y-1">
-                    <li>• Include a compelling book description that hooks potential readers</li>
-                    <li>• Add author bio and photo if available</li>
-                    <li>• Consider including positive reviews or testimonials</li>
-                    <li>• Keep text readable at a glance (14-16pt font minimum)</li>
-                    <li>• Leave space for the ISBN barcode if enabled</li>
-                  </ul>
+              </div>
+
+              {/* Right Column - Preview */}
+              <div className="lg:col-span-1">
+                <div className="sticky top-6 space-y-6">
+                  {/* Back Cover Preview */}
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                      <Eye className="h-5 w-5 text-emerald-400" />
+                      Back Cover Preview
+                    </h3>
+                    
+                    {/* KDP Requirements Notice */}
+                    <div className="mb-4 bg-amber-950/30 border border-amber-600/30 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-medium text-amber-300">KDP Requirements</p>
+                          <p className="text-xs text-amber-400/80 mt-1">
+                            {state.bookSettings.includeISBN ? 'Space reserved for ISBN barcode' : 'No ISBN barcode space'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Preview Container */}
+                    <div className="bg-zinc-900 rounded-lg p-4 border border-zinc-700 min-h-[400px] flex items-center justify-center">
+                      {state.backCoverImage ? (
+                        <div className="relative" style={{
+                          width: `${state.bookSettings.dimensions.width * 60}px`,
+                          height: `${state.bookSettings.dimensions.height * 60}px`,
+                          maxWidth: '100%',
+                          maxHeight: '400px'
+                        }}>
+                          <img 
+                            src={state.backCoverImage} 
+                            alt="Generated Back Cover" 
+                            className="w-full h-full object-contain rounded-md shadow-lg"
+                          />
+                          
+                          {/* Interior Images Overlay */}
+                          {state.interiorImages.some(img => img) && (
+                            <div className="absolute inset-x-4 bottom-16 top-1/3 flex flex-wrap gap-1 pointer-events-none">
+                              {state.interiorImages.filter(img => img).map((img, idx) => (
+                                <div key={idx} className="w-1/4 h-1/2 min-w-[40px] shadow-lg rounded overflow-hidden border border-white/30">
+                                  <img src={img} alt={`Interior ${idx + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* ISBN Placeholder */}
+                          {state.bookSettings.includeISBN && (
+                            <div className="absolute bottom-4 right-4 w-16 h-8 bg-white/80 rounded-sm flex items-center justify-center text-xs text-gray-800 border border-zinc-700">
+                              <div className="flex flex-col items-center">
+                                <span className="text-[8px] font-bold">ISBN</span>
+                                <div className="bg-black h-2 w-12 mt-1"></div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Action Buttons */}
+                          <div className="absolute top-2 left-2 flex gap-2">
+                            <Button
+                              size="sm"
+                              className="bg-emerald-600/90 hover:bg-emerald-500/90"
+                              onClick={() => {
+                                if (state.backCoverImage) {
+                                  downloadCoverWithExactDimensions(state.backCoverImage, `${state.bookSettings.bookSize.replace('x', 'x')}_back_cover.png`);
+                                }
+                              }}
+                            >
+                              <Download className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-zinc-500">
+                          <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-zinc-800 flex items-center justify-center">
+                            <BookOpen className="h-8 w-8 text-zinc-600" />
+                          </div>
+                          <p className="text-sm font-medium">No Back Cover Generated</p>
+                          <p className="text-xs text-zinc-600 mt-1">
+                            Add description and generate to see preview
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Cover Info */}
+                    {state.backCoverImage && (
+                      <div className="mt-4 p-3 bg-emerald-950/20 rounded-lg border border-emerald-900/30">
+                        <div className="flex items-center gap-2 text-xs text-emerald-300 mb-2">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Back cover generated successfully
+                        </div>
+                        <div className="text-xs text-emerald-400/80">
+                          Size: {state.bookSettings.bookSize} • Resolution: 300 DPI • Format: PNG
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Content Summary */}
+                  <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-4">
+                    <h4 className="text-sm font-medium text-zinc-300 mb-3">Content Summary</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Description:</span>
+                        <span className="text-zinc-300">
+                          {state.backCoverPrompt ? `${state.backCoverPrompt.length} chars` : 'None'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Interior Images:</span>
+                        <span className="text-zinc-300">
+                          {state.interiorImages.filter(img => img).length} of 4
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">ISBN Space:</span>
+                        <span className="text-zinc-300">
+                          {state.bookSettings.includeISBN ? 'Reserved' : 'None'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">Status:</span>
+                        <span className={`${state.backCoverImage ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                          {state.backCoverImage ? 'Generated' : 'Pending'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
             
-            {/* Navigation buttons */}
-            <div className="flex justify-between pt-4 border-t">
-              <Button variant="outline" onClick={() => goToStep('frontCover')}>
+            {/* Navigation */}
+            <div className="flex justify-between pt-6 border-t border-zinc-700">
+              <Button variant="outline" onClick={() => goToStep('frontCover')} className="border-zinc-600 hover:bg-zinc-800">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Front Cover
               </Button>
