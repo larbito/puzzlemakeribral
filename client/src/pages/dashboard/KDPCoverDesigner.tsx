@@ -2087,6 +2087,10 @@ const KDPCoverDesigner: React.FC = () => {
                       <label className="block text-sm font-medium text-zinc-300 mb-2">
                         Back Cover Content (Optional)
                       </label>
+                      <p className="text-xs text-zinc-500 mb-3">
+                        🎨 <strong>Smart Style Matching:</strong> The system automatically extracts colors, background, and artistic style from your front cover. 
+                        Add custom text content here if desired, or leave empty for a clean layout.
+                      </p>
                       <textarea
                         value={state.backCoverPrompt}
                         onChange={(e) => setState(prev => ({ ...prev, backCoverPrompt: e.target.value }))}
@@ -2170,7 +2174,7 @@ const KDPCoverDesigner: React.FC = () => {
                               </p>
                               <div className="flex flex-wrap gap-3">
                                 <Button 
-                                  className="bg-emerald-600 hover:bg-emerald-500"
+                                  className="bg-emerald-600 hover:bg-emerald-500 flex-1"
                                   onClick={async () => {
                                     if (!state.frontCoverImage) {
                                       toast.error("Please generate a front cover first");
@@ -2196,6 +2200,7 @@ const KDPCoverDesigner: React.FC = () => {
                                       
                                       const requestBody = {
                                         frontCoverUrl: frontCoverUrl,
+                                        frontCoverPrompt: state.frontCoverPrompt,
                                         width: Math.round(state.bookSettings.dimensions.width * 300),
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
                                         backCoverPrompt: state.backCoverPrompt,
@@ -2253,8 +2258,8 @@ const KDPCoverDesigner: React.FC = () => {
                                     </>
                                   ) : (
                                     <>
-                                      <Wand2 className="mr-2 h-4 w-4" />
-                                      Create Styled Back Cover
+                                      <Palette className="mr-2 h-4 w-4" />
+                                      {state.frontCoverPrompt ? 'Generate Matching Back Cover' : 'Create Styled Back Cover'}
                                     </>
                                   )}
                                 </Button>
@@ -2287,6 +2292,7 @@ const KDPCoverDesigner: React.FC = () => {
                                             },
                                             body: JSON.stringify({
                                               frontCoverUrl: frontCoverUrl,
+                                              frontCoverPrompt: state.frontCoverPrompt,
                                               width: Math.round(state.bookSettings.dimensions.width * 300),
                                               height: Math.round(state.bookSettings.dimensions.height * 300),
                                               backCoverPrompt: state.backCoverPrompt,

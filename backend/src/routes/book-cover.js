@@ -260,6 +260,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     
     const { 
       frontCoverUrl, 
+      frontCoverPrompt,
       width, 
       height, 
       backCoverPrompt, 
@@ -277,13 +278,58 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     
     console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
     console.log('Back cover prompt provided:', !!backCoverPrompt);
+    console.log('Front cover prompt available:', !!frontCoverPrompt);
 
     try {
-      // If a prompt is provided, use AI generation
-      if (backCoverPrompt && backCoverPrompt.trim()) {
-        console.log('Generating AI back cover with prompt:', backCoverPrompt);
+      // NEW SYSTEMATIC APPROACH: Parse front cover prompt and build back cover prompt
+      if (frontCoverPrompt && frontCoverPrompt.trim()) {
+        console.log('Using systematic approach: parsing front cover prompt...');
         
-        // Use the existing front cover generation endpoint with the back cover prompt
+        // Parse the front cover prompt and build a consistent back cover prompt
+        const interiorImagesCount = interiorImages.filter(img => img && img.trim()).length;
+        const systematicBackPrompt = parseAndBuildBackCoverPrompt(
+          frontCoverPrompt.trim(),
+          backCoverPrompt || '',
+          interiorImagesCount
+        );
+        
+        console.log('Generated systematic back cover prompt:', systematicBackPrompt);
+        
+        // Use AI generation with the systematic prompt
+        const aiResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3001'}/api/book-cover/generate-front`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt: systematicBackPrompt,
+            width: targetWidth,
+            height: targetHeight
+          })
+        });
+        
+        if (aiResponse.ok) {
+          const aiData = await aiResponse.json();
+          if (aiData.success && aiData.imageUrl) {
+            console.log('Successfully generated systematic back cover');
+            return res.json({ 
+              status: 'success', 
+              url: aiData.imageUrl,
+              width: targetWidth,
+              height: targetHeight,
+              method: 'systematic_ai_generated',
+              prompt: systematicBackPrompt
+            });
+          }
+        }
+        
+        console.log('Systematic AI generation failed, falling back to style matching');
+      }
+      
+      // FALLBACK: If a custom prompt is provided (legacy approach)
+      else if (backCoverPrompt && backCoverPrompt.trim()) {
+        console.log('Using legacy approach: generating AI back cover with custom prompt...');
+        
         const aiResponse = await fetch(`${process.env.API_BASE_URL || 'http://localhost:3001'}/api/book-cover/generate-front`, {
           method: 'POST',
           headers: {
@@ -299,18 +345,18 @@ router.post('/generate-back', upload.none(), async (req, res) => {
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
           if (aiData.success && aiData.imageUrl) {
-            console.log('Successfully generated AI back cover');
+            console.log('Successfully generated custom prompt back cover');
             return res.json({ 
               status: 'success', 
               url: aiData.imageUrl,
               width: targetWidth,
               height: targetHeight,
-              method: 'ai_generated'
+              method: 'custom_ai_generated'
             });
           }
         }
         
-        console.log('AI generation failed, falling back to styled approach');
+        console.log('Custom AI generation failed, falling back to style matching');
       }
       
       console.log('Creating back cover with same style as front cover but clean text areas...');
@@ -1456,6 +1502,147 @@ async function createStyledBackCover(width, height, frontCoverBuffer, interiorIm
         .toBuffer();
     }
   }
+}
+
+/**
+ * Parse front cover prompt and extract visual elements for back cover generation
+ */
+function parseAndBuildBackCoverPrompt(frontPrompt, userBackText = '', interiorImagesCount = 0) {
+  console.log('Parsing front cover prompt for back cover generation...');
+  
+  // Remove title, author, and front-specific text elements
+  let visualPrompt = frontPrompt
+    // Remove title patterns
+    .replace(/title[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    .replace(/book title[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    .replace(/called[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    .replace(/titled[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    // Remove author patterns
+    .replace(/author[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    .replace(/by[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    .replace(/written by[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    // Remove subtitle patterns
+    .replace(/subtitle[:\s]*['""]?[^'"".\n,]+['""]?/gi, '')
+    // Remove front-specific elements
+    .replace(/front cover/gi, '')
+    .replace(/cover design/gi, '')
+    .replace(/book cover/gi, '')
+    // Clean up extra spaces and punctuation
+    .replace(/\s+/g, ' ')
+    .replace(/[,\s]+,/g, ',')
+    .replace(/^\s*[,.\s]+|[,.\s]+\s*$/g, '')
+    .trim();
+
+  // Extract key visual components using regex patterns
+  const extractors = {
+    // Background elements
+    background: [
+      /(?:background|backdrop)[:\s]*([^,.]+)/gi,
+      /features?\s+(?:a\s+)?([^,.]+?)\s+(?:as\s+)?background/gi,
+      /(?:set against|against)\s+([^,.]+)/gi,
+      /(?:prominent|featuring)\s+(?:depiction of\s+)?([^,.]+?)(?:\s+as\s+(?:the\s+)?background)?/gi
+    ],
+    
+    // Color schemes
+    colors: [
+      /colors?[:\s]*([^,.]+)/gi,
+      /color scheme[:\s]*([^,.]+)/gi,
+      /palette[:\s]*([^,.]+)/gi,
+      /(?:using|with|featuring)\s+([^,.]*(?:red|blue|green|yellow|orange|purple|pink|black|white|gray|grey|brown|cream|gold|silver)[^,.]*)/gi
+    ],
+    
+    // Artistic style
+    style: [
+      /(?:comic-style|vector style|flat design|realistic|watercolor|oil painting|digital art|illustration style)/gi,
+      /(?:modern|vintage|retro|contemporary|classic|minimalist|detailed|abstract)/gi,
+      /(?:dynamic|bold|soft|dramatic|elegant|rustic|professional)/gi,
+      /style[:\s]*([^,.]+)/gi
+    ],
+    
+    // Texture and treatment
+    texture: [
+      /texture[:\s]*([^,.]+)/gi,
+      /(?:with|featuring)\s+([^,.]*texture[^,.]*)/gi,
+      /(?:finish|treatment|effect)[:\s]*([^,.]+)/gi
+    ]
+  };
+
+  const extracted = {
+    background: [],
+    colors: [],
+    style: [],
+    texture: []
+  };
+
+  // Extract elements using the patterns
+  Object.keys(extractors).forEach(key => {
+    extractors[key].forEach(regex => {
+      const matches = [...visualPrompt.matchAll(regex)];
+      matches.forEach(match => {
+        if (match[1] && match[1].trim()) {
+          extracted[key].push(match[1].trim());
+        }
+      });
+    });
+  });
+
+  // Build the back cover prompt using the template
+  let backPrompt = '';
+  
+  // Start with artistic style
+  const styles = [...new Set(extracted.style)].filter(s => s.length > 2);
+  if (styles.length > 0) {
+    backPrompt += `${styles[0]}. `;
+  } else {
+    backPrompt += 'Professional book cover design. ';
+  }
+
+  // Add background description
+  const backgrounds = [...new Set(extracted.background)].filter(b => b.length > 3);
+  if (backgrounds.length > 0) {
+    backPrompt += `The back cover features ${backgrounds[0]}, `;
+  } else {
+    backPrompt += 'The back cover features a complementary background design, ';
+  }
+
+  // Add color scheme
+  const colors = [...new Set(extracted.colors)].filter(c => c.length > 3);
+  if (colors.length > 0) {
+    backPrompt += `maintaining the same color scheme of ${colors[0]}. `;
+  } else {
+    backPrompt += 'maintaining the same color scheme as the front cover. ';
+  }
+
+  // Add artistic style continuation
+  if (styles.length > 1) {
+    backPrompt += `The artistic style is ${styles.slice(1).join(', ')}, `;
+  }
+
+  // Add texture if found
+  const textures = [...new Set(extracted.texture)].filter(t => t.length > 3);
+  if (textures.length > 0) {
+    backPrompt += `with ${textures[0]}. `;
+  }
+
+  // Add user-provided back cover text
+  if (userBackText && userBackText.trim()) {
+    backPrompt += `\n\n${userBackText.trim()}. `;
+  }
+
+  // Add interior images description if provided
+  if (interiorImagesCount > 0) {
+    if (interiorImagesCount === 1) {
+      backPrompt += `\n\nIncludes a centered preview of one interior illustration, blending seamlessly with the background design. `;
+    } else {
+      backPrompt += `\n\nIncludes ${interiorImagesCount} interior preview images arranged harmoniously with the background design. `;
+    }
+  }
+
+  // Add KDP compliance and consistency requirements
+  backPrompt += `\n\nFormat: 6x9 inches, KDP-compliant back cover. Ensure full visual consistency with the front cover's design style, background treatment, and colors. Professional layout with clean areas for text content.`;
+
+  console.log('Generated back cover prompt from front cover analysis');
+  return backPrompt;
 }
 
 module.exports = router; 
