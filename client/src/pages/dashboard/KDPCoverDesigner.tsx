@@ -2138,41 +2138,6 @@ const KDPCoverDesigner: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Generation Method Selection */}
-                    <div className="mb-6 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
-                      <h4 className="text-sm font-medium text-zinc-300 mb-3">Generation Method</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <label className="flex items-start gap-3 p-3 bg-zinc-800/50 rounded border border-zinc-600 cursor-pointer hover:border-emerald-500/50 transition-colors">
-                          <input 
-                            type="radio" 
-                            name="generationMethod" 
-                            value="style-matching"
-                            checked={state.backCoverGenerationMethod === 'style-matching'}
-                            onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
-                            className="mt-1 text-emerald-500 focus:ring-emerald-500"
-                          />
-                          <div>
-                            <div className="text-sm font-medium text-white">Style Matching</div>
-                            <div className="text-xs text-zinc-400 mt-1">Extract colors and create clean layout (Recommended)</div>
-                          </div>
-                        </label>
-                        <label className="flex items-start gap-3 p-3 bg-zinc-800/50 rounded border border-zinc-600 cursor-pointer hover:border-blue-500/50 transition-colors">
-                          <input 
-                            type="radio" 
-                            name="generationMethod" 
-                            value="ai-generation"
-                            checked={state.backCoverGenerationMethod === 'ai-generation'}
-                            onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
-                            className="mt-1 text-blue-500 focus:ring-blue-500"
-                          />
-                          <div>
-                            <div className="text-sm font-medium text-white">AI Generation</div>
-                            <div className="text-xs text-zinc-400 mt-1">Generate new artwork using extracted style (Experimental)</div>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
                     {/* Smart Prompt Generation */}
                     {state.frontCoverPrompt && (
                       <div className="mb-6 p-4 bg-blue-950/20 rounded-lg border border-blue-900/30">
