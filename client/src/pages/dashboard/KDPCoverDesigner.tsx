@@ -2079,74 +2079,111 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
 
                 {/* Generation Workflow */}
-                {(state.interiorImages.some(img => img) || state.frontCoverImage) && (
+                {state.frontCoverImage && (
                   <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                       <Settings className="h-5 w-5 text-emerald-400" />
                       Back Cover Generation
                     </h3>
                     
-                    {/* Enhanced Style Analysis Section */}
-                    {state.frontCoverImage && state.frontCoverPrompt && (
-                      <div className="mb-6 bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
-                        <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          Smart Style Extraction
-                        </h4>
+                    {/* Side-by-Side Preview */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-zinc-300 mb-4 flex items-center gap-2">
+                        <Eye className="h-4 w-4" />
+                        Cover Comparison
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Front Cover Preview */}
                         <div className="space-y-3">
-                          <div className="text-xs text-emerald-400/80">
-                            <p className="mb-2">
-                              <strong>🔧 How it works:</strong> The system analyzes your front cover prompt to extract:
-                            </p>
-                            <ul className="list-disc pl-4 space-y-1">
-                              <li><strong>Background elements:</strong> Landscapes, flags, textures, patterns</li>
-                              <li><strong>Color palette:</strong> Primary and accent colors used</li>
-                              <li><strong>Artistic style:</strong> Comic-style, realistic, modern, vintage, etc.</li>
-                              <li><strong>Visual treatment:</strong> Texture, finish, and design approach</li>
-                            </ul>
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium text-emerald-400">Front Cover</h5>
+                            <span className="text-xs text-zinc-500 bg-emerald-950/30 px-2 py-1 rounded">Ready</span>
                           </div>
-                          
-                          {/* Generation Method Selection */}
-                          <div className="mt-4 p-3 bg-zinc-800/50 rounded border border-zinc-700">
-                            <h5 className="text-xs font-medium text-zinc-300 mb-2">Generation Method:</h5>
-                            <div className="space-y-2">
-                              <label className="flex items-center gap-2 text-xs text-zinc-400">
-                                <input 
-                                  type="radio" 
-                                  name="generationMethod" 
-                                  value="style-matching"
-                                  checked={state.backCoverGenerationMethod === 'style-matching'}
-                                  onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
-                                  className="text-emerald-500 focus:ring-emerald-500"
-                                />
-                                <span><strong>Style Matching</strong> - Extract colors and create clean layout (Recommended)</span>
-                              </label>
-                              <label className="flex items-center gap-2 text-xs text-zinc-400">
-                                <input 
-                                  type="radio" 
-                                  name="generationMethod" 
-                                  value="ai-generation"
-                                  checked={state.backCoverGenerationMethod === 'ai-generation'}
-                                  onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
-                                  className="text-emerald-500 focus:ring-emerald-500"
-                                />
-                                <span><strong>AI Generation</strong> - Generate new artwork using extracted style (Experimental)</span>
-                              </label>
-                            </div>
+                          <div className="relative bg-zinc-900 rounded-lg border border-zinc-600 overflow-hidden aspect-[2/3]">
+                            <img 
+                              src={state.frontCoverImage} 
+                              alt="Front Cover" 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* Back Cover Preview */}
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h5 className="text-sm font-medium text-blue-400">Back Cover</h5>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              state.backCoverImage 
+                                ? 'text-emerald-400 bg-emerald-950/30' 
+                                : 'text-amber-400 bg-amber-950/30'
+                            }`}>
+                              {state.backCoverImage ? 'Generated' : 'Not Generated'}
+                            </span>
+                          </div>
+                          <div className="relative bg-zinc-900 rounded-lg border border-zinc-600 overflow-hidden aspect-[2/3]">
+                            {state.backCoverImage ? (
+                              <img 
+                                src={state.backCoverImage} 
+                                alt="Back Cover" 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-zinc-500">
+                                <div className="text-center">
+                                  <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                  <p className="text-sm">Generate back cover to preview</p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
-                    )}
+                    </div>
 
-                    {/* Smart Prompt Generation Section */}
-                    {state.frontCoverImage && state.frontCoverPrompt && (
+                    {/* Generation Method Selection */}
+                    <div className="mb-6 p-4 bg-zinc-900/50 rounded-lg border border-zinc-700">
+                      <h4 className="text-sm font-medium text-zinc-300 mb-3">Generation Method</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <label className="flex items-start gap-3 p-3 bg-zinc-800/50 rounded border border-zinc-600 cursor-pointer hover:border-emerald-500/50 transition-colors">
+                          <input 
+                            type="radio" 
+                            name="generationMethod" 
+                            value="style-matching"
+                            checked={state.backCoverGenerationMethod === 'style-matching'}
+                            onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
+                            className="mt-1 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-white">Style Matching</div>
+                            <div className="text-xs text-zinc-400 mt-1">Extract colors and create clean layout (Recommended)</div>
+                          </div>
+                        </label>
+                        <label className="flex items-start gap-3 p-3 bg-zinc-800/50 rounded border border-zinc-600 cursor-pointer hover:border-blue-500/50 transition-colors">
+                          <input 
+                            type="radio" 
+                            name="generationMethod" 
+                            value="ai-generation"
+                            checked={state.backCoverGenerationMethod === 'ai-generation'}
+                            onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
+                            className="mt-1 text-blue-500 focus:ring-blue-500"
+                          />
+                          <div>
+                            <div className="text-sm font-medium text-white">AI Generation</div>
+                            <div className="text-xs text-zinc-400 mt-1">Generate new artwork using extracted style (Experimental)</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Smart Prompt Generation */}
+                    {state.frontCoverPrompt && (
                       <div className="mb-6 p-4 bg-blue-950/20 rounded-lg border border-blue-900/30">
-                        <h4 className="text-sm font-medium text-blue-300 mb-3 flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-blue-300 mb-2 flex items-center gap-2">
                           <Brain className="h-4 w-4" />
                           AI-Powered Prompt Generation
                         </h4>
                         <p className="text-xs text-blue-400/80 mb-3">
-                          Let GPT-4 analyze your front cover prompt and create a perfectly matching back cover prompt that maintains visual consistency.
+                          Let GPT-4 analyze your front cover and create a perfectly matching back cover prompt.
                         </p>
                         <button
                           onClick={async () => {
@@ -2208,283 +2245,134 @@ const KDPCoverDesigner: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Back Cover Prompt Input */}
+                    {/* Back Cover Content Input */}
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-zinc-300 mb-2">
                         Back Cover Content (Optional)
                       </label>
-                      <p className="text-xs text-zinc-500 mb-3">
-                        🎨 <strong>Smart Style Matching:</strong> The system automatically extracts colors, background, and artistic style from your front cover. 
-                        Add custom text content here if desired, or leave empty for a clean layout.
-                      </p>
                       <textarea
                         value={state.backCoverPrompt}
                         onChange={(e) => setState(prev => ({ ...prev, backCoverPrompt: e.target.value }))}
-                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials). Leave empty to use automatic style matching with clean text areas."
-                        className="w-full h-24 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials). Leave empty for automatic style matching with clean text areas."
+                        className="w-full h-20 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
                       />
                       <p className="text-xs text-zinc-500 mt-1">
-                        If provided, this will be used to generate custom back cover content. Otherwise, clean areas will be created for your own text.
+                        The system will automatically match the front cover's style and colors.
                       </p>
                     </div>
                     
-                    <div className="space-y-6">
-                      {/* Step 1: Requirements Check */}
-                      <div className="flex items-start gap-4">
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                          state.frontCoverImage ? 'bg-emerald-600' : 'bg-zinc-600'
-                        }`}>
-                          <span className="text-white text-sm font-medium">1</span>
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="text-base font-medium text-white mb-2">Front Cover Required</h4>
-                          {state.frontCoverImage ? (
-                            <div className="flex items-center gap-2 text-sm text-emerald-400">
-                              <CheckCircle2 className="h-4 w-4" />
-                              Front cover is ready - style will be automatically matched
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <p className="text-sm text-zinc-400">
-                                A front cover is required to create a matching back cover design.
-                              </p>
-                              <Button 
-                                variant="outline"
-                                size="sm"
-                                className="border-zinc-600 text-zinc-400"
-                                onClick={() => goToStep('frontCover')}
-                              >
-                                <ArrowLeft className="mr-2 h-3 w-3" />
-                                Go to Front Cover
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                    {/* Generation Controls */}
+                    <div className="flex flex-wrap gap-3">
+                      <Button 
+                        className="bg-emerald-600 hover:bg-emerald-500 flex-1 min-w-[200px]"
+                        onClick={async () => {
+                          setIsLoading({...isLoading, generateBackCover: true});
+                          const methodText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generating' : 'Creating styled';
+                          toast.info(`${methodText} back cover...`);
+                          
+                          try {
+                            // Convert blob URL to base64 if needed
+                            let frontCoverUrl = state.frontCoverImage;
+                            if (frontCoverUrl && frontCoverUrl.startsWith('blob:')) {
+                              console.log('Converting blob URL to base64...');
+                              const response = await fetch(frontCoverUrl);
+                              const blob = await response.blob();
+                              frontCoverUrl = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onload = () => resolve(reader.result as string);
+                                reader.readAsDataURL(blob);
+                              });
+                            }
+                            
+                            if (!frontCoverUrl) {
+                              throw new Error('Front cover URL is required');
+                            }
+                            
+                            const requestBody = {
+                              frontCoverUrl: frontCoverUrl,
+                              frontCoverPrompt: state.frontCoverPrompt,
+                              width: Math.round(state.bookSettings.dimensions.width * 300),
+                              height: Math.round(state.bookSettings.dimensions.height * 300),
+                              backCoverPrompt: state.backCoverPrompt,
+                              interiorImages: state.interiorImages.filter(img => img),
+                              useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
+                            };
+                            
+                            const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                              },
+                              body: JSON.stringify(requestBody)
+                            });
+                            
+                            if (!response.ok) {
+                              const errorData = await response.json();
+                              throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
+                            }
+                            
+                            const data = await response.json();
+                            const imageUrl = data.url;
+                            
+                            if (!imageUrl) {
+                              throw new Error('No image URL was returned from the server');
+                            }
+                            
+                            // Convert relative URLs to full URLs
+                            const fullImageUrl = imageUrl.startsWith('/static/') 
+                              ? `${getApiUrl()}${imageUrl}` 
+                              : imageUrl;
+                            
+                            setState(prev => ({
+                              ...prev,
+                              backCoverImage: fullImageUrl,
+                              steps: {
+                                ...prev.steps,
+                                backCover: true
+                              }
+                            }));
+                            
+                            const successText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generated' : 'Styled';
+                            toast.success(`${successText} back cover created successfully!`);
+                          } catch (error) {
+                            console.error('Error generating back cover:', error);
+                            toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
+                          } finally {
+                            setIsLoading({...isLoading, generateBackCover: false});
+                          }
+                        }}
+                        disabled={isLoading.generateBackCover}
+                      >
+                        {isLoading.generateBackCover ? (
+                          <>
+                            <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            <Palette className="mr-2 h-4 w-4" />
+                            {state.backCoverImage ? 'Regenerate Back Cover' : 'Generate Back Cover'}
+                          </>
+                        )}
+                      </Button>
                       
-                      {/* Step 2: Optional Interior Images */}
-                      {state.frontCoverImage && (
-                        <div className="flex items-start gap-4">
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                            state.interiorImages.some(img => img) ? 'bg-emerald-600' : 'bg-blue-600'
-                          }`}>
-                            <span className="text-white text-sm font-medium">2</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-base font-medium text-white mb-2">Interior Images (Optional)</h4>
-                            {state.interiorImages.some(img => img) ? (
-                              <div className="flex items-center gap-2 text-sm text-emerald-400">
-                                <CheckCircle2 className="h-4 w-4" />
-                                {state.interiorImages.filter(img => img).length} interior image(s) ready
-                              </div>
-                            ) : (
-                              <p className="text-sm text-zinc-400">
-                                Upload interior images above to include them in your back cover preview.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Step 3: Generate */}
-                      {state.frontCoverImage && (
-                        <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
-                            <span className="text-white text-sm font-medium">3</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="text-base font-medium text-white mb-2">Generate Styled Back Cover</h4>
-                            <div className="space-y-3">
-                              <p className="text-sm text-zinc-400">
-                                Create a back cover that uses the same visual style as your front cover with clean areas for your content.
-                              </p>
-                              <div className="flex flex-wrap gap-3">
-                                <Button 
-                                  className="bg-emerald-600 hover:bg-emerald-500 flex-1"
-                                  onClick={async () => {
-                                    if (!state.frontCoverImage) {
-                                      toast.error("Please generate a front cover first");
-                                      return;
-                                    }
-                                    
-                                    setIsLoading({...isLoading, generateBackCover: true});
-                                    const methodText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generating' : 'Creating styled';
-                                    toast.info(`${methodText} back cover...`);
-                                    
-                                    try {
-                                      // Convert blob URL to base64 if needed
-                                      let frontCoverUrl = state.frontCoverImage;
-                                      if (frontCoverUrl.startsWith('blob:')) {
-                                        console.log('Converting blob URL to base64...');
-                                        const response = await fetch(frontCoverUrl);
-                                        const blob = await response.blob();
-                                        frontCoverUrl = await new Promise<string>((resolve) => {
-                                          const reader = new FileReader();
-                                          reader.onload = () => resolve(reader.result as string);
-                                          reader.readAsDataURL(blob);
-                                        });
-                                      }
-                                      
-                                      const requestBody = {
-                                        frontCoverUrl: frontCoverUrl,
-                                        frontCoverPrompt: state.frontCoverPrompt,
-                                        width: Math.round(state.bookSettings.dimensions.width * 300),
-                                        height: Math.round(state.bookSettings.dimensions.height * 300),
-                                        backCoverPrompt: state.backCoverPrompt,
-                                        interiorImages: state.interiorImages.filter(img => img),
-                                        useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
-                                      };
-                                      
-                                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
-                                        method: 'POST',
-                                        headers: {
-                                          'Content-Type': 'application/json',
-                                        },
-                                        body: JSON.stringify(requestBody)
-                                      });
-                                      
-                                      if (!response.ok) {
-                                        const errorData = await response.json();
-                                        throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
-                                      }
-                                      
-                                      const data = await response.json();
-                                      const imageUrl = data.url;
-                                      
-                                      if (!imageUrl) {
-                                        throw new Error('No image URL was returned from the server');
-                                      }
-                                      
-                                      // Convert relative URLs to full URLs
-                                      const fullImageUrl = imageUrl.startsWith('/static/') 
-                                        ? `${getApiUrl()}${imageUrl}` 
-                                        : imageUrl;
-                                      
-                                      setState(prev => ({
-                                        ...prev,
-                                        backCoverImage: fullImageUrl,
-                                        steps: {
-                                          ...prev.steps,
-                                          backCover: true
-                                        }
-                                      }));
-                                      
-                                      const successText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generated' : 'Styled';
-                                      toast.success(`${successText} back cover created successfully!`);
-                                    } catch (error) {
-                                      console.error('Error generating back cover:', error);
-                                      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
-                                    } finally {
-                                      setIsLoading({...isLoading, generateBackCover: false});
-                                    }
-                                  }}
-                                  disabled={isLoading.generateBackCover}
-                                >
-                                  {isLoading.generateBackCover ? (
-                                    <>
-                                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                                      Creating...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Palette className="mr-2 h-4 w-4" />
-                                      {state.backCoverGenerationMethod === 'ai-generation' 
-                                        ? (state.frontCoverPrompt ? 'AI Generate Matching Back Cover' : 'AI Generate Back Cover')
-                                        : (state.frontCoverPrompt ? 'Generate Matching Back Cover' : 'Create Styled Back Cover')
-                                      }
-                                    </>
-                                  )}
-                                </Button>
-                                
-                                {state.backCoverImage && (
-                                  <>
-                                    <Button 
-                                      variant="outline"
-                                      className="border-emerald-600/40 text-emerald-400 hover:bg-emerald-950/30"
-                                      onClick={async () => {
-                                        setIsLoading({...isLoading, generateBackCover: true});
-                                        try {
-                                          // Convert blob URL to base64 if needed
-                                          let frontCoverUrl = state.frontCoverImage;
-                                          if (frontCoverUrl && frontCoverUrl.startsWith('blob:')) {
-                                            console.log('Converting blob URL to base64 for variation...');
-                                            const response = await fetch(frontCoverUrl);
-                                            const blob = await response.blob();
-                                            frontCoverUrl = await new Promise<string>((resolve) => {
-                                              const reader = new FileReader();
-                                              reader.onload = () => resolve(reader.result as string);
-                                              reader.readAsDataURL(blob);
-                                            });
-                                          }
-                                          
-                                          const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
-                                            method: 'POST',
-                                            headers: {
-                                              'Content-Type': 'application/json',
-                                            },
-                                            body: JSON.stringify({
-                                              frontCoverUrl: frontCoverUrl,
-                                              frontCoverPrompt: state.frontCoverPrompt,
-                                              width: Math.round(state.bookSettings.dimensions.width * 300),
-                                              height: Math.round(state.bookSettings.dimensions.height * 300),
-                                              backCoverPrompt: state.backCoverPrompt,
-                                              interiorImages: state.interiorImages.filter(img => img),
-                                              useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
-                                            })
-                                          });
-                                          
-                                          if (!response.ok) {
-                                            const errorData = await response.json();
-                                            throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
-                                          }
-                                          
-                                          const data = await response.json();
-                                          if (data.url) {
-                                            // Convert relative URLs to full URLs
-                                            const fullImageUrl = data.url.startsWith('/static/') 
-                                              ? `${getApiUrl()}${data.url}` 
-                                              : data.url;
-                                              
-                                            setState(prev => ({
-                                              ...prev,
-                                              backCoverImage: fullImageUrl
-                                            }));
-                                            toast.success("New styled back cover created!");
-                                          }
-                                        } catch (error) {
-                                          toast.error("Failed to create new back cover");
-                                        } finally {
-                                          setIsLoading({...isLoading, generateBackCover: false});
-                                        }
-                                      }}
-                                      disabled={isLoading.generateBackCover}
-                                    >
-                                      <Wand2 className="mr-2 h-4 w-4" />
-                                      Generate Variation
-                                    </Button>
-                                    
-                                    <Button 
-                                      className="bg-blue-600 hover:bg-blue-500"
-                                      onClick={() => {
-                                        setState(prev => ({
-                                          ...prev,
-                                          steps: {
-                                            ...prev.steps,
-                                            backCover: true
-                                          }
-                                        }));
-                                        toast.success("Back cover design confirmed!");
-                                      }}
-                                    >
-                                      <Check className="mr-2 h-4 w-4" />
-                                      Use This Design
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                      {state.backCoverImage && (
+                        <Button 
+                          className="bg-blue-600 hover:bg-blue-500"
+                          onClick={() => {
+                            setState(prev => ({
+                              ...prev,
+                              steps: {
+                                ...prev.steps,
+                                backCover: true
+                              }
+                            }));
+                            toast.success("Back cover design confirmed!");
+                          }}
+                        >
+                          <Check className="mr-2 h-4 w-4" />
+                          Confirm & Continue
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -3047,24 +2935,24 @@ const KDPCoverDesigner: React.FC = () => {
                 <div className="p-4">
                   <div className="aspect-[2/3] bg-zinc-900 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                     {state.frontCoverImage ? (
-                      <img 
-                        src={state.frontCoverImage} 
-                        alt="Front Cover" 
-                        className="w-full h-full object-cover"
-                      />
+                            <img 
+                              src={state.frontCoverImage} 
+                              alt="Front Cover" 
+                              className="w-full h-full object-cover"
+                            />
                     ) : (
                       <div className="text-center text-zinc-400">
                         <BookOpen className="h-8 w-8 mx-auto mb-2" />
                         <p className="text-xs">No image</p>
-                      </div>
+                          </div>
                     )}
-                  </div>
-                  
+                        </div>
+                        
                   <div className="space-y-2">
                     <div className="text-xs text-zinc-400 flex justify-between">
                       <span>Size:</span>
                       <span className="text-zinc-300">{state.bookSettings.dimensions.width}" × {state.bookSettings.dimensions.height}"</span>
-                    </div>
+                          </div>
                     
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm" className="flex-1 border-zinc-700 hover:bg-zinc-800">
@@ -3085,17 +2973,17 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 <div className="p-4">
                   <div className="aspect-[2/3] bg-zinc-900 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
-                    {state.backCoverImage ? (
-                      <img 
-                        src={state.backCoverImage} 
-                        alt="Back Cover" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
+                            {state.backCoverImage ? (
+                              <img 
+                                src={state.backCoverImage} 
+                                alt="Back Cover" 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
                       <div className="text-center text-zinc-400">
                         <BookOpen className="h-8 w-8 mx-auto mb-2" />
                         <p className="text-xs">No image</p>
-                      </div>
+                                </div>
                     )}
                   </div>
                   
@@ -3140,10 +3028,10 @@ const KDPCoverDesigner: React.FC = () => {
                           }}
                         >
                           {state.spineText}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
                   
                   <div className="space-y-2">
                     <div className="text-xs text-zinc-400 flex justify-between">
@@ -3158,9 +3046,9 @@ const KDPCoverDesigner: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-            
+                      </div>
+                    </div>
+
             {/* Full Wrap Export */}
             <div className="bg-zinc-800 rounded-lg border shadow-sm overflow-hidden mt-6">
               <div className="border-b px-4 py-3 bg-zinc-800/80">
@@ -3391,10 +3279,10 @@ const KDPCoverDesigner: React.FC = () => {
           <div className="rounded-full bg-emerald-900/30 p-3">
             <Book className="h-6 w-6 text-emerald-400" />
           </div>
-          <div>
+                          <div>
             <h3 className="text-xl font-semibold text-white mb-1">Book Cover Generator</h3>
             <p className="text-zinc-400">AI-powered tool to create professional, KDP-compliant full wrap book covers</p>
-          </div>
+                          </div>
         </div>
       </div>
 
@@ -3431,7 +3319,7 @@ const KDPCoverDesigner: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <div>
+                          <div>
           <h2 className="text-2xl font-semibold text-emerald-400 mb-6">Key Features</h2>
           <ul className="space-y-3">
             <li className="flex items-start gap-2">
