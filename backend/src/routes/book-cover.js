@@ -327,29 +327,31 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       // Option 2: Style Matching Approach (default and fallback)
       console.log('🎨 Using style matching approach for consistent visual design...');
       
-      // Download the front cover image or handle data URL
-      let frontBuffer;
-      if (frontCoverUrl.startsWith('data:image')) {
-        console.log('Processing data URL for front cover...');
+      // Download the front cover image
+      console.log('Downloading front cover from:', frontCoverUrl.substring(0, 50) + '...');
+      
+      let frontCoverBuffer;
+      
+      if (frontCoverUrl.startsWith('data:')) {
         // Handle data URL (base64 image)
+        console.log('Processing data URL...');
         const base64Data = frontCoverUrl.split(',')[1];
-        frontBuffer = Buffer.from(base64Data, 'base64');
+        frontCoverBuffer = Buffer.from(base64Data, 'base64');
       } else {
-        console.log('Fetching front cover from URL...');
-        // Handle regular HTTP URL
-        const response = await fetch(frontCoverUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch front cover: ${response.status} ${response.statusText}`);
+        // Handle regular URL
+        console.log('Fetching from URL...');
+        const frontCoverResponse = await fetch(frontCoverUrl);
+        if (!frontCoverResponse.ok) {
+          throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
         }
-        const frontCoverBuffer = await response.arrayBuffer();
-        frontBuffer = Buffer.from(frontCoverBuffer);
+        frontCoverBuffer = await frontCoverResponse.buffer();
       }
       
       // Create back cover that maintains the same visual style but with clean text areas
       let backCoverBuffer = await createStyledBackCover(
         targetWidth,
         targetHeight,
-        frontBuffer,
+        frontCoverBuffer,
         interiorImages.filter(img => img && img.trim()),
         frontCoverPrompt, // Pass the front cover prompt for better style matching
         enhancedBackPrompt // Pass the enhanced prompt for additional context
@@ -684,13 +686,24 @@ router.post('/generate-full-wrap', express.json(), async (req, res) => {
     });
     
     // Download the front cover image
-    console.log('Downloading front cover from:', frontCoverUrl);
-    const frontCoverResponse = await fetch(frontCoverUrl);
-    if (!frontCoverResponse.ok) {
-      throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
-    }
+    console.log('Downloading front cover from:', frontCoverUrl.substring(0, 50) + '...');
     
-    const frontCoverBuffer = await frontCoverResponse.buffer();
+    let frontCoverBuffer;
+    
+    if (frontCoverUrl.startsWith('data:')) {
+      // Handle data URL (base64 image)
+      console.log('Processing data URL...');
+      const base64Data = frontCoverUrl.split(',')[1];
+      frontCoverBuffer = Buffer.from(base64Data, 'base64');
+    } else {
+      // Handle regular URL
+      console.log('Fetching from URL...');
+      const frontCoverResponse = await fetch(frontCoverUrl);
+      if (!frontCoverResponse.ok) {
+        throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
+      }
+      frontCoverBuffer = await frontCoverResponse.buffer();
+    }
     
     // Resize front cover if needed
     const resizedFrontCover = await sharp(frontCoverBuffer)
