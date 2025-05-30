@@ -2746,23 +2746,110 @@ const KDPCoverDesigner: React.FC = () => {
                 </div>
                 
                 <Button
-                  onClick={() => {
-                    setState(prev => ({
-                      ...prev,
-                      fullCoverImage: 'https://placehold.co/1800x900/334155/ffffff?text=Full+Cover+Preview',
-                      steps: {
-                        ...prev.steps,
-                        preview: true
+                  onClick={async () => {
+                    if (!state.frontCoverImage) {
+                      toast.error("Front cover is required to generate full cover");
+                      return;
+                    }
+                    
+                    setIsLoading({...isLoading, assembleCover: true});
+                    toast.info("Assembling full cover...");
+                    
+                    try {
+                      // Convert blob URLs to base64 if needed
+                      let frontCoverUrl = state.frontCoverImage;
+                      if (frontCoverUrl.startsWith('blob:')) {
+                        console.log('Converting front cover blob URL to base64...');
+                        const response = await fetch(frontCoverUrl);
+                        const blob = await response.blob();
+                        frontCoverUrl = await new Promise<string>((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result as string);
+                          reader.readAsDataURL(blob);
+                        });
                       }
-                    }));
-                    toast.success("Full cover assembled successfully!");
+                      
+                      let backCoverUrl = state.backCoverImage;
+                      if (backCoverUrl && backCoverUrl.startsWith('blob:')) {
+                        console.log('Converting back cover blob URL to base64...');
+                        const response = await fetch(backCoverUrl);
+                        const blob = await response.blob();
+                        backCoverUrl = await new Promise<string>((resolve) => {
+                          const reader = new FileReader();
+                          reader.onload = () => resolve(reader.result as string);
+                          reader.readAsDataURL(blob);
+                        });
+                      }
+                      
+                      const requestBody = {
+                        frontCoverUrl: frontCoverUrl,
+                        backCoverUrl: backCoverUrl,
+                        trimSize: state.bookSettings.bookSize,
+                        paperType: state.bookSettings.paperType,
+                        pageCount: state.bookSettings.pageCount,
+                        spineColor: state.spineColor,
+                        spineText: state.spineText,
+                        addSpineText: !!state.spineText,
+                        interiorImages: state.interiorImages.filter(img => img),
+                        includeBleed: state.bookSettings.includeBleed,
+                        includeISBN: state.bookSettings.includeISBN
+                      };
+                      
+                      console.log('Sending full cover assembly request:', requestBody);
+                      
+                      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-full-wrap`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                      });
+                      
+                      if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: Failed to generate full cover`);
+                      }
+                      
+                      const data = await response.json();
+                      
+                      if (!data.url) {
+                        throw new Error('No full cover URL was returned from the server');
+                      }
+                      
+                      setState(prev => ({
+                        ...prev,
+                        fullCoverImage: data.url,
+                        steps: {
+                          ...prev.steps,
+                          preview: true
+                        }
+                      }));
+                      
+                      toast.success("Full cover assembled successfully!");
+                      
+                    } catch (error) {
+                      console.error('Error generating full cover:', error);
+                      toast.error(error instanceof Error ? error.message : 'Failed to generate full cover');
+                    } finally {
+                      setIsLoading({...isLoading, assembleCover: false});
+                    }
                   }}
                   variant="outline"
                   size="sm"
                   className="border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/20"
+                  disabled={isLoading.assembleCover || !state.frontCoverImage}
                 >
-                  <Wand2 className="mr-2 h-4 w-4" />
-                  Generate Full Cover
+                  {isLoading.assembleCover ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Assembling...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4" />
+                      Generate Full Cover
+                    </>
+                  )}
                 </Button>
               </div>
               
@@ -3261,6 +3348,94 @@ const KDPCoverDesigner: React.FC = () => {
     }
   };
 
+  // Calculate contrast color (black or white) based on background color
+  const calculateContrastColor = (hexColor: string): string => {
+    // Remove the # if it exists
+    hexColor = hexColor.replace('#', '');
+    
+    // Convert to RGB
+    const r = parseInt(hexColor.substring(0, 2), 16);
+    const g = parseInt(hexColor.substring(2, 4), 16);
+    const b = parseInt(hexColor.substring(4, 6), 16);
+    
+    // Calculate perceived brightness (YIQ formula)
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    
+    // Return black or white based on brightness
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+  };
+
+  // Get font family string from selected font
+  const getFontFamily = (font: string): string => {
+    switch(font) {
+      case 'times': return 'Times New Roman, serif';
+      case 'georgia': return 'Georgia, serif';
+      case 'garamond': return 'Garamond, serif';
+      case 'futura': return 'Futura, sans-serif';
+      case 'helvetica':
+      default:
+        return 'Helvetica, Arial, sans-serif';
+    }
+  };
+
+  // Download cover with exact dimensions
+  const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
+    setIsLoading({...isLoading, downloadingCover: true});
+    
+    try {
+      // Calculate exact pixel dimensions based on book size and 300 DPI
+      const [widthInches, heightInches] = state.bookSettings.bookSize.split('x').map(Number);
+      const exactWidth = Math.round(widthInches * 300);
+      const exactHeight = Math.round(heightInches * 300);
+      
+      console.log(`Downloading cover with exact dimensions: ${exactWidth}×${exactHeight}px (${state.bookSettings.bookSize} @ 300dpi)`);
+      
+      // Create an image element to load the source image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = imageUrl;
+      });
+      
+      // Create a canvas with exact dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = exactWidth;
+      canvas.height = exactHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        // Draw the image to fill the entire canvas
+        ctx.drawImage(img, 0, 0, exactWidth, exactHeight);
+        
+        // Convert to a data URL and download
+        const dataUrl = canvas.toDataURL('image/png');
+        
+        // Create a download link
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename || 'cover.png';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        toast.success(`Downloaded ${state.bookSettings.bookSize} cover (${exactWidth}×${exactHeight}px @ 300dpi)`);
+      } else {
+        throw new Error("Could not get canvas context");
+      }
+    } catch (error) {
+      console.error('Error downloading image with exact dimensions:', error);
+      toast.error("Failed to download cover. Falling back to direct download.");
+      
+      // Fallback to direct download
+      window.open(imageUrl, '_blank');
+    } finally {
+      setIsLoading({...isLoading, downloadingCover: false});
+    }
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       {/* Header section */}
@@ -3279,10 +3454,10 @@ const KDPCoverDesigner: React.FC = () => {
           <div className="rounded-full bg-emerald-900/30 p-3">
             <Book className="h-6 w-6 text-emerald-400" />
           </div>
-                          <div>
+          <div>
             <h3 className="text-xl font-semibold text-white mb-1">Book Cover Generator</h3>
             <p className="text-zinc-400">AI-powered tool to create professional, KDP-compliant full wrap book covers</p>
-                          </div>
+          </div>
         </div>
       </div>
 
@@ -3319,7 +3494,7 @@ const KDPCoverDesigner: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                          <div>
+        <div>
           <h2 className="text-2xl font-semibold text-emerald-400 mb-6">Key Features</h2>
           <ul className="space-y-3">
             <li className="flex items-start gap-2">
@@ -3391,36 +3566,6 @@ const KDPCoverDesigner: React.FC = () => {
       </div>
     </div>
   );
-};
-
-// Calculate contrast color (black or white) based on background color
-const calculateContrastColor = (hexColor: string): string => {
-  // Remove the # if it exists
-  hexColor = hexColor.replace('#', '');
-  
-  // Convert to RGB
-  const r = parseInt(hexColor.substring(0, 2), 16);
-  const g = parseInt(hexColor.substring(2, 4), 16);
-  const b = parseInt(hexColor.substring(4, 6), 16);
-  
-  // Calculate perceived brightness (YIQ formula)
-  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-  
-  // Return black or white based on brightness
-  return (yiq >= 128) ? '#000000' : '#ffffff';
-};
-
-// Get font family string from selected font
-const getFontFamily = (font: string): string => {
-  switch(font) {
-    case 'times': return 'Times New Roman, serif';
-    case 'georgia': return 'Georgia, serif';
-    case 'garamond': return 'Garamond, serif';
-    case 'futura': return 'Futura, sans-serif';
-    case 'helvetica':
-    default:
-      return 'Helvetica, Arial, sans-serif';
-  }
 };
 
 export default KDPCoverDesigner; 
