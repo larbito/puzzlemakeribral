@@ -91,6 +91,7 @@ interface CoverDesignerState {
   originalImageUrl: string | null; // URL for the original uploaded image
   backCoverPrompt: string;
   backCoverImage: string | null;
+  backCoverGenerationMethod: 'style-matching' | 'ai-generation'; // New field for generation method
   interiorImages: string[];
   spineText: string;
   spineColor: string;
@@ -185,6 +186,7 @@ const KDPCoverDesigner: React.FC = () => {
     originalImageUrl: null, // Initialize the original image URL
     backCoverPrompt: '',
     backCoverImage: null,
+    backCoverGenerationMethod: 'style-matching', // New field for generation method
     interiorImages: [],
     spineText: '',
     spineColor: '#3B82F6', // Default blue color
@@ -2082,6 +2084,58 @@ const KDPCoverDesigner: React.FC = () => {
                       Back Cover Generation
                     </h3>
                     
+                    {/* Enhanced Style Analysis Section */}
+                    {state.frontCoverImage && state.frontCoverPrompt && (
+                      <div className="mb-6 bg-emerald-950/20 rounded-lg p-4 border border-emerald-900/30">
+                        <h4 className="text-sm font-medium text-emerald-300 mb-3 flex items-center gap-2">
+                          <Sparkles className="h-4 w-4" />
+                          Smart Style Extraction
+                        </h4>
+                        <div className="space-y-3">
+                          <div className="text-xs text-emerald-400/80">
+                            <p className="mb-2">
+                              <strong>🔧 How it works:</strong> The system analyzes your front cover prompt to extract:
+                            </p>
+                            <ul className="list-disc pl-4 space-y-1">
+                              <li><strong>Background elements:</strong> Landscapes, flags, textures, patterns</li>
+                              <li><strong>Color palette:</strong> Primary and accent colors used</li>
+                              <li><strong>Artistic style:</strong> Comic-style, realistic, modern, vintage, etc.</li>
+                              <li><strong>Visual treatment:</strong> Texture, finish, and design approach</li>
+                            </ul>
+                          </div>
+                          
+                          {/* Generation Method Selection */}
+                          <div className="mt-4 p-3 bg-zinc-800/50 rounded border border-zinc-700">
+                            <h5 className="text-xs font-medium text-zinc-300 mb-2">Generation Method:</h5>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-xs text-zinc-400">
+                                <input 
+                                  type="radio" 
+                                  name="generationMethod" 
+                                  value="style-matching"
+                                  checked={state.backCoverGenerationMethod === 'style-matching'}
+                                  onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
+                                  className="text-emerald-500 focus:ring-emerald-500"
+                                />
+                                <span><strong>Style Matching</strong> - Extract colors and create clean layout (Recommended)</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-xs text-zinc-400">
+                                <input 
+                                  type="radio" 
+                                  name="generationMethod" 
+                                  value="ai-generation"
+                                  checked={state.backCoverGenerationMethod === 'ai-generation'}
+                                  onChange={(e) => setState(prev => ({ ...prev, backCoverGenerationMethod: e.target.value as 'style-matching' | 'ai-generation' }))}
+                                  className="text-emerald-500 focus:ring-emerald-500"
+                                />
+                                <span><strong>AI Generation</strong> - Generate new artwork using extracted style (Experimental)</span>
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Back Cover Prompt Input */}
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-zinc-300 mb-2">
@@ -2182,7 +2236,8 @@ const KDPCoverDesigner: React.FC = () => {
                                     }
                                     
                                     setIsLoading({...isLoading, generateBackCover: true});
-                                    toast.info("Creating styled back cover...");
+                                    const methodText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generating' : 'Creating styled';
+                                    toast.info(`${methodText} back cover...`);
                                     
                                     try {
                                       // Convert blob URL to base64 if needed
@@ -2204,7 +2259,8 @@ const KDPCoverDesigner: React.FC = () => {
                                         width: Math.round(state.bookSettings.dimensions.width * 300),
                                         height: Math.round(state.bookSettings.dimensions.height * 300),
                                         backCoverPrompt: state.backCoverPrompt,
-                                        interiorImages: state.interiorImages.filter(img => img)
+                                        interiorImages: state.interiorImages.filter(img => img),
+                                        useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
                                       };
                                       
                                       const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
@@ -2241,7 +2297,8 @@ const KDPCoverDesigner: React.FC = () => {
                                         }
                                       }));
                                       
-                                      toast.success("Styled back cover created successfully!");
+                                      const successText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generated' : 'Styled';
+                                      toast.success(`${successText} back cover created successfully!`);
                                     } catch (error) {
                                       console.error('Error generating back cover:', error);
                                       toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
@@ -2259,7 +2316,10 @@ const KDPCoverDesigner: React.FC = () => {
                                   ) : (
                                     <>
                                       <Palette className="mr-2 h-4 w-4" />
-                                      {state.frontCoverPrompt ? 'Generate Matching Back Cover' : 'Create Styled Back Cover'}
+                                      {state.backCoverGenerationMethod === 'ai-generation' 
+                                        ? (state.frontCoverPrompt ? 'AI Generate Matching Back Cover' : 'AI Generate Back Cover')
+                                        : (state.frontCoverPrompt ? 'Generate Matching Back Cover' : 'Create Styled Back Cover')
+                                      }
                                     </>
                                   )}
                                 </Button>
@@ -2296,7 +2356,8 @@ const KDPCoverDesigner: React.FC = () => {
                                               width: Math.round(state.bookSettings.dimensions.width * 300),
                                               height: Math.round(state.bookSettings.dimensions.height * 300),
                                               backCoverPrompt: state.backCoverPrompt,
-                                              interiorImages: state.interiorImages.filter(img => img)
+                                              interiorImages: state.interiorImages.filter(img => img),
+                                              useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
                                             })
                                           });
                                           
