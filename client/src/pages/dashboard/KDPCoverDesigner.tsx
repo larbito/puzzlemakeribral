@@ -273,7 +273,7 @@ const KDPCoverDesigner: React.FC = () => {
 
   // Function to navigate to a previously completed step
   const goToStep = (step: Step) => {
-    if (state.steps[step] || step === 'settings') {
+    if (state.steps[step as Step] || step === 'settings') {
       setState(prev => ({
         ...prev,
         activeStep: step
@@ -2290,12 +2290,13 @@ const KDPCoverDesigner: React.FC = () => {
                             
                             const requestBody = {
                               frontCoverUrl: frontCoverUrl,
-                              frontCoverPrompt: state.frontCoverPrompt,
-                              width: Math.round(state.bookSettings.dimensions.width * 300),
-                              height: Math.round(state.bookSettings.dimensions.height * 300),
-                              backCoverPrompt: state.backCoverPrompt,
-                              interiorImages: state.interiorImages.filter(img => img),
-                              useAIGeneration: state.backCoverGenerationMethod === 'ai-generation'
+                              trimSize: state.bookSettings.bookSize,
+                              paperType: state.bookSettings.paperType,
+                              pageCount: state.bookSettings.pageCount,
+                              spineColor: state.spineColor,
+                              spineText: state.spineText,
+                              addSpineText: !!state.spineText,
+                              interiorImages: state.interiorImages.filter(img => img)
                             };
                             
                             const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
@@ -2783,16 +2784,13 @@ const KDPCoverDesigner: React.FC = () => {
                       
                       const requestBody = {
                         frontCoverUrl: frontCoverUrl,
-                        backCoverUrl: backCoverUrl,
                         trimSize: state.bookSettings.bookSize,
                         paperType: state.bookSettings.paperType,
                         pageCount: state.bookSettings.pageCount,
                         spineColor: state.spineColor,
                         spineText: state.spineText,
                         addSpineText: !!state.spineText,
-                        interiorImages: state.interiorImages.filter(img => img),
-                        includeBleed: state.bookSettings.includeBleed,
-                        includeISBN: state.bookSettings.includeISBN
+                        interiorImages: state.interiorImages.filter(img => img)
                       };
                       
                       console.log('Sending full cover assembly request:', requestBody);
@@ -3318,8 +3316,7 @@ const KDPCoverDesigner: React.FC = () => {
       const ctx = canvas.getContext('2d');
       
       if (ctx) {
-        // SIMPLEST APPROACH: Just draw the image to fill the entire canvas
-        // This will stretch/distort the image if needed but ensures no white borders
+        // Draw the image to fill the entire canvas
         ctx.drawImage(img, 0, 0, exactWidth, exactHeight);
         
         // Convert to a data URL and download
@@ -3375,64 +3372,6 @@ const KDPCoverDesigner: React.FC = () => {
       case 'helvetica':
       default:
         return 'Helvetica, Arial, sans-serif';
-    }
-  };
-
-  // Download cover with exact dimensions
-  const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
-    setIsLoading({...isLoading, downloadingCover: true});
-    
-    try {
-      // Calculate exact pixel dimensions based on book size and 300 DPI
-      const [widthInches, heightInches] = state.bookSettings.bookSize.split('x').map(Number);
-      const exactWidth = Math.round(widthInches * 300);
-      const exactHeight = Math.round(heightInches * 300);
-      
-      console.log(`Downloading cover with exact dimensions: ${exactWidth}×${exactHeight}px (${state.bookSettings.bookSize} @ 300dpi)`);
-      
-      // Create an image element to load the source image
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imageUrl;
-      });
-      
-      // Create a canvas with exact dimensions
-      const canvas = document.createElement('canvas');
-      canvas.width = exactWidth;
-      canvas.height = exactHeight;
-      const ctx = canvas.getContext('2d');
-      
-      if (ctx) {
-        // Draw the image to fill the entire canvas
-        ctx.drawImage(img, 0, 0, exactWidth, exactHeight);
-        
-        // Convert to a data URL and download
-        const dataUrl = canvas.toDataURL('image/png');
-        
-        // Create a download link
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename || 'cover.png';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        toast.success(`Downloaded ${state.bookSettings.bookSize} cover (${exactWidth}×${exactHeight}px @ 300dpi)`);
-      } else {
-        throw new Error("Could not get canvas context");
-      }
-    } catch (error) {
-      console.error('Error downloading image with exact dimensions:', error);
-      toast.error("Failed to download cover. Falling back to direct download.");
-      
-      // Fallback to direct download
-      window.open(imageUrl, '_blank');
-    } finally {
-      setIsLoading({...isLoading, downloadingCover: false});
     }
   };
 
