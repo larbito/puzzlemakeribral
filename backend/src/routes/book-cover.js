@@ -1638,4 +1638,175 @@ function buildDefaultBackCoverPrompt(userBackText = '', interiorImagesCount = 0)
   return prompt;
 }
 
+/**
+ * Generate enhanced back cover prompt using GPT-4
+ * POST /api/book-cover/generate-back-prompt
+ */
+router.post('/generate-back-prompt', express.json(), async (req, res) => {
+  try {
+    console.log('🧠 GPT-4 Enhanced Back Prompt Generation Request');
+    console.log('Request body:', req.body);
+    
+    const { 
+      frontPrompt,
+      userBackText = '',
+      useInteriorImage = false,
+      interiorImagesCount = 0,
+      bookTitle = '',
+      authorName = '',
+      trimSize = '6x9'
+    } = req.body;
+    
+    if (!frontPrompt || frontPrompt.trim() === '') {
+      console.error('Missing required parameter: frontPrompt');
+      return res.status(400).json({ 
+        status: 'error', 
+        message: 'Front cover prompt is required' 
+      });
+    }
+
+    // Check if OpenAI API key is available
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not available, falling back to regex-based approach');
+      
+      // Fallback to our enhanced regex approach
+      const fallbackPrompt = parseAndBuildBackCoverPrompt(
+        frontPrompt,
+        userBackText,
+        interiorImagesCount
+      );
+      
+      return res.json({
+        status: 'success',
+        enhancedPrompt: fallbackPrompt,
+        method: 'regex_fallback',
+        message: 'Generated using advanced regex patterns (OpenAI not available)'
+      });
+    }
+
+    // Create OpenAI client
+    const { OpenAI } = require('openai');
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+
+    // Build the system prompt for GPT-4
+    const systemPrompt = `You are an expert book cover designer and prompt engineer. Your task is to analyze a front cover prompt and create a matching back cover prompt that maintains visual consistency.
+
+IMPORTANT RULES:
+1. Extract and preserve the EXACT background elements, color scheme, and artistic style
+2. Remove all front-cover specific text (titles, author names, subtitles)
+3. Create a back cover that looks like it belongs to the same book
+4. Maintain the same visual aesthetic and design principles
+5. Include clean areas for text content
+6. Ensure KDP compliance
+
+TEMPLATE TO FOLLOW:
+{artistic_style}. The back cover features {background_description}, maintaining the same color scheme of {color_palette}. The artistic style is {style_details}, creating visual balance and texture continuity.
+
+[Include user-provided back text if any]
+[Include interior images description if provided]
+
+Format: ${trimSize} inches, KDP-compliant back cover. Ensure consistency with the front cover's design style, background treatment, and colors. Clean areas for text content. NO TITLES, NO AUTHOR NAMES, NO ISBN BARCODE - pure visual design only.`;
+
+    // Build the user prompt
+    let userPrompt = `FRONT COVER PROMPT TO ANALYZE:
+"${frontPrompt}"
+
+ADDITIONAL REQUIREMENTS:`;
+
+    if (userBackText && userBackText.trim()) {
+      userPrompt += `\n- Include this back cover text: "${userBackText.trim()}"`;
+    }
+
+    if (useInteriorImage && interiorImagesCount > 0) {
+      if (interiorImagesCount === 1) {
+        userPrompt += `\n- Include description for 1 interior preview image, integrated naturally with the background`;
+      } else {
+        userPrompt += `\n- Include description for ${interiorImagesCount} interior preview images, arranged harmoniously`;
+      }
+    }
+
+    userPrompt += `\n- Book size: ${trimSize} inches
+- Ensure visual consistency with front cover
+- Create clean, professional layout for text content
+
+Please generate a back cover prompt that matches the front cover's style perfectly.`;
+
+    console.log('🤖 Sending request to GPT-4...');
+    console.log('System prompt length:', systemPrompt.length);
+    console.log('User prompt length:', userPrompt.length);
+
+    // Call GPT-4
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user", 
+          content: userPrompt
+        }
+      ],
+      max_tokens: 1000,
+      temperature: 0.7
+    });
+
+    const enhancedPrompt = completion.choices[0].message.content.trim();
+    
+    console.log('✅ GPT-4 generated enhanced back cover prompt');
+    console.log('Enhanced prompt length:', enhancedPrompt.length);
+
+    // Also generate our regex-based version for comparison
+    const regexPrompt = parseAndBuildBackCoverPrompt(
+      frontPrompt,
+      userBackText,
+      interiorImagesCount
+    );
+
+    res.json({
+      status: 'success',
+      enhancedPrompt: enhancedPrompt,
+      regexPrompt: regexPrompt, // For comparison
+      method: 'gpt4_enhanced',
+      usage: {
+        promptTokens: completion.usage.prompt_tokens,
+        completionTokens: completion.usage.completion_tokens,
+        totalTokens: completion.usage.total_tokens
+      },
+      message: 'Enhanced prompt generated using GPT-4'
+    });
+
+  } catch (error) {
+    console.error('❌ Error in GPT-4 back prompt generation:', error);
+    
+    // Fallback to regex approach on any error
+    try {
+      console.log('🔄 Falling back to regex-based approach...');
+      const fallbackPrompt = parseAndBuildBackCoverPrompt(
+        req.body.frontPrompt,
+        req.body.userBackText || '',
+        req.body.interiorImagesCount || 0
+      );
+      
+      res.json({
+        status: 'success',
+        enhancedPrompt: fallbackPrompt,
+        method: 'regex_fallback',
+        message: 'Generated using regex fallback due to GPT-4 error',
+        error: error.message
+      });
+    } catch (fallbackError) {
+      console.error('❌ Fallback also failed:', fallbackError);
+      res.status(500).json({ 
+        status: 'error', 
+        message: 'Failed to generate back cover prompt',
+        details: error.message
+      });
+    }
+  }
+});
+
 module.exports = router; 

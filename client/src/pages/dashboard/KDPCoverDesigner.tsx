@@ -33,7 +33,8 @@ import {
   Sparkles,
   EyeOff,
   Trash2,
-  ImageIcon
+  ImageIcon,
+  Brain
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -205,7 +206,8 @@ const KDPCoverDesigner: React.FC = () => {
     generateFrontCover: false,
     generateBackCover: false,
     assembleCover: false,
-    enhancePrompt: false
+    enhancePrompt: false,
+    generateSmartPrompt: false
   });
 
   // Calculate spine width based on page count and paper type
@@ -2133,6 +2135,76 @@ const KDPCoverDesigner: React.FC = () => {
                             </div>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Smart Prompt Generation Section */}
+                    {state.frontCoverImage && state.frontCoverPrompt && (
+                      <div className="mb-6 p-4 bg-blue-950/20 rounded-lg border border-blue-900/30">
+                        <h4 className="text-sm font-medium text-blue-300 mb-3 flex items-center gap-2">
+                          <Brain className="h-4 w-4" />
+                          AI-Powered Prompt Generation
+                        </h4>
+                        <p className="text-xs text-blue-400/80 mb-3">
+                          Let GPT-4 analyze your front cover prompt and create a perfectly matching back cover prompt that maintains visual consistency.
+                        </p>
+                        <button
+                          onClick={async () => {
+                            setIsLoading({...isLoading, generateSmartPrompt: true});
+                            toast.info('🧠 GPT-4 analyzing front cover...');
+                            
+                            try {
+                              const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back-prompt`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  frontPrompt: state.frontCoverPrompt,
+                                  userBackText: state.backCoverPrompt,
+                                  useInteriorImage: state.interiorImages.length > 0,
+                                  interiorImagesCount: state.interiorImages.filter(img => img).length,
+                                  trimSize: `${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height}`
+                                })
+                              });
+                              
+                              const data = await response.json();
+                              
+                              if (data.status === 'success') {
+                                setState(prev => ({
+                                  ...prev,
+                                  backCoverPrompt: data.enhancedPrompt
+                                }));
+                                
+                                const methodText = data.method === 'gpt4_enhanced' ? 'GPT-4' : 'Advanced Regex';
+                                toast.success(`✨ Smart prompt generated using ${methodText}!`);
+                                
+                                if (data.usage) {
+                                  console.log('GPT-4 Usage:', data.usage);
+                                }
+                              } else {
+                                toast.error('Failed to generate smart prompt');
+                              }
+                            } catch (error) {
+                              console.error('Smart prompt generation error:', error);
+                              toast.error('Error generating smart prompt');
+                            } finally {
+                              setIsLoading({...isLoading, generateSmartPrompt: false});
+                            }
+                          }}
+                          disabled={isLoading.generateSmartPrompt}
+                          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
+                        >
+                          {isLoading.generateSmartPrompt ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Analyzing with GPT-4...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4" />
+                              Generate Smart Prompt
+                            </>
+                          )}
+                        </button>
                       </div>
                     )}
 
