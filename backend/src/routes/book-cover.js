@@ -249,145 +249,91 @@ router.post('/generate-front', async (req, res) => {
 });
 
 /**
- * Generate back cover based on front cover
+ * Generate back cover based on front cover prompt (AI-only)
  * POST /api/book-cover/generate-back
  */
 router.post('/generate-back', upload.none(), async (req, res) => {
   try {
-    console.log('=== Enhanced Back Cover Generation Request ===');
+    console.log('=== AI-Only Back Cover Generation Request ===');
     console.log('Request headers:', req.headers);
     console.log('Request body:', req.body);
     
     const { 
-      frontCoverUrl, 
       frontCoverPrompt,
-      width, 
-      height, 
       backCoverPrompt, 
       interiorImages = [],
-      useAIGeneration = false // New parameter to control AI generation
+      width = 1800,
+      height = 2700
     } = req.body;
     
-    if (!frontCoverUrl) {
-      console.error('Missing required parameter: frontCoverUrl');
-      return res.status(400).json({ status: 'error', message: 'Missing frontCoverUrl parameter' });
+    if (!frontCoverPrompt) {
+      console.error('Missing required parameter: frontCoverPrompt');
+      return res.status(400).json({ status: 'error', message: 'Front cover prompt is required for AI generation' });
     }
 
-    // Use provided dimensions or default to standard book cover size
-    const targetWidth = width || 1800;
-    const targetHeight = height || 2700;
-    
-    console.log('Target back cover dimensions:', { width: targetWidth, height: targetHeight });
-    console.log('Back cover prompt provided:', !!backCoverPrompt);
+    console.log('Target back cover dimensions:', { width, height });
     console.log('Front cover prompt available:', !!frontCoverPrompt);
-    console.log('Use AI generation:', useAIGeneration);
+    console.log('Back cover prompt provided:', !!backCoverPrompt);
+    console.log('Interior images count:', interiorImages.filter(img => img && img.trim()).length);
 
     try {
-      // ENHANCED APPROACH: Parse front cover prompt and build back cover prompt
-      let enhancedBackPrompt = '';
-      if (frontCoverPrompt && frontCoverPrompt.trim()) {
-        console.log('🔧 Using enhanced approach: parsing front cover prompt...');
-        
-        // Parse the front cover prompt and build a consistent back cover prompt
-        const interiorImagesCount = interiorImages.filter(img => img && img.trim()).length;
-        enhancedBackPrompt = parseAndBuildBackCoverPrompt(
-          frontCoverPrompt.trim(),
-          backCoverPrompt || '',
-          interiorImagesCount
-        );
-        
-        console.log('✅ Generated enhanced back cover prompt:', enhancedBackPrompt);
-        
-        // Option 1: AI Generation (when explicitly requested and we have a good prompt)
-        if (useAIGeneration && enhancedBackPrompt && process.env.IDEOGRAM_API_KEY) {
-          console.log('🎨 Attempting AI generation with enhanced prompt...');
-          
-          try {
-            // Use the enhanced prompt for AI generation
-            const aiGeneratedUrl = await generateIdeogramCover(enhancedBackPrompt);
-            
-            if (aiGeneratedUrl) {
-              console.log('✅ Successfully generated back cover with AI');
-              return res.json({ 
-                status: 'success', 
-                url: aiGeneratedUrl,
-                width: targetWidth,
-                height: targetHeight,
-                method: 'ai_generated',
-                prompt: enhancedBackPrompt
-              });
-            }
-          } catch (aiError) {
-            console.error('❌ AI generation failed, falling back to style matching:', aiError);
-            // Continue to style matching approach
-          }
-        }
-      }
+      // Generate enhanced back cover prompt from front cover prompt
+      console.log('🔧 Generating enhanced back cover prompt from front cover...');
       
-      // Option 2: Style Matching Approach (default and fallback)
-      console.log('🎨 Using style matching approach for consistent visual design...');
-      
-      // Download the front cover image
-      console.log('Downloading front cover from:', frontCoverUrl.substring(0, 50) + '...');
-      
-      let frontCoverBuffer;
-      
-      if (frontCoverUrl.startsWith('data:')) {
-        // Handle data URL (base64 image)
-        console.log('Processing data URL...');
-        const base64Data = frontCoverUrl.split(',')[1];
-        frontCoverBuffer = Buffer.from(base64Data, 'base64');
-      } else {
-        // Handle regular URL
-        console.log('Fetching from URL...');
-        const frontCoverResponse = await fetch(frontCoverUrl);
-        if (!frontCoverResponse.ok) {
-          throw new Error(`Failed to download front cover: ${frontCoverResponse.statusText}`);
-        }
-        frontCoverBuffer = await frontCoverResponse.buffer();
-      }
-      
-      // Create back cover that maintains the same visual style but with clean text areas
-      let backCoverBuffer = await createStyledBackCover(
-        targetWidth,
-        targetHeight,
-        frontCoverBuffer,
-        interiorImages.filter(img => img && img.trim()),
-        frontCoverPrompt, // Pass the front cover prompt for better style matching
-        enhancedBackPrompt // Pass the enhanced prompt for additional context
+      const interiorImagesCount = interiorImages.filter(img => img && img.trim()).length;
+      const enhancedBackPrompt = parseAndBuildBackCoverPrompt(
+        frontCoverPrompt.trim(),
+        backCoverPrompt || '',
+        interiorImagesCount
       );
       
-      // Save to a temporary file with a unique name
-      const uniqueId = Date.now();
-      const fileName = `back-cover-styled-${uniqueId}.jpg`;
-      const filePath = path.join(staticDir, fileName);
+      console.log('✅ Generated enhanced back cover prompt:', enhancedBackPrompt);
       
-      // Save the final image
-      await sharp(backCoverBuffer)
-        .jpeg({ quality: 95 })
-        .toFile(filePath);
+      // Check if Ideogram API is available
+      if (!process.env.IDEOGRAM_API_KEY) {
+        console.error('❌ Ideogram API key not configured');
+        return res.status(500).json({ 
+          status: 'error', 
+          message: 'AI generation service not available. Please configure Ideogram API key.' 
+        });
+      }
       
-      // Return the URL to the saved file
-      const backCoverUrl = `/static/${fileName}`;
-      console.log('✅ Successfully created styled back cover:', backCoverUrl);
+      // Generate back cover using AI
+      console.log('🎨 Generating back cover with AI using enhanced prompt...');
+      
+      const aiGeneratedUrl = await generateIdeogramCover(enhancedBackPrompt);
+      
+      if (!aiGeneratedUrl) {
+        throw new Error('AI generation failed to return an image URL');
+      }
+      
+      console.log('✅ Successfully generated back cover with AI');
       
       res.set('Content-Type', 'application/json');
       return res.json({ 
         status: 'success', 
-        url: backCoverUrl,
-        width: targetWidth,
-        height: targetHeight,
-        method: 'style_matched',
-        extractedPrompt: enhancedBackPrompt || 'Style matching used'
+        url: aiGeneratedUrl,
+        width: width,
+        height: height,
+        method: 'ai_generated',
+        prompt: enhancedBackPrompt
       });
       
     } catch (error) {
-      console.error('❌ Error creating back cover:', error);
-      res.status(500).json({ status: 'error', message: 'Failed to create back cover', details: error.message });
+      console.error('❌ Error creating AI back cover:', error);
+      res.status(500).json({ 
+        status: 'error', 
+        message: 'Failed to generate AI back cover', 
+        details: error.message 
+      });
     }
   } catch (error) {
     console.error('❌ Error in back cover generation:', error);
-    res.status(500).json({ status: 'error', message: 'Server error', details: error.message });
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Server error', 
+      details: error.message 
+    });
   }
 });
 

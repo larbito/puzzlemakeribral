@@ -92,7 +92,6 @@ interface CoverDesignerState {
   originalImageUrl: string | null; // URL for the original uploaded image
   backCoverPrompt: string;
   backCoverImage: string | null;
-  backCoverGenerationMethod: 'style-matching' | 'ai-generation'; // New field for generation method
   interiorImages: string[];
   spineText: string;
   spineColor: string;
@@ -187,7 +186,6 @@ const KDPCoverDesigner: React.FC = () => {
     originalImageUrl: null, // Initialize the original image URL
     backCoverPrompt: '',
     backCoverImage: null,
-    backCoverGenerationMethod: 'style-matching', // New field for generation method
     interiorImages: [],
     spineText: '',
     spineColor: '#3B82F6', // Default blue color
@@ -2248,16 +2246,16 @@ const KDPCoverDesigner: React.FC = () => {
                     {/* Back Cover Content Input */}
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-zinc-300 mb-2">
-                        Back Cover Content (Optional)
+                        Back Cover Description
                       </label>
                       <textarea
                         value={state.backCoverPrompt}
                         onChange={(e) => setState(prev => ({ ...prev, backCoverPrompt: e.target.value }))}
-                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials). Leave empty for automatic style matching with clean text areas."
-                        className="w-full h-20 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials, visual elements). This will be used to generate an AI back cover that complements your front cover."
+                        className="w-full h-24 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
                       />
                       <p className="text-xs text-zinc-500 mt-1">
-                        The system will automatically match the front cover's style and colors.
+                        The AI will create a back cover design based on your front cover style and this description.
                       </p>
                     </div>
                     
@@ -2267,37 +2265,22 @@ const KDPCoverDesigner: React.FC = () => {
                         className="bg-emerald-600 hover:bg-emerald-500 flex-1 min-w-[200px]"
                         onClick={async () => {
                           setIsLoading({...isLoading, generateBackCover: true});
-                          const methodText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generating' : 'Creating styled';
-                          toast.info(`${methodText} back cover...`);
+                          toast.info('🎨 AI-generating back cover...');
                           
                           try {
-                            // Convert blob URL to base64 if needed
-                            let frontCoverUrl = state.frontCoverImage;
-                            if (frontCoverUrl && frontCoverUrl.startsWith('blob:')) {
-                              console.log('Converting blob URL to base64...');
-                              const response = await fetch(frontCoverUrl);
-                              const blob = await response.blob();
-                              frontCoverUrl = await new Promise<string>((resolve) => {
-                                const reader = new FileReader();
-                                reader.onload = () => resolve(reader.result as string);
-                                reader.readAsDataURL(blob);
-                              });
-                            }
-                            
-                            if (!frontCoverUrl) {
-                              throw new Error('Front cover URL is required');
+                            if (!state.frontCoverPrompt) {
+                              throw new Error('Front cover prompt is required for back cover generation');
                             }
                             
                             const requestBody = {
-                              frontCoverUrl: frontCoverUrl,
-                              trimSize: state.bookSettings.bookSize,
-                              paperType: state.bookSettings.paperType,
-                              pageCount: state.bookSettings.pageCount,
-                              spineColor: state.spineColor,
-                              spineText: state.spineText,
-                              addSpineText: !!state.spineText,
-                              interiorImages: state.interiorImages.filter(img => img)
+                              frontCoverPrompt: state.frontCoverPrompt,
+                              backCoverPrompt: state.backCoverPrompt,
+                              interiorImages: state.interiorImages.filter(img => img),
+                              width: Math.round(state.bookSettings.dimensions.width * 300), // Convert to pixels at 300 DPI
+                              height: Math.round(state.bookSettings.dimensions.height * 300)
                             };
+                            
+                            console.log('Sending AI back cover generation request:', requestBody);
                             
                             const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                               method: 'POST',
@@ -2319,22 +2302,16 @@ const KDPCoverDesigner: React.FC = () => {
                               throw new Error('No image URL was returned from the server');
                             }
                             
-                            // Convert relative URLs to full URLs
-                            const fullImageUrl = imageUrl.startsWith('/static/') 
-                              ? `${getApiUrl()}${imageUrl}` 
-                              : imageUrl;
-                            
                             setState(prev => ({
                               ...prev,
-                              backCoverImage: fullImageUrl,
+                              backCoverImage: imageUrl,
                               steps: {
                                 ...prev.steps,
                                 backCover: true
                               }
                             }));
                             
-                            const successText = state.backCoverGenerationMethod === 'ai-generation' ? 'AI-generated' : 'Styled';
-                            toast.success(`${successText} back cover created successfully!`);
+                            toast.success('🎨 AI-generated back cover created successfully!');
                           } catch (error) {
                             console.error('Error generating back cover:', error);
                             toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
@@ -2342,17 +2319,17 @@ const KDPCoverDesigner: React.FC = () => {
                             setIsLoading({...isLoading, generateBackCover: false});
                           }
                         }}
-                        disabled={isLoading.generateBackCover}
+                        disabled={isLoading.generateBackCover || !state.frontCoverPrompt}
                       >
                         {isLoading.generateBackCover ? (
                           <>
                             <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                            Generating...
+                            AI Generating...
                           </>
                         ) : (
                           <>
                             <Palette className="mr-2 h-4 w-4" />
-                            {state.backCoverImage ? 'Regenerate Back Cover' : 'Generate Back Cover'}
+                            {state.backCoverImage ? 'Regenerate AI Back Cover' : 'Generate AI Back Cover'}
                           </>
                         )}
                       </Button>
