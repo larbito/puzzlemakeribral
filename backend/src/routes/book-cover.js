@@ -296,7 +296,7 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
       if (userContentDesc) {
         userContentDesc += ` Also leave space for displaying ${interiorImagesCount} interior preview images.`;
       } else {
-        userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImagesCount} interior preview images.`;
+        userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImages.length} interior preview images.`;
       }
     }
     
@@ -1610,7 +1610,7 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
     console.log('Settings:', { size, quality, style, bookSize });
     
     // Enhanced prompt for book cover generation
-    const enhancedPrompt = `${prompt}. Professional book cover design, flat 2D layout, no mockup, no 3D effects, clean typography areas, print-ready design, high contrast, commercial quality, book cover art style`;
+    const enhancedPrompt = `${prompt}. Flat 2D book cover artwork, no 3D mockup, no book perspective, no physical book, straight-on view, professional illustration, clean typography placement areas, print-ready design, vibrant colors, commercial quality book cover art, flat layout design`;
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -1705,7 +1705,7 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
     }
     
     // Enhanced prompt for DALL·E back cover generation
-    const enhancedPrompt = `${backPrompt}. Professional book back cover design, flat 2D layout, no mockup, no 3D effects, clean layout areas, print-ready design, high contrast, commercial quality, book cover art style`;
+    const enhancedPrompt = `${backPrompt}. Flat 2D back cover artwork, no 3D mockup, no book perspective, no physical book, straight-on view, professional illustration, clean layout areas, print-ready design, vibrant colors, commercial quality book cover art, flat layout design`;
     
     console.log('🎨 Generating back cover with DALL·E 3...');
     console.log('Enhanced prompt:', enhancedPrompt);

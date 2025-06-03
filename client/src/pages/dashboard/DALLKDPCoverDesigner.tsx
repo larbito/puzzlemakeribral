@@ -332,6 +332,27 @@ const DALLKDPCoverDesigner: React.FC = () => {
     console.log(`Book dimensions set to: ${width}x${height} inches`);
   }, [state.bookSettings.bookSize, state.bookSettings.includeBleed]);
 
+  // Helper function to enhance user prompts for better DALL·E results
+  const enhanceUserPrompt = (userPrompt: string) => {
+    // Remove common problematic words
+    let enhanced = userPrompt
+      .replace(/generate\s+a?\s+cover\s+(for\s+)?/gi, '')
+      .replace(/create\s+a?\s+cover\s+(for\s+)?/gi, '')
+      .replace(/make\s+a?\s+cover\s+(for\s+)?/gi, '')
+      .replace(/design\s+a?\s+cover\s+(for\s+)?/gi, '')
+      .trim();
+    
+    // If the prompt is very basic, make it more descriptive
+    if (enhanced.length < 50) {
+      enhanced = `A beautiful book cover featuring ${enhanced.toLowerCase()}, professional illustration, engaging composition, vibrant colors, eye-catching design`;
+    }
+    
+    // Always end with specific layout instructions
+    enhanced += '. The title text should be prominently displayed at the top, author name at the bottom, clean readable typography, balanced composition';
+    
+    return enhanced;
+  };
+
   // DALL·E specific front cover generation function
   const generateDALLEFrontCover = async () => {
     setIsLoading({...isLoading, generateFrontCover: true});
@@ -342,8 +363,9 @@ const DALLKDPCoverDesigner: React.FC = () => {
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
       const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
       
-      // Enhanced prompt for DALL·E
-      const dallePrompt = `${state.frontCoverPrompt}. ${stylePrompt}. Professional book cover design, flat 2D layout, no 3D effects, clean typography placement, print-ready design, ${state.bookSettings.bookSize} aspect ratio`;
+      // Enhanced user prompt + style + flat 2D instructions
+      const enhancedUserPrompt = enhanceUserPrompt(state.frontCoverPrompt);
+      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Flat 2D book cover layout, no 3D effects, no book mockup, no perspective view, straight-on view, clean typography areas, professional book cover design, print-ready artwork, commercial quality illustration, vibrant colors, clear text placement areas`;
       
       const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-cover`, {
         method: 'POST',
