@@ -217,6 +217,31 @@ const DALLKDPCoverDesigner: React.FC = () => {
     generateSmartPrompt: false
   });
 
+  // Function to complete a step and advance to the next one
+  const completeStep = (step: Step, nextStep: Step) => {
+    setState(prev => ({
+      ...prev,
+      steps: {
+        ...prev.steps,
+        [step]: true
+      },
+      activeStep: nextStep
+    }));
+    toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} completed!`);
+  };
+
+  // Function to navigate to a previously completed step
+  const goToStep = (step: Step) => {
+    if (state.steps[step as Step] || step === 'settings') {
+      setState(prev => ({
+        ...prev,
+        activeStep: step
+      }));
+    } else {
+      toast.error('Please complete the previous step first');
+    }
+  };
+
   // Function to extract colors from front and back covers for spine
   const extractColorsFromCovers = async () => {
     if (!state.frontCoverImage) {
@@ -306,6 +331,59 @@ const DALLKDPCoverDesigner: React.FC = () => {
     
     console.log(`Book dimensions set to: ${width}x${height} inches`);
   }, [state.bookSettings.bookSize, state.bookSettings.includeBleed]);
+
+  // DALL·E specific front cover generation function
+  const generateDALLEFrontCover = async () => {
+    setIsLoading({...isLoading, generateFrontCover: true});
+    
+    try {
+      console.log('🎨 Generating front cover with DALL·E...');
+      
+      const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
+      const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
+      
+      // Enhanced prompt for DALL·E
+      const dallePrompt = `${state.frontCoverPrompt}. ${stylePrompt}. Professional book cover design, flat 2D layout, no 3D effects, clean typography placement, print-ready design, ${state.bookSettings.bookSize} aspect ratio`;
+      
+      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-cover`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: dallePrompt,
+          size: '1024x1024', // DALL·E 3 default size
+          quality: 'hd',
+          style: 'vivid',
+          bookSize: state.bookSettings.bookSize
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate cover with DALL·E');
+      }
+      
+      const data = await response.json();
+      
+      setState(prev => ({
+        ...prev,
+        frontCoverImage: data.url,
+        steps: {
+          ...prev.steps,
+          frontCover: true
+        }
+      }));
+      
+      toast.success("Front cover generated with DALL·E!");
+      
+    } catch (error) {
+      console.error('DALL·E cover generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate cover with DALL·E');
+    } finally {
+      setIsLoading({...isLoading, generateFrontCover: false});
+    }
+  };
 
   // DALL·E specific back cover generation function
   const generateDALLEBackCover = async () => {
