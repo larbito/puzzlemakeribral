@@ -359,20 +359,37 @@ const DALLKDPCoverDesigner: React.FC = () => {
   const enhanceUserPrompt = (userPrompt: string) => {
     // Clean up the prompt without mentioning 2D/3D or covers
     let enhanced = userPrompt
-      .replace(/generate\s+a?\s+cover\s+(for\s+)?/gi, '')
-      .replace(/create\s+a?\s+cover\s+(for\s+)?/gi, '')
-      .replace(/make\s+a?\s+cover\s+(for\s+)?/gi, '')
-      .replace(/design\s+a?\s+cover\s+(for\s+)?/gi, '')
+      // Remove generation language
+      .replace(/generate\s+a?\s*/gi, '')
+      .replace(/create\s+a?\s*/gi, '')
+      .replace(/make\s+a?\s*/gi, '')
+      .replace(/design\s+a?\s*/gi, '')
+      // Remove cover/book terminology
+      .replace(/cover\s+for\s+/gi, '')
+      .replace(/image\s+for\s+/gi, '')
+      .replace(/artwork\s+for\s+/gi, '')
+      .replace(/illustration\s+for\s+/gi, '')
+      // Remove story/book references that trigger covers
+      .replace(/for\s+the\s+.*?\s+story\s+entitled\s+/gi, '')
+      .replace(/for\s+the\s+.*?\s+book\s+entitled\s+/gi, '')
+      .replace(/entitled\s+/gi, '')
+      .replace(/called\s+/gi, '')
+      // Remove flat/physical references
+      .replace(/flat\s+image/gi, 'illustration')
+      .replace(/flat\s+design/gi, 'artwork')
       .replace(/book\s+cover/gi, 'illustration')
       .trim();
     
+    // Clean up any remaining "with author..." text and restructure
+    enhanced = enhanced.replace(/with\s+author\s+.*$/gi, '');
+    
     // If the prompt is very basic, make it more descriptive
-    if (enhanced.length < 50) {
-      enhanced = `${enhanced.toLowerCase()}, beautiful illustration, engaging composition, vibrant colors, eye-catching design`;
+    if (enhanced.length < 30) {
+      enhanced = `${enhanced}, beautiful magical scene, vibrant colors, whimsical design`;
     }
     
-    // Focus on clean artwork with text areas
-    enhanced = `${enhanced}. Clean illustration with space for title text at top and author name at bottom, professional typography layout`;
+    // Focus on pure visual description - make it about the scene/characters, not about making a cover
+    enhanced = `A magical scene featuring ${enhanced}. Enchanting illustration with beautiful colors and whimsical elements`;
     
     return enhanced;
   };
@@ -390,6 +407,11 @@ const DALLKDPCoverDesigner: React.FC = () => {
       // Enhanced user prompt + style + clean instructions  
       const enhancedUserPrompt = enhanceUserPrompt(state.frontCoverPrompt);
       const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Professional illustration, clean composition, vibrant colors, digital art style, well-balanced layout`;
+      
+      console.log('🔍 Prompt transformation:');
+      console.log('Original:', state.frontCoverPrompt);
+      console.log('Enhanced:', enhancedUserPrompt);
+      console.log('Final to DALL·E:', dallePrompt);
       
       const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-cover`, {
         method: 'POST',
