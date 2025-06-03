@@ -1584,4 +1584,184 @@ async function generateIdeogramCover(prompt) {
   return imageUrl;
 }
 
+/**
+ * Generate book cover using DALL·E
+ * POST /api/book-cover/generate-dalle-cover
+ */
+router.post('/generate-dalle-cover', express.json(), async (req, res) => {
+  try {
+    console.log('Received DALL·E cover generation request');
+    
+    const { 
+      prompt, 
+      size = '1024x1024',
+      quality = 'hd',
+      style = 'vivid',
+      bookSize
+    } = req.body;
+    
+    if (!prompt) {
+      console.error('Missing required parameter: prompt');
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+    
+    console.log('🎨 Generating cover with DALL·E 3...');
+    console.log('Prompt:', prompt);
+    console.log('Settings:', { size, quality, style, bookSize });
+    
+    // Enhanced prompt for book cover generation
+    const enhancedPrompt = `${prompt}. Professional book cover design, flat 2D layout, no mockup, no 3D effects, clean typography areas, print-ready design, high contrast, commercial quality, book cover art style`;
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: enhancedPrompt,
+        n: 1,
+        size: size,
+        quality: quality,
+        style: style,
+        response_format: 'url'
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI DALL·E API error:', errorData);
+      throw new Error(errorData.error?.message || 'Failed to generate image with DALL·E');
+    }
+    
+    const data = await response.json();
+    
+    if (!data.data || !data.data[0] || !data.data[0].url) {
+      throw new Error('No image URL returned from DALL·E');
+    }
+    
+    const imageUrl = data.data[0].url;
+    const revisedPrompt = data.data[0].revised_prompt;
+    
+    console.log('✅ DALL·E cover generated successfully');
+    console.log('Image URL:', imageUrl.substring(0, 50) + '...');
+    
+    res.json({
+      status: 'success',
+      url: imageUrl,
+      originalPrompt: prompt,
+      revisedPrompt: revisedPrompt,
+      model: 'dall-e-3',
+      size: size,
+      quality: quality,
+      style: style
+    });
+    
+  } catch (error) {
+    console.error('Error generating DALL·E cover:', error);
+    res.status(500).json({
+      error: 'Failed to generate cover with DALL·E',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Generate back cover using DALL·E
+ * POST /api/book-cover/generate-dalle-back
+ */
+router.post('/generate-dalle-back', express.json(), async (req, res) => {
+  try {
+    console.log('Received DALL·E back cover generation request');
+    
+    const { 
+      frontCoverPrompt,
+      includeBackText,
+      backCustomText,
+      includeInteriorImages,
+      interiorImages = [],
+      generatedBackPrompt,
+      size = '1024x1024',
+      quality = 'hd',
+      style = 'vivid'
+    } = req.body;
+    
+    if (!frontCoverPrompt && !generatedBackPrompt) {
+      return res.status(400).json({ error: 'Front cover prompt or generated back prompt is required' });
+    }
+    
+    let backPrompt = generatedBackPrompt;
+    
+    // If no pre-generated prompt, create one based on front cover
+    if (!backPrompt) {
+      if (includeBackText && backCustomText.trim()) {
+        backPrompt = `Design a visual in the same style as this front cover: "${frontCoverPrompt}". Create elegant text areas for this content: "${backCustomText.trim()}". Match the visual style, colors, and aesthetic of the front cover while providing clean spaces for the text content.`;
+      } else if (includeInteriorImages && interiorImages.length > 0) {
+        backPrompt = `Create a design layout matching this front cover style: "${frontCoverPrompt}". Leave space for displaying ${interiorImages.length} interior preview images. Use the same visual style, colors, and aesthetic as the front cover.`;
+      } else {
+        backPrompt = `Design a back cover in the same style as this front cover: "${frontCoverPrompt}". Create a clean, professional layout that complements the front cover design with the same visual style and color scheme.`;
+      }
+    }
+    
+    // Enhanced prompt for DALL·E back cover generation
+    const enhancedPrompt = `${backPrompt}. Professional book back cover design, flat 2D layout, no mockup, no 3D effects, clean layout areas, print-ready design, high contrast, commercial quality, book cover art style`;
+    
+    console.log('🎨 Generating back cover with DALL·E 3...');
+    console.log('Enhanced prompt:', enhancedPrompt);
+    
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'dall-e-3',
+        prompt: enhancedPrompt,
+        n: 1,
+        size: size,
+        quality: quality,
+        style: style,
+        response_format: 'url'
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI DALL·E API error:', errorData);
+      throw new Error(errorData.error?.message || 'Failed to generate back cover with DALL·E');
+    }
+    
+    const data = await response.json();
+    
+    if (!data.data || !data.data[0] || !data.data[0].url) {
+      throw new Error('No image URL returned from DALL·E');
+    }
+    
+    const imageUrl = data.data[0].url;
+    const revisedPrompt = data.data[0].revised_prompt;
+    
+    console.log('✅ DALL·E back cover generated successfully');
+    
+    res.json({
+      status: 'success',
+      url: imageUrl,
+      originalPrompt: backPrompt,
+      revisedPrompt: revisedPrompt,
+      model: 'dall-e-3',
+      size: size,
+      quality: quality,
+      style: style
+    });
+    
+  } catch (error) {
+    console.error('Error generating DALL·E back cover:', error);
+    res.status(500).json({
+      error: 'Failed to generate back cover with DALL·E',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router; 

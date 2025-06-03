@@ -50,7 +50,15 @@ const quickActions = [
     icon: BookOpen,
     color: 'from-green-500/20 to-emerald-500/20 hover:from-green-500/30 hover:to-emerald-500/30',
     iconColor: 'text-green-500',
-    href: '/dashboard/covers'
+    href: '/dashboard/kdp-covers'
+  },
+  {
+    title: 'DALL·E Cover Designer',
+    description: 'Create artistic book covers with DALL·E',
+    icon: BookOpen,
+    color: 'from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30',
+    iconColor: 'text-purple-500',
+    href: '/dashboard/dall-kdp-covers'
   },
   {
     title: 'Puzzle Book Generator',
