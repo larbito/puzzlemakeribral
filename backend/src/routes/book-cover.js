@@ -277,17 +277,85 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     console.log('Interior images count:', interiorImages.filter(img => img && img.trim()).length);
 
     try {
-      // Generate enhanced back cover prompt from front cover prompt
-      console.log('🔧 Generating enhanced back cover prompt from front cover...');
+      // Generate enhanced back cover prompt using GPT-4
+      console.log('🔧 Generating enhanced back cover prompt using GPT-4...');
       
       const interiorImagesCount = interiorImages.filter(img => img && img.trim()).length;
-      const enhancedBackPrompt = parseAndBuildBackCoverPrompt(
-        frontCoverPrompt.trim(),
-        backCoverPrompt || '',
-        interiorImagesCount
-      );
       
-      console.log('✅ Generated enhanced back cover prompt:', enhancedBackPrompt);
+      // Check if OpenAI API key is available
+      if (!process.env.OPENAI_API_KEY) {
+        console.error('❌ OpenAI API key not configured');
+        return res.status(500).json({ 
+          status: 'error', 
+          message: 'OpenAI API key not configured. GPT-4 is required for back cover generation.' 
+        });
+      }
+
+      // Create OpenAI client
+      const { OpenAI } = require('openai');
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+      });
+
+      // Build the system prompt for GPT-4 - focused on image generation, not book design
+      const systemPrompt = `You are an AI image generation prompt specialist. Your task is to analyze a front cover image prompt and create a matching visual prompt for generating a complementary back cover image.
+
+IMPORTANT RULES:
+1. Extract and preserve the EXACT background elements, color scheme, and artistic style
+2. Remove all front-cover specific text (titles, author names, subtitles, badges)
+3. Create a visual prompt that maintains the same aesthetic and design principles
+4. Focus only on visual elements: backgrounds, colors, textures, artistic style
+5. DO NOT mention book covers, ISBN, barcodes, or text areas
+6. Generate a pure visual description for image creation
+
+Your output should be a clean image generation prompt that captures the visual essence of the front cover but adapted for a back cover layout.`;
+
+      // Build the user prompt
+      let userPrompt = `FRONT COVER PROMPT TO ANALYZE:
+"${frontCoverPrompt}"
+
+ADDITIONAL REQUIREMENTS:`;
+
+      if (backCoverPrompt && backCoverPrompt.trim()) {
+        userPrompt += `\n- Include visual elements that complement this description: "${backCoverPrompt.trim()}"`;
+      }
+
+      if (interiorImagesCount > 0) {
+        if (interiorImagesCount === 1) {
+          userPrompt += `\n- Include space for 1 small preview image, integrated naturally with the background`;
+        } else {
+          userPrompt += `\n- Include space for ${interiorImagesCount} small preview images, arranged harmoniously`;
+        }
+      }
+
+      userPrompt += `\n- Maintain visual consistency with the front cover
+- Create a clean, professional visual layout
+- Format: 6x9 inches aspect ratio
+
+Please generate a visual prompt that matches the front cover's style perfectly, focusing only on the visual elements for image generation.`;
+
+      console.log('🤖 Sending request to GPT-4...');
+
+      // Call GPT-4
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          {
+            role: "user", 
+            content: userPrompt
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      });
+
+      const enhancedBackPrompt = completion.choices[0].message.content.trim();
+      
+      console.log('✅ GPT-4 generated enhanced back cover prompt:', enhancedBackPrompt);
       
       // Check if Ideogram API is available
       if (!process.env.IDEOGRAM_API_KEY) {
