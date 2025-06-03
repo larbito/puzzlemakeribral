@@ -104,6 +104,7 @@ interface CoverDesignerState {
   includeBackText: boolean; // Toggle for adding custom text
   backCustomText: string; // User's custom text for back cover
   includeInteriorImages: boolean; // Toggle for adding interior images
+  generatedBackPrompt: string; // The GPT-4 generated prompt for back cover
 }
 
 // KDP supported trim sizes
@@ -201,6 +202,7 @@ const KDPCoverDesigner: React.FC = () => {
     includeBackText: false, // Toggle for adding custom text
     backCustomText: '', // User's custom text for back cover
     includeInteriorImages: false, // Toggle for adding interior images
+    generatedBackPrompt: '', // The GPT-4 generated prompt for back cover
   });
 
   const [activeTab, setActiveTab] = useState<'styles' | 'measurements'>('styles');
@@ -2256,6 +2258,130 @@ const KDPCoverDesigner: React.FC = () => {
                       </div>
                     </div>
 
+                    {/* Generate Prompt Section */}
+                    {(state.includeBackText && state.backCustomText.trim()) || (state.includeInteriorImages && state.interiorImages.filter(img => img).length > 0) ? (
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+                            <Brain className="h-4 w-4" />
+                            Preview Generated Prompt
+                          </h4>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-600/40 text-blue-400 hover:bg-blue-950/30"
+                            onClick={async () => {
+                              setIsLoading({...isLoading, generateSmartPrompt: true});
+                              toast.info('🧠 GPT-4 generating visual prompt...');
+                              
+                              try {
+                                // Build dynamic prompt based on user selections
+                                let userContentDescription = '';
+                                if (state.includeBackText && state.backCustomText.trim()) {
+                                  userContentDescription += `Text content to include: "${state.backCustomText.trim()}"`;
+                                }
+                                if (state.includeInteriorImages && state.interiorImages.filter(img => img).length > 0) {
+                                  if (userContentDescription) userContentDescription += '\n';
+                                  userContentDescription += `Interior images: ${state.interiorImages.filter(img => img).length} image(s) will be positioned in the design - leave appropriate spaces for these image placements.`;
+                                }
+                                
+                                const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back-prompt`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    frontPrompt: state.frontCoverPrompt,
+                                    includeBackText: state.includeBackText,
+                                    backCustomText: state.backCustomText,
+                                    includeInteriorImages: state.includeInteriorImages,
+                                    interiorImagesCount: state.interiorImages.filter(img => img).length,
+                                    userContentDescription: userContentDescription,
+                                    generatedBackPrompt: state.generatedBackPrompt // Pass the generated prompt
+                                  })
+                                });
+                                
+                                const data = await response.json();
+                                
+                                if (data.status === 'success') {
+                                  setState(prev => ({
+                                    ...prev,
+                                    generatedBackPrompt: data.enhancedPrompt
+                                  }));
+                                  
+                                  toast.success(`✨ Visual prompt generated!`);
+                                } else {
+                                  toast.error('Failed to generate prompt');
+                                }
+                              } catch (error) {
+                                console.error('Prompt generation error:', error);
+                                toast.error('Error generating prompt');
+                              } finally {
+                                setIsLoading({...isLoading, generateSmartPrompt: false});
+                              }
+                            }}
+                            disabled={isLoading.generateSmartPrompt}
+                          >
+                            {isLoading.generateSmartPrompt ? (
+                              <>
+                                <Loader2 className="animate-spin mr-2 h-3 w-3" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Brain className="mr-2 h-3 w-3" />
+                                Generate Prompt
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Generated Prompt Display */}
+                        {state.generatedBackPrompt && (
+                          <div className="bg-zinc-900 rounded-lg p-4 border border-zinc-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-xs font-medium text-zinc-300">Generated Visual Prompt:</label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-zinc-600 hover:bg-zinc-800"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(state.generatedBackPrompt);
+                                  toast.success('Prompt copied to clipboard!');
+                                }}
+                              >
+                                Copy
+                              </Button>
+                            </div>
+                            <textarea
+                              value={state.generatedBackPrompt}
+                              onChange={(e) => setState(prev => ({ ...prev, generatedBackPrompt: e.target.value }))}
+                              className="w-full h-24 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                              placeholder="Generated prompt will appear here..."
+                            />
+                            <p className="text-xs text-zinc-500 mt-2">
+                              You can edit this prompt before generating the image. This is what will be sent to the AI image generator.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {!state.generatedBackPrompt && (
+                          <div className="bg-blue-950/20 rounded-lg p-4 border border-blue-900/30">
+                            <div className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center flex-shrink-0">
+                                <Info className="h-4 w-4 text-blue-400" />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-medium text-blue-300 mb-1">Prompt Generation</h4>
+                                <p className="text-xs text-blue-400/80">
+                                  Click "Generate Prompt" to see what visual description will be created from your content selections. 
+                                  You can review and edit the prompt before generating the final image.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+
                     {/* Side-by-Side Preview */}
                     <div className="mb-6">
                       <h4 className="text-sm font-medium text-zinc-300 mb-4 flex items-center gap-2">
@@ -2329,6 +2455,7 @@ const KDPCoverDesigner: React.FC = () => {
                               backCustomText: state.backCustomText,
                               includeInteriorImages: state.includeInteriorImages,
                               interiorImages: state.includeInteriorImages ? state.interiorImages.filter(img => img) : [],
+                              generatedBackPrompt: state.generatedBackPrompt, // Pass the generated prompt
                               width: Math.round(state.bookSettings.dimensions.width * 300), // Convert to pixels at 300 DPI
                               height: Math.round(state.bookSettings.dimensions.height * 300)
                             };
