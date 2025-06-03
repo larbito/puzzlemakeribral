@@ -1125,180 +1125,6 @@ async function generateIdeogramCover(prompt) {
   return imageUrl;
 }
 
-          <rect x="${width * 0.15}" y="${height * 0.75}" width="${width * 0.7}" height="${height * 0.12}" fill="rgba(240,240,240,0.9)" rx="8"/>
-        </svg>
-      `;
-      
-      return sharp(Buffer.from(simpleFallback))
-        .jpeg({ quality: 95 })
-        .toBuffer();
-    }
-  }
-}
-
-/**
- * Parse front cover prompt and extract visual elements for back cover generation
- * This function implements the enhanced back cover generation process that:
- * 1. Extracts background, color scheme, and artistic style from front cover prompt
- * 2. Filters out text-related elements (titles, author names, etc.)
- * 3. Builds a consistent back cover prompt using the specified template
- */
-function parseAndBuildBackCoverPrompt(frontPrompt, userBackText = '', interiorImagesCount = 0) {
-  console.log('🔧 Enhanced back cover prompt generation from front cover...');
-  console.log('Front prompt:', frontPrompt);
-  
-  if (!frontPrompt || frontPrompt.trim() === '') {
-    console.log('No front prompt provided, using default back cover template');
-    return buildDefaultBackCoverPrompt(userBackText, interiorImagesCount);
-  }
-
-  // Step 1: Extract background description
-  const backgroundPatterns = [
-    /(?:background|backdrop)(?:\s+(?:features?|shows?|depicts?|includes?))?\s*[:\-]?\s*([^,.!?]+)/gi,
-    /(?:features?|shows?|depicts?|includes?)\s+(?:a\s+)?(?:prominent\s+)?(?:depiction\s+of\s+)?([^,.!?]+?)\s+(?:as\s+(?:the\s+)?background|in\s+the\s+background)/gi,
-    /(?:set\s+against|against)\s+([^,.!?]+)/gi,
-    /(?:with|featuring)\s+([^,.!?]*(?:flag|landscape|cityscape|forest|mountain|ocean|sky|clouds|stars|galaxy|space|nature|urban|rural)[^,.!?]*)/gi,
-    /(?:prominent\s+)?(?:depiction\s+of\s+)?(?:the\s+)?([^,.!?]*(?:flag|landscape|cityscape|forest|mountain|ocean|sky|clouds|stars|galaxy|space|nature|urban|rural)[^,.!?]*)/gi
-  ];
-
-  let backgroundDescription = '';
-  for (const pattern of backgroundPatterns) {
-    const matches = [...frontPrompt.matchAll(pattern)];
-    if (matches.length > 0 && matches[0][1]) {
-      backgroundDescription = matches[0][1].trim();
-      // Clean up common prefixes/suffixes
-      backgroundDescription = backgroundDescription
-        .replace(/^(?:a\s+|an\s+|the\s+)/i, '')
-        .replace(/\s+(?:background|backdrop)$/i, '')
-        .trim();
-      break;
-    }
-  }
-
-  // Step 2: Extract color palette
-  const colorPatterns = [
-    /(?:color\s+scheme|colors?|palette)(?:\s+(?:includes?|features?|of))?\s*[:\-]?\s*([^,.!?]+)/gi,
-    /(?:using|with|featuring)\s+([^,.!?]*(?:red|blue|green|yellow|orange|purple|pink|black|white|gray|grey|brown|cream|gold|silver|cyan|magenta|turquoise|navy|maroon|olive|lime|aqua|fuchsia|teal)[^,.!?]*)/gi,
-    /(?:overall\s+)?(?:color\s+scheme|palette)\s+(?:includes?|features?|of)\s+([^,.!?]+)/gi,
-    /(?:creating\s+a\s+)?([^,.!?]*(?:red|blue|green|yellow|orange|purple|pink|black|white|gray|grey|brown|cream|gold|silver)[^,.!?]*?)\s+(?:aesthetic|palette|scheme)/gi
-  ];
-
-  let colorPalette = '';
-  for (const pattern of colorPatterns) {
-    const matches = [...frontPrompt.matchAll(pattern)];
-    if (matches.length > 0 && matches[0][1]) {
-      colorPalette = matches[0][1].trim();
-      // Clean up and standardize
-      colorPalette = colorPalette
-        .replace(/\s+and\s+/g, ', ')
-        .replace(/\s*,\s*/g, ', ')
-        .replace(/\s+/g, ' ')
-        .trim();
-      break;
-    }
-  }
-
-  // Step 3: Extract artistic style and texture
-  const stylePatterns = [
-    /(?:artistic\s+style\s+is|style\s+is|style:)\s*([^,.!?]+)/gi,
-    /(comic-style|vector\s+style|flat\s+(?:vector\s+)?style|realistic|watercolor|oil\s+painting|digital\s+art|illustration\s+style)/gi,
-    /(modern|vintage|retro|contemporary|classic|minimalist|detailed|abstract|dynamic|bold|soft|dramatic|elegant|rustic|professional)/gi,
-    /(?:with\s+a\s+focus\s+on|focusing\s+on)\s+([^,.!?]+)/gi,
-    /(?:texture|finish|treatment|effect)(?:\s+(?:is|includes?|features?))?\s*[:\-]?\s*([^,.!?]+)/gi
-  ];
-
-  const styleElements = [];
-  for (const pattern of stylePatterns) {
-    const matches = [...frontPrompt.matchAll(pattern)];
-    matches.forEach(match => {
-      if (match[1] && match[1].trim()) {
-        styleElements.push(match[1].trim());
-      }
-    });
-  }
-
-  // Combine and deduplicate style elements
-  const artisticStyle = [...new Set(styleElements)]
-    .filter(style => style.length > 2)
-    .join(', ');
-
-  // Step 4: Build the back cover prompt using the specified template
-  let backCoverPrompt = '';
-
-  // Start with artistic style
-  if (artisticStyle) {
-    backCoverPrompt += `${artisticStyle}. `;
-  } else {
-    backCoverPrompt += 'Professional design. ';
-  }
-
-  // Add background description
-  if (backgroundDescription) {
-    backCoverPrompt += `The back cover features ${backgroundDescription}, `;
-  } else {
-    backCoverPrompt += 'The back cover features a complementary background design, ';
-  }
-
-  // Add color scheme
-  if (colorPalette) {
-    backCoverPrompt += `maintaining the same color scheme of ${colorPalette}. `;
-  } else {
-    backCoverPrompt += 'maintaining the same color scheme as the front cover. ';
-  }
-
-  // Add artistic style continuation if we have more details
-  if (artisticStyle && artisticStyle.includes(',')) {
-    const styleDetails = artisticStyle.split(',').slice(1).join(',').trim();
-    if (styleDetails) {
-      backCoverPrompt += `The artistic style is ${styleDetails}, creating visual balance and texture continuity. `;
-    }
-  }
-
-  // Step 5: Add user-provided back text if any
-  if (userBackText && userBackText.trim()) {
-    backCoverPrompt += `\n\n${userBackText.trim()}. `;
-  }
-
-  // Step 6: Add interior images description if provided
-  if (interiorImagesCount > 0) {
-    if (interiorImagesCount === 1) {
-      backCoverPrompt += `\n\nIncludes a centered circular graphic of one interior illustration, blending seamlessly with the background. `;
-    } else {
-      backCoverPrompt += `\n\nIncludes ${interiorImagesCount} interior preview images arranged harmoniously, integrating naturally with the background design. `;
-    }
-  }
-
-  // Step 7: Add KDP compliance and consistency requirements
-  backCoverPrompt += `\n\nFormat: 6x9 inches, KDP-compliant back cover. Ensure consistency with the front cover's design style, background treatment, and colors. Clean areas for text content. NO TITLES, NO AUTHOR NAMES, NO ISBN BARCODE - pure visual design only.`;
-
-  console.log('✅ Generated enhanced back cover prompt:');
-  console.log('📝 Background:', backgroundDescription || 'default');
-  console.log('🎨 Colors:', colorPalette || 'front cover colors');
-  console.log('🖌️ Style:', artisticStyle || 'professional');
-  console.log('📖 Interior images:', interiorImagesCount);
-  
-  return backCoverPrompt;
-}
-
-/**
- * Build a default back cover prompt when no front cover prompt is available
- */
-function buildDefaultBackCoverPrompt(userBackText = '', interiorImagesCount = 0) {
-  let prompt = 'Professional book back cover design. Clean, modern layout with complementary background design, ';
-  
-  if (userBackText && userBackText.trim()) {
-    prompt += `\n\n${userBackText.trim()}. `;
-  }
-  
-  if (interiorImagesCount > 0) {
-    prompt += `\n\nIncludes ${interiorImagesCount} interior preview images. `;
-  }
-  
-  prompt += '\n\nFormat: 6x9 inches, KDP-compliant back cover. Clean areas for text content.';
-  
-  return prompt;
-}
-
 /**
  * Generate enhanced back cover prompt using GPT-4
  * POST /api/book-cover/generate-back-prompt
@@ -1328,20 +1154,10 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
 
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY) {
-      console.log('OpenAI API key not available, falling back to regex-based approach');
-      
-      // Fallback to our enhanced regex approach
-      const fallbackPrompt = parseAndBuildBackCoverPrompt(
-        frontPrompt,
-        userBackText,
-        interiorImagesCount
-      );
-      
-      return res.json({
-        status: 'success',
-        enhancedPrompt: fallbackPrompt,
-        method: 'regex_fallback',
-        message: 'Generated using advanced regex patterns (OpenAI not available)'
+      console.error('OpenAI API key not available');
+      return res.status(500).json({
+        status: 'error',
+        message: 'OpenAI API key not configured. GPT-4 is required for back cover generation.'
       });
     }
 
@@ -1351,24 +1167,18 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
       apiKey: process.env.OPENAI_API_KEY
     });
 
-    // Build the system prompt for GPT-4
-    const systemPrompt = `You are an expert book cover designer and prompt engineer. Your task is to analyze a front cover prompt and create a matching back cover prompt that maintains visual consistency.
+    // Build the system prompt for GPT-4 - focused on image generation, not book design
+    const systemPrompt = `You are an AI image generation prompt specialist. Your task is to analyze a front cover image prompt and create a matching visual prompt for generating a complementary back cover image.
 
 IMPORTANT RULES:
 1. Extract and preserve the EXACT background elements, color scheme, and artistic style
-2. Remove all front-cover specific text (titles, author names, subtitles)
-3. Create a back cover that looks like it belongs to the same book
-4. Maintain the same visual aesthetic and design principles
-5. Include clean areas for text content
-6. Ensure KDP compliance
+2. Remove all front-cover specific text (titles, author names, subtitles, badges)
+3. Create a visual prompt that maintains the same aesthetic and design principles
+4. Focus only on visual elements: backgrounds, colors, textures, artistic style
+5. DO NOT mention book covers, ISBN, barcodes, or text areas
+6. Generate a pure visual description for image creation
 
-TEMPLATE TO FOLLOW:
-{artistic_style}. The back cover features {background_description}, maintaining the same color scheme of {color_palette}. The artistic style is {style_details}, creating visual balance and texture continuity.
-
-[Include user-provided back text if any]
-[Include interior images description if provided]
-
-Format: ${trimSize} inches, KDP-compliant back cover. Ensure consistency with the front cover's design style, background treatment, and colors. Clean areas for text content. NO TITLES, NO AUTHOR NAMES, NO ISBN BARCODE - pure visual design only.`;
+Your output should be a clean image generation prompt that captures the visual essence of the front cover but adapted for a back cover layout.`;
 
     // Build the user prompt
     let userPrompt = `FRONT COVER PROMPT TO ANALYZE:
@@ -1377,22 +1187,22 @@ Format: ${trimSize} inches, KDP-compliant back cover. Ensure consistency with th
 ADDITIONAL REQUIREMENTS:`;
 
     if (userBackText && userBackText.trim()) {
-      userPrompt += `\n- Include this back cover text: "${userBackText.trim()}"`;
+      userPrompt += `\n- Include visual elements that complement this description: "${userBackText.trim()}"`;
     }
 
     if (useInteriorImage && interiorImagesCount > 0) {
       if (interiorImagesCount === 1) {
-        userPrompt += `\n- Include description for 1 interior preview image, integrated naturally with the background`;
+        userPrompt += `\n- Include space for 1 small preview image, integrated naturally with the background`;
       } else {
-        userPrompt += `\n- Include description for ${interiorImagesCount} interior preview images, arranged harmoniously`;
+        userPrompt += `\n- Include space for ${interiorImagesCount} small preview images, arranged harmoniously`;
       }
     }
 
-    userPrompt += `\n- Book size: ${trimSize} inches
-- Ensure visual consistency with front cover
-- Create clean, professional layout for text content
+    userPrompt += `\n- Maintain visual consistency with the front cover
+- Create a clean, professional visual layout
+- Format: ${trimSize} inches aspect ratio
 
-Please generate a back cover prompt that matches the front cover's style perfectly.`;
+Please generate a visual prompt that matches the front cover's style perfectly, focusing only on the visual elements for image generation.`;
 
     console.log('🤖 Sending request to GPT-4...');
     console.log('System prompt length:', systemPrompt.length);
@@ -1420,17 +1230,9 @@ Please generate a back cover prompt that matches the front cover's style perfect
     console.log('✅ GPT-4 generated enhanced back cover prompt');
     console.log('Enhanced prompt length:', enhancedPrompt.length);
 
-    // Also generate our regex-based version for comparison
-    const regexPrompt = parseAndBuildBackCoverPrompt(
-      frontPrompt,
-      userBackText,
-      interiorImagesCount
-    );
-
     res.json({
       status: 'success',
       enhancedPrompt: enhancedPrompt,
-      regexPrompt: regexPrompt, // For comparison
       method: 'gpt4_enhanced',
       usage: {
         promptTokens: completion.usage.prompt_tokens,
@@ -1442,31 +1244,11 @@ Please generate a back cover prompt that matches the front cover's style perfect
 
   } catch (error) {
     console.error('❌ Error in GPT-4 back prompt generation:', error);
-    
-    // Fallback to regex approach on any error
-    try {
-      console.log('🔄 Falling back to regex-based approach...');
-      const fallbackPrompt = parseAndBuildBackCoverPrompt(
-        req.body.frontPrompt,
-        req.body.userBackText || '',
-        req.body.interiorImagesCount || 0
-      );
-      
-      res.json({
-        status: 'success',
-        enhancedPrompt: fallbackPrompt,
-        method: 'regex_fallback',
-        message: 'Generated using regex fallback due to GPT-4 error',
-        error: error.message
-      });
-    } catch (fallbackError) {
-      console.error('❌ Fallback also failed:', fallbackError);
-      res.status(500).json({ 
-        status: 'error', 
-        message: 'Failed to generate back cover prompt',
-        details: error.message
-      });
-    }
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to generate back cover prompt',
+      details: error.message
+    });
   }
 });
 

@@ -2174,8 +2174,7 @@ const KDPCoverDesigner: React.FC = () => {
                                   backCoverPrompt: data.enhancedPrompt
                                 }));
                                 
-                                const methodText = data.method === 'gpt4_enhanced' ? 'GPT-4' : 'Advanced Regex';
-                                toast.success(`✨ Smart prompt generated using ${methodText}!`);
+                                toast.success(`✨ Smart prompt generated using GPT-4!`);
                                 
                                 if (data.usage) {
                                   console.log('GPT-4 Usage:', data.usage);
