@@ -289,19 +289,19 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
     let userContentDesc = '';
     
     if (includeBackText && backCustomText.trim()) {
-      userContentDesc = `Design a layout in the same style as the front cover. Keep an elegant section for this text: "${backCustomText.trim()}".`;
+      userContentDesc = `Design a layout in the same style as the artwork. Keep an elegant section for this text: "${backCustomText.trim()}".`;
     }
     
     if (includeInteriorImages && interiorImagesCount > 0) {
       if (userContentDesc) {
         userContentDesc += ` Also leave space for displaying ${interiorImagesCount} interior preview images.`;
       } else {
-        userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImages.length} interior preview images.`;
+        userContentDesc = `Create a design layout matching the artwork style. Leave space for displaying ${interiorImagesCount} interior preview images.`;
       }
     }
     
     if (!userContentDesc) {
-      userContentDesc = 'Create a pure visual design matching the front cover style.';
+      userContentDesc = 'Create a pure visual design matching the artwork style.';
     }
     
     const gpt4Messages = [
@@ -311,26 +311,26 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
 
 IMPORTANT GUIDELINES:
 - Focus purely on visual style, colors, background, and artistic elements
-- Create a design that visually matches the provided front cover style
-- Never mention "back cover", "book cover", or publishing terms
+- Create a design that visually matches the provided artwork style
+- Never mention covers, books, or publishing terms
 - Generate prompts for pure visual/artistic image creation
 - Ensure the design can accommodate user content when specified
 - Match the artistic style, color palette, and background elements of the original`
       },
       {
         "role": "user", 
-        "content": `Create a visual design that matches this front cover style:
+        "content": `Create a visual design that matches this artwork style:
 
-FRONT COVER DESIGN: "${frontPrompt}"
+ARTWORK STYLE: "${frontPrompt}"
 
 REQUIREMENTS:
 ${userContentDesc}
 
 Generate a design prompt that:
-1. Uses the SAME artistic style, colors, and background as the front design
+1. Uses the SAME artistic style, colors, and background as the original artwork
 2. Creates a complementary visual that belongs to the same artistic piece
 ${includeBackText ? `3. Includes this exact text in an elegant, readable layout: "${backCustomText.trim()}"` : ''}
-${includeInteriorImages ? `3. Leaves designated space for displaying ${interiorImages.length} interior preview images` : ''}
+${includeInteriorImages ? `3. Leaves designated space for displaying ${interiorImagesCount} interior preview images` : ''}
 ${includeBackText && includeInteriorImages ? `4. Balances both text content and image spaces harmoniously` : ''}
 
 Return only the visual generation prompt, nothing else.`
@@ -441,19 +441,19 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       let userContentDesc = '';
       
       if (includeBackText && backCustomText.trim()) {
-        userContentDesc = `Design a layout in the same style as the front cover. Keep an elegant section for this text: "${backCustomText.trim()}".`;
+        userContentDesc = `Design a layout in the same style as the artwork. Keep an elegant section for this text: "${backCustomText.trim()}".`;
       }
       
       if (includeInteriorImages && interiorImages.length > 0) {
         if (userContentDesc) {
           userContentDesc += ` Also leave space for displaying ${interiorImages.length} interior preview images.`;
         } else {
-          userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImages.length} interior preview images.`;
+          userContentDesc = `Create a design layout matching the artwork style. Leave space for displaying ${interiorImages.length} interior preview images.`;
         }
       }
       
       if (!userContentDesc) {
-        userContentDesc = 'Create a pure visual design matching the front cover style.';
+        userContentDesc = 'Create a pure visual design matching the artwork style.';
       }
       
       const gpt4Messages = [
@@ -463,23 +463,23 @@ router.post('/generate-back', upload.none(), async (req, res) => {
 
 IMPORTANT GUIDELINES:
 - Focus purely on visual style, colors, background, and artistic elements
-- Create a design that visually matches the provided front cover style
-- Never mention "back cover", "book cover", or publishing terms
+- Create a design that visually matches the provided artwork style
+- Never mention covers, books, or publishing terms
 - Generate prompts for pure visual/artistic image creation
 - Ensure the design can accommodate user content when specified
 - Match the artistic style, color palette, and background elements of the original`
         },
         {
           "role": "user", 
-          "content": `Create a visual design that matches this front cover style:
+          "content": `Create a visual design that matches this artwork style:
 
-FRONT COVER DESIGN: "${frontCoverPrompt}"
+ARTWORK STYLE: "${frontCoverPrompt}"
 
 REQUIREMENTS:
 ${userContentDesc}
 
 Generate a design prompt that:
-1. Uses the SAME artistic style, colors, and background as the front design
+1. Uses the SAME artistic style, colors, and background as the original artwork
 2. Creates a complementary visual that belongs to the same artistic piece
 ${includeBackText ? `3. Includes this exact text in an elegant, readable layout: "${backCustomText.trim()}"` : ''}
 ${includeInteriorImages ? `3. Leaves designated space for displaying ${interiorImages.length} interior preview images` : ''}
@@ -1605,7 +1605,7 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
     
-    console.log('🎨 Generating cover with DALL·E 3...');
+    console.log('🎨 Generating artwork with DALL·E 3...');
     console.log('Prompt:', prompt);
     console.log('Settings:', { size, quality, style, bookSize });
     
@@ -1688,26 +1688,26 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
     } = req.body;
     
     if (!frontCoverPrompt && !generatedBackPrompt) {
-      return res.status(400).json({ error: 'Front cover prompt or generated back prompt is required' });
+      return res.status(400).json({ error: 'Original artwork prompt or generated prompt is required' });
     }
     
-    let backPrompt = generatedBackPrompt;
+    let artworkPrompt = generatedBackPrompt;
     
-    // If no pre-generated prompt, create one based on front cover
-    if (!backPrompt) {
+    // If no pre-generated prompt, create one based on original artwork
+    if (!artworkPrompt) {
       if (includeBackText && backCustomText.trim()) {
-        backPrompt = `Design a visual in the same style as this front cover: "${frontCoverPrompt}". Create elegant text areas for this content: "${backCustomText.trim()}". Match the visual style, colors, and aesthetic of the front cover while providing clean spaces for the text content.`;
+        artworkPrompt = `Design a visual in the same style as this artwork: "${frontCoverPrompt}". Create elegant text areas for this content: "${backCustomText.trim()}". Match the visual style, colors, and aesthetic of the original while providing clean spaces for the text content.`;
       } else if (includeInteriorImages && interiorImages.length > 0) {
-        backPrompt = `Create a design layout matching this front cover style: "${frontCoverPrompt}". Leave space for displaying ${interiorImages.length} interior preview images. Use the same visual style, colors, and aesthetic as the front cover.`;
+        artworkPrompt = `Create a design layout matching this artwork style: "${frontCoverPrompt}". Leave space for displaying ${interiorImages.length} interior preview images. Use the same visual style, colors, and aesthetic as the original.`;
       } else {
-        backPrompt = `Design a back cover in the same style as this front cover: "${frontCoverPrompt}". Create a clean, professional layout that complements the front cover design with the same visual style and color scheme.`;
+        artworkPrompt = `Design artwork in the same style as this original: "${frontCoverPrompt}". Create a clean, professional layout that complements the original design with the same visual style and color scheme.`;
       }
     }
     
     // Clean prompt for image generation
-    const cleanPrompt = `${backPrompt}. Digital illustration, professional artwork, high quality design`;
+    const cleanPrompt = `${artworkPrompt}. Digital illustration, professional artwork, high quality design`;
     
-    console.log('🎨 Generating back cover with DALL·E 3...');
+    console.log('🎨 Generating artwork with DALL·E 3...');
     console.log('Prompt:', cleanPrompt);
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
@@ -1747,7 +1747,7 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
     res.json({
       status: 'success',
       url: imageUrl,
-      originalPrompt: backPrompt,
+      originalPrompt: artworkPrompt,
       revisedPrompt: revisedPrompt,
       model: 'dall-e-3',
       size: size,

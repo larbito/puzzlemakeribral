@@ -136,18 +136,18 @@ const SPINE_FONTS = [
 
 // Cover styles optimized for DALL·E
 const COVER_STYLES = [
-  { id: 'literary', name: 'Literary Fiction', emoji: '📖', prompt: 'elegant literary fiction book cover design, sophisticated, minimalist typography, subtle imagery, understated color palette, high-concept design, professional book cover' },
-  { id: 'thriller', name: 'Thriller/Mystery', emoji: '🔍', prompt: 'suspenseful thriller book cover, dramatic shadows, high contrast, bold title typography, moody atmosphere, tension-building visual elements, mystery book cover' },
-  { id: 'romance', name: 'Romance', emoji: '❤️', prompt: 'romantic book cover design, emotionally evocative, soft color palette, elegant typography, relationship-focused imagery, heartfelt visual elements, romance novel cover' },
-  { id: 'fantasy', name: 'Fantasy', emoji: '🐉', prompt: 'fantasy book cover design, magical elements, rich detailed illustration, epic scenery, mystical symbols, otherworldly atmosphere, fantasy novel cover' },
-  { id: 'nonfiction', name: 'Non-Fiction', emoji: '📊', prompt: 'professional non-fiction book cover, clean layout, informative design, authoritative typography, subject-appropriate imagery, organized visual hierarchy' },
-  { id: 'scifi', name: 'Science Fiction', emoji: '🚀', prompt: 'science fiction book cover design, futuristic elements, technological aesthetics, innovative typography, cosmic imagery, forward-looking visual style, sci-fi cover' },
-  { id: 'children', name: 'Children\'s', emoji: '🧸', prompt: 'children\'s book cover design, playful illustrations, bright cheerful colors, fun typography, age-appropriate imagery, engaging visual elements, kids book cover' },
-  { id: 'horror', name: 'Horror', emoji: '👻', prompt: 'horror book cover design, unsettling imagery, dark atmosphere, eerie elements, foreboding typography, suspenseful visual composition, horror novel cover' },
-  { id: 'memoir', name: 'Memoir/Biography', emoji: '✍️', prompt: 'memoir or biography book cover design, personal imagery, authentic feel, balanced typography, narrative-focused layout, meaningful visual elements' },
-  { id: 'historical', name: 'Historical', emoji: '⏳', prompt: 'historical book cover design, period-appropriate imagery, classic typography, aged texture, era-specific visual elements, authentic historical aesthetic' },
-  { id: 'ya', name: 'Young Adult', emoji: '🌟', prompt: 'young adult book cover design, contemporary style, relatable imagery, dynamic typography, teen-appropriate visual elements, emotionally resonant design' },
-  { id: 'textbook', name: 'Textbook/Academic', emoji: '🎓', prompt: 'academic or textbook cover design, organized layout, clear typography, educational imagery, professional appearance, subject-focused visual elements' },
+  { id: 'literary', name: 'Literary Fiction', emoji: '📖', prompt: 'elegant literary fiction design, sophisticated, minimalist typography, subtle imagery, understated color palette, high-concept artwork, professional illustration' },
+  { id: 'thriller', name: 'Thriller/Mystery', emoji: '🔍', prompt: 'suspenseful thriller artwork, dramatic shadows, high contrast, bold title typography, moody atmosphere, tension-building visual elements, mystery illustration' },
+  { id: 'romance', name: 'Romance', emoji: '❤️', prompt: 'romantic design, emotionally evocative, soft color palette, elegant typography, relationship-focused imagery, heartfelt visual elements, romance artwork' },
+  { id: 'fantasy', name: 'Fantasy', emoji: '🐉', prompt: 'fantasy artwork, magical elements, rich detailed illustration, epic scenery, mystical symbols, otherworldly atmosphere, fantasy illustration' },
+  { id: 'nonfiction', name: 'Non-Fiction', emoji: '📊', prompt: 'professional non-fiction design, clean layout, informative artwork, authoritative typography, subject-appropriate imagery, organized visual hierarchy' },
+  { id: 'scifi', name: 'Science Fiction', emoji: '🚀', prompt: 'science fiction artwork, futuristic elements, technological aesthetics, innovative typography, cosmic imagery, forward-looking visual style, sci-fi illustration' },
+  { id: 'children', name: 'Children\'s', emoji: '🧸', prompt: 'children\'s artwork, playful illustrations, bright cheerful colors, fun typography, age-appropriate imagery, engaging visual elements, kids illustration' },
+  { id: 'horror', name: 'Horror', emoji: '👻', prompt: 'horror artwork, unsettling imagery, dark atmosphere, eerie elements, foreboding typography, suspenseful visual composition, horror illustration' },
+  { id: 'memoir', name: 'Memoir/Biography', emoji: '✍️', prompt: 'memoir or biography artwork, personal imagery, authentic feel, balanced typography, narrative-focused layout, meaningful visual elements' },
+  { id: 'historical', name: 'Historical', emoji: '⏳', prompt: 'historical artwork, period-appropriate imagery, classic typography, aged texture, era-specific visual elements, authentic historical aesthetic' },
+  { id: 'ya', name: 'Young Adult', emoji: '🌟', prompt: 'young adult artwork, contemporary style, relatable imagery, dynamic typography, teen-appropriate visual elements, emotionally resonant design' },
+  { id: 'textbook', name: 'Textbook/Academic', emoji: '🎓', prompt: 'academic or textbook design, organized layout, clear typography, educational imagery, professional appearance, subject-focused visual elements' },
 ];
 
 const DALLKDPCoverDesigner: React.FC = () => {
@@ -359,7 +359,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, generateFrontCover: true});
     
     try {
-      console.log('🎨 Generating front cover with DALL·E...');
+      console.log('🎨 Generating artwork with DALL·E...');
       
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
       const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
@@ -413,7 +413,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, generateBackCover: true});
     
     try {
-      console.log('🎨 Generating back cover with DALL·E...');
+      console.log('🎨 Generating artwork with DALL·E...');
       
       const requestBody = {
         frontCoverPrompt: state.frontCoverPrompt,
@@ -466,7 +466,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, generateSmartPrompt: true});
     
     try {
-      console.log('🧠 Generating back cover prompt preview...');
+      console.log('🧠 Generating prompt preview...');
       
       const requestBody = {
         frontPrompt: state.frontCoverPrompt,
@@ -511,7 +511,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
     setIsLoading({...isLoading, assembleCover: true});
     
     try {
-      console.log('🎨 Generating full wrap cover...');
+      console.log('🎨 Generating artwork with DALL·E...');
       
       if (!state.frontCoverImage) {
         throw new Error('Front cover is required');
@@ -745,7 +745,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
                 <div className="space-y-2">
                   <Label>Cover Description</Label>
                   <Textarea
-                    placeholder="Describe your book cover... (e.g., 'A mystical fantasy cover with a dragon silhouette against a starry sky, title in elegant golden letters')"
+                    placeholder="Describe your artwork... (e.g., 'A mystical fantasy scene with a dragon silhouette against a starry sky, title in elegant golden letters')"
                     value={state.frontCoverPrompt}
                     onChange={(e) => setState(prev => ({ ...prev, frontCoverPrompt: e.target.value }))}
                     rows={4}
@@ -833,7 +833,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
                   <div className="space-y-2">
                     <Label>Back Cover Text</Label>
                     <Textarea
-                      placeholder="Enter your back cover text (book description, reviews, author bio, etc.)"
+                      placeholder="Enter your text content (description, reviews, author bio, etc.)"
                       value={state.backCustomText}
                       onChange={(e) => setState(prev => ({ ...prev, backCustomText: e.target.value }))}
                       rows={6}
