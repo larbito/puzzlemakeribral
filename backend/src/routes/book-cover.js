@@ -434,6 +434,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     
     // Use pre-generated prompt if available, otherwise generate new one
     let enhancedPrompt = generatedBackPrompt;
+    let gpt4Data = null; // Initialize to handle both cases
     
     if (!enhancedPrompt) {
       // Build dynamic prompt based on user selections
@@ -508,7 +509,7 @@ Return only the visual generation prompt, nothing else.`
         throw new Error(`GPT-4 API Error: ${errorData.error?.message || gpt4Response.statusText}`);
       }
       
-      const gpt4Data = await gpt4Response.json();
+      gpt4Data = await gpt4Response.json();
       enhancedPrompt = gpt4Data.choices[0]?.message?.content?.trim();
       
       if (!enhancedPrompt) {
@@ -560,7 +561,7 @@ Return only the visual generation prompt, nothing else.`
       url: imageUrl,
       enhancedPrompt: enhancedPrompt,
       finalPrompt: enhancedPrompt,
-      gpt4Usage: gpt4Data.usage
+      gpt4Usage: gpt4Data?.usage || null
     });
     
   } catch (error) {
