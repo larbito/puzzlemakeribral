@@ -357,39 +357,30 @@ const DALLKDPCoverDesigner: React.FC = () => {
 
   // Helper function to enhance user prompts for better DALL·E results
   const enhanceUserPrompt = (userPrompt: string) => {
-    // Clean up the prompt without mentioning 2D/3D or covers
+    // Remove only the problematic trigger words that cause 3D mockups, keep layout context
     let enhanced = userPrompt
-      // Remove generation language
+      // Remove generation language that triggers 3D mode
       .replace(/generate\s+a?\s*/gi, '')
       .replace(/create\s+a?\s*/gi, '')
       .replace(/make\s+a?\s*/gi, '')
-      .replace(/design\s+a?\s*/gi, '')
-      // Remove cover/book terminology
-      .replace(/cover\s+for\s+/gi, '')
-      .replace(/image\s+for\s+/gi, '')
-      .replace(/artwork\s+for\s+/gi, '')
-      .replace(/illustration\s+for\s+/gi, '')
-      // Remove story/book references that trigger covers
+      // Remove story context that triggers physical book objects
       .replace(/for\s+the\s+.*?\s+story\s+entitled\s+/gi, '')
       .replace(/for\s+the\s+.*?\s+book\s+entitled\s+/gi, '')
       .replace(/entitled\s+/gi, '')
-      .replace(/called\s+/gi, '')
-      // Remove flat/physical references
+      // Remove flat/physical references that cause confusion
       .replace(/flat\s+image/gi, 'illustration')
-      .replace(/flat\s+design/gi, 'artwork')
-      .replace(/book\s+cover/gi, 'illustration')
       .trim();
     
-    // Clean up any remaining "with author..." text and restructure
+    // Clean up any remaining "with author..." text 
     enhanced = enhanced.replace(/with\s+author\s+.*$/gi, '');
     
-    // If the prompt is very basic, make it more descriptive
+    // If the prompt is very basic, build proper front cover prompt
     if (enhanced.length < 30) {
-      enhanced = `${enhanced}, beautiful magical scene, vibrant colors, whimsical design`;
+      enhanced = `Children's book front cover illustration. This is the front side of a book cover. Show a vertical design with centered composition. Leave space for the title at the top and author name at the bottom. ${enhanced}, beautiful magical scene, vibrant colors`;
+    } else {
+      // Add front cover context to existing prompt
+      enhanced = `Children's book front cover illustration for ${enhanced}. This is the front side of a book cover. Show a vertical design with centered composition. Leave space for the title at the top and author name at the bottom.`;
     }
-    
-    // Focus on pure visual description - make it about the scene/characters, not about making a cover
-    enhanced = `A magical scene featuring ${enhanced}. Full canvas artwork, edge to edge illustration, no borders, fills entire space, enchanting colors and whimsical elements`;
     
     return enhanced;
   };
@@ -404,9 +395,9 @@ const DALLKDPCoverDesigner: React.FC = () => {
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
       const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
       
-      // Enhanced user prompt + style + full canvas instructions  
+      // Enhanced user prompt + style + layout instructions  
       const enhancedUserPrompt = enhanceUserPrompt(state.frontCoverPrompt);
-      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Full canvas illustration, edge to edge artwork, no borders, no padding, fills entire frame, complete composition, professional illustration, clean design, vibrant colors, digital art style`;
+      const dallePrompt = `${enhancedUserPrompt} Style: ${stylePrompt}. Professional book cover design, vibrant colors, high quality illustration, print-ready artwork`;
       
       console.log('🔍 Prompt transformation:');
       console.log('Original:', state.frontCoverPrompt);
