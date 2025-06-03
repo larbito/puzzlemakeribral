@@ -581,6 +581,7 @@ router.post('/assemble-full', upload.none(), async (req, res) => {
   try {
     const {
       frontCoverUrl,
+      backCoverUrl,
       dimensions,
       spineText,
       spineColor,
@@ -632,13 +633,62 @@ router.post('/assemble-full', upload.none(), async (req, res) => {
       authorName
     );
     
-    // Create the back cover (either a mirrored front cover or with interior images)
-    const backCoverBuffer = await createBackCover(
-      dims.frontCover.widthPx,
-      dims.frontCover.heightPx,
-      interiorImagesUrls,
-      frontCoverBuffer
-    );
+    // Create the back cover
+    console.log('Creating back cover with interior images:', interiorImagesUrls.length);
+    let backCoverBuffer;
+    
+    if (backCoverUrl) {
+      // Use the actual generated back cover
+      console.log('Using generated back cover from:', backCoverUrl.substring(0, 50) + '...');
+      
+      if (backCoverUrl.startsWith('data:')) {
+        // Handle data URL (base64 image)
+        console.log('Processing back cover data URL...');
+        const base64Data = backCoverUrl.split(',')[1];
+        const backCoverImageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Resize back cover to match dimensions
+        backCoverBuffer = await sharp(backCoverImageBuffer)
+          .resize({
+            width: dims.frontCover.widthPx,
+            height: dims.frontCover.heightPx,
+            fit: 'fill'
+          })
+          .toBuffer();
+      } else {
+        // Handle regular URL
+        console.log('Fetching back cover from URL...');
+        const backCoverResponse = await fetch(backCoverUrl);
+        if (!backCoverResponse.ok) {
+          console.error('Failed to download back cover, using fallback');
+          // Fallback to createBackCover function
+          backCoverBuffer = await createBackCover(
+            dims.frontCover.widthPx,
+            dims.frontCover.heightPx,
+            interiorImagesUrls,
+            frontCoverBuffer
+          );
+        } else {
+          const backCoverImageBuffer = await backCoverResponse.buffer();
+          backCoverBuffer = await sharp(backCoverImageBuffer)
+            .resize({
+              width: dims.frontCover.widthPx,
+              height: dims.frontCover.heightPx,
+              fit: 'fill'
+            })
+            .toBuffer();
+        }
+      }
+    } else {
+      // Fallback to the old method if no back cover is provided
+      console.log('No back cover provided, creating from front cover and interior images');
+      backCoverBuffer = await createBackCover(
+        dims.frontCover.widthPx,
+        dims.frontCover.heightPx,
+        interiorImagesUrls,
+        frontCoverBuffer
+      );
+    }
     
     // Composite the three parts
     const compositeImage = await fullCover.composite([
@@ -926,6 +976,7 @@ router.post('/generate-full-wrap', express.json(), async (req, res) => {
     
     const { 
       frontCoverUrl, 
+      backCoverUrl,
       trimSize,
       paperType, 
       pageCount,
@@ -1032,12 +1083,60 @@ router.post('/generate-full-wrap', express.json(), async (req, res) => {
     
     // Create the back cover
     console.log('Creating back cover with interior images:', interiorImages.length);
-    const backCoverBuffer = await createBackCover(
-      frontWidthPx,
-      frontHeightPx,
-      interiorImages,
-      frontCoverBuffer
-    );
+    let backCoverBuffer;
+    
+    if (backCoverUrl) {
+      // Use the actual generated back cover
+      console.log('Using generated back cover from:', backCoverUrl.substring(0, 50) + '...');
+      
+      if (backCoverUrl.startsWith('data:')) {
+        // Handle data URL (base64 image)
+        console.log('Processing back cover data URL...');
+        const base64Data = backCoverUrl.split(',')[1];
+        const backCoverImageBuffer = Buffer.from(base64Data, 'base64');
+        
+        // Resize back cover to match dimensions
+        backCoverBuffer = await sharp(backCoverImageBuffer)
+          .resize({
+            width: frontWidthPx,
+            height: frontHeightPx,
+            fit: 'fill'
+          })
+          .toBuffer();
+      } else {
+        // Handle regular URL
+        console.log('Fetching back cover from URL...');
+        const backCoverResponse = await fetch(backCoverUrl);
+        if (!backCoverResponse.ok) {
+          console.error('Failed to download back cover, using fallback');
+          // Fallback to createBackCover function
+          backCoverBuffer = await createBackCover(
+            frontWidthPx,
+            frontHeightPx,
+            interiorImages,
+            frontCoverBuffer
+          );
+        } else {
+          const backCoverImageBuffer = await backCoverResponse.buffer();
+          backCoverBuffer = await sharp(backCoverImageBuffer)
+            .resize({
+              width: frontWidthPx,
+              height: frontHeightPx,
+              fit: 'fill'
+            })
+            .toBuffer();
+        }
+      }
+    } else {
+      // Fallback to the old method if no back cover is provided
+      console.log('No back cover provided, creating from front cover and interior images');
+      backCoverBuffer = await createBackCover(
+        frontWidthPx,
+        frontHeightPx,
+        interiorImages,
+        frontCoverBuffer
+      );
+    }
     
     // Create a blank canvas for the full cover
     const fullCover = sharp({

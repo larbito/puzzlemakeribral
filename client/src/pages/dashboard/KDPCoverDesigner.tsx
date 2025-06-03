@@ -3048,6 +3048,7 @@ const KDPCoverDesigner: React.FC = () => {
                       
                       const requestBody = {
                         frontCoverUrl: frontCoverUrl,
+                        backCoverUrl: backCoverUrl, // Add the back cover URL
                         trimSize: state.bookSettings.bookSize,
                         paperType: state.bookSettings.paperType,
                         pageCount: state.bookSettings.pageCount,
