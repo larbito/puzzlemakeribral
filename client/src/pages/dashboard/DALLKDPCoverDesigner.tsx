@@ -53,7 +53,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/config';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 // Define the main types we'll use
@@ -217,6 +217,49 @@ const DALLKDPCoverDesigner: React.FC = () => {
     generateSmartPrompt: false
   });
 
+  // Function to extract colors from front and back covers for spine
+  const extractColorsFromCovers = async () => {
+    if (!state.frontCoverImage) {
+      console.log('No front cover image available for color extraction');
+      return;
+    }
+
+    try {
+      console.log('🎨 Extracting colors from covers for spine selection...');
+      
+      const requestBody = {
+        frontCoverUrl: state.frontCoverImage,
+        ...(state.backCoverImage && { backCoverUrl: state.backCoverImage })
+      };
+      
+      const response = await fetch(`${getApiUrl()}/api/book-cover/extract-colors`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setState(prev => ({
+          ...prev,
+          extractedColors: data.colors || []
+        }));
+        console.log('✅ Colors extracted:', data.colors?.length || 0);
+      }
+    } catch (error) {
+      console.error('❌ Error extracting colors:', error);
+    }
+  };
+
+  // Auto-trigger color extraction when spine step is reached
+  useEffect(() => {
+    if (state.activeStep === 'spine' && state.extractedColors.length === 0) {
+      extractColorsFromCovers();
+    }
+  }, [state.activeStep]);
+
   // Calculate spine width based on page count and paper type
   useEffect(() => {
     const { pageCount, paperType } = state.bookSettings;
@@ -264,86 +307,799 @@ const DALLKDPCoverDesigner: React.FC = () => {
     console.log(`Book dimensions set to: ${width}x${height} inches`);
   }, [state.bookSettings.bookSize, state.bookSettings.includeBleed]);
 
-  // Function to complete a step and advance to the next one
-  const completeStep = (step: Step, nextStep: Step) => {
-    setState(prev => ({
-      ...prev,
-      steps: {
-        ...prev.steps,
-        [step]: true
-      },
-      activeStep: nextStep
-    }));
-    toast.success(`${step.charAt(0).toUpperCase() + step.slice(1)} completed!`);
-  };
-
-  // Function to navigate to a previously completed step
-  const goToStep = (step: Step) => {
-    if (state.steps[step as Step] || step === 'settings') {
-      setState(prev => ({
-        ...prev,
-        activeStep: step
-      }));
-    } else {
-      toast.error('Please complete the previous step first');
-    }
-  };
-
-  // DALL·E specific front cover generation function
-  const generateDALLEFrontCover = async () => {
-    setIsLoading({...isLoading, generateFrontCover: true});
+  // DALL·E specific back cover generation function
+  const generateDALLEBackCover = async () => {
+    setIsLoading({...isLoading, generateBackCover: true});
     
     try {
-      console.log('🎨 Generating front cover with DALL·E...');
+      console.log('🎨 Generating back cover with DALL·E...');
       
-      const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
-      const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
+      const requestBody = {
+        frontCoverPrompt: state.frontCoverPrompt,
+        includeBackText: state.includeBackText,
+        backCustomText: state.backCustomText,
+        includeInteriorImages: state.includeInteriorImages,
+        interiorImages: state.interiorImages.filter(img => img),
+        generatedBackPrompt: state.generatedBackPrompt,
+        size: '1024x1024',
+        quality: 'hd',
+        style: 'vivid'
+      };
       
-      // Enhanced prompt for DALL·E
-      const dallePrompt = `${state.frontCoverPrompt}. ${stylePrompt}. Professional book cover design, flat 2D layout, no 3D effects, clean typography placement, print-ready design, ${state.bookSettings.bookSize} aspect ratio`;
-      
-      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-cover`, {
+      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-back`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          prompt: dallePrompt,
-          size: '1024x1024', // DALL·E 3 default size
-          quality: 'hd',
-          style: 'vivid',
-          bookSize: state.bookSettings.bookSize
-        })
+        body: JSON.stringify(requestBody)
       });
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate cover with DALL·E');
+        throw new Error(errorData.error || 'Failed to generate back cover with DALL·E');
       }
       
       const data = await response.json();
       
       setState(prev => ({
         ...prev,
-        frontCoverImage: data.url,
+        backCoverImage: data.url,
         steps: {
           ...prev.steps,
-          frontCover: true
+          backCover: true
         }
       }));
       
-      toast.success("Front cover generated with DALL·E!");
+      toast.success("Back cover generated with DALL·E!");
       
     } catch (error) {
-      console.error('DALL·E cover generation error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to generate cover with DALL·E');
+      console.error('DALL·E back cover generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate back cover with DALL·E');
     } finally {
-      setIsLoading({...isLoading, generateFrontCover: false});
+      setIsLoading({...isLoading, generateBackCover: false});
     }
   };
 
-  // Add the rest of the component here - this is just the beginning
-  // I'll continue with the remaining functions and JSX...
+  // Generate back cover prompt preview function
+  const generateBackPromptPreview = async () => {
+    setIsLoading({...isLoading, generateSmartPrompt: true});
+    
+    try {
+      console.log('🧠 Generating back cover prompt preview...');
+      
+      const requestBody = {
+        frontPrompt: state.frontCoverPrompt,
+        includeBackText: state.includeBackText,
+        backCustomText: state.backCustomText,
+        includeInteriorImages: state.includeInteriorImages,
+        interiorImagesCount: state.interiorImages.filter(img => img).length
+      };
+      
+      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back-prompt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate prompt preview');
+      }
+      
+      const data = await response.json();
+      
+      setState(prev => ({
+        ...prev,
+        generatedBackPrompt: data.enhancedPrompt
+      }));
+      
+      toast.success("Prompt generated! You can edit it before creating the image.");
+      
+    } catch (error) {
+      console.error('Prompt generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate prompt preview');
+    } finally {
+      setIsLoading({...isLoading, generateSmartPrompt: false});
+    }
+  };
+
+  // Generate full cover function
+  const generateFullCover = async () => {
+    setIsLoading({...isLoading, assembleCover: true});
+    
+    try {
+      console.log('🎨 Generating full wrap cover...');
+      
+      if (!state.frontCoverImage) {
+        throw new Error('Front cover is required');
+      }
+      
+      const requestBody = {
+        frontCoverUrl: state.frontCoverImage,
+        backCoverUrl: state.backCoverImage,
+        trimSize: state.bookSettings.bookSize,
+        paperType: state.bookSettings.paperType,
+        pageCount: state.bookSettings.pageCount,
+        spineColor: state.spineColor,
+        spineText: state.spineText,
+        addSpineText: !!state.spineText,
+        interiorImages: state.interiorImages.filter(img => img)
+      };
+      
+      const response = await fetch(`${getApiUrl()}/api/book-cover/generate-full-wrap`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate full cover');
+      }
+      
+      const data = await response.json();
+      
+      setState(prev => ({
+        ...prev,
+        fullCoverImage: data.url,
+        steps: {
+          ...prev.steps,
+          preview: true
+        }
+      }));
+      
+      toast.success("Full wrap cover generated successfully!");
+      
+    } catch (error) {
+      console.error('Full cover generation error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to generate full wrap cover');
+    } finally {
+      setIsLoading({...isLoading, assembleCover: false});
+    }
+  };
+
+  // Download function for covers
+  const downloadCoverWithExactDimensions = async (imageUrl: string, filename: string) => {
+    try {
+      // For data URLs, create download directly
+      if (imageUrl.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = imageUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      
+      // For regular URLs, fetch and download
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download image');
+    }
+  };
+
+  // Main render method
+  const renderStep = () => {
+    switch (state.activeStep) {
+      case 'settings':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Settings className="h-6 w-6" />
+                Book Settings
+              </CardTitle>
+              <CardDescription>Configure your book specifications for KDP publishing</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label>Book Size (Trim Size)</Label>
+                  <Select 
+                    value={state.bookSettings.bookSize} 
+                    onValueChange={(value) => setState(prev => ({
+                      ...prev,
+                      bookSettings: { ...prev.bookSettings, bookSize: value }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KDP_TRIM_SIZES.map(size => (
+                        <SelectItem key={size.value} value={size.value}>
+                          {size.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Paper Type</Label>
+                  <Select 
+                    value={state.bookSettings.paperType} 
+                    onValueChange={(value: 'white' | 'cream' | 'color') => setState(prev => ({
+                      ...prev,
+                      bookSettings: { ...prev.bookSettings, paperType: value }
+                    }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAPER_TYPES.map(type => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Page Count: {state.bookSettings.pageCount}</Label>
+                  <Slider
+                    value={[state.bookSettings.pageCount]}
+                    onValueChange={(value) => setState(prev => ({
+                      ...prev,
+                      bookSettings: { ...prev.bookSettings, pageCount: value[0] }
+                    }))}
+                    max={999}
+                    min={24}
+                    step={1}
+                    className="w-full"
+                  />
+                  <div className="text-xs text-zinc-400">
+                    Spine width: {(state.bookSettings.pageCount * 0.002252).toFixed(3)}"
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="includeBleed"
+                      checked={state.bookSettings.includeBleed}
+                      onCheckedChange={(checked) => setState(prev => ({
+                        ...prev,
+                        bookSettings: { ...prev.bookSettings, includeBleed: checked }
+                      }))}
+                    />
+                    <Label htmlFor="includeBleed">Include Bleed (0.125")</Label>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="includeISBN"
+                      checked={state.bookSettings.includeISBN}
+                      onCheckedChange={(checked) => setState(prev => ({
+                        ...prev,
+                        bookSettings: { ...prev.bookSettings, includeISBN: checked }
+                      }))}
+                    />
+                    <Label htmlFor="includeISBN">Reserve space for ISBN</Label>
+                  </div>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={() => completeStep('settings', 'frontCover')}
+                className="w-full bg-purple-600 hover:bg-purple-500"
+              >
+                Continue to Front Cover
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        );
+        
+      case 'frontCover':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Sparkles className="h-6 w-6" />
+                Front Cover Design (DALL·E)
+              </CardTitle>
+              <CardDescription>Create your front cover using DALL·E 3 AI generation</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Cover Style</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {COVER_STYLES.slice(0, 8).map((style) => (
+                      <Button
+                        key={style.id}
+                        variant={state.selectedStyle === style.id ? "default" : "outline"}
+                        className={`h-16 p-3 ${state.selectedStyle === style.id ? 'bg-purple-600' : ''}`}
+                        onClick={() => setState(prev => ({ ...prev, selectedStyle: style.id }))}
+                      >
+                        <div className="text-center">
+                          <div className="text-lg mb-1">{style.emoji}</div>
+                          <div className="text-xs">{style.name}</div>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Cover Description</Label>
+                  <Textarea
+                    placeholder="Describe your book cover... (e.g., 'A mystical fantasy cover with a dragon silhouette against a starry sky, title in elegant golden letters')"
+                    value={state.frontCoverPrompt}
+                    onChange={(e) => setState(prev => ({ ...prev, frontCoverPrompt: e.target.value }))}
+                    rows={4}
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={generateDALLEFrontCover}
+                    disabled={!state.frontCoverPrompt.trim() || isLoading.generateFrontCover}
+                    className="bg-purple-600 hover:bg-purple-500 flex-1"
+                  >
+                    {isLoading.generateFrontCover ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating with DALL·E...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Generate Cover
+                      </>
+                    )}
+                  </Button>
+                  
+                  {state.frontCoverImage && (
+                    <Button 
+                      onClick={generateDALLEFrontCover}
+                      variant="outline"
+                      disabled={isLoading.generateFrontCover}
+                    >
+                      <RefreshCcw className="mr-2 h-4 w-4" />
+                      Regenerate
+                    </Button>
+                  )}
+                </div>
+                
+                {state.frontCoverImage && (
+                  <div className="space-y-4">
+                    <div className="relative bg-zinc-800 rounded-lg p-4">
+                      <img 
+                        src={state.frontCoverImage} 
+                        alt="Generated front cover"
+                        className="w-full max-w-sm mx-auto rounded-lg shadow-lg"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={() => completeStep('frontCover', 'backCover')}
+                      className="w-full bg-purple-600 hover:bg-purple-500"
+                    >
+                      Continue to Back Cover
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+        
+      case 'backCover':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <FileText className="h-6 w-6" />
+                Back Cover Design (DALL·E)
+              </CardTitle>
+              <CardDescription>Design your back cover with custom content</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="includeBackText"
+                    checked={state.includeBackText}
+                    onCheckedChange={(checked) => setState(prev => ({ ...prev, includeBackText: checked }))}
+                  />
+                  <Label htmlFor="includeBackText">Add Custom Text</Label>
+                </div>
+                
+                {state.includeBackText && (
+                  <div className="space-y-2">
+                    <Label>Back Cover Text</Label>
+                    <Textarea
+                      placeholder="Enter your back cover text (book description, reviews, author bio, etc.)"
+                      value={state.backCustomText}
+                      onChange={(e) => setState(prev => ({ ...prev, backCustomText: e.target.value }))}
+                      rows={6}
+                      className="bg-zinc-800 border-zinc-700"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="includeInteriorImages"
+                    checked={state.includeInteriorImages}
+                    onCheckedChange={(checked) => setState(prev => ({ ...prev, includeInteriorImages: checked }))}
+                  />
+                  <Label htmlFor="includeInteriorImages">Add Interior Images</Label>
+                </div>
+                
+                {state.includeInteriorImages && (
+                  <div className="space-y-2">
+                    <Label>Interior Images (up to 4)</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      {[0, 1, 2, 3].map((index) => (
+                        <div key={index} className="space-y-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                  const newImages = [...state.interiorImages];
+                                  newImages[index] = e.target?.result as string;
+                                  setState(prev => ({ ...prev, interiorImages: newImages }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="bg-zinc-800 border-zinc-700"
+                          />
+                          {state.interiorImages[index] && (
+                            <img 
+                              src={state.interiorImages[index]} 
+                              alt={`Interior ${index + 1}`}
+                              className="w-full h-20 object-cover rounded"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {(state.includeBackText || state.includeInteriorImages) && (
+                  <>
+                    <Button 
+                      onClick={generateBackPromptPreview}
+                      disabled={isLoading.generateSmartPrompt}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {isLoading.generateSmartPrompt ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Prompt...
+                        </>
+                      ) : (
+                        <>
+                          <Brain className="mr-2 h-4 w-4" />
+                          Generate Prompt
+                        </>
+                      )}
+                    </Button>
+                    
+                    {state.generatedBackPrompt && (
+                      <div className="space-y-2">
+                        <Label>Generated Prompt (editable)</Label>
+                        <Textarea
+                          value={state.generatedBackPrompt}
+                          onChange={(e) => setState(prev => ({ ...prev, generatedBackPrompt: e.target.value }))}
+                          rows={4}
+                          className="bg-zinc-800 border-zinc-700"
+                        />
+                      </div>
+                    )}
+                    
+                    <Button 
+                      onClick={generateDALLEBackCover}
+                      disabled={isLoading.generateBackCover || !state.generatedBackPrompt}
+                      className="w-full bg-purple-600 hover:bg-purple-500"
+                    >
+                      {isLoading.generateBackCover ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating with DALL·E...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Generate Back Cover
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+                
+                {state.backCoverImage && (
+                  <div className="space-y-4">
+                    <div className="relative bg-zinc-800 rounded-lg p-4">
+                      <img 
+                        src={state.backCoverImage} 
+                        alt="Generated back cover"
+                        className="w-full max-w-sm mx-auto rounded-lg shadow-lg"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={() => completeStep('backCover', 'spine')}
+                      className="w-full bg-purple-600 hover:bg-purple-500"
+                    >
+                      Continue to Spine Design
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+        
+      case 'spine':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Ruler className="h-6 w-6" />
+                Spine Design
+              </CardTitle>
+              <CardDescription>Design the spine of your book</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Spine Text (optional)</Label>
+                  <Input
+                    placeholder="Book title and author name"
+                    value={state.spineText}
+                    onChange={(e) => setState(prev => ({ ...prev, spineText: e.target.value }))}
+                    className="bg-zinc-800 border-zinc-700"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Spine Color</Label>
+                  {state.extractedColors.length > 0 ? (
+                    <>
+                      <p className="text-xs text-emerald-400 mb-2">
+                        🎨 Colors extracted from your front and back covers:
+                      </p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {state.extractedColors.map((color, index) => (
+                          <div
+                            key={color}
+                            className={`w-full aspect-square rounded-md cursor-pointer transition-all hover:scale-105 ${
+                              state.spineColor === color ? 'ring-2 ring-purple-400 ring-offset-2 ring-offset-zinc-900' : ''
+                            }`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => setState(prev => ({ ...prev, spineColor: color }))}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-zinc-400">
+                      🔄 Extracting colors from your covers...
+                    </div>
+                  )}
+                </div>
+                
+                <Button 
+                  onClick={() => {
+                    setState(prev => ({
+                      ...prev,
+                      steps: {
+                        ...prev.steps,
+                        spine: true
+                      }
+                    }));
+                    toast.success("Spine design saved successfully!");
+                  }}
+                  className="w-full bg-purple-600 hover:bg-purple-500"
+                >
+                  Continue to Preview
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+        
+      case 'preview':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Eye className="h-6 w-6" />
+                Preview & Generate Full Cover
+              </CardTitle>
+              <CardDescription>Review your covers and generate the final wrap</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {state.frontCoverImage && (
+                  <div className="space-y-2">
+                    <Label>Front Cover</Label>
+                    <img 
+                      src={state.frontCoverImage} 
+                      alt="Front cover"
+                      className="w-full rounded-lg shadow-lg"
+                    />
+                  </div>
+                )}
+                
+                {state.backCoverImage && (
+                  <div className="space-y-2">
+                    <Label>Back Cover</Label>
+                    <img 
+                      src={state.backCoverImage} 
+                      alt="Back cover"
+                      className="w-full rounded-lg shadow-lg"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <Button 
+                onClick={generateFullCover}
+                disabled={isLoading.assembleCover || !state.frontCoverImage}
+                className="w-full bg-purple-600 hover:bg-purple-500"
+              >
+                {isLoading.assembleCover ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating Full Cover...
+                  </>
+                ) : (
+                  <>
+                    <Maximize className="mr-2 h-4 w-4" />
+                    Generate Full Wrap Cover
+                  </>
+                )}
+              </Button>
+              
+              {state.fullCoverImage && (
+                <div className="space-y-4">
+                  <div className="bg-zinc-800 rounded-lg p-4">
+                    <img 
+                      src={state.fullCoverImage} 
+                      alt="Full wrap cover"
+                      className="w-full rounded-lg shadow-lg"
+                    />
+                  </div>
+                  
+                  <Button 
+                    onClick={() => completeStep('preview', 'export')}
+                    className="w-full bg-purple-600 hover:bg-purple-500"
+                  >
+                    Continue to Export
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+        
+      case 'export':
+        return (
+          <Card className="bg-zinc-900/80 border-zinc-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-400">
+                <Download className="h-6 w-6" />
+                Export Your Covers
+              </CardTitle>
+              <CardDescription>Download your DALL·E generated covers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {state.frontCoverImage && (
+                  <Button 
+                    onClick={() => downloadCoverWithExactDimensions(
+                      state.frontCoverImage!, 
+                      `dalle-front-cover-${Date.now()}.png`
+                    )}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Front Cover
+                  </Button>
+                )}
+                
+                {state.backCoverImage && (
+                  <Button 
+                    onClick={() => downloadCoverWithExactDimensions(
+                      state.backCoverImage!, 
+                      `dalle-back-cover-${Date.now()}.png`
+                    )}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Back Cover
+                  </Button>
+                )}
+                
+                {state.fullCoverImage && (
+                  <Button 
+                    onClick={() => downloadCoverWithExactDimensions(
+                      state.fullCoverImage!, 
+                      `dalle-full-cover-${Date.now()}.png`
+                    )}
+                    className="w-full bg-purple-600 hover:bg-purple-500"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Full Cover
+                  </Button>
+                )}
+              </div>
+              
+              {state.fullCoverImage && (
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <img 
+                    src={state.fullCoverImage} 
+                    alt="Final full cover"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+              )}
+              
+              <div className="text-center">
+                <Button 
+                  onClick={() => {
+                    setState(prev => ({
+                      ...prev,
+                      steps: {
+                        ...prev.steps,
+                        export: true
+                      }
+                    }));
+                    toast.success("Project completed! Your DALL·E covers are ready for KDP.");
+                  }}
+                  className="bg-green-600 hover:bg-green-500"
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Project Complete
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+        
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -416,21 +1172,36 @@ const DALLKDPCoverDesigner: React.FC = () => {
         Create professional, print-ready covers for Kindle Direct Publishing using OpenAI's DALL·E technology.
       </p>
       
-      {/* Coming soon placeholder - we'll implement the full component */}
+      {/* Simple Getting Started Interface */}
       <div className="bg-zinc-900/80 rounded-lg shadow-lg p-6 border border-zinc-800">
         <div className="text-center py-12">
           <Sparkles className="h-16 w-16 mx-auto mb-4 text-purple-400" />
-          <h2 className="text-2xl font-semibold text-white mb-4">DALL·E Integration Coming Soon</h2>
+          <h2 className="text-2xl font-semibold text-white mb-4">Ready to Create with DALL·E!</h2>
           <p className="text-zinc-400 mb-6">
-            We're building the DALL·E version of the KDP Cover Designer with all the same features.
+            The DALL·E KDP Cover Designer is ready to use. We're implementing the step-by-step interface.
           </p>
-          <div className="space-y-2 text-sm text-zinc-500">
-            <p>✅ Same KDP-compliant workflow</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-md mx-auto">
+            <Button className="bg-purple-600 hover:bg-purple-500">
+              <BookOpen className="mr-2 h-4 w-4" />
+              Start Front Cover
+            </Button>
+            <Button variant="outline" className="border-purple-600 text-purple-400 hover:bg-purple-600/10">
+              <Settings className="mr-2 h-4 w-4" />
+              Configure Settings
+            </Button>
+          </div>
+          <div className="mt-8 space-y-2 text-sm text-zinc-500">
+            <p>✅ DALL·E 3 integration active</p>
+            <p>✅ Same workflow as Ideogram version</p>
             <p>✅ Intelligent spine color extraction</p>
             <p>✅ Full wrap cover generation</p>
-            <p>✅ DALL·E 3 image generation</p>
           </div>
         </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-4xl mx-auto">
+        {renderStep()}
       </div>
     </div>
   );
