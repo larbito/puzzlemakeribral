@@ -61,6 +61,14 @@ const quickActions = [
     href: '/dashboard/dall-kdp-covers'
   },
   {
+    title: 'Book Cover Wizard',
+    description: 'Step-by-step book cover creation workflow',
+    icon: BookOpen,
+    color: 'from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30',
+    iconColor: 'text-blue-500',
+    href: '/dashboard/book-cover-wizard'
+  },
+  {
     title: 'Puzzle Book Generator',
     description: 'Generate puzzle books for publishing',
     icon: Puzzle,

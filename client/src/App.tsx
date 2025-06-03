@@ -25,6 +25,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import Vectorizer from '@/pages/generators/Vectorizer';
 import KDPCoverDesigner from '@/pages/dashboard/KDPCoverDesigner';
 import DALLKDPCoverDesigner from '@/pages/dashboard/DALLKDPCoverDesigner';
+import BookCoverWizard from '@/pages/dashboard/BookCoverWizard';
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeDebug } from '@/pages/dashboard/puzzles/ThemeDebug';
 import { AIBookGenerator } from '@/pages/dashboard/AIBookGenerator';
@@ -78,6 +79,7 @@ function App() {
                       <Route path="vectorizer" element={<Vectorizer />} />
                       <Route path="kdp-covers" element={<KDPCoverDesigner />} />
                       <Route path="dall-kdp-covers" element={<DALLKDPCoverDesigner />} />
+                      <Route path="book-cover-wizard" element={<BookCoverWizard />} />
                       <Route path="*" element={<Navigate to="/dashboard" replace />} />
                     </Routes>
                   </DashboardLayout>
