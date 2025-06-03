@@ -2893,11 +2893,7 @@ const KDPCoverDesigner: React.FC = () => {
                 
                 <Button 
                   onClick={() => {
-                    if (!state.spineText && state.bookSettings.dimensions.spineWidth >= 0.25) {
-                      toast.error("Please add spine text for books with spine width over 0.25 inches");
-                      return;
-                    }
-                    
+                    // Remove the spine text requirement - make it truly optional
                     setState(prev => ({
                       ...prev,
                       steps: {
@@ -3432,7 +3428,17 @@ const KDPCoverDesigner: React.FC = () => {
                   <Button 
                     className="px-8 bg-emerald-600 hover:bg-emerald-500"
                     onClick={() => {
-                      toast.success("Cover downloaded successfully!");
+                      if (!state.fullCoverImage) {
+                        toast.error("Please generate the full cover first");
+                        return;
+                      }
+                      
+                      // Download the full cover as PDF-ready PNG
+                      downloadCoverWithExactDimensions(
+                        state.fullCoverImage, 
+                        `full-wrap-cover-${state.bookSettings.bookSize}-${Date.now()}.png`
+                      );
+                      
                       setState(prev => ({
                         ...prev,
                         steps: {
@@ -3441,6 +3447,7 @@ const KDPCoverDesigner: React.FC = () => {
                         }
                       }));
                     }}
+                    disabled={!state.fullCoverImage}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Download Full Cover PDF
