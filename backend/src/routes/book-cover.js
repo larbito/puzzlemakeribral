@@ -286,13 +286,22 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
     console.log('🧠 Generating visual prompt with GPT-4...');
     
     // Build dynamic prompt based on user selections
-    let userContentDescription_built = '';
+    let userContentDesc = '';
+    
     if (includeBackText && backCustomText.trim()) {
-      userContentDescription_built += `Include this exact text on the image: "${backCustomText.trim()}"`;
+      userContentDesc = `Design a layout in the same style as the front cover. Keep an elegant section for this text: "${backCustomText.trim()}".`;
     }
+    
     if (includeInteriorImages && interiorImagesCount > 0) {
-      if (userContentDescription_built) userContentDescription_built += '\n';
-      userContentDescription_built += `Interior images: ${interiorImagesCount} image(s) will be positioned in the design - leave appropriate spaces for these image placements.`;
+      if (userContentDesc) {
+        userContentDesc += ` Also leave space for displaying ${interiorImagesCount} interior preview images.`;
+      } else {
+        userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImagesCount} interior preview images.`;
+      }
+    }
+    
+    if (!userContentDesc) {
+      userContentDesc = 'Create a pure visual design matching the front cover style.';
     }
     
     const gpt4Messages = [
@@ -310,20 +319,19 @@ IMPORTANT GUIDELINES:
       },
       {
         "role": "user", 
-        "content": `Create a visual design prompt that matches this front cover style:
+        "content": `Create a visual design that matches this front cover style:
 
 FRONT COVER DESIGN: "${frontPrompt}"
 
-USER CONTENT REQUIREMENTS:
-${userContentDescription_built || userContentDescription || 'No specific content requirements - create a pure visual design.'}
+REQUIREMENTS:
+${userContentDesc}
 
-Generate a visual prompt that:
+Generate a design prompt that:
 1. Uses the SAME artistic style, colors, and background as the front design
-2. Creates a complementary visual that looks like it belongs to the same artistic piece
-3. ${includeBackText ? `Includes this exact text integrated into the design: "${backCustomText.trim()}"` : ''}
-4. ${includeInteriorImages ? 'Leaves appropriate rectangular spaces where interior images can be placed' : ''}
-5. Maintains visual consistency and professional appearance
-6. ${includeBackText ? 'Ensures the text is clearly readable and well-positioned in the design' : ''}
+2. Creates a complementary visual that belongs to the same artistic piece
+${includeBackText ? `3. Includes this exact text in an elegant, readable layout: "${backCustomText.trim()}"` : ''}
+${includeInteriorImages ? `3. Leaves designated space for displaying ${interiorImages.length} interior preview images` : ''}
+${includeBackText && includeInteriorImages ? `4. Balances both text content and image spaces harmoniously` : ''}
 
 Return only the visual generation prompt, nothing else.`
       }
@@ -429,13 +437,22 @@ router.post('/generate-back', upload.none(), async (req, res) => {
     
     if (!enhancedPrompt) {
       // Build dynamic prompt based on user selections
-      let userContentDescription = '';
+      let userContentDesc = '';
+      
       if (includeBackText && backCustomText.trim()) {
-        userContentDescription += `Include this exact text on the image: "${backCustomText.trim()}"`;
+        userContentDesc = `Design a layout in the same style as the front cover. Keep an elegant section for this text: "${backCustomText.trim()}".`;
       }
+      
       if (includeInteriorImages && interiorImages.length > 0) {
-        if (userContentDescription) userContentDescription += '\n';
-        userContentDescription += `Interior images: ${interiorImages.length} image(s) will be positioned in the design - leave appropriate spaces for these image placements.`;
+        if (userContentDesc) {
+          userContentDesc += ` Also leave space for displaying ${interiorImages.length} interior preview images.`;
+        } else {
+          userContentDesc = `Create a design layout matching the front cover style. Leave space for displaying ${interiorImages.length} interior preview images.`;
+        }
+      }
+      
+      if (!userContentDesc) {
+        userContentDesc = 'Create a pure visual design matching the front cover style.';
       }
       
       const gpt4Messages = [
@@ -453,20 +470,19 @@ IMPORTANT GUIDELINES:
         },
         {
           "role": "user", 
-          "content": `Create a visual design prompt that matches this front cover style:
+          "content": `Create a visual design that matches this front cover style:
 
 FRONT COVER DESIGN: "${frontCoverPrompt}"
 
-USER CONTENT REQUIREMENTS:
-${userContentDescription || 'No specific content requirements - create a pure visual design.'}
+REQUIREMENTS:
+${userContentDesc}
 
-Generate a visual prompt that:
+Generate a design prompt that:
 1. Uses the SAME artistic style, colors, and background as the front design
-2. Creates a complementary visual that looks like it belongs to the same artistic piece
-3. ${includeBackText ? `Includes this exact text integrated into the design: "${backCustomText.trim()}"` : ''}
-4. ${includeInteriorImages ? 'Leaves appropriate rectangular spaces where interior images can be placed' : ''}
-5. Maintains visual consistency and professional appearance
-6. ${includeBackText ? 'Ensures the text is clearly readable and well-positioned in the design' : ''}
+2. Creates a complementary visual that belongs to the same artistic piece
+${includeBackText ? `3. Includes this exact text in an elegant, readable layout: "${backCustomText.trim()}"` : ''}
+${includeInteriorImages ? `3. Leaves designated space for displaying ${interiorImages.length} interior preview images` : ''}
+${includeBackText && includeInteriorImages ? `4. Balances both text content and image spaces harmoniously` : ''}
 
 Return only the visual generation prompt, nothing else.`
         }
