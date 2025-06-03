@@ -105,6 +105,7 @@ interface CoverDesignerState {
   backCustomText: string; // User's custom text for back cover
   includeInteriorImages: boolean; // Toggle for adding interior images
   generatedBackPrompt: string; // The GPT-4 generated prompt for back cover
+  extractedColors: string[]; // Colors extracted from front/back covers for spine
 }
 
 // KDP supported trim sizes
@@ -203,6 +204,7 @@ const KDPCoverDesigner: React.FC = () => {
     backCustomText: '', // User's custom text for back cover
     includeInteriorImages: false, // Toggle for adding interior images
     generatedBackPrompt: '', // The GPT-4 generated prompt for back cover
+    extractedColors: [], // Colors extracted from front/back covers for spine
   });
 
   const [activeTab, setActiveTab] = useState<'styles' | 'measurements'>('styles');
@@ -290,6 +292,67 @@ const KDPCoverDesigner: React.FC = () => {
       toast.error('Please complete the previous step first');
     }
   };
+
+  // Function to extract colors from front and back covers for spine
+  const extractColorsFromCovers = async () => {
+    if (!state.frontCoverImage) {
+      console.log('No front cover image available for color extraction');
+      return;
+    }
+
+    try {
+      console.log('🎨 Extracting colors from covers for spine selection...');
+      
+      const requestBody = {
+        frontCoverUrl: state.frontCoverImage,
+        ...(state.backCoverImage && { backCoverUrl: state.backCoverImage })
+      };
+
+      const response = await fetch(`${getApiUrl()}/api/book-cover/extract-colors`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to extract colors: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.colors) {
+        setState(prev => ({
+          ...prev,
+          extractedColors: data.colors
+        }));
+        
+        console.log('✅ Extracted colors for spine:', data.colors);
+        toast.success(`Extracted ${data.colors.length} colors from your covers!`);
+      } else {
+        throw new Error('No colors extracted from response');
+      }
+    } catch (error) {
+      console.error('Error extracting colors:', error);
+      toast.error('Failed to extract colors from covers');
+      
+      // Fallback to default colors
+      setState(prev => ({
+        ...prev,
+        extractedColors: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#000000', '#FFFFFF', '#2C3E50', '#8B4513', '#6B7280']
+      }));
+    }
+  };
+
+  // Auto-extract colors when spine step is reached and covers are available
+  useEffect(() => {
+    if (state.activeStep === 'spine' && 
+        state.frontCoverImage && 
+        state.extractedColors.length === 0) {
+      extractColorsFromCovers();
+    }
+  }, [state.activeStep, state.frontCoverImage, state.backCoverImage]);
 
   // Function to calculate dimensions
   const calculateDimensions = () => {
@@ -2746,41 +2809,85 @@ const KDPCoverDesigner: React.FC = () => {
                   </Select>
                 </div>
                 
-                <div className="space-y-2 mt-4" style={{display: "none"}}>
+                <div className="space-y-2 mt-4">
                   <Label>Spine Color</Label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#000000'].map((color) => (
-                      <div
-                        key={color}
-                        className={`w-full aspect-square rounded-md cursor-pointer transition-all ${
-                          state.spineColor === color ? 'ring-2 ring-cyan-500 ring-offset-2' : ''
-                        }`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => 
+                  {state.extractedColors.length > 0 ? (
+                    <>
+                      <p className="text-xs text-emerald-400 mb-2">
+                        🎨 Colors extracted from your front and back covers:
+                      </p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {state.extractedColors.map((color, index) => (
+                          <div
+                            key={color}
+                            className={`w-full aspect-square rounded-md cursor-pointer transition-all hover:scale-105 ${
+                              state.spineColor === color ? 'ring-2 ring-cyan-400 ring-offset-2 ring-offset-zinc-900' : 'ring-1 ring-zinc-600'
+                            }`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => 
+                              setState(prev => ({
+                                ...prev,
+                                spineColor: color
+                              }))
+                            }
+                            title={`Color ${index + 1}: ${color}`}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-amber-400 mb-2">
+                        🔄 Extracting colors from your covers...
+                      </p>
+                      <div className="grid grid-cols-5 gap-2">
+                        {['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'].map((color) => (
+                          <div
+                            key={color}
+                            className={`w-full aspect-square rounded-md cursor-pointer transition-all animate-pulse ${
+                              state.spineColor === color ? 'ring-2 ring-cyan-500 ring-offset-2' : ''
+                            }`}
+                            style={{ backgroundColor: color }}
+                            onClick={() => 
+                              setState(prev => ({
+                                ...prev,
+                                spineColor: color
+                              }))
+                            }
+                          />
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="customColor" className="text-xs">Custom Color:</Label>
+                      <Input
+                        id="customColor"
+                        type="color"
+                        value={state.spineColor}
+                        onChange={(e) => 
                           setState(prev => ({
                             ...prev,
-                            spineColor: color
+                            spineColor: e.target.value
                           }))
                         }
+                        className="w-10 h-8 p-0 border-zinc-600"
                       />
-                    ))}
-                  </div>
-                  
-                  <div className="mt-2 flex items-center space-x-2">
-                    <Label htmlFor="customColor" className="text-xs">Custom Color:</Label>
-                    <Input
-                      id="customColor"
-                      type="color"
-                      value={state.spineColor}
-                      onChange={(e) => 
-                        setState(prev => ({
-                          ...prev,
-                          spineColor: e.target.value
-                        }))
-                      }
-                      className="w-10 h-8 p-0"
-                    />
-                    <span className="text-xs text-zinc-500">{state.spineColor}</span>
+                      <span className="text-xs text-zinc-400">{state.spineColor}</span>
+                    </div>
+                    
+                    {state.frontCoverImage && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={extractColorsFromCovers}
+                        className="border-zinc-600 hover:bg-zinc-800 text-xs"
+                      >
+                        🔄 Refresh Colors
+                      </Button>
+                    )}
                   </div>
                 </div>
                 

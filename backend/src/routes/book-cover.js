@@ -747,58 +747,174 @@ router.get('/download', async (req, res) => {
 });
 
 /**
- * Extract dominant colors from an image
+ * Extract dominant colors from images (enhanced for spine color selection)
  * POST /api/book-cover/extract-colors
  */
 router.post('/extract-colors', express.json(), async (req, res) => {
   try {
-    console.log('Received extract-colors request');
+    console.log('Received enhanced extract-colors request');
     
-    const { imageUrl } = req.body;
+    const { frontCoverUrl, backCoverUrl } = req.body;
     
-    if (!imageUrl) {
-      console.error('Missing required parameter: imageUrl');
-      return res.status(400).json({ error: 'Image URL is required' });
+    if (!frontCoverUrl) {
+      console.error('Missing required parameter: frontCoverUrl');
+      return res.status(400).json({ error: 'Front cover URL is required' });
     }
     
-    console.log('Fetching image from URL:', imageUrl);
-    
-    // Fetch the image
-    const imageResponse = await fetch(imageUrl);
-    if (!imageResponse.ok) {
-      throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+    const imageUrls = [frontCoverUrl];
+    if (backCoverUrl) {
+      imageUrls.push(backCoverUrl);
     }
     
-    const imageBuffer = await imageResponse.buffer();
+    console.log(`Extracting colors from ${imageUrls.length} image(s)`);
     
-    // Save the image temporarily
-    const tempImagePath = `/tmp/temp-image-${Date.now()}.jpg`;
-    await sharp(imageBuffer).jpeg().toFile(tempImagePath);
+    const allColors = [];
     
-    // Get the dominant colors (palette)
-    console.log('Extracting color palette');
-    const palette = await ColorThief.getPalette(tempImagePath, 6);
+    // Process each image
+    for (let i = 0; i < imageUrls.length; i++) {
+      const imageUrl = imageUrls[i];
+      const imageType = i === 0 ? 'front' : 'back';
+      
+      try {
+        console.log(`Fetching ${imageType} cover from:`, imageUrl.substring(0, 50) + '...');
+        
+        // Fetch the image
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          console.error(`Failed to fetch ${imageType} cover: ${imageResponse.statusText}`);
+          continue;
+        }
+        
+        const imageBuffer = await imageResponse.buffer();
+        
+        // Save the image temporarily
+        const tempImagePath = `/tmp/temp-${imageType}-image-${Date.now()}.jpg`;
+        await sharp(imageBuffer).jpeg().toFile(tempImagePath);
+        
+        // Get the dominant colors (extract more colors per image)
+        console.log(`Extracting color palette from ${imageType} cover`);
+        const palette = await ColorThief.getPalette(tempImagePath, 8); // 8 colors per image
+        
+        // Convert RGB arrays to hex colors and add metadata
+        const colors = palette.map(color => {
+          const [r, g, b] = color;
+          const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          
+          // Calculate luminance for color analysis
+          const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          
+          return {
+            hex,
+            rgb: { r, g, b },
+            luminance,
+            source: imageType,
+            // Calculate color temperature (warm vs cool)
+            temperature: r > b ? 'warm' : 'cool'
+          };
+        });
+        
+        allColors.push(...colors);
+        
+        // Clean up temp file
+        try {
+          require('fs').unlinkSync(tempImagePath);
+        } catch (err) {
+          console.warn('Could not delete temp file:', err.message);
+        }
+        
+      } catch (error) {
+        console.error(`Error processing ${imageType} cover:`, error);
+        // Continue with other images
+      }
+    }
     
-    // Convert RGB arrays to hex colors
-    const colors = palette.map(color => {
-      const [r, g, b] = color;
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    });
+    if (allColors.length === 0) {
+      return res.status(500).json({ 
+        error: 'Failed to extract colors from any images'
+      });
+    }
     
-    console.log('Extracted colors:', colors);
+    // Curate the best 10 colors for spine selection
+    const curatedColors = curateSpineColors(allColors);
+    
+    console.log(`Extracted and curated ${curatedColors.length} colors for spine selection`);
     
     res.json({
       status: 'success',
-      colors
+      colors: curatedColors.map(c => c.hex), // Return just hex values for UI
+      colorDetails: curatedColors, // Full color data for advanced use
+      totalExtracted: allColors.length,
+      sources: imageUrls.length === 2 ? ['front', 'back'] : ['front']
     });
+    
   } catch (error) {
     console.error('Error extracting colors:', error);
     res.status(500).json({ 
-      error: 'Failed to extract colors from image',
+      error: 'Failed to extract colors from images',
       details: error.message
     });
   }
 });
+
+/**
+ * Helper function to curate the best colors for spine selection
+ */
+function curateSpineColors(allColors) {
+  // Remove very similar colors and select diverse, readable options
+  const uniqueColors = [];
+  const seenColors = new Set();
+  
+  // Sort colors by luminance and diversity
+  const sortedColors = allColors.sort((a, b) => {
+    // Prefer colors with moderate luminance (better for text)
+    const aScore = Math.abs(a.luminance - 0.5) * -1 + Math.random() * 0.1;
+    const bScore = Math.abs(b.luminance - 0.5) * -1 + Math.random() * 0.1;
+    return bScore - aScore;
+  });
+  
+  for (const color of sortedColors) {
+    // Check if color is too similar to existing colors
+    let tooSimilar = false;
+    for (const existing of uniqueColors) {
+      const colorDistance = Math.sqrt(
+        Math.pow(color.rgb.r - existing.rgb.r, 2) +
+        Math.pow(color.rgb.g - existing.rgb.g, 2) +
+        Math.pow(color.rgb.b - existing.rgb.b, 2)
+      );
+      
+      if (colorDistance < 50) { // Threshold for similarity
+        tooSimilar = true;
+        break;
+      }
+    }
+    
+    if (!tooSimilar && !seenColors.has(color.hex)) {
+      uniqueColors.push(color);
+      seenColors.add(color.hex);
+      
+      if (uniqueColors.length >= 10) break;
+    }
+  }
+  
+  // If we don't have enough unique colors, add some standard spine-friendly colors
+  const fallbackColors = [
+    { hex: '#000000', rgb: { r: 0, g: 0, b: 0 }, luminance: 0, source: 'default', temperature: 'neutral' },
+    { hex: '#FFFFFF', rgb: { r: 255, g: 255, b: 255 }, luminance: 1, source: 'default', temperature: 'neutral' },
+    { hex: '#2C3E50', rgb: { r: 44, g: 62, b: 80 }, luminance: 0.2, source: 'default', temperature: 'cool' },
+    { hex: '#8B4513', rgb: { r: 139, g: 69, b: 19 }, luminance: 0.3, source: 'default', temperature: 'warm' }
+  ];
+  
+  for (const fallback of fallbackColors) {
+    if (uniqueColors.length >= 10) break;
+    
+    let exists = uniqueColors.some(c => c.hex === fallback.hex);
+    if (!exists) {
+      uniqueColors.push(fallback);
+    }
+  }
+  
+  return uniqueColors.slice(0, 10);
+}
 
 /**
  * Generate full wrap cover
