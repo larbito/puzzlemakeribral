@@ -332,6 +332,29 @@ const DALLKDPCoverDesigner: React.FC = () => {
     console.log(`Book dimensions set to: ${width}x${height} inches`);
   }, [state.bookSettings.bookSize, state.bookSettings.includeBleed]);
 
+  // Helper function to get the correct DALL·E size based on book dimensions
+  const getDALLESizeFromBookSize = (bookSize: string) => {
+    const [width, height] = bookSize.split('x').map(Number);
+    const ratio = width / height;
+    
+    // DALL·E 3 supports: 1024x1024 (1:1), 1024x1792 (9:16 portrait), 1792x1024 (16:9 landscape)
+    
+    let dalleSize: string;
+    if (ratio > 1.1) {
+      // Landscape orientation (width > height significantly)
+      dalleSize = '1792x1024';
+    } else if (ratio < 0.9) {
+      // Portrait orientation (height > width significantly)  
+      dalleSize = '1024x1792';
+    } else {
+      // Close to square
+      dalleSize = '1024x1024';
+    }
+    
+    console.log(`📐 Book size: ${bookSize} (ratio: ${ratio.toFixed(3)}) → DALL·E size: ${dalleSize}`);
+    return dalleSize;
+  };
+
   // Helper function to enhance user prompts for better DALL·E results
   const enhanceUserPrompt = (userPrompt: string) => {
     // Clean up the prompt without mentioning 2D/3D or covers
@@ -375,7 +398,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
         },
         body: JSON.stringify({
           prompt: dallePrompt,
-          size: '1024x1024', // DALL·E 3 default size
+          size: getDALLESizeFromBookSize(state.bookSettings.bookSize),
           quality: 'hd',
           style: 'vivid',
           bookSize: state.bookSettings.bookSize
@@ -422,7 +445,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
         includeInteriorImages: state.includeInteriorImages,
         interiorImages: state.interiorImages.filter(img => img),
         generatedBackPrompt: state.generatedBackPrompt,
-        size: '1024x1024',
+        size: getDALLESizeFromBookSize(state.bookSettings.bookSize),
         quality: 'hd',
         style: 'vivid'
       };
