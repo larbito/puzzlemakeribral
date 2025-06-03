@@ -100,6 +100,10 @@ interface CoverDesignerState {
   uploadedFile?: File;
   selectedStyle: string; // Book genre style
   showGuidelines: boolean; // Toggle for safety margins display
+  // New back cover options
+  includeBackText: boolean; // Toggle for adding custom text
+  backCustomText: string; // User's custom text for back cover
+  includeInteriorImages: boolean; // Toggle for adding interior images
 }
 
 // KDP supported trim sizes
@@ -192,7 +196,11 @@ const KDPCoverDesigner: React.FC = () => {
     spineFont: 'helvetica',
     fullCoverImage: null,
     selectedStyle: 'literary', // Default style
-    showGuidelines: false // Default to hiding guidelines
+    showGuidelines: false, // Default to hiding guidelines
+    // New back cover options
+    includeBackText: false, // Toggle for adding custom text
+    backCustomText: '', // User's custom text for back cover
+    includeInteriorImages: false, // Toggle for adding interior images
   });
 
   const [activeTab, setActiveTab] = useState<'styles' | 'measurements'>('styles');
@@ -2081,9 +2089,173 @@ const KDPCoverDesigner: React.FC = () => {
                   <div className="bg-zinc-800 rounded-lg border border-zinc-700 p-6">
                     <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
                       <Settings className="h-5 w-5 text-emerald-400" />
-                      Back Cover Generation
+                      Content Options
                     </h3>
                     
+                    {/* Content Selection Toggles */}
+                    <div className="space-y-6 mb-6">
+                      {/* Add Custom Text Toggle */}
+                      <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-600">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-900/50 flex items-center justify-center">
+                              <FileText className="h-4 w-4 text-blue-400" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-white">Add Custom Text</h4>
+                              <p className="text-xs text-zinc-400">Include your own text content in the design</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setState(prev => ({ 
+                              ...prev, 
+                              includeBackText: !prev.includeBackText,
+                              backCustomText: !prev.includeBackText ? prev.backCustomText : ''
+                            }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              state.includeBackText ? 'bg-emerald-600' : 'bg-zinc-600'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                state.includeBackText ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        
+                        {/* Custom Text Input */}
+                        {state.includeBackText && (
+                          <div className="space-y-2">
+                            <label className="block text-xs font-medium text-zinc-300">Your Text Content</label>
+                            <textarea
+                              value={state.backCustomText}
+                              onChange={(e) => setState(prev => ({ ...prev, backCustomText: e.target.value }))}
+                              placeholder="Enter your text here (e.g., book description, author bio, testimonials, quotes)..."
+                              className="w-full h-20 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
+                            />
+                            <p className="text-xs text-zinc-500">
+                              This text will be integrated into the visual design matching your front cover style.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Add Interior Images Toggle */}
+                      <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-600">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-purple-900/50 flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-purple-400" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-medium text-white">Add Interior Images</h4>
+                              <p className="text-xs text-zinc-400">Show preview images from your book's interior</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setState(prev => ({ 
+                              ...prev, 
+                              includeInteriorImages: !prev.includeInteriorImages,
+                              interiorImages: !prev.includeInteriorImages ? prev.interiorImages : ['', '', '', '']
+                            }))}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              state.includeInteriorImages ? 'bg-emerald-600' : 'bg-zinc-600'
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                state.includeInteriorImages ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        
+                        {/* Interior Images Upload */}
+                        {state.includeInteriorImages && (
+                          <div className="space-y-3">
+                            <p className="text-xs text-zinc-400">Upload up to 4 interior pages (PNG, JPG)</p>
+                            <div className="grid grid-cols-2 gap-3">
+                              {[1, 2, 3, 4].map((idx) => {
+                                const interiorImage = state.interiorImages[idx - 1];
+                                return (
+                                  <div 
+                                    key={idx}
+                                    className={`aspect-square border-2 border-dashed rounded-lg p-3 transition-all duration-200 cursor-pointer ${
+                                      interiorImage 
+                                        ? 'border-emerald-500 bg-emerald-950/20' 
+                                        : 'border-zinc-600 bg-zinc-800 hover:border-emerald-600 hover:bg-emerald-950/10'
+                                    }`}
+                                    onClick={() => {
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.accept = 'image/png,image/jpeg';
+                                      input.onchange = (e) => {
+                                        const file = (e.target as HTMLInputElement).files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onload = () => {
+                                            if (typeof reader.result === 'string') {
+                                              const newInteriorImages = [...state.interiorImages];
+                                              newInteriorImages[idx - 1] = reader.result;
+                                              setState(prev => ({
+                                                ...prev,
+                                                interiorImages: newInteriorImages
+                                              }));
+                                              toast.success(`Interior image ${idx} uploaded`);
+                                            }
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      };
+                                      input.click();
+                                    }}
+                                  >
+                                    {interiorImage ? (
+                                      <div className="relative w-full h-full group">
+                                        <img 
+                                          src={interiorImage} 
+                                          alt={`Interior Preview ${idx}`}
+                                          className="w-full h-full object-cover rounded"
+                                        />
+                                        <div 
+                                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const newInteriorImages = [...state.interiorImages];
+                                            newInteriorImages[idx - 1] = '';
+                                            setState(prev => ({
+                                              ...prev,
+                                              interiorImages: newInteriorImages
+                                            }));
+                                            toast.info(`Interior image ${idx} removed`);
+                                          }}
+                                        >
+                                          <Button size="sm" variant="destructive" className="text-xs">
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center justify-center h-full text-center">
+                                        <Plus className="h-6 w-6 text-zinc-400 mb-1" />
+                                        <span className="text-xs text-zinc-400 font-medium">Image {idx}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {state.interiorImages.filter(img => img).length > 0 && (
+                              <p className="text-xs text-emerald-400">
+                                {state.interiorImages.filter(img => img).length} image(s) will be positioned in the design
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
                     {/* Side-by-Side Preview */}
                     <div className="mb-6">
                       <h4 className="text-sm font-medium text-zinc-300 mb-4 flex items-center gap-2">
@@ -2129,98 +2301,13 @@ const KDPCoverDesigner: React.FC = () => {
                               <div className="w-full h-full flex items-center justify-center text-zinc-500">
                                 <div className="text-center">
                                   <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                  <p className="text-sm">Generate back cover to preview</p>
+                                  <p className="text-sm">Configure options and generate</p>
                                 </div>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Smart Prompt Generation */}
-                    {state.frontCoverPrompt && (
-                      <div className="mb-6 p-4 bg-blue-950/20 rounded-lg border border-blue-900/30">
-                        <h4 className="text-sm font-medium text-blue-300 mb-2 flex items-center gap-2">
-                          <Brain className="h-4 w-4" />
-                          AI-Powered Prompt Generation
-                        </h4>
-                        <p className="text-xs text-blue-400/80 mb-3">
-                          Let GPT-4 analyze your front cover and create a perfectly matching back cover prompt.
-                        </p>
-                        <button
-                          onClick={async () => {
-                            setIsLoading({...isLoading, generateSmartPrompt: true});
-                            toast.info('🧠 GPT-4 analyzing front cover...');
-                            
-                            try {
-                              const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back-prompt`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  frontPrompt: state.frontCoverPrompt,
-                                  userBackText: state.backCoverPrompt,
-                                  useInteriorImage: state.interiorImages.length > 0,
-                                  interiorImagesCount: state.interiorImages.filter(img => img).length,
-                                  trimSize: `${state.bookSettings.dimensions.width}x${state.bookSettings.dimensions.height}`
-                                })
-                              });
-                              
-                              const data = await response.json();
-                              
-                              if (data.status === 'success') {
-                                setState(prev => ({
-                                  ...prev,
-                                  backCoverPrompt: data.enhancedPrompt
-                                }));
-                                
-                                toast.success(`✨ Smart prompt generated using GPT-4!`);
-                                
-                                if (data.usage) {
-                                  console.log('GPT-4 Usage:', data.usage);
-                                }
-                              } else {
-                                toast.error('Failed to generate smart prompt');
-                              }
-                            } catch (error) {
-                              console.error('Smart prompt generation error:', error);
-                              toast.error('Error generating smart prompt');
-                            } finally {
-                              setIsLoading({...isLoading, generateSmartPrompt: false});
-                            }
-                          }}
-                          disabled={isLoading.generateSmartPrompt}
-                          className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white text-sm rounded transition-colors flex items-center justify-center gap-2"
-                        >
-                          {isLoading.generateSmartPrompt ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Analyzing with GPT-4...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="h-4 w-4" />
-                              Generate Smart Prompt
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Back Cover Content Input */}
-                    <div className="mb-6">
-                      <label className="block text-sm font-medium text-zinc-300 mb-2">
-                        Back Cover Description
-                      </label>
-                      <textarea
-                        value={state.backCoverPrompt}
-                        onChange={(e) => setState(prev => ({ ...prev, backCoverPrompt: e.target.value }))}
-                        placeholder="Describe what you want on your back cover (e.g., book description, author bio, testimonials, visual elements). This will be used to generate an AI back cover that complements your front cover."
-                        className="w-full h-24 px-3 py-2 bg-zinc-900 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none text-sm"
-                      />
-                      <p className="text-xs text-zinc-500 mt-1">
-                        The AI will create a back cover design based on your front cover style and this description.
-                      </p>
                     </div>
                     
                     {/* Generation Controls */}
@@ -2229,22 +2316,24 @@ const KDPCoverDesigner: React.FC = () => {
                         className="bg-emerald-600 hover:bg-emerald-500 flex-1 min-w-[200px]"
                         onClick={async () => {
                           setIsLoading({...isLoading, generateBackCover: true});
-                          toast.info('🎨 AI-generating back cover...');
+                          toast.info('🎨 Generating design...');
                           
                           try {
                             if (!state.frontCoverPrompt) {
-                              throw new Error('Front cover prompt is required for back cover generation');
+                              throw new Error('Front cover prompt is required for generation');
                             }
                             
                             const requestBody = {
                               frontCoverPrompt: state.frontCoverPrompt,
-                              backCoverPrompt: state.backCoverPrompt,
-                              interiorImages: state.interiorImages.filter(img => img),
+                              includeBackText: state.includeBackText,
+                              backCustomText: state.backCustomText,
+                              includeInteriorImages: state.includeInteriorImages,
+                              interiorImages: state.includeInteriorImages ? state.interiorImages.filter(img => img) : [],
                               width: Math.round(state.bookSettings.dimensions.width * 300), // Convert to pixels at 300 DPI
                               height: Math.round(state.bookSettings.dimensions.height * 300)
                             };
                             
-                            console.log('Sending AI back cover generation request:', requestBody);
+                            console.log('Sending design generation request:', requestBody);
                             
                             const response = await fetch(`${getApiUrl()}/api/book-cover/generate-back`, {
                               method: 'POST',
@@ -2256,7 +2345,7 @@ const KDPCoverDesigner: React.FC = () => {
                             
                             if (!response.ok) {
                               const errorData = await response.json();
-                              throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate back cover`);
+                              throw new Error(errorData.message || errorData.error || `HTTP ${response.status}: Failed to generate design`);
                             }
                             
                             const data = await response.json();
@@ -2275,25 +2364,25 @@ const KDPCoverDesigner: React.FC = () => {
                               }
                             }));
                             
-                            toast.success('🎨 AI-generated back cover created successfully!');
+                            toast.success('🎨 Design created successfully!');
                           } catch (error) {
-                            console.error('Error generating back cover:', error);
-                            toast.error(error instanceof Error ? error.message : 'Failed to generate back cover');
+                            console.error('Error generating design:', error);
+                            toast.error(error instanceof Error ? error.message : 'Failed to generate design');
                           } finally {
                             setIsLoading({...isLoading, generateBackCover: false});
                           }
                         }}
-                        disabled={isLoading.generateBackCover || !state.frontCoverPrompt}
+                        disabled={isLoading.generateBackCover || !state.frontCoverPrompt || (!state.includeBackText && !state.includeInteriorImages)}
                       >
                         {isLoading.generateBackCover ? (
                           <>
                             <Loader2 className="animate-spin mr-2 h-4 w-4" />
-                            AI Generating...
+                            Generating...
                           </>
                         ) : (
                           <>
                             <Palette className="mr-2 h-4 w-4" />
-                            {state.backCoverImage ? 'Regenerate AI Back Cover' : 'Generate AI Back Cover'}
+                            {state.backCoverImage ? 'Regenerate Design' : 'Generate Design'}
                           </>
                         )}
                       </Button>
