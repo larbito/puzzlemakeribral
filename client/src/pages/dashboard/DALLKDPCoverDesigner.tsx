@@ -389,7 +389,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
     }
     
     // Focus on pure visual description - make it about the scene/characters, not about making a cover
-    enhanced = `A magical scene featuring ${enhanced}. Enchanting illustration with beautiful colors and whimsical elements`;
+    enhanced = `A magical scene featuring ${enhanced}. Full canvas artwork, edge to edge illustration, no borders, fills entire space, enchanting colors and whimsical elements`;
     
     return enhanced;
   };
@@ -404,9 +404,9 @@ const DALLKDPCoverDesigner: React.FC = () => {
       const selectedStyleObj = COVER_STYLES.find(s => s.id === state.selectedStyle);
       const stylePrompt = selectedStyleObj ? selectedStyleObj.prompt : '';
       
-      // Enhanced user prompt + style + clean instructions  
+      // Enhanced user prompt + style + full canvas instructions  
       const enhancedUserPrompt = enhanceUserPrompt(state.frontCoverPrompt);
-      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Professional illustration, clean composition, vibrant colors, digital art style, well-balanced layout`;
+      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Full canvas illustration, edge to edge artwork, no borders, no padding, fills entire frame, complete composition, professional illustration, clean design, vibrant colors, digital art style`;
       
       console.log('🔍 Prompt transformation:');
       console.log('Original:', state.frontCoverPrompt);
