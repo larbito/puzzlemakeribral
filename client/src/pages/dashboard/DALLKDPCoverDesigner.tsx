@@ -340,15 +340,16 @@ const DALLKDPCoverDesigner: React.FC = () => {
       .replace(/create\s+a?\s+cover\s+(for\s+)?/gi, '')
       .replace(/make\s+a?\s+cover\s+(for\s+)?/gi, '')
       .replace(/design\s+a?\s+cover\s+(for\s+)?/gi, '')
+      .replace(/book\s+cover/gi, 'illustration')
       .trim();
     
     // If the prompt is very basic, make it more descriptive
     if (enhanced.length < 50) {
-      enhanced = `A beautiful book cover featuring ${enhanced.toLowerCase()}, professional illustration, engaging composition, vibrant colors, eye-catching design`;
+      enhanced = `${enhanced.toLowerCase()}, beautiful illustration, engaging composition, vibrant colors, eye-catching design`;
     }
     
-    // Always end with specific layout instructions
-    enhanced += '. The title text should be prominently displayed at the top, author name at the bottom, clean readable typography, balanced composition';
+    // Focus on flat artwork, not book covers
+    enhanced = `Flat artwork showing ${enhanced}. Title text at the top, author name at the bottom, clean typography, balanced layout`;
     
     return enhanced;
   };
@@ -365,7 +366,7 @@ const DALLKDPCoverDesigner: React.FC = () => {
       
       // Enhanced user prompt + style + flat 2D instructions
       const enhancedUserPrompt = enhanceUserPrompt(state.frontCoverPrompt);
-      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. Flat 2D book cover layout, no 3D effects, no book mockup, no perspective view, straight-on view, clean typography areas, professional book cover design, print-ready artwork, commercial quality illustration, vibrant colors, clear text placement areas`;
+      const dallePrompt = `${enhancedUserPrompt}. ${stylePrompt}. IMPORTANT: Flat 2D illustration only, absolutely no 3D elements, no perspective view, no depth, no shadows, no physical book, no props, no pencils, no objects around the artwork, clean flat digital art, vector style, straight-on view, no mockup, print-ready flat design`;
       
       const response = await fetch(`${getApiUrl()}/api/book-cover/generate-dalle-cover`, {
         method: 'POST',

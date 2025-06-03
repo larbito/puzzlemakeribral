@@ -1610,7 +1610,7 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
     console.log('Settings:', { size, quality, style, bookSize });
     
     // Enhanced prompt for book cover generation
-    const enhancedPrompt = `${prompt}. Flat 2D book cover artwork, no 3D mockup, no book perspective, no physical book, straight-on view, professional illustration, clean typography placement areas, print-ready design, vibrant colors, commercial quality book cover art, flat layout design`;
+    const enhancedPrompt = `Book cover artwork: ${prompt}. Flat illustration, 2D design only, no 3D rendering, no perspective, no depth, no shadows, no physical objects, no props, no pencils, no background items, clean flat artwork, digital illustration style, vector art style, no mockup, straight view, flat design, print-ready illustration`;
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -1705,7 +1705,7 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
     }
     
     // Enhanced prompt for DALL·E back cover generation
-    const enhancedPrompt = `${backPrompt}. Flat 2D back cover artwork, no 3D mockup, no book perspective, no physical book, straight-on view, professional illustration, clean layout areas, print-ready design, vibrant colors, commercial quality book cover art, flat layout design`;
+    const enhancedPrompt = `Back cover artwork: ${backPrompt}. Flat illustration, 2D design only, no 3D rendering, no perspective, no depth, no shadows, no physical objects, no props, no pencils, no background items, clean flat artwork, digital illustration style, vector art style, no mockup, straight view, flat design, print-ready illustration`;
     
     console.log('🎨 Generating back cover with DALL·E 3...');
     console.log('Enhanced prompt:', enhancedPrompt);
