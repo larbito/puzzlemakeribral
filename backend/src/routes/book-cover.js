@@ -1609,8 +1609,26 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
     console.log('Prompt:', prompt);
     console.log('Settings:', { size, quality, style, bookSize });
     
+    // Validate size parameter for better debugging
+    const validSizes = ['1024x1024', '1024x1792', '1792x1024'];
+    if (!validSizes.includes(size)) {
+      console.warn('⚠️ Invalid DALL·E size detected:', size, '- using 1024x1792 as fallback');
+    }
+    
     // Clean prompt for image generation
     const cleanPrompt = `${prompt}. Digital illustration, professional artwork, high quality design`;
+    
+    const dalleParams = {
+      model: 'dall-e-3',
+      prompt: cleanPrompt,
+      n: 1,
+      size: size,
+      quality: quality,
+      style: style,
+      response_format: 'url'
+    };
+    
+    console.log('📤 Sending to DALL·E API:', JSON.stringify(dalleParams, null, 2));
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -1618,15 +1636,7 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
         'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt: cleanPrompt,
-        n: 1,
-        size: size,
-        quality: quality,
-        style: style,
-        response_format: 'url'
-      })
+      body: JSON.stringify(dalleParams)
     });
     
     if (!response.ok) {

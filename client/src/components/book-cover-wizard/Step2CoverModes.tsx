@@ -158,6 +158,10 @@ const Step2CoverModes: React.FC<Step2CoverModesProps> = ({
         bookSettings.dimensions.frontHeight
       );
       
+      console.log('📐 Book dimensions:', bookSettings.dimensions.frontWidth, 'x', bookSettings.dimensions.frontHeight);
+      console.log('📱 DALL·E size selected:', dalleSize);
+      console.log('🎯 Aspect ratio:', (bookSettings.dimensions.frontWidth / bookSettings.dimensions.frontHeight).toFixed(3));
+      
       const result = await generateFrontCover(promptToUse, dalleSize, 'hd', 'vivid');
       
       updateCoverData({
@@ -165,7 +169,7 @@ const Step2CoverModes: React.FC<Step2CoverModesProps> = ({
         frontCoverPrompt: promptToUse,
       });
       
-      toast.success('Front cover generated successfully!');
+      toast.success(`Front cover generated successfully! Size: ${dalleSize}`);
     } catch (error) {
       console.error('Cover generation error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to generate cover');
@@ -391,12 +395,19 @@ const Step2CoverModes: React.FC<Step2CoverModesProps> = ({
                   <div className="text-xs text-zinc-400">
                     <strong>Dimensions:</strong> {bookSettings.dimensions.frontWidth}" × {bookSettings.dimensions.frontHeight}"
                   </div>
+                  
+                  <div className="text-xs text-blue-400 bg-blue-950/20 p-2 rounded border border-blue-900/30">
+                    <strong>DALL·E Format:</strong> {getDALLESize(bookSettings.dimensions.frontWidth, bookSettings.dimensions.frontHeight)} (KDP Portrait Standard)
+                  </div>
                 </div>
               ) : (
                 <div className="aspect-[2/3] bg-zinc-800 rounded-lg flex items-center justify-center">
                   <div className="text-center text-zinc-500">
                     <FileImage className="h-12 w-12 mx-auto mb-2" />
                     <p>Cover will appear here</p>
+                    <div className="text-xs text-blue-400 mt-2 bg-blue-950/20 p-2 rounded border border-blue-900/30">
+                      Will generate: {getDALLESize(bookSettings.dimensions.frontWidth, bookSettings.dimensions.frontHeight)}
+                    </div>
                   </div>
                 </div>
               )}
