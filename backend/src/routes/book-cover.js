@@ -1609,8 +1609,8 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
     console.log('Prompt:', prompt);
     console.log('Settings:', { size, quality, style, bookSize });
     
-    // Enhanced prompt for book cover generation
-    const enhancedPrompt = `Book cover artwork: ${prompt}. Flat illustration, 2D design only, no 3D rendering, no perspective, no depth, no shadows, no physical objects, no props, no pencils, no background items, clean flat artwork, digital illustration style, vector art style, no mockup, straight view, flat design, print-ready illustration`;
+    // Clean prompt for image generation
+    const cleanPrompt = `${prompt}. Digital illustration, professional artwork, high quality design`;
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -1620,7 +1620,7 @@ router.post('/generate-dalle-cover', express.json(), async (req, res) => {
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: enhancedPrompt,
+        prompt: cleanPrompt,
         n: 1,
         size: size,
         quality: quality,
@@ -1704,11 +1704,11 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
       }
     }
     
-    // Enhanced prompt for DALL·E back cover generation
-    const enhancedPrompt = `Back cover artwork: ${backPrompt}. Flat illustration, 2D design only, no 3D rendering, no perspective, no depth, no shadows, no physical objects, no props, no pencils, no background items, clean flat artwork, digital illustration style, vector art style, no mockup, straight view, flat design, print-ready illustration`;
+    // Clean prompt for image generation
+    const cleanPrompt = `${backPrompt}. Digital illustration, professional artwork, high quality design`;
     
     console.log('🎨 Generating back cover with DALL·E 3...');
-    console.log('Enhanced prompt:', enhancedPrompt);
+    console.log('Prompt:', cleanPrompt);
     
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
@@ -1718,7 +1718,7 @@ router.post('/generate-dalle-back', express.json(), async (req, res) => {
       },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: enhancedPrompt,
+        prompt: cleanPrompt,
         n: 1,
         size: size,
         quality: quality,
