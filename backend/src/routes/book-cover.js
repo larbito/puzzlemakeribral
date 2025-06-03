@@ -288,7 +288,7 @@ router.post('/generate-back-prompt', express.json(), async (req, res) => {
     // Build dynamic prompt based on user selections
     let userContentDescription_built = '';
     if (includeBackText && backCustomText.trim()) {
-      userContentDescription_built += `Text content to include: "${backCustomText.trim()}"`;
+      userContentDescription_built += `Include this exact text on the image: "${backCustomText.trim()}"`;
     }
     if (includeInteriorImages && interiorImagesCount > 0) {
       if (userContentDescription_built) userContentDescription_built += '\n';
@@ -320,9 +320,10 @@ ${userContentDescription_built || userContentDescription || 'No specific content
 Generate a visual prompt that:
 1. Uses the SAME artistic style, colors, and background as the front design
 2. Creates a complementary visual that looks like it belongs to the same artistic piece
-3. ${includeBackText ? 'Includes clean, readable areas where text can be integrated naturally' : ''}
+3. ${includeBackText ? `Includes this exact text integrated into the design: "${backCustomText.trim()}"` : ''}
 4. ${includeInteriorImages ? 'Leaves appropriate rectangular spaces where interior images can be placed' : ''}
 5. Maintains visual consistency and professional appearance
+6. ${includeBackText ? 'Ensures the text is clearly readable and well-positioned in the design' : ''}
 
 Return only the visual generation prompt, nothing else.`
       }
@@ -430,7 +431,7 @@ router.post('/generate-back', upload.none(), async (req, res) => {
       // Build dynamic prompt based on user selections
       let userContentDescription = '';
       if (includeBackText && backCustomText.trim()) {
-        userContentDescription += `Text content to include: "${backCustomText.trim()}"`;
+        userContentDescription += `Include this exact text on the image: "${backCustomText.trim()}"`;
       }
       if (includeInteriorImages && interiorImages.length > 0) {
         if (userContentDescription) userContentDescription += '\n';
@@ -462,9 +463,10 @@ ${userContentDescription || 'No specific content requirements - create a pure vi
 Generate a visual prompt that:
 1. Uses the SAME artistic style, colors, and background as the front design
 2. Creates a complementary visual that looks like it belongs to the same artistic piece
-3. ${includeBackText ? 'Includes clean, readable areas where text can be integrated naturally' : ''}
+3. ${includeBackText ? `Includes this exact text integrated into the design: "${backCustomText.trim()}"` : ''}
 4. ${includeInteriorImages ? 'Leaves appropriate rectangular spaces where interior images can be placed' : ''}
 5. Maintains visual consistency and professional appearance
+6. ${includeBackText ? 'Ensures the text is clearly readable and well-positioned in the design' : ''}
 
 Return only the visual generation prompt, nothing else.`
         }
