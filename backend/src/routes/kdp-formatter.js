@@ -103,7 +103,7 @@ function cleanRawText(text) {
     .trim();
 }
 
-// AI-powered structure detection
+// AI-powered structure detection with comprehensive analysis
 async function detectBookStructureWithAI(text) {
   if (!openai) {
     console.log('OpenAI not available, using fallback structure detection');
@@ -111,74 +111,237 @@ async function detectBookStructureWithAI(text) {
   }
 
   try {
-    const prompt = `You are a book formatting assistant. Analyze the following text and detect its structure. 
-NEVER change, edit, or rewrite any content. Only identify structure.
+    // First, extract metadata and basic structure from the beginning
+    const metadataPrompt = `Analyze the beginning of this book and extract key metadata. Return JSON only.
 
-Rules:
-1. Preserve ALL original content exactly as written
-2. Identify chapter breaks and titles 
-3. Label sections without clear titles as "Untitled Section"
-4. Return valid JSON only
-
-Text to analyze:
-${text.substring(0, 8000)}${text.length > 8000 ? '...' : ''}
+Text:
+${text.substring(0, 3000)}
 
 Return JSON in this exact format:
 {
-  "title": "Book Title or 'Untitled Book'",
-  "chapters": [
-    {"title": "Chapter Title", "content": "exact original content", "level": 1},
-    {"title": "Untitled Section", "content": "exact original content", "level": 1}
-  ]
+  "title": "Book Title (extract from text)",
+  "author": "Author Name (extract from text)", 
+  "subtitle": "Subtitle if any",
+  "estimated_chapters": "estimated number based on content patterns"
 }`;
 
-    const response = await openai.chat.completions.create({
+    const metadataResponse = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         {
           role: "system", 
-          content: "You are a formatter that NEVER changes content. You only detect structure and preserve original text exactly."
+          content: "Extract metadata from book content. Return valid JSON only."
         },
         {
           role: "user", 
-          content: prompt
+          content: metadataPrompt
         }
       ],
       temperature: 0,
-      max_tokens: 2000
+      max_tokens: 500
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
-    
-    // Validate and ensure we have the full content
-    if (result.chapters && result.chapters.length > 0) {
-      // If AI only analyzed a portion, merge with remaining content
-      const analyzedLength = result.chapters.reduce((sum, ch) => sum + ch.content.length, 0);
-      if (analyzedLength < text.length * 0.8) {
-        console.log('AI analyzed partial content, merging with fallback');
-        const fallbackResult = detectBookStructureFallback(text);
-        return fallbackResult;
-      }
-      
-      return {
-        title: result.title || 'Untitled Book',
-        chapters: result.chapters.map((ch, index) => ({
-          id: `chapter-${index + 1}`,
-          title: ch.title || `Untitled Section ${index + 1}`,
-          content: ch.content,
-          level: ch.level || 1
-        })),
-        metadata: {}
-      };
+    let bookMetadata = {};
+    try {
+      bookMetadata = JSON.parse(metadataResponse.choices[0].message.content);
+    } catch (e) {
+      console.log('Failed to parse metadata, using defaults');
+      bookMetadata = { title: "Untitled Book", author: "", subtitle: "", estimated_chapters: "unknown" };
     }
+
+    // Now analyze the full structure with chunking for large content
+    const maxChunkSize = 15000; // Larger chunks for better context
+    const chunks = [];
     
-    throw new Error('Invalid AI response structure');
+    for (let i = 0; i < text.length; i += maxChunkSize) {
+      chunks.push(text.substring(i, i + maxChunkSize));
+    }
+
+    let allChapters = [];
+    let chapterCounter = 1;
+
+    // Process each chunk to identify chapters
+    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+      const chunk = chunks[chunkIndex];
+      const isFirstChunk = chunkIndex === 0;
+      const isLastChunk = chunkIndex === chunks.length - 1;
+      
+      console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} characters)`);
+
+      const structurePrompt = `You are analyzing ${isFirstChunk ? 'the beginning of' : isLastChunk ? 'the end of' : 'a middle section of'} a book for chapter detection.
+
+Book appears to be: "${bookMetadata.title}" by ${bookMetadata.author}
+${bookMetadata.estimated_chapters !== 'unknown' ? `Estimated total chapters: ${bookMetadata.estimated_chapters}` : ''}
+
+CRITICAL RULES:
+1. NEVER change, edit, or rewrite any content - preserve exactly
+2. Detect chapter breaks and extract titles 
+3. Each chapter should be substantial (at least 200 words)
+4. Look for patterns like "Story 1", "Chapter 1", numbered sections, etc.
+5. If no clear chapters, create logical breaks based on content
+
+Text to analyze:
+${chunk}
+
+Return JSON in this exact format:
+{
+  "chapters_found": [
+    {"title": "Exact chapter title from text", "content": "complete original content", "start_marker": "first few words"},
+    {"title": "Next chapter title", "content": "complete original content", "start_marker": "first few words"}
+  ]
+}`;
+
+      try {
+        const chunkResponse = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            {
+              role: "system", 
+              content: "You are a book formatter that NEVER changes content. You only detect structure and preserve original text exactly. Return valid JSON only."
+            },
+            {
+              role: "user", 
+              content: structurePrompt
+            }
+          ],
+          temperature: 0,
+          max_tokens: 4000
+        });
+
+        const chunkResult = JSON.parse(chunkResponse.choices[0].message.content);
+        
+        if (chunkResult.chapters_found && Array.isArray(chunkResult.chapters_found)) {
+          // Add chapters with proper IDs
+          for (const chapter of chunkResult.chapters_found) {
+            if (chapter.content && chapter.content.trim().length > 100) { // Ensure substantial content
+              allChapters.push({
+                id: `chapter-${chapterCounter++}`,
+                title: chapter.title || `Chapter ${chapterCounter - 1}`,
+                content: chapter.content.trim(),
+                level: 1
+              });
+            }
+          }
+        }
+
+        // Add delay to avoid rate limiting
+        if (chunkIndex < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+      } catch (chunkError) {
+        console.error(`Error processing chunk ${chunkIndex + 1}:`, chunkError);
+        // If chunk processing fails, add the raw chunk as a chapter
+        allChapters.push({
+          id: `chapter-${chapterCounter++}`,
+          title: `Section ${chunkIndex + 1}`,
+          content: chunk.trim(),
+          level: 1
+        });
+      }
+    }
+
+    // Post-process: merge very short chapters and handle edge cases
+    const processedChapters = postProcessChapters(allChapters, text);
+    
+    console.log(`AI detected ${processedChapters.length} chapters from ${text.length} characters`);
+    
+    return {
+      title: bookMetadata.title || 'Untitled Book',
+      chapters: processedChapters,
+      metadata: {
+        author: bookMetadata.author || '',
+        subtitle: bookMetadata.subtitle || '',
+        estimated_total: bookMetadata.estimated_chapters
+      }
+    };
     
   } catch (error) {
     console.error('AI structure detection failed:', error);
     console.log('Falling back to rule-based detection');
     return detectBookStructureFallback(text);
   }
+}
+
+// Post-process chapters to handle edge cases
+function postProcessChapters(chapters, originalText) {
+  if (!chapters || chapters.length === 0) {
+    // No chapters detected, return entire content as one chapter
+    return [{
+      id: 'chapter-1',
+      title: 'Complete Content',
+      content: originalText,
+      level: 1
+    }];
+  }
+
+  // Remove duplicate content and merge overlapping chapters
+  const processed = [];
+  let totalProcessedLength = 0;
+
+  for (let i = 0; i < chapters.length; i++) {
+    const chapter = chapters[i];
+    
+    // Skip if content is too short (likely a false positive)
+    if (chapter.content.length < 200) {
+      console.log(`Skipping short chapter: "${chapter.title}" (${chapter.content.length} chars)`);
+      continue;
+    }
+
+    // Check for substantial overlap with previous chapter
+    if (processed.length > 0) {
+      const prevChapter = processed[processed.length - 1];
+      const overlap = findOverlap(prevChapter.content, chapter.content);
+      
+      if (overlap > chapter.content.length * 0.5) {
+        console.log(`Merging overlapping chapter: "${chapter.title}"`);
+        prevChapter.content += '\n\n' + chapter.content.substring(overlap);
+        continue;
+      }
+    }
+
+    processed.push(chapter);
+    totalProcessedLength += chapter.content.length;
+  }
+
+  // Check if we've captured most of the original content
+  const capturePercentage = totalProcessedLength / originalText.length;
+  console.log(`Captured ${(capturePercentage * 100).toFixed(1)}% of original content in ${processed.length} chapters`);
+
+  // If we missed significant content, add a final chapter with remaining content
+  if (capturePercentage < 0.85 && processed.length > 0) {
+    const lastChapter = processed[processed.length - 1];
+    const lastChapterEnd = originalText.indexOf(lastChapter.content) + lastChapter.content.length;
+    const remainingContent = originalText.substring(lastChapterEnd).trim();
+    
+    if (remainingContent.length > 500) {
+      processed.push({
+        id: `chapter-${processed.length + 1}`,
+        title: 'Additional Content',
+        content: remainingContent,
+        level: 1
+      });
+      console.log(`Added remaining content as final chapter (${remainingContent.length} chars)`);
+    }
+  }
+
+  return processed;
+}
+
+// Helper function to find overlap between two strings
+function findOverlap(str1, str2) {
+  const maxOverlap = Math.min(str1.length, str2.length, 1000);
+  
+  for (let i = maxOverlap; i > 50; i--) {
+    const end1 = str1.substring(str1.length - i);
+    const start2 = str2.substring(0, i);
+    
+    if (end1 === start2) {
+      return i;
+    }
+  }
+  
+  return 0;
 }
 
 // Enhanced fallback structure detection with better chapter naming

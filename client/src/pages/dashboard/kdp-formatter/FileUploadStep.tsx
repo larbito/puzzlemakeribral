@@ -107,12 +107,43 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
           chapters: chapterCount
         });
         
-        onContentExtracted(data.content);
+        // Auto-populate metadata if detected by AI
+        const enhancedContent = {
+          ...data.content,
+          // Set title from AI detection or fallback to filename
+          title: data.content.title && data.content.title !== 'Untitled Book' 
+            ? data.content.title 
+            : selectedFile.name.replace(/\.[^/.]+$/, ''), // Remove file extension
+          
+          // Merge metadata from AI detection
+          metadata: {
+            author: data.content.metadata?.author || '',
+            publisher: data.content.metadata?.publisher || '',
+            year: data.content.metadata?.year || new Date().getFullYear().toString(),
+            isbn: data.content.metadata?.isbn || '',
+            ...data.content.metadata // Include any additional metadata from AI
+          }
+        };
+        
+        onContentExtracted(enhancedContent);
         onTextExtracted();
+
+        // Show enhanced success message with detected info
+        const detectedInfo = [];
+        if (enhancedContent.title && enhancedContent.title !== selectedFile.name.replace(/\.[^/.]+$/, '')) {
+          detectedInfo.push(`Title: "${enhancedContent.title}"`);
+        }
+        if (enhancedContent.metadata.author) {
+          detectedInfo.push(`Author: ${enhancedContent.metadata.author}`);
+        }
+        
+        const successMessage = detectedInfo.length > 0 
+          ? `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words. ${detectedInfo.join(', ')}`
+          : `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words`;
 
         toast({
           title: 'Content extracted successfully',
-          description: `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words`,
+          description: successMessage,
         });
       } else {
         throw new Error('Invalid response from server');

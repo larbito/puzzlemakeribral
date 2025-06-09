@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { KDPBookSettings, BookContent, Chapter } from '../KDPBookFormatter';
 import { v4 as uuidv4 } from 'uuid';
+import { getApiUrl, API_CONFIG } from '@/config/api';
+import { useToast } from '@/components/ui/use-toast';
 import { 
   Settings, 
   BookOpen, 
@@ -24,7 +26,8 @@ import {
   Barcode,
   Brain,
   Shield,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 
 interface BookSettingsStepProps {
@@ -136,6 +139,8 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
   onSettingChange,
   onContentChange
 }) => {
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const { toast } = useToast();
   
   const handleMetadataChange = (field: string, value: string) => {
     onContentChange({
@@ -155,6 +160,78 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
       onContentChange({
         chapters: conservativeChapters
       });
+    }
+  };
+
+  const handleReanalyzeContent = async () => {
+    if (!bookContent.rawText) {
+      toast({
+        title: 'No content to analyze',
+        description: 'Please upload a file first.',
+      });
+      return;
+    }
+
+    setReanalyzing(true);
+    
+    try {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.KDP_FORMATTER.ENHANCE), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: bookContent,
+          enhancementType: 'structure'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to re-analyze content');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.content) {
+        // Update with new analysis results
+        const enhancedContent = {
+          ...data.content,
+          rawText: bookContent.rawText, // Preserve original raw text
+          // Merge metadata, keeping user-entered values
+          metadata: {
+            ...data.content.metadata,
+            ...Object.fromEntries(
+              Object.entries(bookContent.metadata).filter(([_, value]) => value && value.trim() !== '')
+            )
+          }
+        };
+        
+        onContentChange(enhancedContent);
+        
+        toast({
+          title: 'Content re-analyzed successfully',
+          description: `Detected ${enhancedContent.chapters.length} chapters and updated metadata`,
+        });
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error('Error re-analyzing content:', error);
+      
+      let errorMessage = 'Failed to re-analyze content. Please try again.';
+      if (error instanceof Error) {
+        if (error.message.includes('not available')) {
+          errorMessage = 'AI analysis not available. Please check your OpenAI API configuration.';
+        }
+      }
+      
+      toast({
+        title: 'Re-analysis failed',
+        description: errorMessage,
+      });
+    } finally {
+      setReanalyzing(false);
     }
   };
 
@@ -536,6 +613,32 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
                   ) : (
                     <p>Conservative mode only detects explicit chapter markers like "Chapter 1", "CHAPTER 1", etc. More reliable but may miss some chapters.</p>
                   )}
+                </div>
+                
+                {/* Re-analyze button */}
+                <div className="pt-2 border-t">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleReanalyzeContent}
+                    disabled={reanalyzing || !bookContent.rawText}
+                    className="w-full flex items-center gap-2"
+                  >
+                    {reanalyzing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Re-analyzing content...
+                      </>
+                    ) : (
+                      <>
+                        <Brain className="h-4 w-4" />
+                        Re-analyze with AI for Better Detection
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    Use this if the detected chapters or metadata seem incorrect
+                  </p>
                 </div>
               </div>
             </div>
