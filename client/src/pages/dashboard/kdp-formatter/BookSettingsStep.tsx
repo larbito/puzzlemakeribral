@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { KDPBookSettings } from '../KDPBookFormatter';
+import { Button } from '@/components/ui/button';
+import { KDPBookSettings, BookContent, Chapter } from '../KDPBookFormatter';
+import { v4 as uuidv4 } from 'uuid';
 import { 
   Settings, 
   BookOpen, 
@@ -15,12 +17,21 @@ import {
   FileText, 
   Hash,
   ToggleLeft,
-  Info
+  Info,
+  User,
+  Building,
+  Calendar,
+  Barcode,
+  Brain,
+  Shield,
+  RefreshCw
 } from 'lucide-react';
 
 interface BookSettingsStepProps {
   settings: KDPBookSettings;
+  bookContent: BookContent;
   onSettingChange: (key: keyof KDPBookSettings, value: any) => void;
+  onContentChange: (content: Partial<BookContent>) => void;
 }
 
 const trimSizeInfo = {
@@ -38,19 +49,193 @@ const fontInfo = {
   'Palatino': 'Sophisticated serif font'
 };
 
+// Conservative chapter detection function
+const detectChaptersConservative = (rawText: string): Chapter[] => {
+  if (!rawText.trim()) return [];
+
+  // Very conservative patterns - only explicit chapter markers
+  const chapterPatterns = [
+    /^Chapter\s+(\d+|[IVXLCDM]+)[\s\.:]*(.*)$/gim,
+    /^CHAPTER\s+(\d+|[IVXLCDM]+)[\s\.:]*(.*)$/gim,
+    /^Ch\.\s*(\d+)[\s\.:]*(.*)$/gim,
+    /^(\d+)\.\s+(.+)$/gim // Numbered sections like "1. Introduction"
+  ];
+
+  const chapters: Chapter[] = [];
+  const lines = rawText.split('\n');
+  let currentChapter: Chapter | null = null;
+  let chapterCount = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    let isChapterStart = false;
+    let chapterTitle = '';
+
+    // Check each pattern
+    for (const pattern of chapterPatterns) {
+      pattern.lastIndex = 0; // Reset regex
+      const match = pattern.exec(line);
+      if (match) {
+        isChapterStart = true;
+        chapterTitle = match[2]?.trim() || `Chapter ${chapterCount + 1}`;
+        break;
+      }
+    }
+
+    if (isChapterStart) {
+      // Save previous chapter
+      if (currentChapter) {
+        chapters.push(currentChapter);
+      }
+
+      // Start new chapter
+      chapterCount++;
+      currentChapter = {
+        id: uuidv4(),
+        title: chapterTitle || `Chapter ${chapterCount}`,
+        content: '',
+        level: 1
+      };
+    } else if (currentChapter) {
+      // Add content to current chapter
+      currentChapter.content += (currentChapter.content ? '\n' : '') + line;
+    } else if (chapters.length === 0) {
+      // No chapters detected yet, create a default chapter
+      currentChapter = {
+        id: uuidv4(),
+        title: 'Main Content',
+        content: line,
+        level: 1
+      };
+    }
+  }
+
+  // Add the last chapter
+  if (currentChapter) {
+    chapters.push(currentChapter);
+  }
+
+  // If no chapters were detected, treat entire text as one chapter
+  if (chapters.length === 0) {
+    chapters.push({
+      id: uuidv4(),
+      title: 'Main Content',
+      content: rawText.trim(),
+      level: 1
+    });
+  }
+
+  return chapters;
+};
+
 export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
   settings,
-  onSettingChange
+  bookContent,
+  onSettingChange,
+  onContentChange
 }) => {
+  
+  const handleMetadataChange = (field: string, value: string) => {
+    onContentChange({
+      metadata: {
+        ...bookContent.metadata,
+        [field]: value
+      }
+    });
+  };
+
+  const handleChapterDetectionModeChange = (useAI: boolean) => {
+    onSettingChange('detectChapterBreaks', useAI);
+    
+    if (!useAI && bookContent.rawText) {
+      // Re-process with conservative detection
+      const conservativeChapters = detectChaptersConservative(bookContent.rawText);
+      onContentChange({
+        chapters: conservativeChapters
+      });
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center space-y-4">
         <h2 className="text-3xl font-bold tracking-tight">Book Settings</h2>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Configure your book's layout and typography for professional KDP formatting
+          Configure your book's layout, typography, and metadata for professional KDP formatting
         </p>
       </div>
+
+      {/* Book Metadata */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="h-5 w-5" />
+            Book Metadata
+          </CardTitle>
+          <CardDescription>
+            Essential information for your book publication
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="author" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                Author
+              </Label>
+              <Input
+                id="author"
+                value={bookContent.metadata.author || ''}
+                onChange={(e) => handleMetadataChange('author', e.target.value)}
+                placeholder="Enter author name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="publisher" className="flex items-center gap-2">
+                <Building className="h-4 w-4" />
+                Publisher
+              </Label>
+              <Input
+                id="publisher"
+                value={bookContent.metadata.publisher || ''}
+                onChange={(e) => handleMetadataChange('publisher', e.target.value)}
+                placeholder="Enter publisher name"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="year" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Publication Year
+              </Label>
+              <Input
+                id="year"
+                value={bookContent.metadata.year || ''}
+                onChange={(e) => handleMetadataChange('year', e.target.value)}
+                placeholder="e.g., 2024"
+                maxLength={4}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="isbn" className="flex items-center gap-2">
+                <Barcode className="h-4 w-4" />
+                ISBN (Optional)
+              </Label>
+              <Input
+                id="isbn"
+                value={bookContent.metadata.isbn || ''}
+                onChange={(e) => handleMetadataChange('isbn', e.target.value)}
+                placeholder="e.g., 978-0-123456-78-9"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Page Layout Settings */}
@@ -317,20 +502,42 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
               />
             </div>
 
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <ToggleLeft className="h-4 w-4" />
-                  <Label className="font-medium">Auto-Detect Chapters</Label>
+            <div className="col-span-full">
+              <div className="p-4 border rounded-lg space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      {settings.detectChapterBreaks ? <Brain className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                      <Label className="font-medium">Chapter Detection Mode</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {settings.detectChapterBreaks 
+                        ? 'AI-powered smart detection (may create false chapters)' 
+                        : 'Conservative rule-based detection (only explicit chapters)'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleChapterDetectionModeChange(!settings.detectChapterBreaks)}
+                      className="flex items-center gap-2"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Switch to {settings.detectChapterBreaks ? 'Conservative' : 'Smart'}
+                    </Button>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Automatically find chapter breaks
-                </p>
+                
+                <div className="text-xs text-muted-foreground bg-gray-50 dark:bg-gray-800 p-3 rounded">
+                  <p className="font-medium mb-1">Current: {bookContent.chapters.length} chapters detected</p>
+                  {settings.detectChapterBreaks ? (
+                    <p>Smart mode uses AI to detect chapters but may create false positives from random text. Switch to Conservative if you see incorrect chapters.</p>
+                  ) : (
+                    <p>Conservative mode only detects explicit chapter markers like "Chapter 1", "CHAPTER 1", etc. More reliable but may miss some chapters.</p>
+                  )}
+                </div>
               </div>
-              <Checkbox
-                checked={settings.detectChapterBreaks}
-                onCheckedChange={(checked) => onSettingChange('detectChapterBreaks', checked)}
-              />
             </div>
           </div>
         </CardContent>
@@ -359,14 +566,8 @@ export const BookSettingsStep: React.FC<BookSettingsStepProps> = ({
               <p className="font-medium">{settings.lineSpacing}x</p>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">FEATURES</Label>
-              <p className="font-medium">
-                {[
-                  settings.includeTitlePage && 'Title',
-                  settings.includeTOC && 'TOC',
-                  settings.includePageNumbers && 'Pages'
-                ].filter(Boolean).join(', ') || 'None'}
-              </p>
+              <Label className="text-xs text-muted-foreground">AUTHOR</Label>
+              <p className="font-medium">{bookContent.metadata.author || 'Not specified'}</p>
             </div>
           </div>
         </CardContent>

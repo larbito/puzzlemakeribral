@@ -271,7 +271,9 @@ export const KDPBookFormatter = () => {
       component: (
         <BookSettingsStep 
           settings={settings}
+          bookContent={bookContent}
           onSettingChange={handleSettingChange}
+          onContentChange={handleContentChange}
         />
       ),
       isComplete: completedSteps['book-settings']
