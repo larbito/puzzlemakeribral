@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StepWizard, Step } from '@/components/shared/StepWizard';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowLeft, Save, RotateCcw, Moon, Sun, FileText, Settings, Eye, Sparkles, Download } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,20 +13,53 @@ import { PreviewEditStep } from './kdp-formatter/PreviewEditStep';
 import { AIEnhanceStep } from './kdp-formatter/AIEnhanceStep';
 import { ExportStep } from './kdp-formatter/ExportStep';
 
+// Dark mode context
+const ThemeToggle = () => {
+  const [theme, setTheme] = useState(
+    localStorage.getItem('kdp-theme') || 
+    (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  );
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove(theme === 'dark' ? 'light' : 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('kdp-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  return (
+    <Button 
+      variant="ghost" 
+      size="sm" 
+      onClick={toggleTheme} 
+      className="flex items-center gap-2"
+    >
+      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+      {theme === 'dark' ? 'Light' : 'Dark'}
+    </Button>
+  );
+};
+
 // KDP Book Settings Interface
 export interface KDPBookSettings {
   // Book Settings
-  trimSize: '6x9' | '5x8' | '8.5x11' | '7x10';
+  trimSize: '5x8' | '6x9' | '7x10' | '8.5x11';
   marginTop: number;
   marginBottom: number;
   marginInside: number;
   marginOutside: number;
   bleed: boolean;
-  fontFamily: string;
-  fontSize: number;
-  lineSpacing: number;
+  fontFamily: 'Times New Roman' | 'Garamond' | 'Arial' | 'Georgia' | 'Palatino';
+  fontSize: 10 | 11 | 12 | 13 | 14;
+  lineSpacing: 1.0 | 1.2 | 1.5 | 2.0;
   includeTOC: boolean;
   includePageNumbers: boolean;
+  includeTitlePage: boolean;
+  detectChapterBreaks: boolean;
 }
 
 // Content Interface
@@ -48,19 +82,29 @@ export interface Chapter {
   level: number; // Heading level (1 for chapter, 2 for section, etc.)
 }
 
+// KDP margin presets based on trim sizes
+const marginPresets = {
+  '5x8': { top: 0.75, bottom: 0.75, inside: 0.75, outside: 0.5 },
+  '6x9': { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
+  '7x10': { top: 1.0, bottom: 1.0, inside: 1.0, outside: 0.75 },
+  '8.5x11': { top: 1.0, bottom: 1.0, inside: 1.0, outside: 0.75 }
+};
+
 // Default settings
 export const defaultBookSettings: KDPBookSettings = {
   trimSize: '6x9',
-  marginTop: 0.75,
-  marginBottom: 0.75,
-  marginInside: 0.75,
-  marginOutside: 0.5,
+  marginTop: 0.875,
+  marginBottom: 0.875,
+  marginInside: 0.875,
+  marginOutside: 0.625,
   bleed: false,
   fontFamily: 'Times New Roman',
   fontSize: 12,
-  lineSpacing: 1.15,
+  lineSpacing: 1.2,
   includeTOC: true,
   includePageNumbers: true,
+  includeTitlePage: true,
+  detectChapterBreaks: true,
 };
 
 // Default empty content
@@ -88,9 +132,40 @@ export const KDPBookFormatter = () => {
   const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
 
-  // Handle setting changes
+  // Load saved project on mount
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem('kdpFormatterSettings');
+      const savedContent = localStorage.getItem('kdpFormatterContent');
+      const wasSaved = localStorage.getItem('kdpFormatterSaved');
+      
+      if (savedSettings && wasSaved) {
+        setSettings(JSON.parse(savedSettings));
+        setIsSaved(true);
+      }
+      if (savedContent && wasSaved) {
+        setBookContent(JSON.parse(savedContent));
+      }
+    } catch (error) {
+      console.error('Error loading saved project:', error);
+    }
+  }, []);
+
+  // Handle setting changes with margin presets
   const handleSettingChange = (key: keyof KDPBookSettings, value: any) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
+    if (key === 'trimSize') {
+      const preset = marginPresets[value as keyof typeof marginPresets];
+      setSettings(prev => ({ 
+        ...prev, 
+        [key]: value,
+        marginTop: preset.top,
+        marginBottom: preset.bottom,
+        marginInside: preset.inside,
+        marginOutside: preset.outside
+      }));
+    } else {
+      setSettings(prev => ({ ...prev, [key]: value }));
+    }
     setIsSaved(false);
   };
 
@@ -116,8 +191,6 @@ export const KDPBookFormatter = () => {
     setUploadedFile(file);
     setCompletedSteps(prev => ({ ...prev, 'file-upload': true }));
     setIsSaved(false);
-    
-    // The actual file processing will be handled in the FileUploadStep component
   };
 
   // Reset the project to defaults
@@ -145,7 +218,6 @@ export const KDPBookFormatter = () => {
   // Save the current project
   const handleSaveProject = () => {
     try {
-      // Save settings and content to localStorage
       localStorage.setItem('kdpFormatterSettings', JSON.stringify(settings));
       localStorage.setItem('kdpFormatterContent', JSON.stringify(bookContent));
       localStorage.setItem('kdpFormatterSaved', 'true');
@@ -170,14 +242,11 @@ export const KDPBookFormatter = () => {
     const stepIds = ['file-upload', 'book-settings', 'preview-edit', 'ai-enhance', 'export-pdf'];
     const currentStepId = stepIds[currentStep];
     
-    // Step-specific validation
     if (currentStepId === 'file-upload') {
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: textExtracted }));
     } else if (currentStepId === 'book-settings') {
-      // Always mark book settings as complete if we've gotten to this step
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: true }));
     } else if (currentStepId === 'preview-edit') {
-      // Mark preview-edit as complete if we have formatted content
       setCompletedSteps(prev => ({ ...prev, [currentStepId]: formattedContent.length > 0 }));
     }
   };
@@ -201,8 +270,8 @@ export const KDPBookFormatter = () => {
       title: 'Book Settings',
       component: (
         <BookSettingsStep 
-          settings={settings} 
-          onSettingChange={handleSettingChange} 
+          settings={settings}
+          onSettingChange={handleSettingChange}
         />
       ),
       isComplete: completedSteps['book-settings']
@@ -212,8 +281,8 @@ export const KDPBookFormatter = () => {
       title: 'Preview & Edit',
       component: (
         <PreviewEditStep 
-          settings={settings}
           bookContent={bookContent}
+          settings={settings}
           onContentChange={handleContentChange}
           onChapterEdit={handleChapterEdit}
           onFormattedContent={setFormattedContent}
@@ -237,8 +306,8 @@ export const KDPBookFormatter = () => {
       title: 'Export PDF',
       component: (
         <ExportStep 
-          settings={settings}
           bookContent={bookContent}
+          settings={settings}
           formattedContent={formattedContent}
         />
       ),
@@ -247,56 +316,101 @@ export const KDPBookFormatter = () => {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/dashboard')}
-            className="mr-4"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-3xl font-bold">KDP Book Formatter & Editor</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleResetProject}
-            className="flex items-center gap-1"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleSaveProject}
-            className="flex items-center gap-1"
-          >
-            <Save className="h-4 w-4" />
-            Save Project
-          </Button>
+    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/10 dark:from-gray-900 dark:to-gray-800">
+      {/* Header */}
+      <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Dashboard
+              </Button>
+              <div className="flex items-center gap-2">
+                <FileText className="h-6 w-6 text-primary" />
+                <h1 className="text-xl font-semibold">KDP Book Formatter</h1>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleResetProject}
+                className="flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleSaveProject}
+                className="flex items-center gap-2"
+                disabled={isSaved}
+              >
+                <Save className="h-4 w-4" />
+                {isSaved ? 'Saved' : 'Save'}
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-      
-      {isSaved && (
-        <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md p-3 mb-6 text-sm text-green-600 dark:text-green-400 flex items-center">
-          <Save className="h-4 w-4 mr-2" />
-          <span>This project is saved and will be available when you return.</span>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Progress Overview */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              Formatting Progress
+            </CardTitle>
+            <CardDescription>
+              Transform your manuscript into a professional KDP-ready book
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              {steps.map((step, index) => (
+                <div 
+                  key={step.id}
+                  className={`p-4 rounded-lg border-2 transition-all ${
+                    step.isComplete 
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                      : 'border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    {index === 0 && <FileText className="h-4 w-4" />}
+                    {index === 1 && <Settings className="h-4 w-4" />}
+                    {index === 2 && <Eye className="h-4 w-4" />}
+                    {index === 3 && <Sparkles className="h-4 w-4" />}
+                    {index === 4 && <Download className="h-4 w-4" />}
+                    <span className="text-sm font-medium">{step.title}</span>
+                  </div>
+                  <div className={`text-xs ${step.isComplete ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`}>
+                    {step.isComplete ? 'Complete' : 'Pending'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Step Wizard */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+          <StepWizard 
+            steps={steps} 
+            onSave={handleSaveStep}
+          />
         </div>
-      )}
-      
-      <div className="kdp-formatter-container">
-        <StepWizard 
-          steps={steps} 
-          onComplete={() => navigate('/dashboard')}
-          onSave={handleSaveStep}
-          initialStep={0}
-          showProgress
-        />
       </div>
     </div>
   );

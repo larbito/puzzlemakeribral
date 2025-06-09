@@ -60,22 +60,23 @@ try {
   console.warn('OpenAI API key not configured. AI enhancement features will be disabled.');
 }
 
-// Helper function to extract text from different file types
+// Enhanced text extraction with better formatting preservation
 async function extractTextFromFile(filePath, fileType) {
   try {
     switch (fileType) {
       case 'application/pdf':
         const pdfBuffer = fs.readFileSync(filePath);
         const pdfData = await pdfParse(pdfBuffer);
-        return pdfData.text;
+        return cleanRawText(pdfData.text);
         
       case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         const docxBuffer = fs.readFileSync(filePath);
         const result = await mammoth.extractRawText({ buffer: docxBuffer });
-        return result.value;
+        return cleanRawText(result.value);
         
       case 'text/plain':
-        return fs.readFileSync(filePath, 'utf8');
+        const txtContent = fs.readFileSync(filePath, 'utf8');
+        return cleanRawText(txtContent);
         
       default:
         throw new Error('Unsupported file type');
@@ -86,28 +87,129 @@ async function extractTextFromFile(filePath, fileType) {
   }
 }
 
-// Helper function to process text into chapters
-function processTextIntoChapters(text) {
-  // Extract title (assume first line is title if it's short enough)
+// Clean and normalize raw text while preserving structure
+function cleanRawText(text) {
+  return text
+    // Normalize line endings
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    // Clean up multiple empty lines (keep max 2)
+    .replace(/\n{4,}/g, '\n\n\n')
+    // Remove excessive whitespace but preserve intentional spacing
+    .replace(/[ \t]+/g, ' ')
+    // Remove trailing spaces from lines
+    .replace(/[ \t]+$/gm, '')
+    // Trim start and end
+    .trim();
+}
+
+// AI-powered structure detection
+async function detectBookStructureWithAI(text) {
+  if (!openai) {
+    console.log('OpenAI not available, using fallback structure detection');
+    return detectBookStructureFallback(text);
+  }
+
+  try {
+    const prompt = `You are a book formatting assistant. Analyze the following text and detect its structure. 
+NEVER change, edit, or rewrite any content. Only identify structure.
+
+Rules:
+1. Preserve ALL original content exactly as written
+2. Identify chapter breaks and titles 
+3. Label sections without clear titles as "Untitled Section"
+4. Return valid JSON only
+
+Text to analyze:
+${text.substring(0, 8000)}${text.length > 8000 ? '...' : ''}
+
+Return JSON in this exact format:
+{
+  "title": "Book Title or 'Untitled Book'",
+  "chapters": [
+    {"title": "Chapter Title", "content": "exact original content", "level": 1},
+    {"title": "Untitled Section", "content": "exact original content", "level": 1}
+  ]
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system", 
+          content: "You are a formatter that NEVER changes content. You only detect structure and preserve original text exactly."
+        },
+        {
+          role: "user", 
+          content: prompt
+        }
+      ],
+      temperature: 0,
+      max_tokens: 2000
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    // Validate and ensure we have the full content
+    if (result.chapters && result.chapters.length > 0) {
+      // If AI only analyzed a portion, merge with remaining content
+      const analyzedLength = result.chapters.reduce((sum, ch) => sum + ch.content.length, 0);
+      if (analyzedLength < text.length * 0.8) {
+        console.log('AI analyzed partial content, merging with fallback');
+        const fallbackResult = detectBookStructureFallback(text);
+        return fallbackResult;
+      }
+      
+      return {
+        title: result.title || 'Untitled Book',
+        chapters: result.chapters.map((ch, index) => ({
+          id: `chapter-${index + 1}`,
+          title: ch.title || `Untitled Section ${index + 1}`,
+          content: ch.content,
+          level: ch.level || 1
+        })),
+        metadata: {}
+      };
+    }
+    
+    throw new Error('Invalid AI response structure');
+    
+  } catch (error) {
+    console.error('AI structure detection failed:', error);
+    console.log('Falling back to rule-based detection');
+    return detectBookStructureFallback(text);
+  }
+}
+
+// Enhanced fallback structure detection
+function detectBookStructureFallback(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
   let title = 'Untitled Book';
   
-  if (lines.length > 0 && lines[0].length < 100) {
-    title = lines[0].trim();
+  // Try to detect title from first line if it's short and likely a title
+  if (lines.length > 0 && lines[0].length < 100 && lines[0].length > 3) {
+    const firstLine = lines[0].trim();
+    // Check if it looks like a title (not starting with lowercase, not a sentence)
+    if (!/^[a-z]/.test(firstLine) && !firstLine.endsWith('.')) {
+      title = firstLine;
+    }
   }
   
-  // Try to identify chapters - look for patterns like:
-  // "Chapter X" or "X. Chapter Title" or lines in all caps or lines that start with #
+  // Enhanced chapter detection patterns
   const chapterPatterns = [
-    /^Chapter\s+\d+(?:[:.]\s*|\s+)(.+)$/i,  // "Chapter 1: Title" or "Chapter 1. Title" or "Chapter 1 Title"
-    /^(\d+)\.\s+(.+)$/,                     // "1. Chapter Title"
-    /^#\s+(.+)$/,                           // "# Chapter Title" (Markdown style)
-    /^([A-Z\s]{3,50})$/                     // All caps titles (3-50 chars)
+    /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.*)$/i,  // "Chapter 1: Title" or "Chapter I. Title"
+    /^(\d+)\.\s+(.+)$/,                                   // "1. Chapter Title"
+    /^#\s+(.+)$/,                                         // "# Chapter Title" (Markdown)
+    /^([A-Z][A-Z\s]{2,50})$/,                            // All caps titles (3-50 chars)
+    /^(CHAPTER\s+\d+)$/i,                                 // "CHAPTER 1"
+    /^(Part\s+\d+)/i,                                     // "Part 1"
+    /^([A-Z][^.!?]*[A-Z])$/,                             // Likely titles (start and end with caps, no sentence endings)
   ];
   
   const chapters = [];
   let currentChapter = null;
   let chapterCounter = 1;
+  let contentBuffer = [];
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -121,49 +223,71 @@ function processTextIntoChapters(text) {
       const match = line.match(pattern);
       if (match) {
         isChapterTitle = true;
-        chapterTitle = match[1] || match[0];
+        // Extract title from match groups
+        if (match[2]) {
+          chapterTitle = match[2]; // Title from second capture group
+        } else if (match[1]) {
+          chapterTitle = match[1]; // Title from first capture group
+        } else {
+          chapterTitle = line; // Use whole line
+        }
         break;
       }
     }
     
-    // If we found a chapter title, start a new chapter
+    // Additional heuristics for chapter detection
+    if (!isChapterTitle) {
+      // Check if line is isolated and looks like a title
+      const prevLineEmpty = i === 0 || !lines[i-1].trim();
+      const nextLineEmpty = i === lines.length-1 || !lines[i+1].trim();
+      
+      if (prevLineEmpty && nextLineEmpty && line.length < 80 && line.length > 3) {
+        if (!/^[a-z]/.test(line) && !line.endsWith('.') && !line.includes(',')) {
+          isChapterTitle = true;
+          chapterTitle = line;
+        }
+      }
+    }
+    
     if (isChapterTitle) {
-      // Save the previous chapter if it exists
-      if (currentChapter) {
+      // Save previous chapter
+      if (currentChapter && contentBuffer.length > 0) {
+        currentChapter.content = contentBuffer.join('\n\n');
         chapters.push(currentChapter);
       }
       
-      // Start a new chapter
+      // Start new chapter
       currentChapter = {
         id: `chapter-${chapterCounter++}`,
         title: chapterTitle,
         content: '',
         level: 1
       };
+      contentBuffer = [];
     } else if (currentChapter) {
-      // Add content to the current chapter
-      if (currentChapter.content) {
-        currentChapter.content += '\n\n' + line;
-      } else {
-        currentChapter.content = line;
-      }
+      // Add content to current chapter
+      contentBuffer.push(line);
     } else {
-      // If no chapter has been started yet, create a default first chapter
-      currentChapter = {
-        id: `chapter-${chapterCounter++}`,
-        title: 'Chapter 1',
-        content: line,
-        level: 1
-      };
+      // No chapter started yet, accumulate content for first chapter
+      contentBuffer.push(line);
     }
   }
   
-  // Add the last chapter
-  if (currentChapter) {
+  // Handle remaining content
+  if (currentChapter && contentBuffer.length > 0) {
+    currentChapter.content = contentBuffer.join('\n\n');
     chapters.push(currentChapter);
+  } else if (contentBuffer.length > 0 && chapters.length === 0) {
+    // All content goes into a single chapter
+    chapters.push({
+      id: 'chapter-1',
+      title: 'Chapter 1',
+      content: contentBuffer.join('\n\n'),
+      level: 1
+    });
   }
   
-  // If no chapters were found, create a single chapter with all content
+  // Ensure we have at least one chapter
   if (chapters.length === 0) {
     chapters.push({
       id: 'chapter-1',
@@ -180,7 +304,7 @@ function processTextIntoChapters(text) {
   };
 }
 
-// Parse and extract content from uploaded document
+// Enhanced content extraction endpoint
 router.post('/extract', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -190,109 +314,101 @@ router.post('/extract', upload.single('file'), async (req, res) => {
     const filePath = req.file.path;
     const fileType = req.file.mimetype;
     
+    console.log(`Processing file: ${req.file.originalname}, Type: ${fileType}, Size: ${req.file.size} bytes`);
+    
     // Extract text from the file
     const extractedText = await extractTextFromFile(filePath, fileType);
     
-    // Process the text into structured content
-    const structuredContent = processTextIntoChapters(extractedText);
-    
-    // Clean up the uploaded file after processing
-    fs.unlinkSync(filePath);
-    
-    res.json({ 
-      success: true, 
-      content: {
-        rawText: extractedText,
-        ...structuredContent
-      }
-    });
-  } catch (error) {
-    console.error('Error extracting content:', error);
-    
-    // Clean up file if it exists
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
+    if (!extractedText || extractedText.length < 10) {
+      throw new Error('No readable content found in the file');
     }
     
-    res.status(500).json({ error: 'Failed to extract content from file: ' + error.message });
+    console.log(`Extracted ${extractedText.length} characters of text`);
+    
+    // Use AI-powered structure detection
+    const structuredContent = await detectBookStructureWithAI(extractedText);
+    
+    // Add raw text to the result
+    structuredContent.rawText = extractedText;
+    
+    console.log(`Detected ${structuredContent.chapters.length} chapters`);
+    
+    // Clean up the uploaded file
+    fs.unlinkSync(filePath);
+    
+    res.json({
+      success: true,
+      content: structuredContent
+    });
+    
+  } catch (error) {
+    console.error('Error processing file:', error);
+    
+    // Clean up file on error
+    if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (cleanupError) {
+        console.error('Error cleaning up file:', cleanupError);
+      }
+    }
+    
+    let errorMessage = 'There was a problem processing your file.';
+    
+    if (error.message.includes('No readable content')) {
+      errorMessage = 'The file appears to be empty or contains no readable text.';
+    } else if (error.message.includes('file type')) {
+      errorMessage = 'Unsupported file type. Please upload a PDF, DOCX, or TXT file.';
+    } else if (error.message.includes('size')) {
+      errorMessage = 'File is too large. Please upload a file smaller than 50MB.';
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: errorMessage
+    });
   }
 });
 
-// Enhance text with AI
-router.post('/enhance-text', async (req, res) => {
+// AI enhancement endpoint for content improvement
+router.post('/enhance', async (req, res) => {
   try {
-    const { text, enhancementType } = req.body;
-    
-    if (!text) {
-      return res.status(400).json({ error: 'No text provided for enhancement' });
-    }
+    const { content, enhancementType = 'structure' } = req.body;
     
     if (!openai) {
-      return res.status(503).json({ 
-        error: 'AI enhancement service is not available. Please configure the OpenAI API key to use this feature.',
-        code: 'AI_SERVICE_UNAVAILABLE'
+      return res.status(400).json({
+        success: false,
+        error: 'AI enhancement not available. OpenAI API key not configured.'
       });
     }
     
-    // Create prompt based on enhancement type
-    let systemPrompt = '';
-    let userPrompt = text;
-    
-    switch (enhancementType) {
-      case 'improve':
-        systemPrompt = 'You are a professional editor. Improve the following text to make it more engaging, clear, and professional while maintaining the original meaning and style. Focus on enhancing readability, flow, and impact.';
-        break;
-      case 'simplify':
-        systemPrompt = 'You are a writing coach specializing in clear communication. Simplify the following text to make it easier to understand, using simpler vocabulary and shorter sentences while preserving the meaning and important details.';
-        break;
-      case 'formal':
-        systemPrompt = 'You are an academic writing expert. Rewrite the following text in a more formal, academic style with sophisticated vocabulary and professional tone while maintaining the original meaning and structure.';
-        break;
-      case 'creative':
-        systemPrompt = 'You are a creative writing expert. Rewrite the following text in a more creative, descriptive, and evocative way while maintaining the original meaning and narrative flow. Add vivid imagery and engaging language.';
-        break;
-      case 'grammar':
-        systemPrompt = 'You are a grammar and style expert. Correct any grammar, spelling, punctuation, and stylistic issues in the following text while preserving the original meaning, voice, and structure.';
-        break;
-      default:
-        systemPrompt = 'You are a professional editor. Improve the following text while maintaining its original meaning and style.';
+    if (!content || !content.chapters) {
+      return res.status(400).json({
+        success: false,
+        error: 'No content provided for enhancement'
+      });
     }
     
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        {
-          role: "user",
-          content: userPrompt
-        }
-      ],
-      max_tokens: 4000,
-      temperature: 0.7,
+    let enhancedContent = { ...content };
+    
+    if (enhancementType === 'structure') {
+      // Re-analyze structure with more detailed prompts
+      const fullText = content.chapters.map(ch => ch.content).join('\n\n');
+      enhancedContent = await detectBookStructureWithAI(fullText);
+      enhancedContent.rawText = content.rawText;
+    }
+    
+    res.json({
+      success: true,
+      content: enhancedContent
     });
     
-    const enhancedText = completion.choices[0].message.content;
-    
-    res.json({ 
-      success: true, 
-      enhancedText: enhancedText.trim(),
-      originalLength: text.length,
-      enhancedLength: enhancedText.length
-    });
   } catch (error) {
-    console.error('Error enhancing text:', error);
-    
-    if (error.code === 'insufficient_quota') {
-      res.status(402).json({ error: 'OpenAI API quota exceeded. Please try again later.' });
-    } else if (error.code === 'invalid_api_key') {
-      res.status(401).json({ error: 'Invalid OpenAI API key configuration.' });
-    } else {
-      res.status(500).json({ error: 'Failed to enhance text with AI: ' + error.message });
-    }
+    console.error('Error enhancing content:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to enhance content'
+    });
   }
 });
 
