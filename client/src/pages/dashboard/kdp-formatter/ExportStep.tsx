@@ -40,7 +40,20 @@ export const ExportStep: React.FC<ExportStepProps> = ({
 
   // Export to PDF with better HTML rendering
   const exportToPDF = async () => {
+    console.log('Starting PDF export...');
+    console.log('Formatted content length:', formattedContent.length);
+    console.log('Book content chapters:', bookContent.chapters.length);
+    
     if (formattedContent.length === 0) {
+      console.log('No formatted content available');
+      
+      // If no formatted content but we have chapters, create simple content
+      if (bookContent.chapters.length > 0) {
+        console.log('Creating simple PDF from chapters...');
+        await createSimplePDF();
+        return;
+      }
+      
       toast({
         title: 'No content to export',
         description: 'Please make sure your book has content before exporting.'
@@ -80,6 +93,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       
       // Function to render HTML content to PDF page
       const addHtmlPageToPDF = async (content: string, pageIndex: number) => {
+        console.log(`Processing PDF page ${pageIndex + 1}/${formattedContent.length}`);
+        
         // Add a new page if needed (skip for first page)
         if (pageIndex > 0) {
           pdf.addPage();
@@ -96,6 +111,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         container.style.fontSize = `${settings.fontSize}pt`;
         container.style.lineHeight = String(settings.lineSpacing);
         container.style.backgroundColor = 'white';
+        container.style.color = '#000';
         container.style.padding = `${marginTop}mm ${marginOutside}mm ${marginBottom}mm ${marginInside}mm`;
         container.style.boxSizing = 'border-box';
         container.innerHTML = content;
@@ -157,6 +173,110 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       });
     } catch (error) {
       console.error('Error generating PDF:', error);
+      setExportStatus('error');
+      setErrorMessage('There was a problem generating your PDF. Please try again.');
+      
+      toast({
+        title: 'PDF Generation Failed',
+        description: 'There was a problem generating your PDF. Please try again.',
+      });
+    }
+  };
+
+  // Create a simple PDF directly from chapters when formatted content is not available
+  const createSimplePDF = async () => {
+    setExportStatus('processing');
+    setErrorMessage('');
+    
+    try {
+      const dimensions = getTrimSizeDimensions(settings.trimSize);
+      
+      const pdf = new jsPDF({
+        orientation: dimensions.width > dimensions.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [dimensions.width, dimensions.height],
+        compress: highQuality
+      });
+      
+      // Add metadata
+      pdf.setProperties({
+        title: bookContent.title,
+        author: bookContent.metadata.author || '',
+        subject: 'KDP Book',
+        keywords: 'book, kindle, kdp',
+        creator: 'KDP Book Formatter'
+      });
+      
+      pdf.setFont('helvetica');
+      pdf.setFontSize(settings.fontSize);
+      
+      const marginTop = settings.marginTop * 25.4;
+      const marginLeft = settings.marginInside * 25.4;
+      const marginRight = settings.marginOutside * 25.4;
+      const pageWidth = dimensions.width - marginLeft - marginRight;
+      
+      let yPosition = marginTop;
+      
+      // Add title page
+      if (settings.includeTitlePage) {
+        pdf.setFontSize(24);
+        const titleLines = pdf.splitTextToSize(bookContent.title, pageWidth);
+        pdf.text(titleLines, marginLeft, yPosition);
+        
+        if (bookContent.metadata.author) {
+          yPosition += 20;
+          pdf.setFontSize(16);
+          pdf.text(`By ${bookContent.metadata.author}`, marginLeft, yPosition);
+        }
+        
+        pdf.addPage();
+        yPosition = marginTop;
+      }
+      
+      // Add chapters
+      for (const chapter of bookContent.chapters) {
+        if (yPosition > dimensions.height - 30) {
+          pdf.addPage();
+          yPosition = marginTop;
+        }
+        
+        // Chapter title
+        pdf.setFontSize(18);
+        const titleLines = pdf.splitTextToSize(chapter.title, pageWidth);
+        pdf.text(titleLines, marginLeft, yPosition);
+        yPosition += titleLines.length * 8 + 10;
+        
+        // Chapter content
+        pdf.setFontSize(settings.fontSize);
+        const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
+        
+        for (const paragraph of paragraphs) {
+          if (yPosition > dimensions.height - 30) {
+            pdf.addPage();
+            yPosition = marginTop;
+          }
+          
+          const lines = pdf.splitTextToSize(paragraph, pageWidth);
+          pdf.text(lines, marginLeft, yPosition);
+          yPosition += lines.length * (settings.fontSize * 0.35 * settings.lineSpacing) + 5;
+        }
+        
+        yPosition += 10; // Space between chapters
+      }
+      
+      // Generate the PDF blob
+      const pdfBlob = pdf.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      
+      setDownloadUrl(url);
+      setExportStatus('complete');
+      
+      toast({
+        title: 'PDF Generated',
+        description: 'Your KDP-ready PDF has been generated successfully.'
+      });
+    } catch (error) {
+      console.error('Error generating simple PDF:', error);
       setExportStatus('error');
       setErrorMessage('There was a problem generating your PDF. Please try again.');
       

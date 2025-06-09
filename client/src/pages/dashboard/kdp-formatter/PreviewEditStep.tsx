@@ -103,95 +103,82 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
 
   // Format the book content into pages
   const formatBook = () => {
-    if (!bookContent.chapters.length) return;
+    if (!bookContent.chapters.length) {
+      console.log('No chapters to format');
+      return;
+    }
 
-    // Create a mock page to calculate capacity
-    const mockPage = document.createElement('div');
-    mockPage.style.fontFamily = settings.fontFamily;
-    mockPage.style.fontSize = `${settings.fontSize}pt`;
-    mockPage.style.lineHeight = String(settings.lineSpacing);
-    mockPage.style.width = `${dimensions.width - settings.marginInside - settings.marginOutside}in`;
-    mockPage.style.height = `${dimensions.height - settings.marginTop - settings.marginBottom}in`;
-    mockPage.style.overflow = 'hidden';
-    mockPage.style.position = 'absolute';
-    mockPage.style.visibility = 'hidden';
-    document.body.appendChild(mockPage);
+    console.log('Formatting book with chapters:', bookContent.chapters.length);
+    console.log('First chapter content:', bookContent.chapters[0]?.content?.substring(0, 100));
+
+    const formattedPages: string[] = [];
     
-    // Function to divide text into pages
-    const splitIntoPages = (text: string): string[] => {
-      const paragraphs = text.split('\n\n').filter(p => p.trim() !== '');
-      const pages: string[] = [];
-      let currentPage = '';
-      
-      for (const paragraph of paragraphs) {
-        mockPage.innerHTML = currentPage + `<p>${paragraph}</p>`;
-        
-        // If adding this paragraph overflows the page, start a new page
-        if (mockPage.scrollHeight > mockPage.clientHeight) {
-          pages.push(currentPage);
-          currentPage = `<p>${paragraph}</p>`;
-        } else {
-          currentPage += `<p>${paragraph}</p>`;
-        }
-      }
-      
-      // Add the last page if it has content
-      if (currentPage) {
-        pages.push(currentPage);
-      }
-      
-      return pages;
-    };
-    
-    // Create the title page
-    const titlePage = `
-      <div class="title-page" style="text-align: center; padding-top: 3in;">
-        <h1 style="font-size: 24pt; margin-bottom: 1in;">${bookContent.title}</h1>
-        ${bookContent.metadata.author ? `<p style="font-size: 16pt;">By ${bookContent.metadata.author}</p>` : ''}
-      </div>
-    `;
-    
-    const formattedPages: string[] = [titlePage];
+    // Create the title page if enabled
+    if (settings.includeTitlePage) {
+      const titlePage = `
+        <div class="title-page" style="text-align: center; padding-top: 3in;">
+          <h1 style="font-size: 24pt; margin-bottom: 1in; color: #000;">${bookContent.title}</h1>
+          ${bookContent.metadata.author ? `<p style="font-size: 16pt; color: #000;">By ${bookContent.metadata.author}</p>` : ''}
+        </div>
+      `;
+      formattedPages.push(titlePage);
+    }
     
     // Add table of contents if enabled
     if (settings.includeTOC) {
       let tocPage = `
         <div class="toc-page">
-          <h2 style="text-align: center; margin-bottom: 1in;">Table of Contents</h2>
-          <ul style="list-style-type: none; padding-left: 0;">
+          <h2 style="text-align: center; margin-bottom: 1in; color: #000;">Table of Contents</h2>
+          <ul style="list-style-type: none; padding-left: 0; color: #000;">
       `;
       
-      bookContent.chapters.forEach(chapter => {
-        tocPage += `<li style="margin-bottom: 0.5em;">${chapter.title}</li>`;
+      bookContent.chapters.forEach((chapter, index) => {
+        tocPage += `<li style="margin-bottom: 0.5em; color: #000;">Chapter ${index + 1}: ${chapter.title}</li>`;
       });
       
       tocPage += `</ul></div>`;
       formattedPages.push(tocPage);
     }
     
-    // Format each chapter
-    for (const chapter of bookContent.chapters) {
-      // Add chapter heading
-      let chapterContent = `<h2 style="text-align: center; margin-bottom: 1in;">${chapter.title}</h2>`;
-      
-      // Split chapter content into paragraphs and add to pages
-      const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
-      for (const paragraph of paragraphs) {
-        chapterContent += `<p>${paragraph}</p>`;
+    // Simple page formatting - just put each chapter on its own page for now
+    // TODO: Implement proper text flow across pages
+    for (const [index, chapter] of bookContent.chapters.entries()) {
+      if (!chapter.content || chapter.content.trim() === '') {
+        console.log(`Chapter ${index + 1} has no content`);
+        continue;
       }
+
+      // Split chapter content into paragraphs
+      const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
       
-      // Split the chapter into pages
-      const chapterPages = splitIntoPages(chapterContent);
-      formattedPages.push(...chapterPages);
+      console.log(`Chapter ${index + 1} has ${paragraphs.length} paragraphs`);
+      
+      // Create a simple page with chapter title and content
+      let chapterPage = `
+        <div class="chapter-page" style="color: #000;">
+          <h2 style="text-align: center; margin-bottom: 1in; font-size: 18pt; color: #000;">${chapter.title}</h2>
+          <div class="chapter-content">
+      `;
+      
+      // Add each paragraph
+      paragraphs.forEach(paragraph => {
+        chapterPage += `<p style="margin-bottom: 1em; text-align: justify; color: #000; line-height: ${settings.lineSpacing};">${paragraph.trim()}</p>`;
+      });
+      
+      chapterPage += `</div></div>`;
+      formattedPages.push(chapterPage);
     }
     
-    // Clean up mock element
-    document.body.removeChild(mockPage);
+    console.log('Generated pages:', formattedPages.length);
+    console.log('First page content:', formattedPages[0]?.substring(0, 200));
     
     // Update state with formatted pages
     setPages(formattedPages);
     setTotalPages(formattedPages.length);
     onFormattedContent(formattedPages);
+    
+    // Reset to first page
+    setCurrentPage(0);
   };
 
   // Page navigation handlers
@@ -355,9 +342,29 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
 
   // Enhanced page renderer with click-to-edit
   const renderInteractivePage = (pageContent: string, pageIndex: number) => {
+    console.log(`Rendering page ${pageIndex}:`, pageContent.substring(0, 100));
+    
+    if (!pageContent || pageContent.trim() === '') {
+      return (
+        <div
+          className="page-preview bg-white rounded-md flex items-center justify-center"
+          style={{
+            width: `${dimensions.width * 100}px`,
+            height: `${dimensions.height * 100}px`,
+            maxWidth: '100%',
+            margin: '0 auto',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            border: '1px solid #e5e7eb',
+          }}
+        >
+          <p className="text-muted-foreground">No content to display</p>
+        </div>
+      );
+    }
+
     return (
       <div
-        className="page-preview bg-white rounded-md overflow-auto cursor-text"
+        className="page-preview bg-white rounded-md overflow-auto"
         style={{
           width: `${dimensions.width * 100}px`,
           height: `${dimensions.height * 100}px`,
@@ -374,7 +381,9 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
           lineHeight: String(settings.lineSpacing),
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           border: '1px solid #e5e7eb',
-          position: 'relative'
+          position: 'relative',
+          color: '#000',
+          backgroundColor: '#fff'
         }}
         onClick={(e) => {
           const target = e.target as HTMLElement;
@@ -385,7 +394,7 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
         dangerouslySetInnerHTML={{ 
           __html: pageContent.replace(
             /<(h1|h2|p)([^>]*)>/g, 
-            '<$1$2 style="cursor: pointer; padding: 2px; border-radius: 2px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor=\'rgba(59, 130, 246, 0.1)\'" onmouseout="this.style.backgroundColor=\'transparent\'">'
+            '<$1$2 style="cursor: pointer; padding: 2px; border-radius: 2px; transition: background-color 0.2s; color: #000;" onmouseover="this.style.backgroundColor=\'rgba(59, 130, 246, 0.1)\'" onmouseout="this.style.backgroundColor=\'transparent\'">'
           )
         }}
       />
@@ -524,6 +533,13 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
               <TabsContent value="preview" className="border rounded-md p-0 min-h-[600px]">
                 {pages.length > 0 ? (
                   <div className="relative min-h-[600px]">
+                    {/* Debug info */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="absolute top-2 right-2 bg-black/50 text-white text-xs p-2 rounded z-10">
+                        Pages: {pages.length} | Current: {currentPage + 1} | Chapters: {bookContent.chapters.length}
+                      </div>
+                    )}
+                    
                     {/* Interactive Page preview */}
                     <div ref={previewRef}>
                       {renderInteractivePage(pages[currentPage] || '', currentPage)}
@@ -628,8 +644,16 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center min-h-[600px] text-muted-foreground">
-                    <p>No preview available. Make sure you have uploaded content.</p>
+                  <div className="flex flex-col items-center justify-center min-h-[600px] text-muted-foreground">
+                    <p className="text-lg mb-2">No preview available</p>
+                    <p className="text-sm">Make sure you have uploaded and processed a file with content.</p>
+                    {bookContent.chapters.length > 0 && (
+                      <div className="mt-4 text-xs bg-gray-100 p-2 rounded">
+                        <p>Debug: Found {bookContent.chapters.length} chapters</p>
+                        <p>First chapter: {bookContent.chapters[0]?.title}</p>
+                        <p>Content length: {bookContent.chapters[0]?.content?.length || 0} chars</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </TabsContent>
