@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookContent, Chapter } from '../KDPBookFormatter';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +18,7 @@ import {
   AlertCircle,
   ArrowDownUp
 } from 'lucide-react';
+import { getApiUrl, API_CONFIG } from '@/config/api';
 
 interface AIEnhanceStepProps {
   bookContent: BookContent;
@@ -41,8 +42,8 @@ export const AIEnhanceStep: React.FC<AIEnhanceStepProps> = ({
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
 
-  // API URL from environment
-  const API_URL = 'http://localhost:3000';
+  // API URL from environment - Updated to use configuration
+  // const API_URL = 'http://localhost:3000'; // Removed hardcoded URL
 
   // Select chapter
   const handleChapterSelect = (chapterId: string) => {
@@ -81,13 +82,13 @@ export const AIEnhanceStep: React.FC<AIEnhanceStepProps> = ({
     setErrorMessage('');
     
     try {
-      const response = await fetch(`${API_URL}/api/kdp-formatter/enhance-text`, {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.KDP_FORMATTER.ENHANCE), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
-          text: originalText, 
+          content: bookContent,
           enhancementType 
         }),
       });

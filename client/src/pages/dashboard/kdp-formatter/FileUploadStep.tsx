@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/components/ui/use-toast';
 import { BookContent } from '../KDPBookFormatter';
+import { getApiUrl, API_CONFIG } from '@/config/api';
 import { v4 as uuidv4 } from 'uuid';
 import {
   FileText,
@@ -78,7 +79,7 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
 
       setExtractProgress(30);
 
-      const response = await fetch(`http://localhost:3000/api/kdp-formatter/extract`, {
+      const response = await fetch(getApiUrl(API_CONFIG.ENDPOINTS.KDP_FORMATTER.EXTRACT), {
         method: 'POST',
         body: formData,
       });

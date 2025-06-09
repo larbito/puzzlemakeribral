@@ -41,6 +41,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getApiUrl, API_CONFIG } from '@/config/api';
 
 // KDP Book Sizes (industry standard)
 const KDP_BOOK_SIZES = [
