@@ -115,6 +115,73 @@ export const emptyBookContent: BookContent = {
   metadata: {},
 };
 
+interface FormattingPreset {
+  id: string;
+  name: string;
+  description: string;
+  settings: Omit<KDPBookSettings, 'detectChapterBreaks'>;
+}
+
+const defaultPresets: FormattingPreset[] = [
+  {
+    id: 'novel-6x9',
+    name: 'Novel (6×9)',
+    description: 'Perfect for fiction, novels, and narrative non-fiction',
+    settings: {
+      trimSize: '6x9',
+      marginTop: 0.875,
+      marginBottom: 0.875,
+      marginInside: 0.875,
+      marginOutside: 0.625,
+      bleed: false,
+      fontFamily: 'Times New Roman',
+      fontSize: 12,
+      lineSpacing: 1.2,
+      includeTOC: true,
+      includePageNumbers: true,
+      includeTitlePage: true
+    }
+  },
+  {
+    id: 'textbook-8x11',
+    name: 'Textbook (8.5×11)',
+    description: 'Ideal for educational content, manuals, and reference books',
+    settings: {
+      trimSize: '8.5x11',
+      marginTop: 1.0,
+      marginBottom: 1.0,
+      marginInside: 1.0,
+      marginOutside: 0.75,
+      bleed: false,
+      fontFamily: 'Arial',
+      fontSize: 11,
+      lineSpacing: 1.5,
+      includeTOC: true,
+      includePageNumbers: true,
+      includeTitlePage: true
+    }
+  },
+  {
+    id: 'poetry-5x8',
+    name: 'Poetry (5×8)',
+    description: 'Compact format for poetry collections and short works',
+    settings: {
+      trimSize: '5x8',
+      marginTop: 0.75,
+      marginBottom: 0.75,
+      marginInside: 0.75,
+      marginOutside: 0.5,
+      bleed: false,
+      fontFamily: 'Garamond',
+      fontSize: 11,
+      lineSpacing: 1.0,
+      includeTOC: false,
+      includePageNumbers: true,
+      includeTitlePage: true
+    }
+  }
+];
+
 export const KDPBookFormatter = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<KDPBookSettings>(defaultBookSettings);
@@ -131,6 +198,7 @@ export const KDPBookFormatter = () => {
   });
   const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
+  const [userPresets, setUserPresets] = useState<FormattingPreset[]>([]);
 
   // Load saved project on mount
   useEffect(() => {
@@ -316,6 +384,50 @@ export const KDPBookFormatter = () => {
       isComplete: completedSteps['export-pdf']
     }
   ];
+
+  // Add preset management functions
+  const loadPreset = (preset: FormattingPreset) => {
+    setSettings({
+      ...preset.settings,
+      detectChapterBreaks: settings.detectChapterBreaks // Preserve current detection mode
+    });
+    
+    toast({
+      title: 'Preset loaded',
+      description: `Applied ${preset.name} formatting settings`,
+    });
+  };
+
+  const saveAsPreset = (name: string, description: string) => {
+    const newPreset: FormattingPreset = {
+      id: `custom-${Date.now()}`,
+      name,
+      description,
+      settings: {
+        trimSize: settings.trimSize,
+        marginTop: settings.marginTop,
+        marginBottom: settings.marginBottom,
+        marginInside: settings.marginInside,
+        marginOutside: settings.marginOutside,
+        bleed: settings.bleed,
+        fontFamily: settings.fontFamily,
+        fontSize: settings.fontSize,
+        lineSpacing: settings.lineSpacing,
+        includeTOC: settings.includeTOC,
+        includePageNumbers: settings.includePageNumbers,
+        includeTitlePage: settings.includeTitlePage
+      }
+    };
+    
+    const updatedPresets = [...userPresets, newPreset];
+    setUserPresets(updatedPresets);
+    localStorage.setItem('kdpFormatterPresets', JSON.stringify(updatedPresets));
+    
+    toast({
+      title: 'Preset saved',
+      description: `Saved "${name}" preset for future use`,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/10 dark:from-gray-900 dark:to-gray-800">
