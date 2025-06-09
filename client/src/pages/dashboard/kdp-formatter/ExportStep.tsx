@@ -220,12 +220,47 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       pdf.setFont('times');
       pdf.setFontSize(settings.fontSize);
       
+      // Calculate margins in mm with proper conversions
       const marginTop = settings.marginTop * 25.4;
       const marginLeft = settings.marginInside * 25.4;
       const marginRight = settings.marginOutside * 25.4;
       const marginBottom = settings.marginBottom * 25.4;
+      
+      // Calculate safe text area
       const pageWidth = dimensions.width - marginLeft - marginRight;
       const pageHeight = dimensions.height - marginTop - marginBottom;
+      const lineHeight = (settings.fontSize * 0.352778) * settings.lineSpacing; // Convert pt to mm
+      
+      // Track page numbers for TOC
+      let pageNumbers: { [key: string]: number } = {};
+      let currentPageNum = 1;
+      
+      // Helper function to add page numbers
+      const addPageNumber = (pageNum: number) => {
+        if (settings.includePageNumbers && pageNum > (settings.includeTitlePage ? 1 : 0)) {
+          pdf.setFontSize(10);
+          pdf.setFont('times', 'normal');
+          const displayNum = settings.includeTitlePage ? pageNum - 1 : pageNum;
+          const numStr = displayNum.toString();
+          const textWidth = pdf.getTextWidth(numStr);
+          
+          // Place page number centered at bottom, well within margins
+          pdf.text(
+            numStr,
+            dimensions.width / 2 - textWidth / 2,
+            dimensions.height - marginBottom / 2
+          );
+          
+          // Reset font
+          pdf.setFontSize(settings.fontSize);
+          pdf.setFont('times', 'normal');
+        }
+      };
+      
+      // Helper function to check if we need a new page
+      const needsNewPage = (yPos: number, requiredHeight: number) => {
+        return yPos + requiredHeight > (dimensions.height - marginBottom - 10); // 10mm safety margin
+      };
       
       let yPosition = marginTop;
       
@@ -236,18 +271,25 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         
         // Center the title vertically and horizontally
         const titleLines = pdf.splitTextToSize(bookContent.title.toUpperCase(), pageWidth);
-        const titleHeight = titleLines.length * 10;
-        const titleY = (dimensions.height - titleHeight) / 2;
+        const titleHeight = titleLines.length * 12; // Approximate line height for title
+        const titleY = marginTop + (pageHeight - titleHeight) / 2;
         
-        pdf.text(titleLines, dimensions.width / 2, titleY, { align: 'center' });
+        for (let i = 0; i < titleLines.length; i++) {
+          const lineWidth = pdf.getTextWidth(titleLines[i]);
+          pdf.text(titleLines[i], marginLeft + (pageWidth - lineWidth) / 2, titleY + (i * 12));
+        }
         
         if (bookContent.metadata.author) {
           pdf.setFontSize(Math.max(14, settings.fontSize * 1.2));
           pdf.setFont('times', 'italic');
-          pdf.text(`by ${bookContent.metadata.author}`, dimensions.width / 2, titleY + titleHeight + 20, { align: 'center' });
+          const authorText = `by ${bookContent.metadata.author}`;
+          const authorWidth = pdf.getTextWidth(authorText);
+          pdf.text(authorText, marginLeft + (pageWidth - authorWidth) / 2, titleY + titleHeight + 20);
         }
         
+        addPageNumber(currentPageNum);
         pdf.addPage();
+        currentPageNum++;
         yPosition = marginTop;
       }
       
@@ -255,125 +297,159 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       if (settings.includeTOC) {
         pdf.setFontSize(Math.max(16, settings.fontSize * 1.4));
         pdf.setFont('times', 'bold');
-        pdf.text('TABLE OF CONTENTS', dimensions.width / 2, yPosition + 20, { align: 'center' });
+        const tocTitle = 'TABLE OF CONTENTS';
+        const tocTitleWidth = pdf.getTextWidth(tocTitle);
+        pdf.text(tocTitle, marginLeft + (pageWidth - tocTitleWidth) / 2, yPosition + 10);
         
-        yPosition += 40;
+        yPosition += 30;
         pdf.setFontSize(settings.fontSize);
         pdf.setFont('times', 'normal');
         
-        let currentPageNum = pdf.getNumberOfPages() + 1;
+        // Calculate TOC page numbers
+        let estimatedPageNum = currentPageNum + 1;
         
         for (let i = 0; i < bookContent.chapters.length; i++) {
           const chapter = bookContent.chapters[i];
+          pageNumbers[chapter.id] = estimatedPageNum;
           
-          if (yPosition > dimensions.height - marginBottom - 20) {
+          if (needsNewPage(yPosition, lineHeight + 5)) {
+            addPageNumber(currentPageNum);
             pdf.addPage();
-            yPosition = marginTop;
+            currentPageNum++;
+            yPosition = marginTop + 20;
           }
           
-          // Chapter entry with dots
+          // Chapter entry with proper dot leaders
           const chapterTitle = `Chapter ${i + 1}: ${chapter.title}`;
-          const dots = '.'.repeat(Math.max(3, 50 - chapterTitle.length));
-          const pageNum = currentPageNum.toString();
+          const maxTitleWidth = pageWidth - 30; // Leave space for page number
+          const truncatedTitle = chapterTitle.length > 50 ? chapterTitle.substring(0, 47) + '...' : chapterTitle;
           
-          pdf.text(chapterTitle, marginLeft, yPosition);
-          pdf.text(dots, marginLeft + pdf.getTextWidth(chapterTitle), yPosition);
-          pdf.text(pageNum, dimensions.width - marginRight, yPosition, { align: 'right' });
+          pdf.text(truncatedTitle, marginLeft, yPosition);
           
-          yPosition += 8;
+          const pageNumStr = estimatedPageNum.toString();
+          const pageNumWidth = pdf.getTextWidth(pageNumStr);
+          pdf.text(pageNumStr, marginLeft + pageWidth - pageNumWidth, yPosition);
+          
+          // Add dot leaders
+          const titleWidth = pdf.getTextWidth(truncatedTitle);
+          const availableSpace = pageWidth - titleWidth - pageNumWidth - 4;
+          const dotCount = Math.floor(availableSpace / pdf.getTextWidth('.'));
+          if (dotCount > 0) {
+            const dots = '.'.repeat(dotCount);
+            pdf.text(dots, marginLeft + titleWidth + 2, yPosition);
+          }
+          
+          yPosition += lineHeight + 2;
           
           // Estimate pages for this chapter
           const wordCount = chapter.content.split(' ').length;
-          const wordsPerPage = 250;
+          const wordsPerPage = Math.floor((pageHeight / lineHeight) * 8); // Conservative estimate
           const pagesForChapter = Math.max(1, Math.ceil(wordCount / wordsPerPage));
-          currentPageNum += pagesForChapter;
+          estimatedPageNum += pagesForChapter;
         }
         
+        addPageNumber(currentPageNum);
         pdf.addPage();
+        currentPageNum++;
         yPosition = marginTop;
       }
       
-      // Add chapters with professional formatting
-      for (let i = 0; i < bookContent.chapters.length; i++) {
-        const chapter = bookContent.chapters[i];
+      // Add chapters with proper text flow and margin respect
+      for (let chapterIndex = 0; chapterIndex < bookContent.chapters.length; chapterIndex++) {
+        const chapter = bookContent.chapters[chapterIndex];
         
-        // Start new chapter on new page
-        if (i > 0) {
-          pdf.addPage();
-          yPosition = marginTop;
+        // Update actual page number for this chapter
+        pageNumbers[chapter.id] = currentPageNum;
+        
+        // Start new chapter on new page (except first if no title page/TOC)
+        if (chapterIndex > 0 || settings.includeTitlePage || settings.includeTOC) {
+          // Don't add page if we're already on a fresh page
+          if (yPosition > marginTop + 10) {
+            addPageNumber(currentPageNum);
+            pdf.addPage();
+            currentPageNum++;
+            yPosition = marginTop;
+          }
         }
         
         // Chapter number
         pdf.setFontSize(Math.max(12, settings.fontSize * 0.9));
         pdf.setFont('times', 'normal');
-        pdf.text(`Chapter ${i + 1}`, dimensions.width / 2, yPosition, { align: 'center' });
-        yPosition += 15;
+        const chapterNumText = `Chapter ${chapterIndex + 1}`;
+        const chapterNumWidth = pdf.getTextWidth(chapterNumText);
+        pdf.text(chapterNumText, marginLeft + (pageWidth - chapterNumWidth) / 2, yPosition);
+        yPosition += 20;
         
         // Chapter title
         pdf.setFontSize(Math.max(16, settings.fontSize * 1.3));
         pdf.setFont('times', 'bold');
         const titleLines = pdf.splitTextToSize(chapter.title.toUpperCase(), pageWidth);
-        pdf.text(titleLines, dimensions.width / 2, yPosition, { align: 'center' });
-        yPosition += titleLines.length * 8 + 20;
         
-        // Chapter content with professional formatting
+        for (let i = 0; i < titleLines.length; i++) {
+          if (needsNewPage(yPosition, lineHeight + 5)) {
+            addPageNumber(currentPageNum);
+            pdf.addPage();
+            currentPageNum++;
+            yPosition = marginTop + 20;
+          }
+          
+          const lineWidth = pdf.getTextWidth(titleLines[i]);
+          pdf.text(titleLines[i], marginLeft + (pageWidth - lineWidth) / 2, yPosition);
+          yPosition += lineHeight + 5;
+        }
+        
+        yPosition += 15; // Space after title
+        
+        // Chapter content with proper text flow
         pdf.setFontSize(settings.fontSize);
         pdf.setFont('times', 'normal');
         
         const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
         
-        for (let j = 0; j < paragraphs.length; j++) {
-          const paragraph = paragraphs[j].trim();
+        for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex++) {
+          const paragraph = paragraphs[paragraphIndex].trim();
           
-          if (yPosition > dimensions.height - marginBottom - 20) {
+          // Check if we need a new page for this paragraph
+          const estimatedParagraphHeight = Math.ceil(paragraph.length / 80) * lineHeight; // Rough estimate
+          if (needsNewPage(yPosition, Math.min(estimatedParagraphHeight, lineHeight * 3))) {
+            addPageNumber(currentPageNum);
             pdf.addPage();
-            yPosition = marginTop + 20; // Leave space at top of new page
+            currentPageNum++;
+            yPosition = marginTop + 10; // Small margin at top of continuation pages
           }
           
-          // Calculate line height based on line spacing
-          const lineHeight = settings.fontSize * 0.35 * settings.lineSpacing;
+          // First paragraph has no indent, others are indented
+          const indent = paragraphIndex === 0 ? 0 : 10;
+          const textWidth = pageWidth - indent;
           
-          // Split paragraph into lines that fit the page width
-          const lines = pdf.splitTextToSize(paragraph, pageWidth - (j === 0 ? 20 : 0)); // First paragraph indent
+          // Split paragraph into lines that fit
+          const lines = pdf.splitTextToSize(paragraph, textWidth);
           
-          // Add first line with indent (except for first paragraph)
-          if (lines.length > 0) {
-            const firstLineIndent = j === 0 ? 0 : 15; // First paragraph no indent, others indented
-            pdf.text(lines[0], marginLeft + firstLineIndent, yPosition);
-            yPosition += lineHeight;
-            
-            // Add remaining lines
-            for (let k = 1; k < lines.length; k++) {
-              if (yPosition > dimensions.height - marginBottom - lineHeight) {
-                pdf.addPage();
-                yPosition = marginTop + 20;
-              }
-              pdf.text(lines[k], marginLeft, yPosition);
-              yPosition += lineHeight;
+          for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+            // Check if we need a new page for this line
+            if (needsNewPage(yPosition, lineHeight)) {
+              addPageNumber(currentPageNum);
+              pdf.addPage();
+              currentPageNum++;
+              yPosition = marginTop + 10;
             }
+            
+            // Add line with proper indent (only first line of paragraph gets indent)
+            const lineIndent = (lineIndex === 0) ? indent : 0;
+            pdf.text(lines[lineIndex], marginLeft + lineIndent, yPosition);
+            yPosition += lineHeight;
           }
           
-          yPosition += lineHeight * 0.5; // Space between paragraphs
+          // Add space between paragraphs
+          yPosition += lineHeight * 0.3;
         }
+        
+        // Add extra space after chapter
+        yPosition += lineHeight;
       }
       
-      // Add page numbers to all pages except title page
-      if (settings.includePageNumbers) {
-        const totalPages = pdf.getNumberOfPages();
-        pdf.setFontSize(10);
-        pdf.setFont('times', 'normal');
-        
-        for (let pageNum = settings.includeTitlePage ? 2 : 1; pageNum <= totalPages; pageNum++) {
-          pdf.setPage(pageNum);
-          const displayPageNum = settings.includeTitlePage ? pageNum - 1 : pageNum;
-          pdf.text(
-            displayPageNum.toString(),
-            dimensions.width / 2,
-            dimensions.height - marginBottom / 2,
-            { align: 'center' }
-          );
-        }
-      }
+      // Add final page number
+      addPageNumber(currentPageNum);
       
       // Generate the PDF blob
       const pdfBlob = pdf.output('blob');
@@ -384,7 +460,7 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       
       toast({
         title: 'Professional PDF Generated',
-        description: 'Your KDP-ready PDF has been generated with professional formatting.'
+        description: `Your KDP-ready PDF has been generated with ${currentPageNum} pages and proper formatting.`
       });
     } catch (error) {
       console.error('Error generating professional PDF:', error);

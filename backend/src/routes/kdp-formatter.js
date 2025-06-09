@@ -195,20 +195,20 @@ function detectBookStructureFallback(text) {
     }
   }
   
-  // Enhanced chapter detection patterns with better priority
+  // Much more conservative chapter detection patterns - only detect CLEAR chapter markers
   const chapterPatterns = [
-    { pattern: /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.+)$/i, priority: 1 },  // "Chapter 1: Title"
-    { pattern: /^(\d+)\.\s+(.+)$/, priority: 2 },                                   // "1. Chapter Title"
-    { pattern: /^#\s+(.+)$/, priority: 3 },                                         // "# Chapter Title" (Markdown)
-    { pattern: /^(CHAPTER\s+\d+)$/i, priority: 4 },                                 // "CHAPTER 1"
-    { pattern: /^(Part\s+\d+)/i, priority: 5 },                                     // "Part 1"
+    { pattern: /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.*)$/i, priority: 1, requiresFollowingContent: true },  // "Chapter 1: Title"
+    { pattern: /^(\d+)\.\s+(.{10,})$/, priority: 2, requiresFollowingContent: true },                             // "1. Chapter Title" (at least 10 chars)
+    { pattern: /^#{1,3}\s+(.{5,})$/, priority: 3, requiresFollowingContent: true },                               // "# Chapter Title" (Markdown, at least 5 chars)
+    { pattern: /^CHAPTER\s+(\d+|[IVXLCDM]+)(?:\s*[:.]\s*(.*))?$/i, priority: 4, requiresFollowingContent: true }, // "CHAPTER 1" or "CHAPTER 1: Title"
+    { pattern: /^Part\s+(\d+|[IVXLCDM]+)(?:\s*[:.]\s*(.*))?$/i, priority: 5, requiresFollowingContent: true },    // "Part 1" or "Part 1: Title"
   ];
   
   const chapters = [];
   let currentChapter = null;
   let chapterCounter = 1;
   let contentBuffer = [];
-  let lastTitlePattern = null;
+  let actualChapterCount = 0;
   
   // Keep track of titles we've already used to avoid repetition
   const usedTitles = new Set();
@@ -225,55 +225,67 @@ function detectBookStructureFallback(text) {
     // Sort patterns by priority and find the best match
     const sortedPatterns = chapterPatterns.sort((a, b) => a.priority - b.priority);
     
-    for (const { pattern, priority } of sortedPatterns) {
+    for (const { pattern, priority, requiresFollowingContent } of sortedPatterns) {
       const match = line.match(pattern);
       if (match) {
+        // If this pattern requires following content, check that there's substantial content after
+        if (requiresFollowingContent) {
+          const nextLines = lines.slice(i + 1, i + 5).join(' ').trim();
+          if (nextLines.length < 50) continue; // Not enough content after this "chapter"
+        }
+        
         isChapterTitle = true;
         matchedPattern = pattern;
+        actualChapterCount++;
+        
         // Extract title from match groups
         if (match[2] && match[2].trim()) {
-          chapterTitle = match[2].trim(); // Title from second capture group
+          chapterTitle = match[2].trim();
         } else if (match[1] && match[1].trim()) {
-          chapterTitle = match[1].trim(); // Title from first capture group
+          chapterTitle = match[1].trim();
         } else {
-          chapterTitle = line; // Use whole line
+          chapterTitle = `Chapter ${actualChapterCount}`;
         }
         break;
       }
     }
     
-    // Additional heuristics for chapter detection
-    if (!isChapterTitle) {
-      // Check if line is isolated and looks like a title
+    // More conservative heuristic detection - only for very clear cases
+    if (!isChapterTitle && actualChapterCount === 0) { // Only try this if we haven't found any chapters yet
+      // Check if line is isolated and looks like a very clear title
       const prevLineEmpty = i === 0 || !lines[i-1]?.trim();
       const nextLineEmpty = i === lines.length-1 || !lines[i+1]?.trim();
+      const nextLinesContent = lines.slice(i + 1, i + 10).join(' ').trim();
       
-      if (prevLineEmpty && nextLineEmpty && line.length < 80 && line.length > 5) {
-        // Check if it looks like a title
+      if (prevLineEmpty && nextLineEmpty && 
+          line.length < 80 && line.length > 10 && 
+          nextLinesContent.length > 200) { // Must have substantial content following
+        
+        // Very strict criteria for title detection
         const isAllCaps = line === line.toUpperCase() && line.includes(' ');
         const hasNoSentenceEnding = !line.endsWith('.') && !line.endsWith('!') && !line.endsWith('?');
-        const isNotCommonWord = !line.toLowerCase().includes('the ') && !line.toLowerCase().includes('and ');
+        const hasNoCommonWords = !line.toLowerCase().includes('the ') && 
+                                 !line.toLowerCase().includes('and ') &&
+                                 !line.toLowerCase().includes(' of ') &&
+                                 !line.toLowerCase().includes(' in ');
+        const isNotPartOfSentence = !/\b(said|says|told|asked|replied|continued|began|started)\b/i.test(line);
         
-        if ((isAllCaps || hasNoSentenceEnding) && isNotCommonWord) {
+        if (isAllCaps && hasNoSentenceEnding && hasNoCommonWords && isNotPartOfSentence) {
           isChapterTitle = true;
           chapterTitle = line;
+          actualChapterCount++;
         }
       }
     }
     
-    // Check for repetitive titles and generate better ones
+    // Very strict check for repetitive titles - avoid creating chapters with repeated titles
     if (isChapterTitle && chapterTitle) {
-      // If we've seen this title before, or it's too generic, generate a better one
       if (usedTitles.has(chapterTitle.toLowerCase()) || 
-          chapterTitle.length < 3 || 
-          /^(chapter|part|section)\s*\d*$/i.test(chapterTitle)) {
-        
-        // Generate a meaningful title from the upcoming content
-        const upcomingContent = lines.slice(i + 1, i + 10).join(' ').trim();
-        chapterTitle = generateChapterTitle(upcomingContent, chapterCounter);
+          chapterTitle.length < 3) {
+        isChapterTitle = false; // Don't create a chapter for repeated/generic titles
+      } else {
+        usedTitles.add(chapterTitle.toLowerCase());
       }
-      
-      usedTitles.add(chapterTitle.toLowerCase());
     }
     
     if (isChapterTitle && chapterTitle) {
@@ -291,7 +303,6 @@ function detectBookStructureFallback(text) {
         level: 1
       };
       contentBuffer = [];
-      lastTitlePattern = matchedPattern;
     } else if (currentChapter) {
       // Add content to current chapter
       contentBuffer.push(line);
@@ -306,28 +317,41 @@ function detectBookStructureFallback(text) {
     currentChapter.content = contentBuffer.join('\n\n');
     chapters.push(currentChapter);
   } else if (contentBuffer.length > 0 && chapters.length === 0) {
-    // All content goes into a single chapter
-    const firstChapterTitle = generateChapterTitle(contentBuffer.slice(0, 50).join(' '), 1);
+    // No chapters detected - treat entire content as one chapter
+    // Extract a meaningful title from the beginning of the content
+    const contentStart = contentBuffer.slice(0, 20).join(' ');
+    const firstSentence = contentStart.split(/[.!?]/)[0]?.trim();
+    let detectedTitle = 'Chapter 1';
+    
+    if (firstSentence && firstSentence.length > 10 && firstSentence.length < 60) {
+      detectedTitle = firstSentence.split(' ').slice(0, 6).join(' ');
+      if (detectedTitle.length > 50) {
+        detectedTitle = detectedTitle.substring(0, 47) + '...';
+      }
+    }
+    
     chapters.push({
       id: 'chapter-1',
-      title: firstChapterTitle,
+      title: detectedTitle,
       content: contentBuffer.join('\n\n'),
       level: 1
     });
   }
   
-  // Ensure we have at least one chapter
+  // If we still have no chapters, create a single chapter
   if (chapters.length === 0) {
     chapters.push({
       id: 'chapter-1',
-      title: 'Introduction',
+      title: 'Complete Text',
       content: text,
       level: 1
     });
   }
   
-  // Post-process chapters to improve titles and merge very short ones
-  const processedChapters = postProcessChapters(chapters);
+  // Post-process: merge very short chapters (likely false positives)
+  const processedChapters = mergeShortChapters(chapters);
+  
+  console.log(`Detected ${processedChapters.length} chapters from ${lines.length} lines`);
   
   return {
     title,
@@ -336,72 +360,23 @@ function detectBookStructureFallback(text) {
   };
 }
 
-// Generate meaningful chapter titles from content
-function generateChapterTitle(content, chapterNumber) {
-  if (!content || content.trim().length < 10) {
-    return `Chapter ${chapterNumber}`;
-  }
-  
-  // Clean the content
-  const cleanContent = content.trim().toLowerCase();
-  
-  // Extract potential keywords and themes
-  const words = cleanContent.split(/\s+/).filter(word => word.length > 3);
-  const firstSentence = content.split(/[.!?]/)[0]?.trim();
-  
-  // Look for meaningful keywords
-  const keywords = words.filter(word => 
-    !['the', 'and', 'that', 'this', 'with', 'from', 'they', 'were', 'been', 'have', 'their', 'said', 'each', 'which', 'what', 'there', 'would', 'could', 'should'].includes(word)
-  );
-  
-  // Try to create a meaningful title
-  if (firstSentence && firstSentence.length > 10 && firstSentence.length < 60) {
-    // Use first sentence if it's a good length
-    return firstSentence.split(' ').slice(0, 8).join(' ') + (firstSentence.split(' ').length > 8 ? '...' : '');
-  } else if (keywords.length >= 2) {
-    // Create title from keywords
-    const titleWords = keywords.slice(0, 4).map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    );
-    return titleWords.join(' ');
-  } else {
-    // Fallback to generic title
-    const themes = ['Beginning', 'Discovery', 'Journey', 'Adventure', 'Challenge', 'Resolution', 'Conclusion'];
-    const themeIndex = (chapterNumber - 1) % themes.length;
-    return `${themes[themeIndex]}`;
-  }
-}
-
-// Post-process chapters to improve structure
-function postProcessChapters(chapters) {
-  if (chapters.length === 0) return chapters;
+// Merge chapters that are too short (likely false detections)
+function mergeShortChapters(chapters) {
+  if (chapters.length <= 1) return chapters;
   
   const processed = [];
   
   for (let i = 0; i < chapters.length; i++) {
     const chapter = chapters[i];
     
-    // Skip very short chapters (merge with next or previous)
-    if (chapter.content.length < 100) {
-      if (processed.length > 0) {
-        // Merge with previous chapter
-        const prevChapter = processed[processed.length - 1];
-        prevChapter.content += '\n\n' + chapter.content;
-        continue;
-      } else if (i < chapters.length - 1) {
-        // Merge with next chapter
-        const nextChapter = chapters[i + 1];
-        nextChapter.content = chapter.content + '\n\n' + nextChapter.content;
-        continue;
-      }
+    // If this chapter is very short (less than 500 characters), merge it
+    if (chapter.content.length < 500 && processed.length > 0) {
+      const prevChapter = processed[processed.length - 1];
+      prevChapter.content += '\n\n' + chapter.content;
+      console.log(`Merged short chapter "${chapter.title}" with previous chapter`);
+    } else {
+      processed.push(chapter);
     }
-    
-    // Improve chapter title if it's too generic or repetitive
-    if (chapter.title.length < 5 || /^(chapter|untitled)/i.test(chapter.title)) {
-      chapter.title = generateChapterTitle(chapter.content, processed.length + 1);
-    }
-    
-    processed.push(chapter);
   }
   
   return processed;

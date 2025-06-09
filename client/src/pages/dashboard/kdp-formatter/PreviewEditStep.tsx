@@ -113,14 +113,11 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
 
     const formattedPages: string[] = [];
     
-    // Professional CSS styles for book formatting
+    // Simplified CSS styles for better consistency with PDF
     const bookStyles = `
       <style>
-        body {
-          font-family: ${settings.fontFamily};
-          font-size: ${settings.fontSize}pt;
-          line-height: ${settings.lineSpacing};
-          color: #000;
+        * {
+          box-sizing: border-box;
           margin: 0;
           padding: 0;
         }
@@ -128,17 +125,25 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
         .page {
           width: 100%;
           height: 100%;
-          display: flex;
-          flex-direction: column;
-          justify-content: flex-start;
-          box-sizing: border-box;
+          font-family: ${settings.fontFamily === 'Times New Roman' ? 'Times, "Times New Roman", serif' : 
+                       settings.fontFamily === 'Garamond' ? 'Garamond, serif' : 
+                       settings.fontFamily === 'Georgia' ? 'Georgia, serif' :
+                       settings.fontFamily === 'Palatino' ? 'Palatino, serif' :
+                       'Arial, sans-serif'};
+          font-size: ${settings.fontSize}pt;
+          line-height: ${settings.lineSpacing};
+          color: #000;
+          background: white;
+          padding: 20px;
+          overflow: hidden;
         }
         
         .title-page {
-          text-align: center;
           display: flex;
           flex-direction: column;
           justify-content: center;
+          align-items: center;
+          text-align: center;
           height: 100%;
         }
         
@@ -148,17 +153,17 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
           margin-bottom: 2em;
           line-height: 1.2;
           text-transform: uppercase;
-          letter-spacing: 2px;
+          letter-spacing: 1px;
         }
         
         .book-author {
           font-size: ${Math.max(14, settings.fontSize * 1.2)}pt;
           font-style: italic;
-          margin-top: 2em;
+          margin-top: 1em;
         }
         
         .toc-page {
-          padding-top: 2em;
+          padding-top: 1em;
         }
         
         .toc-title {
@@ -178,17 +183,15 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
           padding-bottom: 0.2em;
         }
         
-        .toc-title-text {
-          flex: 1;
-        }
-        
-        .toc-page-num {
-          margin-left: 1em;
-          font-weight: bold;
-        }
-        
         .chapter-page {
-          padding-top: 1em;
+          text-align: left;
+        }
+        
+        .chapter-number {
+          font-size: ${Math.max(12, settings.fontSize * 0.9)}pt;
+          text-align: center;
+          margin-bottom: 1em;
+          color: #666;
         }
         
         .chapter-title {
@@ -202,42 +205,24 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
           padding-bottom: 0.5em;
         }
         
-        .chapter-content {
-          text-align: justify;
-          hyphens: auto;
-        }
-        
         .chapter-content p {
-          margin-bottom: 1.2em;
-          text-indent: 1.5em;
+          margin-bottom: 1em;
+          text-align: justify;
           line-height: ${settings.lineSpacing};
-        }
-        
-        .chapter-content p:first-child {
           text-indent: 0;
         }
         
+        .chapter-content p:not(:first-child) {
+          text-indent: 1.5em;
+        }
+        
         .chapter-content p:first-child:first-letter {
-          font-size: ${settings.fontSize * 3}pt;
+          font-size: ${settings.fontSize * 2.5}pt;
           font-weight: bold;
           float: left;
-          line-height: 0.8;
-          padding-right: 0.1em;
+          line-height: 1;
+          margin-right: 0.1em;
           margin-top: 0.1em;
-        }
-        
-        .chapter-number {
-          font-size: ${Math.max(12, settings.fontSize * 0.9)}pt;
-          font-weight: normal;
-          margin-bottom: 0.5em;
-          text-align: center;
-          color: #666;
-        }
-        
-        @media print {
-          .page {
-            page-break-after: always;
-          }
         }
       </style>
     `;
@@ -270,14 +255,14 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
       bookContent.chapters.forEach((chapter, index) => {
         tocPage += `
           <div class="toc-entry">
-            <span class="toc-title-text">Chapter ${index + 1}: ${chapter.title}</span>
-            <span class="toc-page-num">${currentPageNum}</span>
+            <span>${chapter.title}</span>
+            <span>${currentPageNum}</span>
           </div>
         `;
         
-        // Estimate pages needed for this chapter (rough calculation)
+        // Estimate pages needed for this chapter (simplified)
         const wordCount = chapter.content.split(' ').length;
-        const wordsPerPage = 250; // Average words per page
+        const wordsPerPage = 250;
         const pagesForChapter = Math.max(1, Math.ceil(wordCount / wordsPerPage));
         currentPageNum += pagesForChapter;
       });
@@ -286,7 +271,7 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
       formattedPages.push(tocPage);
     }
     
-    // Format each chapter with professional typography
+    // Format each chapter with simplified layout
     for (const [index, chapter] of bookContent.chapters.entries()) {
       if (!chapter.content || chapter.content.trim() === '') {
         console.log(`Chapter ${index + 1} has no content`);
@@ -296,15 +281,15 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
       // Clean and prepare chapter content
       const cleanContent = chapter.content
         .trim()
-        .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
-        .replace(/\s+/g, ' '); // Normalize spaces
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/\s+/g, ' ');
       
       // Split into paragraphs
       const paragraphs = cleanContent.split('\n\n').filter(p => p.trim() !== '');
       
       console.log(`Chapter ${index + 1} has ${paragraphs.length} paragraphs`);
       
-      // Create professionally formatted chapter page
+      // Create chapter page with simplified formatting
       let chapterPage = `
         ${bookStyles}
         <div class="page chapter-page">
@@ -313,14 +298,14 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
           <div class="chapter-content">
       `;
       
-      // Add each paragraph with proper formatting
-      paragraphs.forEach((paragraph, paragraphIndex) => {
+      // Add each paragraph
+      paragraphs.forEach((paragraph) => {
         const cleanParagraph = paragraph.trim()
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;')
           .replace(/&/g, '&amp;')
           .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
         
         chapterPage += `<p>${cleanParagraph}</p>`;
       });
@@ -330,7 +315,6 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     }
     
     console.log('Generated pages:', formattedPages.length);
-    console.log('First page preview:', formattedPages[0]?.substring(0, 300));
     
     // Update state with formatted pages
     setPages(formattedPages);
