@@ -49,8 +49,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       
       // If no formatted content but we have chapters, create simple content
       if (bookContent.chapters.length > 0) {
-        console.log('Creating simple PDF from chapters...');
-        await createSimplePDF();
+        console.log('Creating professional PDF from chapters...');
+        await createProfessionalPDF();
         return;
       }
       
@@ -68,12 +68,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       // Get trim size dimensions in mm (PDF uses mm)
       const dimensions = getTrimSizeDimensions(settings.trimSize);
       
-      // Create PDF document
+      // Create PDF document with professional settings
       const pdf = new jsPDF({
         orientation: dimensions.width > dimensions.height ? 'landscape' : 'portrait',
         unit: 'mm',
         format: [dimensions.width, dimensions.height],
-        compress: highQuality
+        compress: highQuality,
+        precision: 2
       });
       
       // Add metadata
@@ -86,12 +87,12 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       });
       
       // Calculate margins in mm
-      const marginTop = settings.marginTop * 25.4;      // convert inches to mm
+      const marginTop = settings.marginTop * 25.4;
       const marginBottom = settings.marginBottom * 25.4;
       const marginInside = settings.marginInside * 25.4;
       const marginOutside = settings.marginOutside * 25.4;
       
-      // Function to render HTML content to PDF page
+      // Function to render HTML content to PDF page with professional layout
       const addHtmlPageToPDF = async (content: string, pageIndex: number) => {
         console.log(`Processing PDF page ${pageIndex + 1}/${formattedContent.length}`);
         
@@ -100,49 +101,52 @@ export const ExportStep: React.FC<ExportStepProps> = ({
           pdf.addPage();
         }
         
-        // Create a temporary container for rendering
+        // Create a temporary container for rendering with improved styling
         const container = document.createElement('div');
         container.style.position = 'absolute';
         container.style.left = '-9999px';
         container.style.top = '-9999px';
         container.style.width = `${dimensions.width}mm`;
         container.style.height = `${dimensions.height}mm`;
-        container.style.fontFamily = settings.fontFamily;
-        container.style.fontSize = `${settings.fontSize}pt`;
-        container.style.lineHeight = String(settings.lineSpacing);
         container.style.backgroundColor = 'white';
-        container.style.color = '#000';
+        container.style.color = '#000000';
         container.style.padding = `${marginTop}mm ${marginOutside}mm ${marginBottom}mm ${marginInside}mm`;
         container.style.boxSizing = 'border-box';
+        container.style.overflow = 'hidden';
         container.innerHTML = content;
         
         document.body.appendChild(container);
         
         try {
-          // Convert HTML to canvas
+          // Convert HTML to canvas with high quality settings
           const canvas = await html2canvas(container, {
-            scale: 2, // Higher scale for better quality
+            scale: 3, // Higher scale for better quality
             useCORS: true,
             allowTaint: true,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            removeContainer: true,
+            imageTimeout: 5000,
+            logging: false
           });
           
-          // Convert canvas to image data
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          // Convert canvas to high quality image data
+          const imgData = canvas.toDataURL('image/png', 1.0);
           
-          // Add image to PDF
-          pdf.addImage(imgData, 'JPEG', 0, 0, dimensions.width, dimensions.height);
+          // Add image to PDF with proper dimensions
+          pdf.addImage(imgData, 'PNG', 0, 0, dimensions.width, dimensions.height, undefined, 'FAST');
           
-          // Add page numbers if enabled
-          if (settings.includePageNumbers && pageIndex > 0) { // Skip page number on title page
+          // Add page numbers if enabled (outside margins)
+          if (settings.includePageNumbers && pageIndex > 0) {
             const pageNumber = pageIndex.toString();
+            pdf.setFont('times', 'normal');
             pdf.setFontSize(10);
             const textWidth = pdf.getTextWidth(pageNumber);
             
+            // Center page number at bottom
             pdf.text(
               pageNumber,
               (dimensions.width - textWidth) / 2,
-              dimensions.height - marginBottom / 2
+              dimensions.height - (marginBottom / 3) // Above margin
             );
           }
         } finally {
@@ -151,11 +155,15 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         }
       };
       
-      // Process each page
+      // Process each page with progress tracking
       for (let i = 0; i < formattedContent.length; i++) {
         await addHtmlPageToPDF(formattedContent[i], i);
         
-        // Update progress (optional - could add progress bar)
+        // Small delay to prevent browser freezing
+        if (i % 3 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
         const progress = ((i + 1) / formattedContent.length) * 100;
         console.log(`Processing page ${i + 1}/${formattedContent.length} (${progress.toFixed(1)}%)`);
       }
@@ -168,8 +176,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       setExportStatus('complete');
       
       toast({
-        title: 'PDF Generated',
-        description: 'Your KDP-ready PDF has been generated successfully.'
+        title: 'Professional PDF Generated',
+        description: 'Your KDP-ready PDF has been generated with professional formatting.'
       });
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -178,13 +186,13 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       
       toast({
         title: 'PDF Generation Failed',
-        description: 'There was a problem generating your PDF. Please try again.',
+        description: 'There was a problem generating your PDF. Please try again.'
       });
     }
   };
 
-  // Create a simple PDF directly from chapters when formatted content is not available
-  const createSimplePDF = async () => {
+  // Create a professional PDF directly from chapters when formatted content is not available
+  const createProfessionalPDF = async () => {
     setExportStatus('processing');
     setErrorMessage('');
     
@@ -195,7 +203,8 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         orientation: dimensions.width > dimensions.height ? 'landscape' : 'portrait',
         unit: 'mm',
         format: [dimensions.width, dimensions.height],
-        compress: highQuality
+        compress: highQuality,
+        precision: 2
       });
       
       // Add metadata
@@ -207,61 +216,163 @@ export const ExportStep: React.FC<ExportStepProps> = ({
         creator: 'KDP Book Formatter'
       });
       
-      pdf.setFont('helvetica');
+      // Use Times Roman for better typography
+      pdf.setFont('times');
       pdf.setFontSize(settings.fontSize);
       
       const marginTop = settings.marginTop * 25.4;
       const marginLeft = settings.marginInside * 25.4;
       const marginRight = settings.marginOutside * 25.4;
+      const marginBottom = settings.marginBottom * 25.4;
       const pageWidth = dimensions.width - marginLeft - marginRight;
+      const pageHeight = dimensions.height - marginTop - marginBottom;
       
       let yPosition = marginTop;
       
-      // Add title page
+      // Add professional title page
       if (settings.includeTitlePage) {
-        pdf.setFontSize(24);
-        const titleLines = pdf.splitTextToSize(bookContent.title, pageWidth);
-        pdf.text(titleLines, marginLeft, yPosition);
+        pdf.setFontSize(Math.max(18, settings.fontSize * 1.8));
+        pdf.setFont('times', 'bold');
+        
+        // Center the title vertically and horizontally
+        const titleLines = pdf.splitTextToSize(bookContent.title.toUpperCase(), pageWidth);
+        const titleHeight = titleLines.length * 10;
+        const titleY = (dimensions.height - titleHeight) / 2;
+        
+        pdf.text(titleLines, dimensions.width / 2, titleY, { align: 'center' });
         
         if (bookContent.metadata.author) {
-          yPosition += 20;
-          pdf.setFontSize(16);
-          pdf.text(`By ${bookContent.metadata.author}`, marginLeft, yPosition);
+          pdf.setFontSize(Math.max(14, settings.fontSize * 1.2));
+          pdf.setFont('times', 'italic');
+          pdf.text(`by ${bookContent.metadata.author}`, dimensions.width / 2, titleY + titleHeight + 20, { align: 'center' });
         }
         
         pdf.addPage();
         yPosition = marginTop;
       }
       
-      // Add chapters
-      for (const chapter of bookContent.chapters) {
-        if (yPosition > dimensions.height - 30) {
-          pdf.addPage();
-          yPosition = marginTop;
-        }
+      // Add professional table of contents
+      if (settings.includeTOC) {
+        pdf.setFontSize(Math.max(16, settings.fontSize * 1.4));
+        pdf.setFont('times', 'bold');
+        pdf.text('TABLE OF CONTENTS', dimensions.width / 2, yPosition + 20, { align: 'center' });
         
-        // Chapter title
-        pdf.setFontSize(18);
-        const titleLines = pdf.splitTextToSize(chapter.title, pageWidth);
-        pdf.text(titleLines, marginLeft, yPosition);
-        yPosition += titleLines.length * 8 + 10;
-        
-        // Chapter content
+        yPosition += 40;
         pdf.setFontSize(settings.fontSize);
-        const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
+        pdf.setFont('times', 'normal');
         
-        for (const paragraph of paragraphs) {
-          if (yPosition > dimensions.height - 30) {
+        let currentPageNum = pdf.getNumberOfPages() + 1;
+        
+        for (let i = 0; i < bookContent.chapters.length; i++) {
+          const chapter = bookContent.chapters[i];
+          
+          if (yPosition > dimensions.height - marginBottom - 20) {
             pdf.addPage();
             yPosition = marginTop;
           }
           
-          const lines = pdf.splitTextToSize(paragraph, pageWidth);
-          pdf.text(lines, marginLeft, yPosition);
-          yPosition += lines.length * (settings.fontSize * 0.35 * settings.lineSpacing) + 5;
+          // Chapter entry with dots
+          const chapterTitle = `Chapter ${i + 1}: ${chapter.title}`;
+          const dots = '.'.repeat(Math.max(3, 50 - chapterTitle.length));
+          const pageNum = currentPageNum.toString();
+          
+          pdf.text(chapterTitle, marginLeft, yPosition);
+          pdf.text(dots, marginLeft + pdf.getTextWidth(chapterTitle), yPosition);
+          pdf.text(pageNum, dimensions.width - marginRight, yPosition, { align: 'right' });
+          
+          yPosition += 8;
+          
+          // Estimate pages for this chapter
+          const wordCount = chapter.content.split(' ').length;
+          const wordsPerPage = 250;
+          const pagesForChapter = Math.max(1, Math.ceil(wordCount / wordsPerPage));
+          currentPageNum += pagesForChapter;
         }
         
-        yPosition += 10; // Space between chapters
+        pdf.addPage();
+        yPosition = marginTop;
+      }
+      
+      // Add chapters with professional formatting
+      for (let i = 0; i < bookContent.chapters.length; i++) {
+        const chapter = bookContent.chapters[i];
+        
+        // Start new chapter on new page
+        if (i > 0) {
+          pdf.addPage();
+          yPosition = marginTop;
+        }
+        
+        // Chapter number
+        pdf.setFontSize(Math.max(12, settings.fontSize * 0.9));
+        pdf.setFont('times', 'normal');
+        pdf.text(`Chapter ${i + 1}`, dimensions.width / 2, yPosition, { align: 'center' });
+        yPosition += 15;
+        
+        // Chapter title
+        pdf.setFontSize(Math.max(16, settings.fontSize * 1.3));
+        pdf.setFont('times', 'bold');
+        const titleLines = pdf.splitTextToSize(chapter.title.toUpperCase(), pageWidth);
+        pdf.text(titleLines, dimensions.width / 2, yPosition, { align: 'center' });
+        yPosition += titleLines.length * 8 + 20;
+        
+        // Chapter content with professional formatting
+        pdf.setFontSize(settings.fontSize);
+        pdf.setFont('times', 'normal');
+        
+        const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
+        
+        for (let j = 0; j < paragraphs.length; j++) {
+          const paragraph = paragraphs[j].trim();
+          
+          if (yPosition > dimensions.height - marginBottom - 20) {
+            pdf.addPage();
+            yPosition = marginTop + 20; // Leave space at top of new page
+          }
+          
+          // Calculate line height based on line spacing
+          const lineHeight = settings.fontSize * 0.35 * settings.lineSpacing;
+          
+          // Split paragraph into lines that fit the page width
+          const lines = pdf.splitTextToSize(paragraph, pageWidth - (j === 0 ? 20 : 0)); // First paragraph indent
+          
+          // Add first line with indent (except for first paragraph)
+          if (lines.length > 0) {
+            const firstLineIndent = j === 0 ? 0 : 15; // First paragraph no indent, others indented
+            pdf.text(lines[0], marginLeft + firstLineIndent, yPosition);
+            yPosition += lineHeight;
+            
+            // Add remaining lines
+            for (let k = 1; k < lines.length; k++) {
+              if (yPosition > dimensions.height - marginBottom - lineHeight) {
+                pdf.addPage();
+                yPosition = marginTop + 20;
+              }
+              pdf.text(lines[k], marginLeft, yPosition);
+              yPosition += lineHeight;
+            }
+          }
+          
+          yPosition += lineHeight * 0.5; // Space between paragraphs
+        }
+      }
+      
+      // Add page numbers to all pages except title page
+      if (settings.includePageNumbers) {
+        const totalPages = pdf.getNumberOfPages();
+        pdf.setFontSize(10);
+        pdf.setFont('times', 'normal');
+        
+        for (let pageNum = settings.includeTitlePage ? 2 : 1; pageNum <= totalPages; pageNum++) {
+          pdf.setPage(pageNum);
+          const displayPageNum = settings.includeTitlePage ? pageNum - 1 : pageNum;
+          pdf.text(
+            displayPageNum.toString(),
+            dimensions.width / 2,
+            dimensions.height - marginBottom / 2,
+            { align: 'center' }
+          );
+        }
       }
       
       // Generate the PDF blob
@@ -272,17 +383,17 @@ export const ExportStep: React.FC<ExportStepProps> = ({
       setExportStatus('complete');
       
       toast({
-        title: 'PDF Generated',
-        description: 'Your KDP-ready PDF has been generated successfully.'
+        title: 'Professional PDF Generated',
+        description: 'Your KDP-ready PDF has been generated with professional formatting.'
       });
     } catch (error) {
-      console.error('Error generating simple PDF:', error);
+      console.error('Error generating professional PDF:', error);
       setExportStatus('error');
-      setErrorMessage('There was a problem generating your PDF. Please try again.');
+      setErrorMessage('There was a problem generating your professional PDF. Please try again.');
       
       toast({
         title: 'PDF Generation Failed',
-        description: 'There was a problem generating your PDF. Please try again.',
+        description: 'There was a problem generating your PDF. Please try again.'
       });
     }
   };

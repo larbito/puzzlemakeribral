@@ -101,7 +101,7 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
   // Calculate current dimensions
   const dimensions = getTrimSizeDimensions(settings.trimSize);
 
-  // Format the book content into pages
+  // Format the book content into pages with professional typography
   const formatBook = () => {
     if (!bookContent.chapters.length) {
       console.log('No chapters to format');
@@ -113,12 +113,144 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
 
     const formattedPages: string[] = [];
     
+    // Professional CSS styles for book formatting
+    const bookStyles = `
+      <style>
+        body {
+          font-family: ${settings.fontFamily};
+          font-size: ${settings.fontSize}pt;
+          line-height: ${settings.lineSpacing};
+          color: #000;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .page {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-start;
+          box-sizing: border-box;
+        }
+        
+        .title-page {
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          height: 100%;
+        }
+        
+        .book-title {
+          font-size: ${Math.max(18, settings.fontSize * 1.8)}pt;
+          font-weight: bold;
+          margin-bottom: 2em;
+          line-height: 1.2;
+          text-transform: uppercase;
+          letter-spacing: 2px;
+        }
+        
+        .book-author {
+          font-size: ${Math.max(14, settings.fontSize * 1.2)}pt;
+          font-style: italic;
+          margin-top: 2em;
+        }
+        
+        .toc-page {
+          padding-top: 2em;
+        }
+        
+        .toc-title {
+          font-size: ${Math.max(16, settings.fontSize * 1.4)}pt;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 2em;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        
+        .toc-entry {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 0.8em;
+          border-bottom: 1px dotted #ccc;
+          padding-bottom: 0.2em;
+        }
+        
+        .toc-title-text {
+          flex: 1;
+        }
+        
+        .toc-page-num {
+          margin-left: 1em;
+          font-weight: bold;
+        }
+        
+        .chapter-page {
+          padding-top: 1em;
+        }
+        
+        .chapter-title {
+          font-size: ${Math.max(16, settings.fontSize * 1.3)}pt;
+          font-weight: bold;
+          text-align: center;
+          margin-bottom: 2em;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 0.5em;
+        }
+        
+        .chapter-content {
+          text-align: justify;
+          hyphens: auto;
+        }
+        
+        .chapter-content p {
+          margin-bottom: 1.2em;
+          text-indent: 1.5em;
+          line-height: ${settings.lineSpacing};
+        }
+        
+        .chapter-content p:first-child {
+          text-indent: 0;
+        }
+        
+        .chapter-content p:first-child:first-letter {
+          font-size: ${settings.fontSize * 3}pt;
+          font-weight: bold;
+          float: left;
+          line-height: 0.8;
+          padding-right: 0.1em;
+          margin-top: 0.1em;
+        }
+        
+        .chapter-number {
+          font-size: ${Math.max(12, settings.fontSize * 0.9)}pt;
+          font-weight: normal;
+          margin-bottom: 0.5em;
+          text-align: center;
+          color: #666;
+        }
+        
+        @media print {
+          .page {
+            page-break-after: always;
+          }
+        }
+      </style>
+    `;
+    
     // Create the title page if enabled
     if (settings.includeTitlePage) {
       const titlePage = `
-        <div class="title-page" style="text-align: center; padding-top: 3in;">
-          <h1 style="font-size: 24pt; margin-bottom: 1in; color: #000;">${bookContent.title}</h1>
-          ${bookContent.metadata.author ? `<p style="font-size: 16pt; color: #000;">By ${bookContent.metadata.author}</p>` : ''}
+        ${bookStyles}
+        <div class="page title-page">
+          <div>
+            <h1 class="book-title">${bookContent.title}</h1>
+            ${bookContent.metadata.author ? `<p class="book-author">by ${bookContent.metadata.author}</p>` : ''}
+          </div>
         </div>
       `;
       formattedPages.push(titlePage);
@@ -127,42 +259,70 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     // Add table of contents if enabled
     if (settings.includeTOC) {
       let tocPage = `
-        <div class="toc-page">
-          <h2 style="text-align: center; margin-bottom: 1in; color: #000;">Table of Contents</h2>
-          <ul style="list-style-type: none; padding-left: 0; color: #000;">
+        ${bookStyles}
+        <div class="page toc-page">
+          <h2 class="toc-title">Table of Contents</h2>
+          <div class="toc-list">
       `;
       
+      let currentPageNum = formattedPages.length + 2; // Start after title page and TOC
+      
       bookContent.chapters.forEach((chapter, index) => {
-        tocPage += `<li style="margin-bottom: 0.5em; color: #000;">Chapter ${index + 1}: ${chapter.title}</li>`;
+        tocPage += `
+          <div class="toc-entry">
+            <span class="toc-title-text">Chapter ${index + 1}: ${chapter.title}</span>
+            <span class="toc-page-num">${currentPageNum}</span>
+          </div>
+        `;
+        
+        // Estimate pages needed for this chapter (rough calculation)
+        const wordCount = chapter.content.split(' ').length;
+        const wordsPerPage = 250; // Average words per page
+        const pagesForChapter = Math.max(1, Math.ceil(wordCount / wordsPerPage));
+        currentPageNum += pagesForChapter;
       });
       
-      tocPage += `</ul></div>`;
+      tocPage += `</div></div>`;
       formattedPages.push(tocPage);
     }
     
-    // Simple page formatting - just put each chapter on its own page for now
-    // TODO: Implement proper text flow across pages
+    // Format each chapter with professional typography
     for (const [index, chapter] of bookContent.chapters.entries()) {
       if (!chapter.content || chapter.content.trim() === '') {
         console.log(`Chapter ${index + 1} has no content`);
         continue;
       }
 
-      // Split chapter content into paragraphs
-      const paragraphs = chapter.content.split('\n\n').filter(p => p.trim() !== '');
+      // Clean and prepare chapter content
+      const cleanContent = chapter.content
+        .trim()
+        .replace(/\n{3,}/g, '\n\n') // Normalize multiple line breaks
+        .replace(/\s+/g, ' '); // Normalize spaces
+      
+      // Split into paragraphs
+      const paragraphs = cleanContent.split('\n\n').filter(p => p.trim() !== '');
       
       console.log(`Chapter ${index + 1} has ${paragraphs.length} paragraphs`);
       
-      // Create a simple page with chapter title and content
+      // Create professionally formatted chapter page
       let chapterPage = `
-        <div class="chapter-page" style="color: #000;">
-          <h2 style="text-align: center; margin-bottom: 1in; font-size: 18pt; color: #000;">${chapter.title}</h2>
+        ${bookStyles}
+        <div class="page chapter-page">
+          <div class="chapter-number">Chapter ${index + 1}</div>
+          <h2 class="chapter-title">${chapter.title}</h2>
           <div class="chapter-content">
       `;
       
-      // Add each paragraph
-      paragraphs.forEach(paragraph => {
-        chapterPage += `<p style="margin-bottom: 1em; text-align: justify; color: #000; line-height: ${settings.lineSpacing};">${paragraph.trim()}</p>`;
+      // Add each paragraph with proper formatting
+      paragraphs.forEach((paragraph, paragraphIndex) => {
+        const cleanParagraph = paragraph.trim()
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        
+        chapterPage += `<p>${cleanParagraph}</p>`;
       });
       
       chapterPage += `</div></div>`;
@@ -170,7 +330,7 @@ export const PreviewEditStep: React.FC<PreviewEditStepProps> = ({
     }
     
     console.log('Generated pages:', formattedPages.length);
-    console.log('First page content:', formattedPages[0]?.substring(0, 200));
+    console.log('First page preview:', formattedPages[0]?.substring(0, 300));
     
     // Update state with formatted pages
     setPages(formattedPages);

@@ -181,7 +181,7 @@ Return JSON in this exact format:
   }
 }
 
-// Enhanced fallback structure detection
+// Enhanced fallback structure detection with better chapter naming
 function detectBookStructureFallback(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
   let title = 'Untitled Book';
@@ -195,21 +195,23 @@ function detectBookStructureFallback(text) {
     }
   }
   
-  // Enhanced chapter detection patterns
+  // Enhanced chapter detection patterns with better priority
   const chapterPatterns = [
-    /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.*)$/i,  // "Chapter 1: Title" or "Chapter I. Title"
-    /^(\d+)\.\s+(.+)$/,                                   // "1. Chapter Title"
-    /^#\s+(.+)$/,                                         // "# Chapter Title" (Markdown)
-    /^([A-Z][A-Z\s]{2,50})$/,                            // All caps titles (3-50 chars)
-    /^(CHAPTER\s+\d+)$/i,                                 // "CHAPTER 1"
-    /^(Part\s+\d+)/i,                                     // "Part 1"
-    /^([A-Z][^.!?]*[A-Z])$/,                             // Likely titles (start and end with caps, no sentence endings)
+    { pattern: /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.+)$/i, priority: 1 },  // "Chapter 1: Title"
+    { pattern: /^(\d+)\.\s+(.+)$/, priority: 2 },                                   // "1. Chapter Title"
+    { pattern: /^#\s+(.+)$/, priority: 3 },                                         // "# Chapter Title" (Markdown)
+    { pattern: /^(CHAPTER\s+\d+)$/i, priority: 4 },                                 // "CHAPTER 1"
+    { pattern: /^(Part\s+\d+)/i, priority: 5 },                                     // "Part 1"
   ];
   
   const chapters = [];
   let currentChapter = null;
   let chapterCounter = 1;
   let contentBuffer = [];
+  let lastTitlePattern = null;
+  
+  // Keep track of titles we've already used to avoid repetition
+  const usedTitles = new Set();
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -218,16 +220,21 @@ function detectBookStructureFallback(text) {
     // Check if this line matches any chapter pattern
     let isChapterTitle = false;
     let chapterTitle = '';
+    let matchedPattern = null;
     
-    for (const pattern of chapterPatterns) {
+    // Sort patterns by priority and find the best match
+    const sortedPatterns = chapterPatterns.sort((a, b) => a.priority - b.priority);
+    
+    for (const { pattern, priority } of sortedPatterns) {
       const match = line.match(pattern);
       if (match) {
         isChapterTitle = true;
+        matchedPattern = pattern;
         // Extract title from match groups
-        if (match[2]) {
-          chapterTitle = match[2]; // Title from second capture group
-        } else if (match[1]) {
-          chapterTitle = match[1]; // Title from first capture group
+        if (match[2] && match[2].trim()) {
+          chapterTitle = match[2].trim(); // Title from second capture group
+        } else if (match[1] && match[1].trim()) {
+          chapterTitle = match[1].trim(); // Title from first capture group
         } else {
           chapterTitle = line; // Use whole line
         }
@@ -238,18 +245,38 @@ function detectBookStructureFallback(text) {
     // Additional heuristics for chapter detection
     if (!isChapterTitle) {
       // Check if line is isolated and looks like a title
-      const prevLineEmpty = i === 0 || !lines[i-1].trim();
-      const nextLineEmpty = i === lines.length-1 || !lines[i+1].trim();
+      const prevLineEmpty = i === 0 || !lines[i-1]?.trim();
+      const nextLineEmpty = i === lines.length-1 || !lines[i+1]?.trim();
       
-      if (prevLineEmpty && nextLineEmpty && line.length < 80 && line.length > 3) {
-        if (!/^[a-z]/.test(line) && !line.endsWith('.') && !line.includes(',')) {
+      if (prevLineEmpty && nextLineEmpty && line.length < 80 && line.length > 5) {
+        // Check if it looks like a title
+        const isAllCaps = line === line.toUpperCase() && line.includes(' ');
+        const hasNoSentenceEnding = !line.endsWith('.') && !line.endsWith('!') && !line.endsWith('?');
+        const isNotCommonWord = !line.toLowerCase().includes('the ') && !line.toLowerCase().includes('and ');
+        
+        if ((isAllCaps || hasNoSentenceEnding) && isNotCommonWord) {
           isChapterTitle = true;
           chapterTitle = line;
         }
       }
     }
     
-    if (isChapterTitle) {
+    // Check for repetitive titles and generate better ones
+    if (isChapterTitle && chapterTitle) {
+      // If we've seen this title before, or it's too generic, generate a better one
+      if (usedTitles.has(chapterTitle.toLowerCase()) || 
+          chapterTitle.length < 3 || 
+          /^(chapter|part|section)\s*\d*$/i.test(chapterTitle)) {
+        
+        // Generate a meaningful title from the upcoming content
+        const upcomingContent = lines.slice(i + 1, i + 10).join(' ').trim();
+        chapterTitle = generateChapterTitle(upcomingContent, chapterCounter);
+      }
+      
+      usedTitles.add(chapterTitle.toLowerCase());
+    }
+    
+    if (isChapterTitle && chapterTitle) {
       // Save previous chapter
       if (currentChapter && contentBuffer.length > 0) {
         currentChapter.content = contentBuffer.join('\n\n');
@@ -264,6 +291,7 @@ function detectBookStructureFallback(text) {
         level: 1
       };
       contentBuffer = [];
+      lastTitlePattern = matchedPattern;
     } else if (currentChapter) {
       // Add content to current chapter
       contentBuffer.push(line);
@@ -279,9 +307,10 @@ function detectBookStructureFallback(text) {
     chapters.push(currentChapter);
   } else if (contentBuffer.length > 0 && chapters.length === 0) {
     // All content goes into a single chapter
+    const firstChapterTitle = generateChapterTitle(contentBuffer.slice(0, 50).join(' '), 1);
     chapters.push({
       id: 'chapter-1',
-      title: 'Chapter 1',
+      title: firstChapterTitle,
       content: contentBuffer.join('\n\n'),
       level: 1
     });
@@ -291,17 +320,91 @@ function detectBookStructureFallback(text) {
   if (chapters.length === 0) {
     chapters.push({
       id: 'chapter-1',
-      title: 'Chapter 1',
+      title: 'Introduction',
       content: text,
       level: 1
     });
   }
   
+  // Post-process chapters to improve titles and merge very short ones
+  const processedChapters = postProcessChapters(chapters);
+  
   return {
     title,
-    chapters,
+    chapters: processedChapters,
     metadata: {}
   };
+}
+
+// Generate meaningful chapter titles from content
+function generateChapterTitle(content, chapterNumber) {
+  if (!content || content.trim().length < 10) {
+    return `Chapter ${chapterNumber}`;
+  }
+  
+  // Clean the content
+  const cleanContent = content.trim().toLowerCase();
+  
+  // Extract potential keywords and themes
+  const words = cleanContent.split(/\s+/).filter(word => word.length > 3);
+  const firstSentence = content.split(/[.!?]/)[0]?.trim();
+  
+  // Look for meaningful keywords
+  const keywords = words.filter(word => 
+    !['the', 'and', 'that', 'this', 'with', 'from', 'they', 'were', 'been', 'have', 'their', 'said', 'each', 'which', 'what', 'there', 'would', 'could', 'should'].includes(word)
+  );
+  
+  // Try to create a meaningful title
+  if (firstSentence && firstSentence.length > 10 && firstSentence.length < 60) {
+    // Use first sentence if it's a good length
+    return firstSentence.split(' ').slice(0, 8).join(' ') + (firstSentence.split(' ').length > 8 ? '...' : '');
+  } else if (keywords.length >= 2) {
+    // Create title from keywords
+    const titleWords = keywords.slice(0, 4).map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    );
+    return titleWords.join(' ');
+  } else {
+    // Fallback to generic title
+    const themes = ['Beginning', 'Discovery', 'Journey', 'Adventure', 'Challenge', 'Resolution', 'Conclusion'];
+    const themeIndex = (chapterNumber - 1) % themes.length;
+    return `${themes[themeIndex]}`;
+  }
+}
+
+// Post-process chapters to improve structure
+function postProcessChapters(chapters) {
+  if (chapters.length === 0) return chapters;
+  
+  const processed = [];
+  
+  for (let i = 0; i < chapters.length; i++) {
+    const chapter = chapters[i];
+    
+    // Skip very short chapters (merge with next or previous)
+    if (chapter.content.length < 100) {
+      if (processed.length > 0) {
+        // Merge with previous chapter
+        const prevChapter = processed[processed.length - 1];
+        prevChapter.content += '\n\n' + chapter.content;
+        continue;
+      } else if (i < chapters.length - 1) {
+        // Merge with next chapter
+        const nextChapter = chapters[i + 1];
+        nextChapter.content = chapter.content + '\n\n' + nextChapter.content;
+        continue;
+      }
+    }
+    
+    // Improve chapter title if it's too generic or repetitive
+    if (chapter.title.length < 5 || /^(chapter|untitled)/i.test(chapter.title)) {
+      chapter.title = generateChapterTitle(chapter.content, processed.length + 1);
+    }
+    
+    processed.push(chapter);
+  }
+  
+  return processed;
 }
 
 // Enhanced content extraction endpoint
