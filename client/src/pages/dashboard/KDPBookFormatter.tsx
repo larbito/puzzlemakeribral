@@ -1,10 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StepWizard, Step } from '@/components/shared/StepWizard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Save, RotateCcw, Moon, Sun, FileText, Settings, Eye, Sparkles, Download } from 'lucide-react';
+import { ArrowLeft, Save, RotateCcw, Moon, Sun, FileText, Settings, Eye, Sparkles, Download, Upload, CheckCircle, AlertCircle, MessageSquare, BookOpen, Palette, Send, Wand2, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDropzone } from 'react-dropzone';
+import { getApiUrl, API_CONFIG } from '@/config/api';
+import { Label } from '@/components/ui/label';
 
 // Step Components - these will be created next
 import { FileUploadStep } from './kdp-formatter/FileUploadStep';
@@ -182,6 +191,88 @@ const defaultPresets: FormattingPreset[] = [
   }
 ];
 
+// AI-Enhanced interfaces
+interface BookAnalysis {
+  metadata: {
+    title: string;
+    subtitle?: string;
+    author: string;
+    dedication?: string;
+    foreword?: string;
+    acknowledgments?: string;
+    copyright?: string;
+    isbn?: string;
+    publisher?: string;
+    year?: string;
+  };
+  bookAnalysis: {
+    genre: string;
+    tone: string;
+    targetAudience: string;
+    complexity: string;
+    estimatedReadingLevel: string;
+    contentType: string;
+  };
+  recommendedTemplate: {
+    templateId: string;
+    templateName: string;
+    reasoning: string;
+    trimSize: string;
+    fontFamily: string;
+    fontSize: number;
+    lineSpacing: number;
+    margins: {
+      top: number;
+      bottom: number;
+      inside: number;
+      outside: number;
+    };
+    includeElements: {
+      titlePage: boolean;
+      tableOfContents: boolean;
+      pageNumbers: boolean;
+      chapterHeaders: boolean;
+    };
+  };
+  structuredContent: {
+    chapters: Array<{
+      id: string;
+      title: string;
+      type: string;
+      content: string;
+      level: number;
+      startPage?: number;
+      wordCount?: number;
+    }>;
+    tableOfContents: Array<{
+      title: string;
+      page: number;
+      level: number;
+    }>;
+  };
+  alternativeTemplates: Array<{
+    templateId: string;
+    templateName: string;
+    reasoning: string;
+    suitabilityScore: number;
+  }>;
+}
+
+interface TemplateSuggestion {
+  id: string;
+  name: string;
+  description: string;
+  style: string;
+  bestFor: string;
+  settings: any;
+  previewCSS?: string;
+  suitabilityScore: number;
+}
+
+interface FormattingSuggestions {
+  suggestions: TemplateSuggestion[];
+}
+
 export const KDPBookFormatter = () => {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<KDPBookSettings>(defaultBookSettings);
@@ -199,6 +290,17 @@ export const KDPBookFormatter = () => {
   const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
   const [userPresets, setUserPresets] = useState<FormattingPreset[]>([]);
+  const [currentStep, setCurrentStep] = useState<'upload' | 'analysis' | 'templates' | 'preview' | 'export'>('upload');
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [bookAnalysis, setBookAnalysis] = useState<BookAnalysis | null>(null);
+  const [templateSuggestions, setTemplateSuggestions] = useState<FormattingSuggestions | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateSuggestion | null>(null);
+  const [customCSS, setCustomCSS] = useState('');
+  const [formattedHTML, setFormattedHTML] = useState('');
+  const [aiMessage, setAiMessage] = useState('');
+  const [processingFeedback, setProcessingFeedback] = useState(false);
+  const [rawText, setRawText] = useState('');
 
   // Load saved project on mount
   useEffect(() => {
@@ -429,102 +531,551 @@ export const KDPBookFormatter = () => {
     });
   };
 
+  // File upload with AI analysis
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    setAnalyzing(true);
+    setAnalysisProgress(10);
+    setCurrentStep('analysis');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      setAnalysisProgress(30);
+      
+      const response = await fetch(getApiUrl('/api/kdp-formatter/analyze-complete'), {
+        method: 'POST',
+        body: formData,
+      });
+
+      setAnalysisProgress(70);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Analysis failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setAnalysisProgress(100);
+        setBookAnalysis(data.analysis);
+        setTemplateSuggestions(data.suggestions);
+        setRawText(data.rawText);
+        setCurrentStep('templates');
+
+        toast({
+          title: 'Analysis Complete!',
+          description: `Found ${data.analysis.structuredContent.chapters.length} chapters. AI suggests "${data.analysis.recommendedTemplate.templateName}" template.`,
+        });
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast({
+        title: 'Analysis Failed',
+        description: error instanceof Error ? error.message : 'Failed to analyze book',
+      });
+      setCurrentStep('upload');
+    } finally {
+      setAnalyzing(false);
+    }
+  }, [toast]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/pdf': ['.pdf'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'text/plain': ['.txt']
+    },
+    maxFiles: 1,
+    maxSize: 50 * 1024 * 1024
+  });
+
+  // Select template and generate preview
+  const selectTemplate = async (template: TemplateSuggestion) => {
+    setSelectedTemplate(template);
+    await generatePreview(template);
+  };
+
+  // Generate formatted preview
+  const generatePreview = async (template: TemplateSuggestion) => {
+    if (!bookAnalysis) return;
+
+    try {
+      const response = await fetch(getApiUrl('/api/kdp-formatter/generate-formatted'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: {
+            chapters: bookAnalysis.structuredContent.chapters,
+            metadata: bookAnalysis.metadata
+          },
+          settings: template.settings,
+          customCSS: template.previewCSS || customCSS
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setFormattedHTML(data.formattedHTML);
+        setCurrentStep('preview');
+      }
+    } catch (error) {
+      console.error('Preview generation error:', error);
+      toast({
+        title: 'Preview Error',
+        description: 'Failed to generate preview',
+      });
+    }
+  };
+
+  // AI feedback system
+  const sendAIFeedback = async () => {
+    if (!aiMessage.trim() || !bookAnalysis || !selectedTemplate) return;
+
+    setProcessingFeedback(true);
+
+    try {
+      const response = await fetch(getApiUrl('/api/kdp-formatter/ai-feedback'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback: aiMessage,
+          currentContent: bookAnalysis.structuredContent,
+          currentSettings: selectedTemplate.settings,
+          bookAnalysis: bookAnalysis
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update settings and content based on AI feedback
+        const updatedTemplate = {
+          ...selectedTemplate,
+          settings: data.updates.updatedSettings
+        };
+        setSelectedTemplate(updatedTemplate);
+        
+        if (data.updates.customCSS) {
+          setCustomCSS(data.updates.customCSS);
+        }
+
+        // Regenerate preview with updates
+        await generatePreview(updatedTemplate);
+
+        toast({
+          title: 'Changes Applied',
+          description: data.updates.explanation,
+        });
+
+        setAiMessage('');
+      }
+    } catch (error) {
+      console.error('AI feedback error:', error);
+      toast({
+        title: 'Feedback Error',
+        description: 'Failed to process AI feedback',
+      });
+    } finally {
+      setProcessingFeedback(false);
+    }
+  };
+
+  // Export to PDF
+  const exportToPDF = async () => {
+    if (!formattedHTML) return;
+
+    try {
+      // Create a new window with the formatted content
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(formattedHTML);
+        printWindow.document.close();
+        
+        // Trigger print dialog
+        setTimeout(() => {
+          printWindow.print();
+        }, 1000);
+      }
+
+      setCurrentStep('export');
+      toast({
+        title: 'PDF Export',
+        description: 'PDF generation started. Use your browser\'s print dialog to save as PDF.',
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: 'Export Error',
+        description: 'Failed to export PDF',
+      });
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/10 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Dashboard
-              </Button>
-              <div className="flex items-center gap-2">
-                <FileText className="h-6 w-6 text-primary" />
-                <h1 className="text-xl font-semibold">KDP Book Formatter</h1>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <ThemeToggle />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetProject}
-                className="flex items-center gap-2"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleSaveProject}
-                className="flex items-center gap-2"
-                disabled={isSaved}
-              >
-                <Save className="h-4 w-4" />
-                {isSaved ? 'Saved' : 'Save'}
-              </Button>
-            </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">AI-Powered KDP Book Formatter</h1>
+          <p className="text-lg text-muted-foreground mt-2">
+            Upload your manuscript and let AI handle the complete formatting process
+          </p>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            {[
+              { id: 'upload', label: 'Upload', icon: Upload },
+              { id: 'analysis', label: 'AI Analysis', icon: Sparkles },
+              { id: 'templates', label: 'Templates', icon: Palette },
+              { id: 'preview', label: 'Preview', icon: Eye },
+              { id: 'export', label: 'Export', icon: Download }
+            ].map((step, index) => {
+              const isActive = currentStep === step.id;
+              const isCompleted = ['upload', 'analysis', 'templates', 'preview'].indexOf(currentStep) > index;
+              
+              return (
+                <div key={step.id} className="flex flex-col items-center">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${
+                    isActive ? 'bg-primary text-primary-foreground' : 
+                    isCompleted ? 'bg-green-500 text-white' : 
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    <step.icon className="h-5 w-5" />
+                  </div>
+                  <span className={`text-sm font-medium ${
+                    isActive ? 'text-primary' : 
+                    isCompleted ? 'text-green-600' : 
+                    'text-muted-foreground'
+                  }`}>
+                    {step.label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Progress Overview */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Formatting Progress
-            </CardTitle>
-            <CardDescription>
-              Transform your manuscript into a professional KDP-ready book
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {steps.map((step, index) => (
-                <div 
-                  key={step.id}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    step.isComplete 
-                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
-                      : 'border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    {index === 0 && <FileText className="h-4 w-4" />}
-                    {index === 1 && <Settings className="h-4 w-4" />}
-                    {index === 2 && <Eye className="h-4 w-4" />}
-                    {index === 3 && <Sparkles className="h-4 w-4" />}
-                    {index === 4 && <Download className="h-4 w-4" />}
-                    <span className="text-sm font-medium">{step.title}</span>
+        {/* Step Content */}
+        {currentStep === 'upload' && (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload Your Manuscript
+              </CardTitle>
+              <CardDescription>
+                Upload your manuscript and AI will automatically extract content, detect structure, and suggest optimal formatting
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
+                  isDragActive 
+                    ? 'border-primary bg-primary/5 scale-105' 
+                    : 'border-gray-300 dark:border-gray-600 hover:border-primary/50 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                }`}
+              >
+                <input {...getInputProps()} />
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                    <Upload className="h-8 w-8 text-primary" />
                   </div>
-                  <div className={`text-xs ${step.isComplete ? 'text-green-600 dark:text-green-400' : 'text-gray-500'}`}>
-                    {step.isComplete ? 'Complete' : 'Pending'}
+                  <div>
+                    <p className="text-lg font-medium">
+                      {isDragActive ? 'Drop your manuscript here' : 'Drag & drop your manuscript'}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      or click to browse files
+                    </p>
+                  </div>
+                  <Button variant="outline" size="lg" className="mt-4">
+                    Choose File
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <h3 className="font-medium mb-2">AI Analysis</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically detects chapters, metadata, and content structure
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Palette className="h-6 w-6 text-green-600" />
+                  </div>
+                  <h3 className="font-medium mb-2">Smart Templates</h3>
+                  <p className="text-sm text-muted-foreground">
+                    AI suggests optimal formatting templates based on your content
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Eye className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <h3 className="font-medium mb-2">Live Preview</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Real-time preview with AI-powered feedback system
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 'analysis' && (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                AI Analysis in Progress
+              </CardTitle>
+              <CardDescription>
+                Our AI is analyzing your manuscript structure, content, and extracting metadata
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {analyzing ? 'Analyzing content...' : 'Analysis complete'}
+                  </span>
+                  <span>{analysisProgress}%</span>
+                </div>
+                <Progress value={analysisProgress} className="h-2" />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className={`h-4 w-4 ${analysisProgress > 10 ? 'text-green-500' : 'text-gray-300'}`} />
+                  <span>Text Extraction</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className={`h-4 w-4 ${analysisProgress > 50 ? 'text-green-500' : 'text-gray-300'}`} />
+                  <span>Structure Analysis</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle className={`h-4 w-4 ${analysisProgress > 90 ? 'text-green-500' : 'text-gray-300'}`} />
+                  <span>Template Suggestions</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentStep === 'templates' && templateSuggestions && bookAnalysis && (
+          <div className="space-y-6">
+            <Card className="max-w-4xl mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  AI Template Suggestions
+                </CardTitle>
+                <CardDescription>
+                  Based on your book's content, genre, and style, AI recommends these formatting templates
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {templateSuggestions.suggestions.map((template) => (
+                    <Card 
+                      key={template.id} 
+                      className={`cursor-pointer transition-all hover:scale-105 ${
+                        selectedTemplate?.id === template.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={() => selectTemplate(template)}
+                    >
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="text-lg">{template.name}</CardTitle>
+                          <Badge variant="secondary">{template.suitabilityScore}%</Badge>
+                        </div>
+                        <CardDescription className="text-sm">
+                          {template.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2 text-sm">
+                          <div><strong>Style:</strong> {template.style}</div>
+                          <div><strong>Best for:</strong> {template.bestFor}</div>
+                          <div><strong>Size:</strong> {template.settings.trimSize}</div>
+                          <div><strong>Font:</strong> {template.settings.fontFamily}</div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Book Analysis Summary */}
+            <Card className="max-w-4xl mx-auto">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5" />
+                  AI Analysis Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Detected Metadata</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><strong>Title:</strong> {bookAnalysis.metadata.title}</div>
+                      <div><strong>Author:</strong> {bookAnalysis.metadata.author}</div>
+                      <div><strong>Chapters:</strong> {bookAnalysis.structuredContent.chapters.length}</div>
+                      <div><strong>Genre:</strong> {bookAnalysis.bookAnalysis.genre}</div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-3">Content Analysis</h4>
+                    <div className="space-y-2 text-sm">
+                      <div><strong>Tone:</strong> {bookAnalysis.bookAnalysis.tone}</div>
+                      <div><strong>Audience:</strong> {bookAnalysis.bookAnalysis.targetAudience}</div>
+                      <div><strong>Complexity:</strong> {bookAnalysis.bookAnalysis.complexity}</div>
+                      <div><strong>Reading Level:</strong> {bookAnalysis.bookAnalysis.estimatedReadingLevel}</div>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
-        {/* Step Wizard */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-          <StepWizard 
-            steps={steps} 
-            onSave={handleSaveStep}
-          />
-        </div>
+        {currentStep === 'preview' && formattedHTML && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Preview */}
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Eye className="h-5 w-5" />
+                      Live Preview
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                      <iframe
+                        srcDoc={formattedHTML}
+                        className="w-full h-96 border-0"
+                        title="Book Preview"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* AI Feedback Panel */}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5" />
+                      AI Assistant
+                    </CardTitle>
+                    <CardDescription>
+                      Ask AI to fix or change something
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ai-feedback">Your Request</Label>
+                      <Textarea
+                        id="ai-feedback"
+                        placeholder="e.g., Make chapter titles bold and centered, increase font size, adjust margins..."
+                        value={aiMessage}
+                        onChange={(e) => setAiMessage(e.target.value)}
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={sendAIFeedback}
+                      disabled={!aiMessage.trim() || processingFeedback}
+                      className="w-full"
+                    >
+                      {processingFeedback ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4 mr-2" />
+                          Apply Changes
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="mt-6 space-y-2">
+                      <Button 
+                        onClick={exportToPDF}
+                        className="w-full"
+                        size="lg"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export to PDF
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentStep === 'export' && (
+          <Card className="max-w-4xl mx-auto">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="h-5 w-5" />
+                Export Complete
+              </CardTitle>
+              <CardDescription>
+                Your KDP-ready book has been generated
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">PDF Generated Successfully!</h3>
+                <p className="text-muted-foreground">
+                  Your book is now formatted and ready for Amazon KDP publishing
+                </p>
+              </div>
+              <div className="flex gap-4 justify-center">
+                <Button onClick={() => setCurrentStep('preview')}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Back to Preview
+                </Button>
+                <Button onClick={() => window.location.reload()}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Format Another Book
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
