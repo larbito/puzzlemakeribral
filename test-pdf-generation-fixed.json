@@ -1,0 +1,50 @@
+{
+  "content": {
+    "title": "The Book of Funny History Facts",
+    "subtitle": "",
+    "author": "B N William",
+    "chapters": [
+      {
+        "id": "chapter-1",
+        "title": "Chapter 1: Ancient Civilizations",
+        "content": "Did you know that ancient Egyptians used to worship cats? This is just one of many amusing facts from history.\n\nThe pyramids were built as tombs for pharaohs, but they also served as giant advertisements saying \"Look how rich and powerful I was!\"",
+        "level": 1,
+        "type": "chapter"
+      },
+      {
+        "id": "chapter-2", 
+        "title": "Chapter 2: Medieval Times",
+        "content": "Knights in shining armor weren't actually that shiny. Most of the time, their armor was dirty and dented from battle.\n\nMedieval people thought the earth was flat, but actually, educated people knew it was round. The flat earth myth is itself a myth!",
+        "level": 1,
+        "type": "chapter"
+      },
+      {
+        "id": "chapter-3",
+        "title": "Chapter 3: Modern Era", 
+        "content": "The first airplane flight lasted only 12 seconds. Imagine if the Wright brothers could see planes today flying for 12+ hours!\n\nHenry Ford didn't invent the car, but he made it affordable for everyone. Before Ford, cars were luxury items only the rich could afford.",
+        "level": 1,
+        "type": "chapter"
+      }
+    ],
+    "metadata": {
+      "documentType": "general",
+      "hasTitle": true,
+      "analysisMethod": "enhanced-heuristic"
+    }
+  },
+  "settings": {
+    "trimSize": "6x9",
+    "font": "Times New Roman",
+    "fontSize": "12pt",
+    "lineSpacing": 1.5,
+    "marginTop": "1in",
+    "marginBottom": "1in", 
+    "marginInside": "1in",
+    "marginOutside": "0.75in",
+    "pageNumbering": true,
+    "justification": "justify",
+    "includeTitlePage": true,
+    "includeCopyright": true,
+    "includeTOC": true
+  }
+} 

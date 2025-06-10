@@ -1,0 +1,43 @@
+{
+  "content": {
+    "title": "The Adventures of Digital Publishing",
+    "subtitle": "",
+    "author": "Test Author",
+    "chapters": [
+      {
+        "id": "chapter-1",
+        "title": "Chapter 1: Getting Started",
+        "content": "Welcome to the world of digital publishing! This is your first chapter where we explore the basics of creating professional books for Amazon KDP.\n\nIn this chapter, you'll learn about the fundamentals of book formatting, proper margins, and typography choices that make your book stand out in the marketplace.",
+        "level": 1,
+        "type": "chapter"
+      },
+      {
+        "id": "chapter-2", 
+        "title": "Chapter 2: Understanding Your Audience",
+        "content": "Knowing your readers is crucial for success. This chapter dives deep into audience research and how to tailor your content to meet their needs.\n\nWe'll explore different demographics, reading preferences, and how to create content that resonates with your target market.",
+        "level": 1,
+        "type": "chapter"
+      }
+    ],
+    "metadata": {
+      "documentType": "general",
+      "hasTitle": true,
+      "analysisMethod": "test"
+    }
+  },
+  "settings": {
+    "trimSize": "6x9",
+    "font": "Times New Roman",
+    "fontSize": "12pt",
+    "lineSpacing": 1.5,
+    "marginTop": "1in",
+    "marginBottom": "1in", 
+    "marginInside": "1in",
+    "marginOutside": "0.75in",
+    "pageNumbering": true,
+    "justification": "justify",
+    "includeTitlePage": true,
+    "includeCopyright": true,
+    "includeTOC": true
+  }
+} 

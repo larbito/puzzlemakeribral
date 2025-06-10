@@ -671,10 +671,21 @@ function createSimpleSemanticStructure(text, aiAnalysis) {
 async function organizeContentForKDP(intelligentAnalysis, originalText) {
   console.log('Organizing content for professional KDP formatting...');
   
-  const { aiAnalysis, semanticStructure } = intelligentAnalysis;
+  const { aiAnalysis, semanticStructure, detectedTitle, detectedAuthor } = intelligentAnalysis;
   
   // Extract metadata from AI analysis
   const metadata = parseAIAnalysisMetadata(aiAnalysis);
+  
+  // Use heuristic detected title/author if AI didn't find better ones
+  if (detectedTitle && detectedTitle !== 'Untitled Book' && metadata.title === 'Untitled') {
+    metadata.title = detectedTitle;
+    console.log(`Using heuristic detected title: "${metadata.title}"`);
+  }
+  
+  if (detectedAuthor && detectedAuthor !== '' && metadata.author === 'Unknown Author') {
+    metadata.author = detectedAuthor;
+    console.log(`Using heuristic detected author: "${metadata.author}"`);
+  }
   
   // Group semantic content
   const groupedContent = groupSemanticContent(semanticStructure);
@@ -737,16 +748,46 @@ function parseAIAnalysisMetadata(analysis) {
     specialElements: []
   };
   
-  // Extract title from comprehensive analysis
-  const titleMatch = analysis.match(/Title:\s*(.+)/i);
-  if (titleMatch && titleMatch[1].trim() !== '[Exact title as it appears]' && !titleMatch[1].includes('Not found')) {
-    metadata.title = titleMatch[1].trim().replace(/[\[\]]/g, '');
+  // Extract title from comprehensive analysis - try multiple patterns
+  const titlePatterns = [
+    /Title:\s*(.+)/i,
+    /Book Title:\s*(.+)/i,
+    /Title of the book:\s*(.+)/i,
+    /The title is:\s*(.+)/i
+  ];
+  
+  for (const pattern of titlePatterns) {
+    const titleMatch = analysis.match(pattern);
+    if (titleMatch && titleMatch[1].trim() !== '[Exact title as it appears]' && 
+        !titleMatch[1].includes('Not found') && !titleMatch[1].includes('Unknown') &&
+        !titleMatch[1].includes('Untitled Book') &&
+        titleMatch[1].trim().length > 3) {
+      metadata.title = titleMatch[1].trim().replace(/[\[\]"]/g, '');
+      console.log(`Extracted title from analysis: "${metadata.title}"`);
+      break;
+    }
   }
   
-  // Extract author from comprehensive analysis
-  const authorMatch = analysis.match(/Author:\s*(.+)/i);
-  if (authorMatch && authorMatch[1].trim() !== '[Exact author name]' && !authorMatch[1].includes('Not found')) {
-    metadata.author = authorMatch[1].trim().replace(/[\[\]]/g, '');
+  // Extract author from comprehensive analysis - try multiple patterns
+  const authorPatterns = [
+    /Author:\s*(.+?)(?:\n|Document type|Total lines|$)/i,
+    /Written by:\s*(.+?)(?:\n|$)/i,
+    /Author name:\s*(.+?)(?:\n|$)/i,
+    /The author is:\s*(.+?)(?:\n|$)/i,
+    /By:\s*(.+?)(?:\n|$)/i
+  ];
+  
+  for (const pattern of authorPatterns) {
+    const authorMatch = analysis.match(pattern);
+    if (authorMatch && authorMatch[1].trim() !== '[Exact author name]' && 
+        !authorMatch[1].includes('Not found') && !authorMatch[1].includes('Unknown Author') &&
+        !authorMatch[1].includes('Document type') && !authorMatch[1].includes('Total lines') &&
+        !authorMatch[1].includes('Estimated structure') &&
+        authorMatch[1].trim().length > 2 && authorMatch[1].trim().length < 50) {
+      metadata.author = authorMatch[1].trim().replace(/[\[\]"]/g, '');
+      console.log(`Extracted author from analysis: "${metadata.author}"`);
+      break;
+    }
   }
   
   // Extract publisher
@@ -1024,6 +1065,53 @@ function performEnhancedHeuristicAnalysis(text) {
   console.log(`Heuristic analysis: preprocessed ${text.length} → ${cleanedText.length} characters`);
   
   const lines = cleanedText.split('\n');
+  
+  // Enhanced title and author detection
+  let detectedTitle = 'Untitled Book';
+  let detectedAuthor = '';
+  
+  // Check first 5 lines for title and author
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const line = lines[i].trim();
+    
+    // Skip empty lines
+    if (!line) continue;
+    
+    // First non-empty line is likely the title if it meets criteria
+    if (detectedTitle === 'Untitled Book') {
+      if (line.length < 100 && line.length > 3 && 
+          !line.toLowerCase().startsWith('chapter') &&
+          !line.toLowerCase().startsWith('by ') &&
+          !line.includes('.') && // Avoid sentences
+          !/^[a-z]/.test(line)) { // Avoid lines starting with lowercase
+        detectedTitle = line;
+        console.log(`Heuristic detected title: "${detectedTitle}"`);
+        continue;
+      }
+    }
+    
+    // Look for author patterns
+    if (line.toLowerCase().startsWith('by ') && line.length < 50) {
+      detectedAuthor = line.replace(/^by\s+/i, '').trim();
+      console.log(`Heuristic detected author: "${detectedAuthor}"`);
+      continue;
+    }
+    
+    // Author name pattern (2-4 words, proper case, short line)
+    if (!detectedAuthor && line.length < 50 && line.length > 5) {
+      const words = line.split(' ');
+      if (words.length >= 2 && words.length <= 4 && 
+          words.every(word => /^[A-Z][a-z]*$/.test(word))) {
+        // Check if this looks like an author name vs title
+        if (detectedTitle && detectedTitle !== 'Untitled Book' && i > 0) {
+          detectedAuthor = line;
+          console.log(`Heuristic detected author: "${detectedAuthor}"`);
+          continue;
+        }
+      }
+    }
+  }
+  
   const semanticLines = lines.map((line, index) => {
     const trimmed = line.trim();
     
@@ -1037,6 +1125,8 @@ function performEnhancedHeuristicAnalysis(text) {
   
   // Analyze the overall structure
   const analysis = `HEURISTIC ANALYSIS:
+Title: ${detectedTitle}
+Author: ${detectedAuthor}
 Document type: ${determineDocumentType(semanticLines)}
 Total lines: ${lines.length}
 Estimated structure: ${estimateStructure(semanticLines)}
@@ -1046,7 +1136,9 @@ Formatting recommendations: Standard book formatting with detected elements`;
   return {
     aiAnalysis: analysis,
     semanticStructure: semanticLines,
-    method: 'enhanced-heuristic-analysis'
+    method: 'enhanced-heuristic-analysis',
+    detectedTitle,
+    detectedAuthor
   };
 }
 
@@ -1226,15 +1318,51 @@ function classifyLineHeuristically(line) {
 async function detectBookStructureFallback(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
   let title = 'Untitled Book';
+  let author = '';
   
-  // Try to detect title from first line if it's short and likely a title
-  if (lines.length > 0 && lines[0].length < 100 && lines[0].length > 3) {
-    const firstLine = lines[0].trim();
-    // Check if it looks like a title (not starting with lowercase, not a sentence)
-    if (!/^[a-z]/.test(firstLine) && !firstLine.endsWith('.')) {
-      title = firstLine;
+  // Enhanced title detection from first few lines
+  if (lines.length > 0) {
+    // Check first 5 lines for title and author
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      const line = lines[i].trim();
+      
+      // Skip empty lines
+      if (!line) continue;
+      
+      // First non-empty line is likely the title if it's not too long and doesn't look like content
+      if (!title || title === 'Untitled Book') {
+        if (line.length < 100 && line.length > 3 && 
+            !line.toLowerCase().startsWith('chapter') &&
+            !line.toLowerCase().startsWith('by ') &&
+            !line.includes('.') && // Avoid sentences
+            !/^[a-z]/.test(line)) { // Avoid lines starting with lowercase
+          title = line;
+          continue;
+        }
+      }
+      
+      // Look for author patterns
+      if (line.toLowerCase().startsWith('by ') && line.length < 50) {
+        author = line.replace(/^by\s+/i, '').trim();
+        continue;
+      }
+      
+      // Author name pattern (2-4 words, proper case, short line)
+      if (!author && line.length < 50 && line.length > 5) {
+        const words = line.split(' ');
+        if (words.length >= 2 && words.length <= 4 && 
+            words.every(word => /^[A-Z][a-z]*$/.test(word))) {
+          // Check if this looks like an author name vs title
+          if (title && title !== 'Untitled Book' && i > 0) {
+            author = line;
+            continue;
+          }
+        }
+      }
     }
   }
+  
+  console.log(`Detected title: "${title}", author: "${author}"`);
   
   // Much more conservative chapter detection patterns - only detect CLEAR chapter markers
   const chapterPatterns = [
@@ -1396,8 +1524,14 @@ async function detectBookStructureFallback(text) {
   
   return {
     title,
+    author,
     chapters: processedChapters,
-    metadata: {}
+    metadata: {
+      documentType: 'general',
+      hasTitle: title !== 'Untitled Book',
+      hasAuthor: author !== '',
+      analysisMethod: 'enhanced-fallback-detection'
+    }
   };
 }
 
