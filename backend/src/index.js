@@ -184,16 +184,52 @@ const PORT = process.env.PORT || 3000;
 
 // Configure CORS to allow requests from any origin
 app.use(cors({
-  origin: '*', // Allow all origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'Cache-Control', 'Pragma', 'Expires', 'Origin', 'X-Enhanced-Image', 'x-enhanced'],
+  origin: true, // Allow all origins more explicitly
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'Accept', 
+    'X-Requested-With', 
+    'Cache-Control', 
+    'Pragma', 
+    'Expires', 
+    'Origin', 
+    'X-Enhanced-Image', 
+    'x-enhanced',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type'],
   maxAge: 86400 // Cache preflight request results for 24 hours (86400 seconds)
 }));
 
+// Add comprehensive CORS middleware that handles all scenarios
+app.use((req, res, next) => {
+  // Set CORS headers explicitly for all requests
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma, Expires, X-Enhanced-Image, x-enhanced');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  res.header('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request for:', req.url);
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 // Add explicit CORS handler for OPTIONS requests
 app.options('*', (req, res) => {
+  console.log('Explicit OPTIONS handler for:', req.url);
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, X-Requested-With, Cache-Control, Pragma, Expires, Origin, X-Enhanced-Image, x-enhanced');
   res.header('Access-Control-Max-Age', '86400');
   res.sendStatus(200);
@@ -342,7 +378,11 @@ app.use('/api/word-search', wordSearchRoutes);
 console.log('Registered route: /api/word-search/*');
 
 // Register KDP Formatter routes
-app.use('/api/kdp-formatter', kdpFormatterRoutes);
+app.use('/api/kdp-formatter', (req, res, next) => {
+  console.log(`KDP Formatter request: ${req.method} ${req.url}`);
+  console.log('Headers:', req.headers);
+  next();
+}, kdpFormatterRoutes);
 console.log('Registered route: /api/kdp-formatter/*');
 
 // Add route aliases for Coloring Book frontend compatibility

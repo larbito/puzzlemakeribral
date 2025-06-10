@@ -385,7 +385,7 @@ function classifyLineHeuristically(line) {
   // Quotes and dialogue
   if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
       (trimmed.startsWith('"') || trimmed.endsWith('"')) ||
-      (trimmed.startsWith(''') && trimmed.endsWith(''')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")) ||
       trimmed.match(/^".*"$/) ||
       trimmed.includes('" said') || trimmed.includes('" asked') ||
       trimmed.includes('said "') || trimmed.includes('asked "')) {
