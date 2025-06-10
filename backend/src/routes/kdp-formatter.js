@@ -103,7 +103,7 @@ function cleanRawText(text) {
     .trim();
 }
 
-// AI-powered structure detection with true content understanding
+// AI-powered structure detection with line-by-line semantic understanding
 async function detectBookStructureWithAI(text) {
   if (!openai) {
     console.log('OpenAI not available, using fallback structure detection');
@@ -111,32 +111,25 @@ async function detectBookStructureWithAI(text) {
   }
 
   try {
-    console.log(`Starting intelligent book analysis for ${text.length} characters`);
+    console.log(`Starting line-by-line semantic analysis for ${text.length} characters`);
     
-    // STAGE 1: Content Sampling & Understanding
-    const contentSamples = extractContentSamples(text);
-    console.log('Stage 1: Analyzing content samples...');
+    // PHASE 1: Line-by-Line Semantic Analysis
+    console.log('Phase 1: Performing line-by-line semantic analysis...');
+    const semanticStructure = await performSemanticAnalysis(text);
     
-    const bookIntelligence = await analyzeContentSamples(contentSamples);
-    console.log('Book intelligence:', bookIntelligence);
+    // PHASE 2: Document Structure Understanding
+    console.log('Phase 2: Understanding overall document structure...');
+    const documentStructure = await analyzeDocumentStructure(semanticStructure);
     
-    // STAGE 2: Pattern Recognition Based on Understanding
-    console.log('Stage 2: Recognizing content patterns...');
-    const contentPatterns = recognizeContentPatterns(text, bookIntelligence);
+    // PHASE 3: Content Organization & Validation
+    console.log('Phase 3: Organizing and validating content...');
+    const finalStructure = await organizeAndValidateContent(semanticStructure, documentStructure, text);
     
-    // STAGE 3: Structure Mapping
-    console.log('Stage 3: Mapping book structure...');
-    const structureMap = await mapBookStructure(text, bookIntelligence, contentPatterns);
-    
-    // STAGE 4: Content Extraction & Validation
-    console.log('Stage 4: Extracting and validating content...');
-    const finalStructure = await extractAndValidateContent(text, structureMap, bookIntelligence);
-    
-    console.log(`Intelligent analysis complete: Found ${finalStructure.chapters.length} sections`);
+    console.log(`Semantic analysis complete: Found ${finalStructure.chapters.length} content sections`);
     return finalStructure;
     
   } catch (error) {
-    console.error('Intelligent analysis failed:', error.message);
+    console.error('Semantic analysis failed:', error.message);
     
     if (error.message.includes('429') || error.message.includes('quota')) {
       console.log('API quota exceeded, using enhanced fallback');
@@ -146,90 +139,209 @@ async function detectBookStructureWithAI(text) {
   }
 }
 
-// STAGE 1: Extract representative samples from different parts of the book
-function extractContentSamples(text) {
-  const samples = {};
-  const lines = text.split('\n').filter(line => line.trim());
+// PHASE 1: Perform line-by-line semantic analysis
+async function performSemanticAnalysis(text) {
+  const lines = text.split('\n');
+  const semanticLines = [];
   
-  // Beginning sample (first 15%)
-  const beginningEnd = Math.floor(lines.length * 0.15);
-  samples.beginning = lines.slice(0, beginningEnd).join('\n');
+  // Process lines in chunks for AI analysis
+  const chunkSize = 50; // Analyze 50 lines at a time
+  const chunks = [];
   
-  // Middle sample (middle 10%)
-  const middleStart = Math.floor(lines.length * 0.45);
-  const middleEnd = Math.floor(lines.length * 0.55);
-  samples.middle = lines.slice(middleStart, middleEnd).join('\n');
+  for (let i = 0; i < lines.length; i += chunkSize) {
+    chunks.push(lines.slice(i, i + chunkSize));
+  }
   
-  // End sample (last 10%)
-  const endStart = Math.floor(lines.length * 0.9);
-  samples.end = lines.slice(endStart).join('\n');
+  console.log(`Processing ${chunks.length} chunks of ${chunkSize} lines each...`);
   
-  // Random samples (for pattern validation)
-  samples.random1 = lines.slice(
-    Math.floor(lines.length * 0.25), 
-    Math.floor(lines.length * 0.30)
-  ).join('\n');
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    const chunk = chunks[chunkIndex];
+    const chunkText = chunk.join('\n');
+    
+    try {
+      const analysisPrompt = `You are analyzing lines from a book to understand their semantic meaning. Analyze each line and identify what type of content it is.
+
+LINES TO ANALYZE (Line ${chunkIndex * chunkSize + 1} to ${chunkIndex * chunkSize + chunk.length}):
+${chunkText}
+
+For EACH line, determine its semantic type:
+
+CONTENT TYPES:
+- "copyright": Copyright notices, publication info, ISBN, publisher details
+- "title_page": Book title, subtitle, author name, main title page elements
+- "dedication": Dedication text to someone
+- "toc_header": "Table of Contents", "Contents", etc.
+- "toc_entry": Chapter/section entries in table of contents with page numbers
+- "chapter_header": Chapter titles, lesson titles, section headers
+- "subheader": Subsection titles, part headers
+- "paragraph": Regular body text, narrative content
+- "quote": Quoted text, dialogue, citations
+- "question": Questions, numbered questions, Q&A
+- "exercise": Exercises, activities, practice problems
+- "instruction": Instructions, steps, how-to content
+- "list_item": Bulleted lists, numbered lists
+- "blank": Empty lines, whitespace
+- "metadata": Page numbers, headers, footers
+- "acknowledgments": Acknowledgments, thanks
+- "preface": Preface, foreword, introduction
+- "appendix": Appendix content, references
+- "glossary": Glossary entries, definitions
+- "answer": Answers, solutions to questions
+
+Return JSON array with one object per line:
+[
+  {
+    "line_number": 1,
+    "content": "actual line text",
+    "semantic_type": "copyright/title_page/chapter_header/paragraph/etc",
+    "confidence": "high/medium/low",
+    "notes": "brief explanation why this classification"
+  }
+]
+
+IMPORTANT: Return ONLY the JSON array, no other text.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are a document semantic analyzer. Analyze each line carefully and return only valid JSON."
+          },
+          { role: "user", content: analysisPrompt }
+        ],
+        temperature: 0,
+        max_tokens: 4000
+      });
+
+      const chunkAnalysis = JSON.parse(
+        response.choices[0].message.content.trim().replace(/```json\n?|```\n?/g, '')
+      );
+      
+      // Add to semantic lines with proper line numbers
+      chunkAnalysis.forEach((lineAnalysis, index) => {
+        semanticLines.push({
+          ...lineAnalysis,
+          line_number: chunkIndex * chunkSize + index + 1,
+          original_content: chunk[index] || ''
+        });
+      });
+      
+      console.log(`Processed chunk ${chunkIndex + 1}/${chunks.length}`);
+      
+      // Add delay to avoid rate limiting
+      if (chunkIndex < chunks.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+    } catch (e) {
+      console.log(`Failed to analyze chunk ${chunkIndex + 1}, using heuristic analysis:`, e.message);
+      
+      // Fallback heuristic analysis for this chunk
+      chunk.forEach((line, index) => {
+        semanticLines.push({
+          line_number: chunkIndex * chunkSize + index + 1,
+          content: line,
+          original_content: line,
+          semantic_type: classifyLineHeuristically(line),
+          confidence: 'medium',
+          notes: 'heuristic classification'
+        });
+      });
+    }
+  }
   
-  samples.random2 = lines.slice(
-    Math.floor(lines.length * 0.70), 
-    Math.floor(lines.length * 0.75)
-  ).join('\n');
-  
-  console.log(`Extracted samples: beginning(${samples.beginning.length}), middle(${samples.middle.length}), end(${samples.end.length})`);
-  return samples;
+  console.log(`Semantic analysis complete: ${semanticLines.length} lines analyzed`);
+  return semanticLines;
 }
 
-// STAGE 1: Analyze content samples to understand book type and characteristics
-async function analyzeContentSamples(samples) {
-  const analysisPrompt = `You are analyzing samples from a book to understand its nature and structure. Read these samples carefully:
+// Heuristic line classification when AI is not available
+function classifyLineHeuristically(line) {
+  const trimmed = line.trim().toLowerCase();
+  
+  if (!trimmed) return 'blank';
+  if (trimmed.includes('copyright') || trimmed.includes('©') || trimmed.includes('isbn')) return 'copyright';
+  if (trimmed.includes('table of contents') || trimmed === 'contents') return 'toc_header';
+  if (trimmed.match(/^chapter\s+\d+/)) return 'chapter_header';
+  if (trimmed.match(/^\d+\.\s*.{10,}/)) return 'question';
+  if (trimmed.includes('exercise') || trimmed.includes('activity')) return 'exercise';
+  if (trimmed.match(/^[a-z]/)) return 'paragraph';
+  if (trimmed.length < 80 && /^[A-Z]/.test(trimmed)) return 'subheader';
+  
+  return 'paragraph';
+}
 
-BEGINNING SAMPLE:
-${samples.beginning.substring(0, 3000)}
+// PHASE 2: Analyze overall document structure
+async function analyzeDocumentStructure(semanticLines) {
+  // Group semantic lines by type
+  const groupedContent = {
+    copyright: [],
+    title_page: [],
+    dedication: [],
+    toc_header: [],
+    toc_entry: [],
+    chapter_header: [],
+    subheader: [],
+    paragraph: [],
+    quote: [],
+    question: [],
+    exercise: [],
+    instruction: [],
+    preface: [],
+    acknowledgments: [],
+    appendix: [],
+    glossary: [],
+    answer: []
+  };
+  
+  semanticLines.forEach(line => {
+    const type = line.semantic_type;
+    if (groupedContent[type]) {
+      groupedContent[type].push(line);
+    }
+  });
+  
+  // Analyze document structure with AI
+  const structurePrompt = `Based on the semantic analysis of this document, determine its overall structure and organization:
 
-MIDDLE SAMPLE:
-${samples.middle.substring(0, 2000)}
+DOCUMENT ANALYSIS:
+- Copyright lines: ${groupedContent.copyright.length}
+- Title page elements: ${groupedContent.title_page.length}  
+- Dedication: ${groupedContent.dedication.length}
+- Table of contents: ${groupedContent.toc_header.length} headers, ${groupedContent.toc_entry.length} entries
+- Chapter headers: ${groupedContent.chapter_header.length}
+- Paragraphs: ${groupedContent.paragraph.length}
+- Questions: ${groupedContent.question.length}
+- Exercises: ${groupedContent.exercise.length}
+- Quotes: ${groupedContent.quote.length}
 
-RANDOM SAMPLE:
-${samples.random1.substring(0, 2000)}
+SAMPLE CHAPTER HEADERS:
+${groupedContent.chapter_header.slice(0, 5).map(h => h.content).join('\n')}
 
-Based on these samples, determine:
+SAMPLE TOC ENTRIES:
+${groupedContent.toc_entry.slice(0, 5).map(t => t.content).join('\n')}
 
-1. What TYPE of book is this? (Look for patterns like:)
-   - Textbook: Has chapters, exercises, review questions, academic tone
-   - Workbook: Has activities, fill-in-blanks, practice problems
-   - Novel: Has narrative, dialogue, character development
-   - Manual: Has procedures, steps, instructions
-   - Reference: Has definitions, lists, organized facts
-   - Children's book: Simple language, stories, activities
-   - Academic: Complex concepts, citations, formal tone
+Determine:
+1. Document type (novel, textbook, workbook, manual, etc.)
+2. Has formal structure (title page, TOC, etc.)
+3. Main content organization
+4. Special elements present
 
-2. What ELEMENTS does it contain? (Look for:)
-   - Question patterns: "1. What is...", "Answer:", "True/False"
-   - Exercise patterns: "Exercise 1:", "Practice:", "Try this:"
-   - Chapter patterns: "Chapter X", numbered sections
-   - Instructional patterns: "Step 1:", "How to:", "Follow these"
-   - Narrative patterns: dialogue, character names, story flow
-
-3. How is content ORGANIZED?
-   - Sequential chapters/lessons
-   - Topic-based sections
-   - Question-answer format
-   - Story progression
-   - Reference organization
-
-Return ONLY this JSON:
+Return JSON:
 {
-  "bookType": "exact type detected",
-  "confidence": "High/Medium/Low",
-  "primaryElements": ["questions", "exercises", "chapters", "stories", etc],
-  "contentOrganization": "how content is structured",
-  "hasQuestions": true/false,
-  "hasExercises": true/false,
-  "hasNarrative": true/false,
-  "hasInstructions": true/false,
-  "targetAudience": "who this is for",
-  "complexity": "Simple/Moderate/Advanced",
-  "estimatedSections": "rough number of main sections"
+  "document_type": "specific type",
+  "has_title_page": true/false,
+  "has_table_of_contents": true/false,
+  "has_copyright": true/false,
+  "has_dedication": true/false,
+  "main_content_type": "chapters/lessons/stories/sections",
+  "total_chapters": number,
+  "has_questions": true/false,
+  "has_exercises": true/false,
+  "has_interactive_elements": true/false,
+  "organization_style": "formal/informal/mixed",
+  "estimated_book_length": "short/medium/long",
+  "special_sections": ["list of special sections found"]
 }`;
 
   try {
@@ -238,305 +350,195 @@ Return ONLY this JSON:
       messages: [
         { 
           role: "system", 
-          content: "You are a book content analyst. Analyze samples carefully to understand book type and structure. Return only valid JSON."
+          content: "You are a document structure analyst. Analyze the semantic content and return JSON only."
         },
-        { role: "user", content: analysisPrompt }
+        { role: "user", content: structurePrompt }
       ],
       temperature: 0,
-      max_tokens: 600
+      max_tokens: 800
     });
 
-    const intelligence = JSON.parse(
+    const documentStructure = JSON.parse(
       response.choices[0].message.content.trim().replace(/```json\n?|```\n?/g, '')
     );
     
-    return intelligence;
+    // Add the grouped content for reference
+    documentStructure.grouped_content = groupedContent;
+    
+    return documentStructure;
+    
   } catch (e) {
-    console.log('AI analysis failed, using heuristic analysis:', e.message);
-    return analyzeContentHeuristically(samples);
-  }
-}
-
-// Heuristic analysis when AI is not available
-function analyzeContentHeuristically(samples) {
-  const fullText = Object.values(samples).join('\n').toLowerCase();
-  
-  // Count various patterns
-  const patterns = {
-    questions: (fullText.match(/\b(what|how|why|when|where|which)\b.*\?/g) || []).length,
-    exercises: (fullText.match(/\b(exercise|activity|practice|problem)\s*\d+/g) || []).length,
-    chapters: (fullText.match(/\b(chapter|lesson|unit|section)\s*\d+/g) || []).length,
-    instructions: (fullText.match(/\b(step|follow|complete|do|try)\b/g) || []).length,
-    narrative: (fullText.match(/\b(said|thought|looked|walked|went)\b/g) || []).length
-  };
-  
-  // Determine book type based on patterns
-  let bookType = "General Text";
-  if (patterns.exercises > 5) bookType = "Workbook";
-  else if (patterns.questions > 10) bookType = "Textbook";
-  else if (patterns.narrative > 20) bookType = "Novel";
-  else if (patterns.instructions > 10) bookType = "Manual";
-  
-  return {
-    bookType,
-    confidence: "Medium",
-    primaryElements: Object.keys(patterns).filter(k => patterns[k] > 0),
-    hasQuestions: patterns.questions > 0,
-    hasExercises: patterns.exercises > 0,
-    hasNarrative: patterns.narrative > 5,
-    hasInstructions: patterns.instructions > 5,
-    estimatedSections: Math.max(patterns.chapters, 3)
-  };
-}
-
-// STAGE 2: Recognize patterns based on book understanding
-function recognizeContentPatterns(text, intelligence) {
-  const patterns = {
-    sectionBreaks: [],
-    questionBlocks: [],
-    exerciseBlocks: [],
-    specialSections: []
-  };
-  
-  const lines = text.split('\n');
-  
-  // Build patterns based on book type
-  if (intelligence.bookType.toLowerCase().includes('textbook')) {
-    patterns.sectionBreaks = [
-      /^Chapter\s+(\d+|[IVXLC]+)[\s:.-]*(.*)$/i,
-      /^Lesson\s+(\d+)[\s:.-]*(.*)$/i,
-      /^Unit\s+(\d+)[\s:.-]*(.*)$/i
-    ];
-    patterns.questionBlocks = [
-      /^(\d+\.|Q\d+|\d+\))\s*(.*)$/,
-      /^Questions?[\s:]*$/i,
-      /^Review Questions?[\s:]*$/i
-    ];
-  } else if (intelligence.bookType.toLowerCase().includes('workbook')) {
-    patterns.exerciseBlocks = [
-      /^Exercise\s+(\d+)[\s:.-]*(.*)$/i,
-      /^Activity\s+(\d+)[\s:.-]*(.*)$/i,
-      /^Practice\s+(\d+)[\s:.-]*(.*)$/i
-    ];
-    patterns.questionBlocks = [
-      /^(\d+\.|Q\d+|\d+\))\s*(.*)$/,
-      /^\s*_+\s*$/, // Fill in the blanks
-      /^Answer[\s:]+(.*)$/i
-    ];
-  } else if (intelligence.bookType.toLowerCase().includes('novel')) {
-    patterns.sectionBreaks = [
-      /^Chapter\s+(\d+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)[\s:.-]*(.*)$/i,
-      /^Part\s+(\d+|[IVXLC]+|One|Two|Three)[\s:.-]*(.*)$/i
-    ];
-  }
-  
-  // Find pattern matches in text
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+    console.log('Failed to analyze document structure, using heuristic:', e.message);
     
-    // Check section breaks
-    for (const pattern of patterns.sectionBreaks) {
-      const match = line.match(pattern);
-      if (match) {
-        patterns.foundSections = patterns.foundSections || [];
-        patterns.foundSections.push({
-          line: i,
-          text: line,
-          title: match[2] || match[1],
-          number: match[1]
-        });
-      }
-    }
-    
-    // Check question patterns
-    for (const pattern of patterns.questionBlocks) {
-      if (pattern.test(line)) {
-        patterns.foundQuestions = patterns.foundQuestions || [];
-        patterns.foundQuestions.push({ line: i, text: line });
-      }
-    }
-    
-    // Check exercise patterns
-    for (const pattern of patterns.exerciseBlocks) {
-      if (pattern.test(line)) {
-        patterns.foundExercises = patterns.foundExercises || [];
-        patterns.foundExercises.push({ line: i, text: line });
-      }
-    }
-  }
-  
-  console.log(`Pattern recognition: ${patterns.foundSections?.length || 0} sections, ${patterns.foundQuestions?.length || 0} questions, ${patterns.foundExercises?.length || 0} exercises`);
-  return patterns;
-}
-
-// STAGE 3: Map book structure based on patterns and intelligence
-async function mapBookStructure(text, intelligence, patterns) {
-  const structureMap = {
-    sections: [],
-    specialBlocks: [],
-    contentFlow: intelligence.contentOrganization
-  };
-  
-  const lines = text.split('\n');
-  
-  // If we found clear section patterns, use them
-  if (patterns.foundSections && patterns.foundSections.length > 1) {
-    for (let i = 0; i < patterns.foundSections.length; i++) {
-      const section = patterns.foundSections[i];
-      const nextSection = patterns.foundSections[i + 1];
-      
-      const startLine = section.line;
-      const endLine = nextSection ? nextSection.line : lines.length;
-      
-      structureMap.sections.push({
-        title: section.title || `Section ${i + 1}`,
-        startLine,
-        endLine,
-        type: 'chapter',
-        content: lines.slice(startLine, endLine).join('\n')
-      });
-    }
-  } else {
-    // Use intelligent chunking based on book type
-    const chunkSize = Math.floor(lines.length / parseInt(intelligence.estimatedSections));
-    for (let i = 0; i < parseInt(intelligence.estimatedSections); i++) {
-      const startLine = i * chunkSize;
-      const endLine = Math.min((i + 1) * chunkSize, lines.length);
-      
-      // Try to find a good title for this section
-      const sectionText = lines.slice(startLine, Math.min(startLine + 20, endLine)).join(' ');
-      const title = extractSectionTitle(sectionText, i + 1, intelligence.bookType);
-      
-      structureMap.sections.push({
-        title,
-        startLine,
-        endLine,
-        type: 'section',
-        content: lines.slice(startLine, endLine).join('\n')
-      });
-    }
-  }
-  
-  // Map special blocks (questions, exercises)
-  if (patterns.foundQuestions) {
-    structureMap.specialBlocks.push({
-      type: 'questions',
-      locations: patterns.foundQuestions
-    });
-  }
-  
-  if (patterns.foundExercises) {
-    structureMap.specialBlocks.push({
-      type: 'exercises', 
-      locations: patterns.foundExercises
-    });
-  }
-  
-  return structureMap;
-}
-
-// Extract intelligent section title
-function extractSectionTitle(sectionText, sectionNumber, bookType) {
-  // Look for title-like patterns in the first few lines
-  const lines = sectionText.split('\n').slice(0, 5);
-  
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.length > 5 && trimmed.length < 80) {
-      // Check if it looks like a title
-      if (/^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')) {
-        return trimmed;
-      }
-    }
-  }
-  
-  // Generate appropriate title based on book type
-  if (bookType.toLowerCase().includes('textbook')) {
-    return `Lesson ${sectionNumber}`;
-  } else if (bookType.toLowerCase().includes('workbook')) {
-    return `Activity ${sectionNumber}`;
-  } else if (bookType.toLowerCase().includes('manual')) {
-    return `Section ${sectionNumber}`;
-  } else {
-    return `Chapter ${sectionNumber}`;
+    return {
+      document_type: groupedContent.exercise.length > 10 ? 'workbook' : 
+                    groupedContent.question.length > 20 ? 'textbook' : 'general',
+      has_title_page: groupedContent.title_page.length > 0,
+      has_table_of_contents: groupedContent.toc_entry.length > 3,
+      has_copyright: groupedContent.copyright.length > 0,
+      has_dedication: groupedContent.dedication.length > 0,
+      total_chapters: groupedContent.chapter_header.length,
+      has_questions: groupedContent.question.length > 0,
+      has_exercises: groupedContent.exercise.length > 0,
+      grouped_content: groupedContent
+    };
   }
 }
 
-// STAGE 4: Extract and validate final content structure
-async function extractAndValidateContent(text, structureMap, intelligence) {
+// PHASE 3: Organize and validate final content structure
+async function organizeAndValidateContent(semanticLines, documentStructure, originalText) {
   const finalStructure = {
     title: 'Untitled Book',
     chapters: [],
     metadata: {
-      bookType: intelligence.bookType,
-      primaryPurpose: `${intelligence.bookType} content`,
-      targetAudience: intelligence.targetAudience || 'General',
-      totalSections: structureMap.sections.length,
-      analysisMethod: 'intelligent-multi-stage',
-      confidence: intelligence.confidence
+      documentType: documentStructure.document_type,
+      hasTitle: documentStructure.has_title_page,
+      hasTOC: documentStructure.has_table_of_contents,
+      hasCopyright: documentStructure.has_copyright,
+      hasDedication: documentStructure.has_dedication,
+      totalChapters: documentStructure.total_chapters,
+      analysisMethod: 'semantic-line-by-line',
+      organizationStyle: documentStructure.organization_style
     },
     bookAnalysis: {
-      genre: intelligence.bookType,
-      complexity: intelligence.complexity || 'Moderate',
-      hasInteractiveElements: intelligence.hasQuestions || intelligence.hasExercises,
-      contentOrganization: intelligence.contentOrganization
+      genre: documentStructure.document_type,
+      hasInteractiveElements: documentStructure.has_interactive_elements,
+      contentOrganization: documentStructure.main_content_type,
+      estimatedLength: documentStructure.estimated_book_length
     },
     formatRequirements: {
-      needsQuestionFormatting: intelligence.hasQuestions,
-      needsExerciseSpacing: intelligence.hasExercises,
-      needsSpecialHandling: intelligence.hasInstructions
+      needsQuestionFormatting: documentStructure.has_questions,
+      needsExerciseSpacing: documentStructure.has_exercises,
+      needsTitlePage: documentStructure.has_title_page,
+      needsTOC: documentStructure.has_table_of_contents,
+      needsCopyright: documentStructure.has_copyright
+    },
+    semanticStructure: {
+      totalLines: semanticLines.length,
+      contentBreakdown: getContentBreakdown(semanticLines)
     }
   };
   
-  // Extract title from beginning if possible
-  const firstLines = text.split('\n').slice(0, 10);
-  for (const line of firstLines) {
-    const trimmed = line.trim();
-    if (trimmed.length > 5 && trimmed.length < 100 && /^[A-Z]/.test(trimmed)) {
-      finalStructure.title = trimmed;
-      break;
-    }
+  // Extract title from title page elements
+  const titleElements = documentStructure.grouped_content.title_page;
+  if (titleElements.length > 0) {
+    finalStructure.title = titleElements[0].content.trim();
   }
   
-  // Process each section
-  structureMap.sections.forEach((section, index) => {
-    finalStructure.chapters.push({
-      id: `section-${index + 1}`,
-      title: section.title,
-      content: section.content.trim(),
-      level: 1,
-      type: section.type,
-      hasQuestions: hasQuestionsInContent(section.content),
-      hasExercises: hasExercisesInContent(section.content),
-      specialElements: identifySpecialElements(section.content, intelligence)
-    });
-  });
+  // Organize content into chapters/sections
+  const chapterHeaders = documentStructure.grouped_content.chapter_header;
+  
+  if (chapterHeaders.length > 0) {
+    // Use detected chapter structure
+    for (let i = 0; i < chapterHeaders.length; i++) {
+      const currentHeader = chapterHeaders[i];
+      const nextHeader = chapterHeaders[i + 1];
+      
+      const startLine = currentHeader.line_number;
+      const endLine = nextHeader ? nextHeader.line_number : semanticLines.length;
+      
+      // Extract content between this chapter and next
+      const chapterContent = semanticLines
+        .slice(startLine - 1, endLine - 1)
+        .map(line => line.original_content)
+        .join('\n');
+      
+      // Analyze this chapter's special elements
+      const chapterSemantics = semanticLines.slice(startLine - 1, endLine - 1);
+      const chapterAnalysis = analyzeChapterContent(chapterSemantics);
+      
+      finalStructure.chapters.push({
+        id: `chapter-${i + 1}`,
+        title: currentHeader.content.trim(),
+        content: chapterContent.trim(),
+        level: 1,
+        type: 'chapter',
+        startLine,
+        endLine: endLine - 1,
+        hasQuestions: chapterAnalysis.hasQuestions,
+        hasExercises: chapterAnalysis.hasExercises,
+        hasQuotes: chapterAnalysis.hasQuotes,
+        specialElements: chapterAnalysis.specialElements,
+        semanticBreakdown: chapterAnalysis.breakdown
+      });
+    }
+  } else {
+    // No clear chapters found, create intelligent sections
+    const contentLines = semanticLines.filter(line => 
+      ['paragraph', 'quote', 'question', 'exercise'].includes(line.semantic_type)
+    );
+    
+    const sectionSize = Math.floor(contentLines.length / 3); // Create 3 sections
+    
+    for (let i = 0; i < 3; i++) {
+      const startIndex = i * sectionSize;
+      const endIndex = i === 2 ? contentLines.length : (i + 1) * sectionSize;
+      
+      const sectionContent = contentLines
+        .slice(startIndex, endIndex)
+        .map(line => line.original_content)
+        .join('\n');
+      
+      const sectionSemantics = contentLines.slice(startIndex, endIndex);
+      const sectionAnalysis = analyzeChapterContent(sectionSemantics);
+      
+      finalStructure.chapters.push({
+        id: `section-${i + 1}`,
+        title: `Section ${i + 1}`,
+        content: sectionContent.trim(),
+        level: 1,
+        type: 'section',
+        hasQuestions: sectionAnalysis.hasQuestions,
+        hasExercises: sectionAnalysis.hasExercises,
+        specialElements: sectionAnalysis.specialElements,
+        semanticBreakdown: sectionAnalysis.breakdown
+      });
+    }
+  }
   
   return finalStructure;
 }
 
-// Helper functions
-function hasQuestionsInContent(content) {
-  return /\b(what|how|why|when|where)\b.*\?/i.test(content) || 
-         /^\s*\d+\.\s*.{10,}\?/m.test(content);
+// Analyze individual chapter content
+function analyzeChapterContent(chapterSemantics) {
+  const breakdown = {};
+  const specialElements = [];
+  
+  chapterSemantics.forEach(line => {
+    const type = line.semantic_type;
+    breakdown[type] = (breakdown[type] || 0) + 1;
+  });
+  
+  const hasQuestions = (breakdown.question || 0) > 0;
+  const hasExercises = (breakdown.exercise || 0) > 0;
+  const hasQuotes = (breakdown.quote || 0) > 0;
+  const hasInstructions = (breakdown.instruction || 0) > 0;
+  
+  if (hasQuestions) specialElements.push('questions');
+  if (hasExercises) specialElements.push('exercises');
+  if (hasQuotes) specialElements.push('quotes');
+  if (hasInstructions) specialElements.push('instructions');
+  
+  return {
+    hasQuestions,
+    hasExercises,
+    hasQuotes,
+    hasInstructions,
+    specialElements,
+    breakdown
+  };
 }
 
-function hasExercisesInContent(content) {
-  return /\b(exercise|activity|practice|complete|solve)\b/i.test(content) ||
-         /^\s*\d+\.\s*.{10,}$/m.test(content);
-}
-
-function identifySpecialElements(content, intelligence) {
-  const elements = [];
+// Get overall content breakdown
+function getContentBreakdown(semanticLines) {
+  const breakdown = {};
   
-  if (hasQuestionsInContent(content)) elements.push('questions');
-  if (hasExercisesInContent(content)) elements.push('exercises');
-  if (/\b(table|chart|diagram|figure)\b/i.test(content)) elements.push('tables');
-  if (/^\s*_+\s*$/m.test(content)) elements.push('fill-in-blanks');
-  if (/\b(answer|solution)[\s:]/i.test(content)) elements.push('answers');
+  semanticLines.forEach(line => {
+    const type = line.semantic_type;
+    breakdown[type] = (breakdown[type] || 0) + 1;
+  });
   
-  return elements;
+  return breakdown;
 }
 
 // Enhanced fallback structure detection with better chapter naming
@@ -555,7 +557,7 @@ function detectBookStructureFallback(text) {
   
   // Much more conservative chapter detection patterns - only detect CLEAR chapter markers
   const chapterPatterns = [
-    { pattern: /^Chapter\s+(\d+|[IVXLCDM]+)(?:[:.]\s*|\s+)(.*)$/i, priority: 1, requiresFollowingContent: true },  // "Chapter 1: Title"
+    { pattern: /^Chapter\s+(\d+|[IVXLC]+)(?:[:.]\s*|\s+)(.*)$/i, priority: 1, requiresFollowingContent: true },  // "Chapter 1: Title"
     { pattern: /^(\d+)\.\s+(.{10,})$/, priority: 2, requiresFollowingContent: true },                             // "1. Chapter Title" (at least 10 chars)
     { pattern: /^#{1,3}\s+(.{5,})$/, priority: 3, requiresFollowingContent: true },                               // "# Chapter Title" (Markdown, at least 5 chars)
     { pattern: /^CHAPTER\s+(\d+|[IVXLCDM]+)(?:\s*[:.]\s*(.*))?$/i, priority: 4, requiresFollowingContent: true }, // "CHAPTER 1" or "CHAPTER 1: Title"
