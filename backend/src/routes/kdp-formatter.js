@@ -281,171 +281,158 @@ Extract EXACTLY what is in the document. Do not assume or invent anything.`;
 // Enhanced line-by-line semantic tagging based on AI analysis
 async function performSemanticTagging(text, aiAnalysis) {
   const lines = text.split('\n');
-  console.log(`Performing semantic tagging on ${lines.length} lines`);
+  console.log(`Performing TRUE AI line-by-line semantic analysis on ${lines.length} lines`);
   
-  // Use AI analysis context to improve line classification
-  const semanticLines = lines.map((line, index) => {
-    const trimmed = line.trim();
-    
-    if (!trimmed) {
-      return {
-        line_number: index + 1,
-        content: line,
-        semantic_type: 'blank',
-        confidence: 'high'
-      };
-    }
-    
-    // Enhanced classification using AI context
-    const semanticType = classifyLineWithContext(trimmed, aiAnalysis, index, lines);
-    
-    return {
+  if (!openai) {
+    console.log('OpenAI not available, using heuristic line classification');
+    return lines.map((line, index) => ({
       line_number: index + 1,
       content: line,
-      semantic_type: semanticType,
-      confidence: 'high'
-    };
-  });
-  
-  return semanticLines;
+      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+      confidence: 'medium'
+    }));
+  }
+
+  try {
+    const semanticLines = [];
+    const chunkSize = 20; // Process 20 lines at a time for AI analysis
+    
+    // Process lines in chunks
+    for (let i = 0; i < lines.length; i += chunkSize) {
+      const chunk = lines.slice(i, i + chunkSize);
+      const startLineNum = i + 1;
+      
+      console.log(`AI analyzing lines ${startLineNum} to ${startLineNum + chunk.length - 1}...`);
+      
+      try {
+        const chunkAnalysis = await analyzeChunkWithAI(chunk, startLineNum, aiAnalysis);
+        semanticLines.push(...chunkAnalysis);
+        
+        // Add delay to respect rate limits
+        if (i + chunkSize < lines.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (error) {
+        console.log(`AI analysis failed for chunk ${Math.floor(i/chunkSize) + 1}, using heuristic fallback:`, error.message);
+        
+        // Fallback to heuristic analysis for this chunk
+        const heuristicChunk = chunk.map((line, index) => ({
+          line_number: startLineNum + index,
+          content: line,
+          semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+          confidence: 'medium',
+          analysis_method: 'heuristic_fallback'
+        }));
+        
+        semanticLines.push(...heuristicChunk);
+      }
+    }
+    
+    console.log(`Completed AI line-by-line analysis of ${semanticLines.length} lines`);
+    return semanticLines;
+    
+  } catch (error) {
+    console.error('Line-by-line AI analysis failed completely:', error.message);
+    
+    // Complete fallback to heuristic analysis
+    return lines.map((line, index) => ({
+      line_number: index + 1,
+      content: line,
+      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+      confidence: 'medium',
+      analysis_method: 'heuristic_complete_fallback'
+    }));
+  }
 }
 
-// Intelligent line classification using AI analysis context
-function classifyLineWithContext(line, aiAnalysis, lineIndex, allLines) {
-  const lower = line.toLowerCase();
-  const aiLower = aiAnalysis.toLowerCase();
+// AI-powered analysis of a chunk of lines
+async function analyzeChunkWithAI(lines, startLineNum, documentContext) {
+  const numberedLines = lines.map((line, index) => 
+    `${startLineNum + index}: ${line}`
+  ).join('\n');
   
-  // Use AI analysis to inform classification
-  
-  // Copyright detection (enhanced with AI context)
-  if (lower.includes('copyright') || lower.includes('©') || lower.includes('(c)') || 
-      lower.includes('isbn') || lower.includes('publisher') || lower.includes('published by') ||
-      lower.includes('all rights reserved') || lower.match(/^\d{4}\s+by/)) {
-    return 'copyright';
+  const prompt = `You are analyzing a document line by line. Here is the document context:
+
+DOCUMENT CONTEXT:
+${documentContext}
+
+LINES TO ANALYZE (with line numbers):
+${numberedLines}
+
+For EACH line, determine its semantic type. Read each line carefully and classify it based on its content and purpose in the document.
+
+SEMANTIC TYPES:
+- "title_page": Main title, subtitle, author name on title page
+- "copyright": Copyright notices, ISBN, publisher info, publication details
+- "dedication": Dedication text
+- "toc_header": "Table of Contents", "Contents", "Index" headers
+- "toc_entry": Table of contents entries (chapter listings with page numbers)
+- "chapter_header": Chapter titles, section headers, main divisions
+- "subheader": Subsection titles, smaller headings
+- "paragraph": Regular body text, narrative content
+- "quote": Quoted text, dialogue, citations
+- "question": Questions, numbered questions, Q&A
+- "exercise": Exercises, activities, practice problems
+- "instruction": Instructions, steps, how-to content
+- "list_item": Bulleted or numbered list items
+- "answer": Answers to questions, solutions
+- "preface": Preface, foreword, introduction sections
+- "acknowledgments": Acknowledgments, thanks
+- "appendix": Appendix content, references, bibliography
+- "metadata": Page numbers, headers, footers, publication info
+- "blank": Empty lines
+
+RESPOND WITH VALID JSON ONLY:
+[
+  {
+    "line_number": 1,
+    "content": "actual line content",
+    "semantic_type": "classification",
+    "confidence": "high/medium/low",
+    "reasoning": "brief explanation"
   }
-  
-  // Title detection (use AI analysis to identify actual title)
-  if (aiAnalysis.includes('Title:') || aiAnalysis.includes('title:')) {
-    // Extract title from AI analysis and match against line
-    const titleMatch = aiAnalysis.match(/title[:\s]+([^\n]+)/i);
-    if (titleMatch && line.includes(titleMatch[1].trim())) {
-      return 'title_page';
-    }
+]
+
+Analyze each line individually and return the JSON array.`;
+
+  const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { 
+        role: "system", 
+        content: "You are a document semantic analyzer. Analyze each line carefully and return only valid JSON. Be precise in your classifications."
+      },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0,
+    max_tokens: 2000
+  }));
+
+  let analysisResult;
+  try {
+    const responseText = response.choices[0].message.content.trim();
+    // Clean up the response to ensure valid JSON
+    const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '');
+    analysisResult = JSON.parse(cleanedResponse);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', parseError.message);
+    throw new Error('Invalid JSON response from AI');
   }
-  
-  // Chapter detection (enhanced with AI context)
-  if (line.match(/^(Chapter|Lesson|Unit|Section|Part)\s+(\d+|[IVXLC]+)/i) ||
-      (aiLower.includes('chapter') && line.length < 100 && /^[A-Z]/.test(line))) {
-    return 'chapter_header';
+
+  // Validate and ensure we have results for all lines
+  if (!Array.isArray(analysisResult) || analysisResult.length !== lines.length) {
+    throw new Error(`AI returned ${analysisResult?.length || 0} results for ${lines.length} lines`);
   }
-  
-  // Table of contents detection
-  if (lower.includes('table of contents') || lower === 'contents' || 
-      lower.includes('index') && line.length < 20) {
-    return 'toc_header';
-  }
-  
-  // TOC entries (lines with page numbers)
-  if (line.match(/.*\.\.*\s*\d+\s*$/) || 
-      (line.match(/.*\s+\d+\s*$/) && line.includes('.'))) {
-    return 'toc_entry';
-  }
-  
-  // Question detection (enhanced based on AI analysis)
-  if (line.match(/^\d+\.\s*.{10,}\?/) || 
-      line.match(/^Q\d+[\.:]\s*/) ||
-      line.match(/^\d+\)\s*.{10,}\?/) ||
-      lower.match(/^(what|how|why|when|where|which|who)\b.*\?/) ||
-      lower.includes('true or false') || 
-      lower.includes('multiple choice') ||
-      line.match(/^[A-D]\)\s+/) ||
-      (aiLower.includes('question') && line.endsWith('?'))) {
-    return 'question';
-  }
-  
-  // Exercise detection (enhanced with AI context)
-  if (lower.includes('exercise') || lower.includes('activity') || 
-      lower.includes('practice') || lower.includes('try this') ||
-      lower.includes('complete the') ||
-      (aiLower.includes('exercise') && line.match(/^\d+/))) {
-    return 'exercise';
-  }
-  
-  // Answer detection
-  if (lower.includes('answer:') || lower.includes('solution:') || 
-      lower.includes('answers:') || line.match(/^Answer\s+\d+/i)) {
-    return 'answer';
-  }
-  
-  // Instructions and steps
-  if (line.match(/^(Step\s+\d+|First|Second|Third|Next|Finally|Then)[\s:.-]/i) ||
-      lower.includes('follow these') || lower.includes('instructions') ||
-      line.match(/^\d+\.\s+(Do|Try|Complete|Follow|Find|List)/i)) {
-    return 'instruction';
-  }
-  
-  // Lists
-  if (line.match(/^[-•*]\s+/) || 
-      line.match(/^[a-z]\)\s+/) || 
-      line.match(/^[ivx]+\.\s+/i)) {
-    return 'list_item';
-  }
-  
-  // Quotes and dialogue
-  if ((line.startsWith('"') && line.endsWith('"')) ||
-      (line.startsWith('"') || line.endsWith('"')) ||
-      line.includes('" said') || line.includes('" asked') ||
-      line.includes('said "') || line.includes('asked "')) {
-    return 'quote';
-  }
-  
-  // Special sections
-  if (lower.includes('dedication') || 
-      (lower.includes('to my') || lower.includes('for my')) && line.length < 100) {
-    return 'dedication';
-  }
-  if (lower.includes('acknowledgment') || lower.includes('thanks to') || 
-      lower.includes('grateful to') || lower.includes('special thanks')) {
-    return 'acknowledgments';
-  }
-  if (lower.includes('preface') || lower.includes('foreword') || 
-      (lower.includes('introduction') && line.length < 50)) {
-    return 'preface';
-  }
-  if (lower.includes('appendix') || lower.includes('references') || 
-      lower.includes('bibliography') || lower.includes('glossary')) {
-    return 'appendix';
-  }
-  
-  // Page numbers and metadata
-  if (line.match(/^\d+$/) || 
-      line.match(/^page\s+\d+/i) ||
-      line.match(/^\d+\s*[-–—]\s*\d+$/) ||
-      (line.length < 10 && line.match(/^\d/))) {
-    return 'metadata';
-  }
-  
-  // Subheaders (enhanced detection)
-  if (line.length < 80 && line.length > 10 && 
-      /^[A-Z]/.test(line) && !line.endsWith('.') && 
-      !line.endsWith('?') && !line.endsWith('!') &&
-      line.split(' ').length <= 8) {
-    return 'subheader';
-  }
-  
-  // Regular paragraphs
-  if (line.length > 20 && 
-      (line.includes('.') || line.includes(',') || line.includes(';'))) {
-    return 'paragraph';
-  }
-  
-  // Short text
-  if (line.length <= 20) {
-    return 'metadata';
-  }
-  
-  // Default to paragraph
-  return 'paragraph';
+
+  return analysisResult.map((result, index) => ({
+    line_number: startLineNum + index,
+    content: lines[index],
+    semantic_type: result.semantic_type || 'paragraph',
+    confidence: result.confidence || 'medium',
+    reasoning: result.reasoning || '',
+    analysis_method: 'ai_powered'
+  }));
 }
 
 // Enhanced heuristic analysis for when AI is not available
@@ -841,7 +828,139 @@ function analyzeChapterSemantics(chapterLines) {
 
 // Enhanced heuristic line classification when AI is not available
 function classifyLineHeuristically(line) {
-  // Implementation of classifyLineHeuristically function
+  const trimmed = line.trim();
+  const lower = trimmed.toLowerCase();
+  
+  // Empty lines
+  if (!trimmed) return 'blank';
+  
+  // Copyright and legal information
+  if (lower.includes('copyright') || lower.includes('©') || lower.includes('(c)') || 
+      lower.includes('isbn') || lower.includes('publisher') || lower.includes('published by') ||
+      lower.includes('all rights reserved') || lower.match(/^\d{4}\s+by/)) {
+    return 'copyright';
+  }
+  
+  // Title page elements
+  if ((trimmed.length < 100 && trimmed.length > 5) && 
+      (/^[A-Z][A-Z\s:]+$/.test(trimmed) || // ALL CAPS titles
+       (trimmed.split(' ').length <= 8 && /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')))) {
+    // Check if it's likely a title vs header
+    if (lower.includes('chapter') || lower.includes('lesson') || lower.includes('part')) {
+      return 'chapter_header';
+    }
+    return 'title_page';
+  }
+  
+  // Table of Contents
+  if (lower.includes('table of contents') || lower === 'contents' || 
+      lower.includes('index') && trimmed.length < 20) {
+    return 'toc_header';
+  }
+  
+  // TOC entries (lines with page numbers at the end)
+  if (trimmed.match(/.*\.\.*\s*\d+\s*$/) || // "Chapter 1....... 5"
+      trimmed.match(/.*\s+\d+\s*$/) && trimmed.includes('.')) { // "Chapter 1    5"
+    return 'toc_entry';
+  }
+  
+  // Chapter and section headers
+  if (trimmed.match(/^(Chapter|Lesson|Unit|Section|Part)\s+(\d+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)[\s:.-]*/i)) {
+    return 'chapter_header';
+  }
+  
+  // Questions (various patterns)
+  if (trimmed.match(/^\d+\.\s*.{10,}\?/) || // "1. What is...?"
+      trimmed.match(/^Q\d+[\.:]\s*./) || // "Q1: ..." or "Q1. ..."
+      trimmed.match(/^\d+\)\s*.{10,}\?/) || // "1) What is...?"
+      lower.match(/^(what|how|why|when|where|which|who)\b.*\?/) || // Question words
+      lower.includes('true or false') || lower.includes('multiple choice') ||
+      trimmed.match(/^[A-D]\)\s+/)) { // Multiple choice options
+    return 'question';
+  }
+  
+  // Exercises and activities
+  if (lower.includes('exercise') || lower.includes('activity') || 
+      lower.includes('practice') || lower.includes('try this') ||
+      lower.includes('complete the')) {
+    return 'exercise';
+  }
+  
+  // Instructions and steps
+  if (trimmed.match(/^(Step\s+\d+|First|Second|Third|Next|Finally|Then)[\s:.-]/i) ||
+      lower.includes('follow these') || lower.includes('instructions') ||
+      trimmed.match(/^\d+\.\s+(Do|Try|Complete|Follow|Find|List)/i)) {
+    return 'instruction';
+  }
+  
+  // Lists
+  if (trimmed.match(/^[-•*]\s+/) || // Bulleted lists
+      trimmed.match(/^[a-z]\)\s+/) || // a) b) c) lists
+      trimmed.match(/^[ivx]+\.\s+/i)) { // Roman numeral lists
+    return 'list_item';
+  }
+  
+  // Quotes and dialogue
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith('"') || trimmed.endsWith('"')) ||
+      trimmed.includes('" said') || trimmed.includes('" asked') ||
+      trimmed.includes('said "') || trimmed.includes('asked "')) {
+    return 'quote';
+  }
+  
+  // Special sections
+  if (lower.includes('dedication') || 
+      (lower.includes('to my') || lower.includes('for my')) && trimmed.length < 100) {
+    return 'dedication';
+  }
+  if (lower.includes('acknowledgment') || lower.includes('thanks to') || 
+      lower.includes('grateful to') || lower.includes('special thanks')) {
+    return 'acknowledgments';
+  }
+  if (lower.includes('preface') || lower.includes('foreword') || 
+      lower.includes('introduction') && trimmed.length < 50) {
+    return 'preface';
+  }
+  if (lower.includes('appendix') || lower.includes('references') || 
+      lower.includes('bibliography') || lower.includes('glossary')) {
+    return 'appendix';
+  }
+  
+  // Page numbers and metadata
+  if (trimmed.match(/^\d+$/) || // Just a number
+      trimmed.match(/^page\s+\d+/i) ||
+      trimmed.match(/^\d+\s*[-–—]\s*\d+$/) || // Page ranges
+      (trimmed.length < 10 && trimmed.match(/^\d/))) {
+    return 'metadata';
+  }
+  
+  // Answers
+  if (lower.includes('answer:') || lower.includes('solution:') || 
+      lower.includes('answers:') || trimmed.match(/^Answer\s+\d+/i)) {
+    return 'answer';
+  }
+  
+  // Subheaders (short lines that look like headers)
+  if (trimmed.length < 80 && trimmed.length > 10 && 
+      /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.') && 
+      !trimmed.endsWith('?') && !trimmed.endsWith('!') &&
+      trimmed.split(' ').length <= 8) {
+    return 'subheader';
+  }
+  
+  // Regular paragraphs (default)
+  if (trimmed.length > 20 && 
+      (trimmed.includes('.') || trimmed.includes(',') || trimmed.includes(';'))) {
+    return 'paragraph';
+  }
+  
+  // Short text (might be headers or metadata)
+  if (trimmed.length <= 20) {
+    return 'metadata';
+  }
+  
+  // Default to paragraph
+  return 'paragraph';
 }
 
 // Enhanced fallback structure detection with better chapter naming
