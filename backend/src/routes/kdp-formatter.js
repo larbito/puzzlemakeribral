@@ -60,6 +60,50 @@ try {
   console.warn('OpenAI API key not configured. AI enhancement features will be disabled.');
 }
 
+// Add rate limiting and quota management
+let requestCount = 0;
+let lastRequestTime = Date.now();
+const REQUEST_LIMIT_PER_MINUTE = 3; // Conservative limit
+const MIN_REQUEST_INTERVAL = 20000; // 20 seconds between requests
+
+async function makeRateLimitedRequest(requestFn) {
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+  
+  // Reset counter if more than a minute has passed
+  if (timeSinceLastRequest > 60000) {
+    requestCount = 0;
+  }
+  
+  // Check if we've hit the rate limit
+  if (requestCount >= REQUEST_LIMIT_PER_MINUTE) {
+    console.log('Rate limit exceeded, skipping AI request');
+    throw new Error('Rate limit exceeded');
+  }
+  
+  // Ensure minimum interval between requests
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+    console.log(`Waiting ${waitTime}ms before next request to avoid quota issues`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  try {
+    requestCount++;
+    lastRequestTime = Date.now();
+    return await requestFn();
+  } catch (error) {
+    if (error.message && error.message.includes('429')) {
+      console.log('OpenAI quota exceeded, implementing exponential backoff');
+      // Implement exponential backoff
+      const backoffTime = Math.min(300000, 60000 * Math.pow(2, requestCount)); // Max 5 minutes
+      await new Promise(resolve => setTimeout(resolve, backoffTime));
+      throw error;
+    }
+    throw error;
+  }
+}
+
 // Enhanced text extraction with better formatting preservation
 async function extractTextFromFile(filePath, fileType) {
   try {
@@ -201,7 +245,7 @@ Return JSON array with one object per line:
 
 IMPORTANT: Return ONLY the JSON array, no other text.`;
 
-      const response = await openai.chat.completions.create({
+      const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
           { 
@@ -212,7 +256,7 @@ IMPORTANT: Return ONLY the JSON array, no other text.`;
         ],
         temperature: 0,
         max_tokens: 4000
-      });
+      }));
 
       const chunkAnalysis = JSON.parse(
         response.choices[0].message.content.trim().replace(/```json\n?|```\n?/g, '')
@@ -255,19 +299,158 @@ IMPORTANT: Return ONLY the JSON array, no other text.`;
   return semanticLines;
 }
 
-// Heuristic line classification when AI is not available
+// Enhanced heuristic line classification when AI is not available
 function classifyLineHeuristically(line) {
-  const trimmed = line.trim().toLowerCase();
+  const trimmed = line.trim();
+  const lower = trimmed.toLowerCase();
   
+  // Empty lines
   if (!trimmed) return 'blank';
-  if (trimmed.includes('copyright') || trimmed.includes('©') || trimmed.includes('isbn')) return 'copyright';
-  if (trimmed.includes('table of contents') || trimmed === 'contents') return 'toc_header';
-  if (trimmed.match(/^chapter\s+\d+/)) return 'chapter_header';
-  if (trimmed.match(/^\d+\.\s*.{10,}/)) return 'question';
-  if (trimmed.includes('exercise') || trimmed.includes('activity')) return 'exercise';
-  if (trimmed.match(/^[a-z]/)) return 'paragraph';
-  if (trimmed.length < 80 && /^[A-Z]/.test(trimmed)) return 'subheader';
   
+  // Copyright and legal information
+  if (lower.includes('copyright') || lower.includes('©') || lower.includes('(c)') || 
+      lower.includes('isbn') || lower.includes('publisher') || lower.includes('published by') ||
+      lower.includes('all rights reserved') || lower.includes('no part of this') ||
+      lower.match(/^\d{4}\s+by/) || lower.includes('printing')) {
+    return 'copyright';
+  }
+  
+  // Title page elements
+  if ((trimmed.length < 100 && trimmed.length > 5) && 
+      (/^[A-Z][A-Z\s:]+$/.test(trimmed) || // ALL CAPS titles
+       (trimmed.split(' ').length <= 8 && /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')))) {
+    // Check if it's likely a title vs header
+    if (lower.includes('chapter') || lower.includes('lesson') || lower.includes('part')) {
+      return 'chapter_header';
+    }
+    return 'title_page';
+  }
+  
+  // Table of Contents
+  if (lower.includes('table of contents') || lower === 'contents' || 
+      lower.includes('index') && trimmed.length < 20) {
+    return 'toc_header';
+  }
+  
+  // TOC entries (lines with page numbers at the end)
+  if (trimmed.match(/.*\.\.*\s*\d+\s*$/) || // "Chapter 1....... 5"
+      trimmed.match(/.*\s+\d+\s*$/) && trimmed.includes('.')) { // "Chapter 1    5"
+    return 'toc_entry';
+  }
+  
+  // Chapter and section headers
+  if (trimmed.match(/^(Chapter|Lesson|Unit|Section|Part)\s+(\d+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)[\s:.-]*/i)) {
+    return 'chapter_header';
+  }
+  
+  // Numbered sections
+  if (trimmed.match(/^\d+\.\s+[A-Z]/) && trimmed.length < 100) {
+    return 'subheader';
+  }
+  
+  // Questions (various patterns)
+  if (trimmed.match(/^\d+\.\s*.{10,}\?/) || // "1. What is...?"
+      trimmed.match(/^Q\d+[\.:]\s*./) || // "Q1: ..." or "Q1. ..."
+      trimmed.match(/^\d+\)\s*.{10,}\?/) || // "1) What is...?"
+      lower.match(/^(what|how|why|when|where|which|who)\b.*\?/) || // Question words
+      lower.includes('true or false') || lower.includes('multiple choice') ||
+      trimmed.match(/^[A-D]\)\s+/) || // Multiple choice options
+      lower.includes('answer:') || lower.includes('answers:')) {
+    return 'question';
+  }
+  
+  // Exercises and activities
+  if (lower.includes('exercise') && (trimmed.match(/^\d+/) || lower.includes('exercise'))) {
+    return 'exercise';
+  }
+  if (lower.includes('activity') || lower.includes('practice') || 
+      lower.includes('try this') || lower.includes('complete the')) {
+    return 'exercise';
+  }
+  
+  // Instructions and steps
+  if (trimmed.match(/^(Step\s+\d+|First|Second|Third|Next|Finally|Then)[\s:.-]/i) ||
+      lower.includes('follow these') || lower.includes('instructions') ||
+      trimmed.match(/^\d+\.\s+(Do|Try|Complete|Follow|Find|List)/i)) {
+    return 'instruction';
+  }
+  
+  // Lists
+  if (trimmed.match(/^[-•*]\s+/) || // Bulleted lists
+      trimmed.match(/^[a-z]\)\s+/) || // a) b) c) lists
+      trimmed.match(/^[ivx]+\.\s+/i)) { // Roman numeral lists
+    return 'list_item';
+  }
+  
+  // Quotes and dialogue
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith('"') || trimmed.endsWith('"')) ||
+      (trimmed.startsWith(''') && trimmed.endsWith(''')) ||
+      trimmed.match(/^".*"$/) ||
+      trimmed.includes('" said') || trimmed.includes('" asked') ||
+      trimmed.includes('said "') || trimmed.includes('asked "')) {
+    return 'quote';
+  }
+  
+  // Special sections
+  if (lower.includes('dedication') || (lower.includes('to my') || lower.includes('for my')) && trimmed.length < 100) {
+    return 'dedication';
+  }
+  if (lower.includes('acknowledgment') || lower.includes('thanks to') || 
+      lower.includes('grateful to') || lower.includes('special thanks')) {
+    return 'acknowledgments';
+  }
+  if (lower.includes('preface') || lower.includes('foreword') || 
+      lower.includes('introduction') && trimmed.length < 50) {
+    return 'preface';
+  }
+  if (lower.includes('appendix') || lower.includes('references') || 
+      lower.includes('bibliography') || lower.includes('glossary')) {
+    return 'appendix';
+  }
+  
+  // Page numbers and metadata
+  if (trimmed.match(/^\d+$/) || // Just a number
+      trimmed.match(/^page\s+\d+/i) ||
+      trimmed.match(/^\d+\s*[-–—]\s*\d+$/) || // Page ranges
+      (trimmed.length < 10 && trimmed.match(/^\d/))) {
+    return 'metadata';
+  }
+  
+  // Answers
+  if (lower.includes('answer:') || lower.includes('solution:') || 
+      lower.includes('answers:') || trimmed.match(/^Answer\s+\d+/i)) {
+    return 'answer';
+  }
+  
+  // Fill-in-the-blank patterns
+  if (trimmed.match(/_{3,}/) || // Underscores for blanks
+      trimmed.includes('_____') ||
+      trimmed.match(/\[\s*\]/) || // Empty brackets
+      trimmed.includes('(blank)')) {
+    return 'exercise';
+  }
+  
+  // Subheaders (short lines that look like headers)
+  if (trimmed.length < 80 && trimmed.length > 10 && 
+      /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.') && 
+      !trimmed.endsWith('?') && !trimmed.endsWith('!') &&
+      trimmed.split(' ').length <= 8) {
+    return 'subheader';
+  }
+  
+  // Regular paragraphs (default)
+  if (trimmed.length > 20 && 
+      (trimmed.includes('.') || trimmed.includes(',') || trimmed.includes(';'))) {
+    return 'paragraph';
+  }
+  
+  // Short text (might be headers or metadata)
+  if (trimmed.length <= 20) {
+    return 'metadata';
+  }
+  
+  // Default to paragraph
   return 'paragraph';
 }
 
@@ -345,7 +528,7 @@ Return JSON:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
+    const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
       model: "gpt-3.5-turbo",
       messages: [
         { 
@@ -356,7 +539,7 @@ Return JSON:
       ],
       temperature: 0,
       max_tokens: 800
-    });
+    }));
 
     const documentStructure = JSON.parse(
       response.choices[0].message.content.trim().replace(/```json\n?|```\n?/g, '')
@@ -370,19 +553,59 @@ Return JSON:
   } catch (e) {
     console.log('Failed to analyze document structure, using heuristic:', e.message);
     
-    return {
-      document_type: groupedContent.exercise.length > 10 ? 'workbook' : 
-                    groupedContent.question.length > 20 ? 'textbook' : 'general',
-      has_title_page: groupedContent.title_page.length > 0,
-      has_table_of_contents: groupedContent.toc_entry.length > 3,
-      has_copyright: groupedContent.copyright.length > 0,
-      has_dedication: groupedContent.dedication.length > 0,
-      total_chapters: groupedContent.chapter_header.length,
-      has_questions: groupedContent.question.length > 0,
-      has_exercises: groupedContent.exercise.length > 0,
-      grouped_content: groupedContent
-    };
+    return analyzeDocumentStructureHeuristically(groupedContent);
   }
+}
+
+// Enhanced heuristic document structure analysis
+function analyzeDocumentStructureHeuristically(groupedContent) {
+  // Determine document type based on content patterns
+  let documentType = 'general';
+  
+  if (groupedContent.exercise.length > 10 || groupedContent.question.length > 20) {
+    documentType = 'workbook';
+  } else if (groupedContent.question.length > 5 || groupedContent.instruction.length > 10) {
+    documentType = 'textbook';
+  } else if (groupedContent.quote.length > groupedContent.paragraph.length * 0.1) {
+    documentType = 'novel';
+  } else if (groupedContent.instruction.length > 5) {
+    documentType = 'manual';
+  }
+  
+  // Analyze structure complexity
+  const totalLines = Object.values(groupedContent).reduce((sum, arr) => sum + arr.length, 0);
+  const organizationStyle = groupedContent.chapter_header.length > 3 ? 'formal' : 
+                          groupedContent.subheader.length > 5 ? 'structured' : 'informal';
+  
+  const estimatedLength = totalLines > 1000 ? 'long' : totalLines > 300 ? 'medium' : 'short';
+  
+  // Identify special sections
+  const specialSections = [];
+  if (groupedContent.dedication.length > 0) specialSections.push('dedication');
+  if (groupedContent.acknowledgments.length > 0) specialSections.push('acknowledgments');
+  if (groupedContent.preface.length > 0) specialSections.push('preface');
+  if (groupedContent.appendix.length > 0) specialSections.push('appendix');
+  if (groupedContent.toc_entry.length > 0) specialSections.push('table_of_contents');
+  
+  return {
+    document_type: documentType,
+    has_title_page: groupedContent.title_page.length > 0,
+    has_table_of_contents: groupedContent.toc_entry.length > 3,
+    has_copyright: groupedContent.copyright.length > 0,
+    has_dedication: groupedContent.dedication.length > 0,
+    main_content_type: documentType === 'novel' ? 'chapters' : 
+                      documentType === 'textbook' ? 'lessons' : 
+                      documentType === 'workbook' ? 'activities' : 'sections',
+    total_chapters: Math.max(groupedContent.chapter_header.length, 3),
+    has_questions: groupedContent.question.length > 0,
+    has_exercises: groupedContent.exercise.length > 0,
+    has_interactive_elements: groupedContent.question.length > 0 || groupedContent.exercise.length > 0,
+    organization_style: organizationStyle,
+    estimated_book_length: estimatedLength,
+    special_sections: specialSections,
+    grouped_content: groupedContent,
+    content_confidence: 'heuristic-enhanced'
+  };
 }
 
 // PHASE 3: Organize and validate final content structure
