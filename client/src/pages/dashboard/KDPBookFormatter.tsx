@@ -204,6 +204,7 @@ interface BookAnalysis {
     isbn?: string;
     publisher?: string;
     year?: string;
+    totalChapters: number;
   };
   bookAnalysis: {
     genre: string;
@@ -212,6 +213,8 @@ interface BookAnalysis {
     complexity: string;
     estimatedReadingLevel: string;
     contentType: string;
+    totalChapters: number;
+    averageChapterLength: number;
   };
   recommendedTemplate: {
     templateId: string;
@@ -243,6 +246,7 @@ interface BookAnalysis {
       level: number;
       startPage?: number;
       wordCount?: number;
+      startsAt?: string;
     }>;
     tableOfContents: Array<{
       title: string;
@@ -500,87 +504,46 @@ export const KDPBookFormatter = () => {
       if (data.success && data.content) {
         setAnalysisProgress(100);
         
-        // Create mock template suggestions based on the extracted content
-        const mockSuggestions = {
-          suggestions: [
-            {
-              id: 'novel-template',
-              name: 'Novel Template',
-              description: 'Perfect for fiction and narrative content',
-              style: 'classic',
-              bestFor: 'Fiction, novels, and story collections',
-              settings: {
-                trimSize: '6x9',
-                fontFamily: 'Times New Roman',
-                fontSize: 12,
-                lineSpacing: 1.2,
-                margins: { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
-                includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
-              },
-              suitabilityScore: 95
-            },
-            {
-              id: 'textbook-template',
-              name: 'Textbook Template',
-              description: 'Ideal for educational and reference content',
-              style: 'academic',
-              bestFor: 'Educational content and reference books',
-              settings: {
-                trimSize: '8.5x11',
-                fontFamily: 'Arial',
-                fontSize: 11,
-                lineSpacing: 1.5,
-                margins: { top: 1.0, bottom: 1.0, inside: 1.0, outside: 0.75 },
-                includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
-              },
-              suitabilityScore: 85
-            },
-            {
-              id: 'minimalist-template',
-              name: 'Minimalist Template',
-              description: 'Clean and simple formatting',
-              style: 'minimalist',
-              bestFor: 'Poetry, short stories, and clean layouts',
-              settings: {
-                trimSize: '5x8',
-                fontFamily: 'Garamond',
-                fontSize: 11,
-                lineSpacing: 1.0,
-                margins: { top: 0.75, bottom: 0.75, inside: 0.75, outside: 0.5 },
-                includeElements: { titlePage: true, tableOfContents: false, pageNumbers: true, chapterHeaders: false }
-              },
-              suitabilityScore: 80
-            }
-          ]
-        };
-
-        // Create mock book analysis based on extracted content
-        const mockAnalysis = {
+        // Use real AI analysis from backend
+        const realAnalysis = {
           metadata: {
             title: data.content.title || 'Untitled Book',
             author: data.content.metadata?.author || 'Unknown Author',
-            subtitle: '',
+            subtitle: data.content.metadata?.subtitle || '',
             publisher: data.content.metadata?.publisher || '',
-            year: data.content.metadata?.year || new Date().getFullYear().toString()
+            year: data.content.metadata?.year || new Date().getFullYear().toString(),
+            dedication: data.content.metadata?.dedication || '',
+            totalChapters: data.content.metadata?.totalChapters || data.content.chapters.length
           },
           bookAnalysis: {
-            genre: data.content.chapters.length > 20 ? 'Short Stories Collection' : 'General Fiction',
+            genre: data.content.chapters.length > 10 ? 'Novel' : data.content.chapters.length > 5 ? 'Novella' : 'Short Work',
             tone: 'Narrative',
             targetAudience: 'General Readers',
-            complexity: 'Moderate',
+            complexity: data.content.chapters.length > 15 ? 'Complex' : 'Moderate',
             estimatedReadingLevel: 'Adult',
-            contentType: 'Narrative'
+            contentType: 'Narrative',
+            totalChapters: data.content.chapters.length,
+            averageChapterLength: Math.round(
+              data.content.chapters.reduce((acc: number, ch: any) => acc + (ch.content?.length || 0), 0) / data.content.chapters.length
+            )
           },
           recommendedTemplate: {
-            templateId: 'novel-template',
-            templateName: 'Novel Template',
-            reasoning: 'Best suited for your content structure and chapter count',
-            trimSize: '6x9',
+            templateId: data.content.chapters.length > 15 ? 'novel-template' : data.content.chapters.length > 8 ? 'textbook-template' : 'minimalist-template',
+            templateName: data.content.chapters.length > 15 ? 'Novel Template' : data.content.chapters.length > 8 ? 'Textbook Template' : 'Minimalist Template',
+            reasoning: `Best suited for ${data.content.chapters.length} chapters with ${data.content.metadata?.author ? 'identified author' : 'standard formatting'}`,
+            trimSize: data.content.chapters.length > 15 ? '6x9' : '5x8',
             fontFamily: 'Times New Roman',
             fontSize: 12,
             lineSpacing: 1.2,
-            margins: { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
-            includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
+            margins: data.content.chapters.length > 15 
+              ? { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 }
+              : { top: 0.75, bottom: 0.75, inside: 0.75, outside: 0.5 },
+            includeElements: { 
+              titlePage: true, 
+              tableOfContents: data.content.chapters.length > 3, 
+              pageNumbers: true, 
+              chapterHeaders: true 
+            }
           },
           structuredContent: {
             chapters: data.content.chapters.map((chapter: any, index: number) => ({
@@ -590,7 +553,8 @@ export const KDPBookFormatter = () => {
               content: chapter.content,
               level: chapter.level || 1,
               startPage: index + 1,
-              wordCount: chapter.content.split(' ').length
+              wordCount: chapter.wordCount || chapter.content.split(' ').length,
+              startsAt: chapter.startsAt || chapter.content.substring(0, 50)
             })),
             tableOfContents: data.content.chapters.map((chapter: any, index: number) => ({
               title: chapter.title,
@@ -599,20 +563,68 @@ export const KDPBookFormatter = () => {
             }))
           },
           alternativeTemplates: [
-            { templateId: 'textbook-template', templateName: 'Textbook Template', reasoning: 'For more formal presentation', suitabilityScore: 85 },
-            { templateId: 'minimalist-template', templateName: 'Minimalist Template', reasoning: 'For clean, simple layout', suitabilityScore: 80 }
+            { templateId: 'novel-template', templateName: 'Novel Template', reasoning: 'For narrative content', suitabilityScore: 90 },
+            { templateId: 'textbook-template', templateName: 'Textbook Template', reasoning: 'For structured content', suitabilityScore: 75 },
+            { templateId: 'minimalist-template', templateName: 'Minimalist Template', reasoning: 'For clean layout', suitabilityScore: 80 }
           ]
         };
 
-        setBookAnalysis(mockAnalysis);
-        setTemplateSuggestions(mockSuggestions);
+        // Create template suggestions based on real analysis
+        const intelligentSuggestions = {
+          suggestions: [
+            {
+              id: 'intelligent-novel',
+              name: `${realAnalysis.bookAnalysis.genre} Template`,
+              description: `Optimized for ${realAnalysis.metadata.totalChapters} chapters with professional typography`,
+              style: 'intelligent',
+              bestFor: `${realAnalysis.bookAnalysis.genre} with ${realAnalysis.bookAnalysis.complexity.toLowerCase()} structure`,
+              settings: realAnalysis.recommendedTemplate,
+              suitabilityScore: 95
+            },
+            {
+              id: 'classic-book',
+              name: 'Classic Book Format',
+              description: 'Traditional book formatting with elegant typography',
+              style: 'classic',
+              bestFor: 'Most fiction and non-fiction books',
+              settings: {
+                trimSize: '6x9',
+                fontFamily: 'Times New Roman',
+                fontSize: 12,
+                lineSpacing: 1.2,
+                margins: { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
+                includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
+              },
+              suitabilityScore: 88
+            },
+            {
+              id: 'modern-clean',
+              name: 'Modern Clean Layout',
+              description: 'Contemporary design with clean lines and good readability',
+              style: 'modern',
+              bestFor: 'Contemporary fiction and business books',
+              settings: {
+                trimSize: realAnalysis.recommendedTemplate.trimSize,
+                fontFamily: 'Georgia',
+                fontSize: 11,
+                lineSpacing: 1.3,
+                margins: { top: 1.0, bottom: 1.0, inside: 1.0, outside: 0.75 },
+                includeElements: { titlePage: true, tableOfContents: data.content.chapters.length > 5, pageNumbers: true, chapterHeaders: true }
+              },
+              suitabilityScore: 82
+            }
+          ]
+        };
+
+        setBookAnalysis(realAnalysis);
+        setTemplateSuggestions(intelligentSuggestions);
         setRawText(data.content.rawText || '');
         setBookContent(data.content);
         setCurrentStep('templates');
 
         toast({
           title: 'Analysis Complete!',
-          description: `Found ${data.content.chapters.length} chapters. Ready to select formatting template.`,
+          description: `Found "${realAnalysis.metadata.title}" by ${realAnalysis.metadata.author} with ${data.content.chapters.length} chapters.`,
         });
       } else {
         throw new Error('Invalid response from server');
@@ -1319,7 +1331,7 @@ export const KDPBookFormatter = () => {
                     <div className="space-y-2 text-sm">
                       <div><strong>Title:</strong> {bookAnalysis.metadata.title}</div>
                       <div><strong>Author:</strong> {bookAnalysis.metadata.author}</div>
-                      <div><strong>Chapters:</strong> {bookAnalysis.structuredContent.chapters.length}</div>
+                      <div><strong>Chapters:</strong> {bookAnalysis.metadata.totalChapters}</div>
                       <div><strong>Genre:</strong> {bookAnalysis.bookAnalysis.genre}</div>
                     </div>
                   </div>
@@ -1785,7 +1797,7 @@ export const KDPBookFormatter = () => {
                         <strong>Book Details:</strong><br/>
                         Size: {selectedTemplate?.settings.trimSize}<br/>
                         Font: {selectedTemplate?.settings.fontFamily} {selectedTemplate?.settings.fontSize}pt<br/>
-                        Pages: ~{bookAnalysis?.structuredContent.chapters.length || 0} chapters
+                        Pages: ~{bookAnalysis?.metadata.totalChapters} chapters
                       </p>
                     </div>
                   </CardContent>

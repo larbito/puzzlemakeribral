@@ -103,7 +103,7 @@ function cleanRawText(text) {
     .trim();
 }
 
-// AI-powered structure detection with optimized performance
+// AI-powered structure detection with enhanced intelligence
 async function detectBookStructureWithAI(text) {
   if (!openai) {
     console.log('OpenAI not available, using fallback structure detection');
@@ -111,179 +111,247 @@ async function detectBookStructureWithAI(text) {
   }
 
   try {
-    console.log(`Starting optimized AI analysis for ${text.length} characters`);
+    console.log(`Starting enhanced AI analysis for ${text.length} characters`);
     
-    // Quick metadata extraction from beginning (reduced from 3000 to 1500 chars)
-    const metadataPrompt = `Analyze this book excerpt and extract metadata. Return JSON only.
+    // Enhanced metadata extraction from first few pages
+    const metadataSection = text.substring(0, 5000); // Analyze first 5000 chars for metadata
+    const metadataPrompt = `You are a professional book analyst. Carefully analyze this book opening to extract all metadata information.
 
-Text excerpt:
-${text.substring(0, 1500)}
+BOOK OPENING TEXT:
+${metadataSection}
 
-Return JSON:
+INSTRUCTIONS:
+1. Look for the book title (usually on title page, may be in all caps, larger text, or centered)
+2. Find the author name (often appears as "by [Author Name]" or "Author: [Name]")
+3. Look for subtitle (often appears below main title, may be in smaller text)
+4. Check for publication info, dedication, copyright, etc.
+5. Be very careful to distinguish between title and author
+6. If you see "Chapter 1" or similar, that's NOT the title
+
+Return this EXACT JSON structure:
 {
-  "title": "Book Title",
-  "author": "Author Name", 
-  "subtitle": "Subtitle if any",
-  "estimated_chapters": "number estimate"
+  "title": "Exact book title as it appears",
+  "author": "Author's full name",
+  "subtitle": "Subtitle if present, otherwise empty string",
+  "publisher": "Publisher if mentioned",
+  "year": "Publication year if mentioned",
+  "dedication": "Dedication text if present",
+  "hasTableOfContents": true/false,
+  "estimatedChapters": "rough estimate based on content structure"
 }`;
 
     const metadataResponse = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        { role: "system", content: "Extract book metadata. Return valid JSON only." },
+        { 
+          role: "system", 
+          content: "You are an expert at extracting book metadata. Always return valid JSON. Pay close attention to distinguish between title, author, and chapter headings."
+        },
         { role: "user", content: metadataPrompt }
       ],
       temperature: 0,
-      max_tokens: 300
+      max_tokens: 500
     });
 
     let bookMetadata = {};
     try {
       const metadataText = metadataResponse.choices[0].message.content.trim();
-      // Clean up response to ensure valid JSON
       const cleanedMetadata = metadataText.replace(/```json\n?|```\n?/g, '').trim();
       bookMetadata = JSON.parse(cleanedMetadata);
+      console.log('Extracted metadata:', bookMetadata);
     } catch (e) {
-      console.log('Failed to parse metadata, using defaults');
-      bookMetadata = { title: "Untitled Book", author: "", subtitle: "", estimated_chapters: "unknown" };
+      console.log('Failed to parse metadata:', e.message);
+      bookMetadata = { 
+        title: "Untitled Book", 
+        author: "Unknown Author", 
+        subtitle: "", 
+        estimatedChapters: "unknown" 
+      };
     }
 
-    // Optimized structure analysis - use fewer, larger chunks
-    const maxChunkSize = 25000; // Larger chunks, fewer API calls
-    const maxChunks = 6; // Limit total chunks to avoid timeout
-    
-    let chunks = [];
-    for (let i = 0; i < text.length && chunks.length < maxChunks; i += maxChunkSize) {
-      chunks.push(text.substring(i, i + maxChunkSize));
-    }
-    
-    // If we still have more content, add it to the last chunk
-    if (text.length > maxChunks * maxChunkSize) {
-      const remainingText = text.substring(maxChunks * maxChunkSize);
-      if (chunks.length > 0) {
-        chunks[chunks.length - 1] += remainingText;
-      } else {
-        chunks.push(remainingText);
-      }
-    }
+    // Enhanced chapter detection - analyze entire book structure first
+    const structureAnalysisPrompt = `You are a professional book editor. Analyze this complete book text to identify ALL chapters and major sections.
 
-    console.log(`Processing ${chunks.length} optimized chunks`);
+COMPLETE BOOK TEXT:
+${text}
 
-    let allChapters = [];
-    let chapterCounter = 1;
+INSTRUCTIONS:
+1. Find ALL chapter breaks in the entire text
+2. Look for patterns like:
+   - "Chapter 1", "Chapter One", "Chapter I"
+   - "Part 1", "Section 1"
+   - Numbered sections (1., 2., 3.)
+   - Clear section breaks with titles
+   - Story titles (for collections)
+3. Each chapter should have substantial content (at least 200 words)
+4. Preserve the exact chapter titles as they appear
+5. Include the full content of each chapter
+6. Don't miss any chapters - scan the entire text carefully
 
-    // Process chunks with timeout protection
-    const chunkPromises = chunks.map(async (chunk, chunkIndex) => {
-      console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} characters)`);
-
-      const structurePrompt = `Analyze this book section for chapters. Focus on clear chapter markers.
-
-Book: "${bookMetadata.title}" by ${bookMetadata.author}
-
-RULES:
-1. Find clear chapter breaks only
-2. Preserve content exactly
-3. Look for "Chapter X", "Story X", numbered sections
-4. Return substantial chapters (500+ words)
-
-Text:
-${chunk}
-
-Return JSON:
+Return this EXACT JSON structure:
 {
+  "totalChapters": "number of chapters found",
   "chapters": [
-    {"title": "Chapter title", "content": "full content", "marker": "first words"}
+    {
+      "number": 1,
+      "title": "Exact chapter title as it appears",
+      "content": "Complete chapter content including all paragraphs",
+      "wordCount": "approximate word count",
+      "startsAt": "first few words of the chapter for identification"
+    }
   ]
 }`;
 
-      try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: "Extract book chapters. Return valid JSON only." },
-            { role: "user", content: structurePrompt }
-          ],
-          temperature: 0,
-          max_tokens: 3000
-        });
-
-        const responseText = response.choices[0].message.content.trim();
-        const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '').trim();
-        const result = JSON.parse(cleanedResponse);
-        
-        return result.chapters || [];
-      } catch (error) {
-        console.error(`Error processing chunk ${chunkIndex + 1}:`, error.message);
-        // Fallback: create a single chapter from the chunk
-        return [{
-          title: `Section ${chunkIndex + 1}`,
-          content: chunk.trim(),
-          marker: chunk.substring(0, 50)
-        }];
-      }
+    console.log('Analyzing complete book structure...');
+    const structureResponse = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are an expert book editor who never misses chapters. Analyze the COMPLETE text to find ALL chapters. Return valid JSON only."
+        },
+        { role: "user", content: structureAnalysisPrompt }
+      ],
+      temperature: 0,
+      max_tokens: 8000 // Increased for larger responses
     });
 
-    // Wait for all chunks with timeout
-    const chunkResults = await Promise.all(chunkPromises);
-    
-    // Combine results
-    for (const chapters of chunkResults) {
-      for (const chapter of chapters) {
-        if (chapter.content && chapter.content.trim().length > 200) {
-          allChapters.push({
-            id: `chapter-${chapterCounter++}`,
-            title: chapter.title || `Chapter ${chapterCounter - 1}`,
-            content: chapter.content.trim(),
-            level: 1
-          });
-        }
-      }
+    let allChapters = [];
+    try {
+      const structureText = structureResponse.choices[0].message.content.trim();
+      const cleanedStructure = structureText.replace(/```json\n?|```\n?/g, '').trim();
+      const structureResult = JSON.parse(cleanedStructure);
+      
+      console.log(`AI found ${structureResult.totalChapters} chapters`);
+      
+      // Convert to our format
+      allChapters = structureResult.chapters.map((chapter, index) => ({
+        id: `chapter-${index + 1}`,
+        title: chapter.title || `Chapter ${index + 1}`,
+        content: chapter.content.trim(),
+        level: 1,
+        wordCount: chapter.wordCount,
+        startsAt: chapter.startsAt
+      }));
+      
+    } catch (error) {
+      console.error('Failed to parse structure analysis:', error.message);
+      
+      // Fallback: Split into chunks and analyze each
+      console.log('Using chunk-based analysis as fallback...');
+      allChapters = await analyzeInChunks(text, bookMetadata);
     }
 
-    // Quick post-processing
-    const processedChapters = quickPostProcess(allChapters, text);
-    
-    console.log(`Optimized AI analysis complete: ${processedChapters.length} chapters`);
+    // Validate and clean chapters
+    const validChapters = allChapters.filter(chapter => 
+      chapter.content && 
+      chapter.content.trim().length > 100 && // At least 100 characters
+      chapter.title && 
+      chapter.title.trim().length > 0
+    );
+
+    console.log(`Enhanced AI analysis complete: ${validChapters.length} valid chapters found`);
     
     return {
       title: bookMetadata.title || 'Untitled Book',
-      chapters: processedChapters,
+      chapters: validChapters.length > 0 ? validChapters : [{
+        id: 'chapter-1',
+        title: 'Complete Content',
+        content: text,
+        level: 1
+      }],
       metadata: {
         author: bookMetadata.author || '',
         subtitle: bookMetadata.subtitle || '',
-        estimated_total: bookMetadata.estimated_chapters
+        publisher: bookMetadata.publisher || '',
+        year: bookMetadata.year || '',
+        dedication: bookMetadata.dedication || '',
+        hasTableOfContents: bookMetadata.hasTableOfContents || false,
+        totalChapters: validChapters.length,
+        estimatedTotal: bookMetadata.estimatedChapters
       }
     };
     
   } catch (error) {
-    console.error('Optimized AI analysis failed:', error.message);
-    console.log('Using fast fallback detection');
+    console.error('Enhanced AI analysis failed:', error.message);
+    console.log('Using fallback detection');
     return detectBookStructureFallback(text);
   }
 }
 
-// Quick post-processing without complex overlap detection
-function quickPostProcess(chapters, originalText) {
-  if (!chapters || chapters.length === 0) {
-    return [{
-      id: 'chapter-1',
-      title: 'Complete Content',
-      content: originalText,
-      level: 1
-    }];
+// Fallback chunk analysis for very large books
+async function analyzeInChunks(text, bookMetadata) {
+  const maxChunkSize = 15000;
+  const chunks = [];
+  
+  for (let i = 0; i < text.length; i += maxChunkSize) {
+    chunks.push(text.substring(i, i + maxChunkSize));
   }
+  
+  console.log(`Analyzing ${chunks.length} chunks for chapter detection`);
+  
+  const allChapters = [];
+  let chapterCounter = 1;
+  
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i];
+    
+    const chunkPrompt = `Find all chapters in this text section. Look carefully for chapter markers.
 
-  // Simple deduplication - remove very short chapters
-  const processed = chapters.filter(chapter => 
-    chapter.content && chapter.content.length > 300
-  );
+TEXT SECTION ${i + 1}/${chunks.length}:
+${chunk}
 
-  // If we filtered out too many, keep the originals
-  if (processed.length < chapters.length * 0.5) {
-    return chapters;
+RULES:
+1. Find ALL chapter breaks in this section
+2. Look for "Chapter X", numbered sections, story titles
+3. Include complete content for each chapter
+4. Don't split chapters - if a chapter continues beyond this section, note it
+
+Return JSON:
+{
+  "chapters": [
+    {
+      "title": "Exact chapter title",
+      "content": "Complete content in this section",
+      "continues": true/false,
+      "startsAt": "first few words"
+    }
+  ]
+}`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: "Find all chapters in this text section. Return valid JSON only." },
+          { role: "user", content: chunkPrompt }
+        ],
+        temperature: 0,
+        max_tokens: 4000
+      });
+
+      const responseText = response.choices[0].message.content.trim();
+      const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '').trim();
+      const result = JSON.parse(cleanedResponse);
+      
+      for (const chapter of result.chapters || []) {
+        if (chapter.content && chapter.content.trim().length > 100) {
+          allChapters.push({
+            id: `chapter-${chapterCounter++}`,
+            title: chapter.title || `Chapter ${chapterCounter - 1}`,
+            content: chapter.content.trim(),
+            level: 1,
+            startsAt: chapter.startsAt
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error(`Error analyzing chunk ${i + 1}:`, error.message);
+    }
   }
-
-  return processed.length > 0 ? processed : chapters;
+  
+  return allChapters;
 }
 
 // Enhanced fallback structure detection with better chapter naming
