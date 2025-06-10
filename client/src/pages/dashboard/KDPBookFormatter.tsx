@@ -762,100 +762,226 @@ export const KDPBookFormatter = () => {
             margin: ${settings.margins.top}in ${settings.margins.outside}in ${settings.margins.bottom}in ${settings.margins.inside}in;
         }
         
+        * {
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: ${settings.fontFamily};
+            font-family: "${settings.fontFamily}", serif;
             font-size: ${settings.fontSize}pt;
             line-height: ${settings.lineSpacing};
             margin: 0;
-            padding: 20px;
-            color: #000;
+            padding: 0;
+            color: #000000;
             background: white;
+            text-rendering: optimizeLegibility;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
         
         .page {
-            page-break-after: always;
             width: 100%;
-            min-height: 500px;
-            padding: 20px;
-            box-sizing: border-box;
-            border: 1px solid #e0e0e0;
-            margin-bottom: 20px;
+            min-height: calc(${dimensions.height} - ${settings.margins.top + settings.margins.bottom}in);
+            padding: 0.5in;
+            margin-bottom: 0.25in;
             background: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+            page-break-after: always;
+            position: relative;
         }
         
         .page:last-child {
             page-break-after: avoid;
         }
         
-        h1, h2, h3 {
+        /* Typography */
+        h1, h2, h3, h4, h5, h6 {
             font-weight: bold;
-            margin: 1em 0 0.5em 0;
+            margin: 0;
+            line-height: 1.2;
         }
         
-        h1 { font-size: 1.5em; text-align: center; }
-        h2 { font-size: 1.3em; }
-        h3 { font-size: 1.1em; }
+        h1 { 
+            font-size: ${Math.round(settings.fontSize * 1.5)}pt; 
+            text-align: center; 
+            margin-bottom: 1em;
+        }
         
+        h2 { 
+            font-size: ${Math.round(settings.fontSize * 1.25)}pt; 
+            margin-bottom: 0.75em;
+        }
+        
+        h3 { 
+            font-size: ${Math.round(settings.fontSize * 1.1)}pt; 
+            margin-bottom: 0.5em;
+        }
+        
+        p {
+            margin: 0 0 ${settings.lineSpacing * 0.5}em 0;
+            text-align: justify;
+            text-indent: 0.5in;
+            orphans: 2;
+            widows: 2;
+        }
+        
+        p:first-child {
+            text-indent: 0;
+        }
+        
+        /* Title Page */
         .title-page {
             text-align: center;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            height: 400px;
+            align-items: center;
+            height: 100%;
+            padding: 2in 1in;
         }
         
         .title-page h1 {
-            font-size: 2em;
+            font-size: ${Math.round(settings.fontSize * 2)}pt;
             margin-bottom: 0.5em;
+            font-weight: bold;
+            letter-spacing: 0.02em;
+        }
+        
+        .title-page .subtitle {
+            font-size: ${Math.round(settings.fontSize * 1.2)}pt;
+            font-style: italic;
+            margin-bottom: 1em;
+            color: #555;
         }
         
         .title-page .author {
-            font-size: 1.2em;
+            font-size: ${Math.round(settings.fontSize * 1.1)}pt;
             margin-top: 2em;
+            font-weight: normal;
         }
         
-        .chapter {
-            margin-bottom: 2em;
+        .title-page .publisher,
+        .title-page .year {
+            font-size: ${Math.round(settings.fontSize * 0.9)}pt;
+            margin-top: 1em;
+            color: #666;
         }
         
-        .chapter-title {
-            font-size: 1.3em;
-            font-weight: bold;
-            text-align: center;
-            margin: 2em 0 1em 0;
-            page-break-after: avoid;
-        }
-        
-        .chapter-content {
-            text-align: justify;
-            text-indent: 1em;
-        }
-        
-        .chapter-content p {
-            margin: 0 0 1em 0;
-        }
-        
+        /* Table of Contents */
         .toc {
-            page-break-before: always;
+            padding-top: 1in;
         }
         
         .toc h2 {
             text-align: center;
-            margin-bottom: 1em;
+            margin-bottom: 1.5em;
+            font-size: ${Math.round(settings.fontSize * 1.3)}pt;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
         
         .toc-entry {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 0.5em;
+            align-items: baseline;
+            margin-bottom: 0.75em;
+            font-size: ${Math.round(settings.fontSize * 0.95)}pt;
         }
         
+        .toc-entry::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px dotted #999;
+            margin: 0 0.5em;
+            height: 1px;
+            align-self: flex-end;
+            margin-bottom: 0.25em;
+        }
+        
+        /* Chapter Styling */
+        .chapter {
+            padding-top: 1in;
+        }
+        
+        .chapter-title {
+            font-size: ${Math.round(settings.fontSize * 1.4)}pt;
+            font-weight: bold;
+            text-align: center;
+            margin: 0 0 2em 0;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            page-break-after: avoid;
+        }
+        
+        .chapter-content {
+            text-align: justify;
+            hyphens: auto;
+            -webkit-hyphens: auto;
+            -moz-hyphens: auto;
+            -ms-hyphens: auto;
+        }
+        
+        .chapter-content p {
+            margin-bottom: ${settings.lineSpacing * 0.8}em;
+        }
+        
+        .chapter-content p:first-of-type {
+            text-indent: 0;
+            margin-top: 1em;
+        }
+        
+        /* Page Numbers */
         .page-number {
             position: absolute;
-            bottom: 20px;
-            right: 50%;
-            transform: translateX(50%);
-            font-size: 10pt;
+            bottom: 0.5in;
+            width: 100%;
+            text-align: center;
+            font-size: ${Math.round(settings.fontSize * 0.8)}pt;
+            color: #666;
+        }
+        
+        /* Print Specific */
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .page {
+                box-shadow: none;
+                border: none;
+                margin-bottom: 0;
+            }
+            
+            .page-number {
+                color: #000;
+            }
+        }
+        
+        /* Custom spacing and breaks */
+        .section-break {
+            page-break-before: always;
+        }
+        
+        .no-break {
+            page-break-inside: avoid;
+        }
+        
+        /* Additional styling for better readability */
+        blockquote {
+            margin: 1em 2em;
+            padding-left: 1em;
+            border-left: 3px solid #ddd;
+            font-style: italic;
+        }
+        
+        em {
+            font-style: italic;
+        }
+        
+        strong {
+            font-weight: bold;
         }
         
         ${customCSS}
@@ -864,42 +990,54 @@ export const KDPBookFormatter = () => {
 <body>
     ${settings.includeElements.titlePage ? `
     <div class="page title-page">
-        <h1>${title}</h1>
-        ${metadata.subtitle ? `<p class="subtitle">${metadata.subtitle}</p>` : ''}
-        <p class="author">by ${author}</p>
-        ${publisher ? `<p class="publisher">${publisher}</p>` : ''}
-        ${year ? `<p class="year">${year}</p>` : ''}
+        <div>
+            <h1>${title}</h1>
+            ${metadata.subtitle ? `<p class="subtitle">${metadata.subtitle}</p>` : ''}
+            <p class="author">by ${author}</p>
+            ${publisher ? `<p class="publisher">${publisher}</p>` : ''}
+            ${year ? `<p class="year">${year}</p>` : ''}
+        </div>
     </div>
     ` : ''}
     
-    ${settings.includeElements.tableOfContents ? `
+    ${settings.includeElements.tableOfContents && chapters.length > 1 ? `
     <div class="page toc">
         <h2>Table of Contents</h2>
         ${chapters.map((chapter: any, index: number) => `
             <div class="toc-entry">
                 <span>${chapter.title}</span>
-                <span>${index + 1}</span>
+                <span>${index + (settings.includeElements.titlePage ? 3 : 1)}</span>
             </div>
         `).join('')}
     </div>
     ` : ''}
     
-    ${chapters.map((chapter: any, index: number) => `
+    ${chapters.map((chapter: any, index: number) => {
+      const pageNumber = index + (settings.includeElements.titlePage ? 2 : 1) + (settings.includeElements.tableOfContents ? 1 : 0);
+      
+      // Split content into paragraphs and format properly
+      const paragraphs = chapter.content
+        .split(/\n\s*\n/)
+        .filter((p: string) => p.trim())
+        .map((p: string) => p.trim().replace(/\n/g, ' '));
+      
+      return `
         <div class="page">
             <div class="chapter">
                 <h2 class="chapter-title">${chapter.title}</h2>
                 <div class="chapter-content">
-                    ${chapter.content.split('\n\n').map((paragraph: string) => 
+                    ${paragraphs.map((paragraph: string) => 
                         `<p>${paragraph}</p>`
                     ).join('')}
                 </div>
             </div>
             ${settings.includeElements.pageNumbers ? 
-                `<div class="page-number">${index + (settings.includeElements.titlePage ? 2 : 1) + (settings.includeElements.tableOfContents ? 1 : 0)}</div>` 
+                `<div class="page-number">${pageNumber}</div>` 
                 : ''
             }
         </div>
-    `).join('')}
+      `;
+    }).join('')}
 </body>
 </html>`;
   };
@@ -1000,22 +1138,26 @@ export const KDPBookFormatter = () => {
         printWindow.document.write(formattedHTML);
         printWindow.document.close();
         
-        // Trigger print dialog
-        setTimeout(() => {
-          printWindow.print();
-        }, 1000);
+        // Wait for content to load
+        printWindow.onload = () => {
+          setTimeout(() => {
+            // Focus and trigger print dialog
+            printWindow.focus();
+            printWindow.print();
+          }, 1000);
+        };
       }
 
       setCurrentStep('export');
       toast({
-        title: 'PDF Export',
-        description: 'PDF generation started. Use your browser\'s print dialog to save as PDF.',
+        title: 'PDF Export Started',
+        description: 'A new window opened with your formatted book. Use Ctrl/Cmd+P to print and save as PDF with these settings: No margins, Include backgrounds.',
       });
     } catch (error) {
       console.error('Export error:', error);
       toast({
         title: 'Export Error',
-        description: 'Failed to export PDF',
+        description: 'Failed to export PDF. Try using a different browser or disable popup blockers.',
       });
     }
   };
@@ -1261,7 +1403,305 @@ export const KDPBookFormatter = () => {
 
         {currentStep === 'preview' && formattedHTML && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Formatting Controls */}
+              <div>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Settings className="h-5 w-5" />
+                      Format Settings
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Book Size */}
+                    <div className="space-y-2">
+                      <Label>Book Size</Label>
+                      <select 
+                        className="w-full p-2 border rounded-md"
+                        value={selectedTemplate?.settings.trimSize || '6x9'}
+                        onChange={(e) => {
+                          if (selectedTemplate) {
+                            const updatedTemplate = {
+                              ...selectedTemplate,
+                              settings: { ...selectedTemplate.settings, trimSize: e.target.value }
+                            };
+                            setSelectedTemplate(updatedTemplate);
+                            generatePreview(updatedTemplate);
+                          }
+                        }}
+                      >
+                        <option value="5x8">5" x 8" (Compact)</option>
+                        <option value="6x9">6" x 9" (Standard)</option>
+                        <option value="7x10">7" x 10" (Large)</option>
+                        <option value="8.5x11">8.5" x 11" (Textbook)</option>
+                      </select>
+                    </div>
+
+                    {/* Font Family */}
+                    <div className="space-y-2">
+                      <Label>Font Family</Label>
+                      <select 
+                        className="w-full p-2 border rounded-md"
+                        value={selectedTemplate?.settings.fontFamily || 'Times New Roman'}
+                        onChange={(e) => {
+                          if (selectedTemplate) {
+                            const updatedTemplate = {
+                              ...selectedTemplate,
+                              settings: { ...selectedTemplate.settings, fontFamily: e.target.value }
+                            };
+                            setSelectedTemplate(updatedTemplate);
+                            generatePreview(updatedTemplate);
+                          }
+                        }}
+                      >
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Garamond">Garamond</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Palatino">Palatino</option>
+                        <option value="Arial">Arial</option>
+                      </select>
+                    </div>
+
+                    {/* Font Size */}
+                    <div className="space-y-2">
+                      <Label>Font Size: {selectedTemplate?.settings.fontSize || 12}pt</Label>
+                      <input
+                        type="range"
+                        min="9"
+                        max="16"
+                        value={selectedTemplate?.settings.fontSize || 12}
+                        className="w-full"
+                        onChange={(e) => {
+                          if (selectedTemplate) {
+                            const updatedTemplate = {
+                              ...selectedTemplate,
+                              settings: { ...selectedTemplate.settings, fontSize: parseInt(e.target.value) }
+                            };
+                            setSelectedTemplate(updatedTemplate);
+                            generatePreview(updatedTemplate);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Line Spacing */}
+                    <div className="space-y-2">
+                      <Label>Line Spacing: {selectedTemplate?.settings.lineSpacing || 1.2}</Label>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.5"
+                        step="0.1"
+                        value={selectedTemplate?.settings.lineSpacing || 1.2}
+                        className="w-full"
+                        onChange={(e) => {
+                          if (selectedTemplate) {
+                            const updatedTemplate = {
+                              ...selectedTemplate,
+                              settings: { ...selectedTemplate.settings, lineSpacing: parseFloat(e.target.value) }
+                            };
+                            setSelectedTemplate(updatedTemplate);
+                            generatePreview(updatedTemplate);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Margins */}
+                    <div className="space-y-3">
+                      <Label>Margins (inches)</Label>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <Label className="text-xs">Top: {selectedTemplate?.settings.margins.top || 0.875}"</Label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.125"
+                            value={selectedTemplate?.settings.margins.top || 0.875}
+                            className="w-full"
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    margins: { 
+                                      ...selectedTemplate.settings.margins, 
+                                      top: parseFloat(e.target.value) 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Bottom: {selectedTemplate?.settings.margins.bottom || 0.875}"</Label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.125"
+                            value={selectedTemplate?.settings.margins.bottom || 0.875}
+                            className="w-full"
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    margins: { 
+                                      ...selectedTemplate.settings.margins, 
+                                      bottom: parseFloat(e.target.value) 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Inside: {selectedTemplate?.settings.margins.inside || 0.875}"</Label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.125"
+                            value={selectedTemplate?.settings.margins.inside || 0.875}
+                            className="w-full"
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    margins: { 
+                                      ...selectedTemplate.settings.margins, 
+                                      inside: parseFloat(e.target.value) 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Outside: {selectedTemplate?.settings.margins.outside || 0.625}"</Label>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.125"
+                            value={selectedTemplate?.settings.margins.outside || 0.625}
+                            className="w-full"
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    margins: { 
+                                      ...selectedTemplate.settings.margins, 
+                                      outside: parseFloat(e.target.value) 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Include Elements */}
+                    <div className="space-y-2">
+                      <Label>Include Elements</Label>
+                      <div className="space-y-2">
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedTemplate?.settings.includeElements.titlePage || false}
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    includeElements: { 
+                                      ...selectedTemplate.settings.includeElements, 
+                                      titlePage: e.target.checked 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                          <span className="text-sm">Title Page</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedTemplate?.settings.includeElements.tableOfContents || false}
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    includeElements: { 
+                                      ...selectedTemplate.settings.includeElements, 
+                                      tableOfContents: e.target.checked 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                          <span className="text-sm">Table of Contents</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedTemplate?.settings.includeElements.pageNumbers || false}
+                            onChange={(e) => {
+                              if (selectedTemplate) {
+                                const updatedTemplate = {
+                                  ...selectedTemplate,
+                                  settings: { 
+                                    ...selectedTemplate.settings, 
+                                    includeElements: { 
+                                      ...selectedTemplate.settings.includeElements, 
+                                      pageNumbers: e.target.checked 
+                                    }
+                                  }
+                                };
+                                setSelectedTemplate(updatedTemplate);
+                                generatePreview(updatedTemplate);
+                              }
+                            }}
+                          />
+                          <span className="text-sm">Page Numbers</span>
+                        </label>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* Preview */}
               <div className="lg:col-span-2">
                 <Card>
@@ -1272,10 +1712,10 @@ export const KDPBookFormatter = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <div className="border rounded-lg bg-white shadow-inner">
                       <iframe
                         srcDoc={formattedHTML}
-                        className="w-full h-96 border-0"
+                        className="w-full h-[600px] border-0 rounded-lg"
                         title="Book Preview"
                       />
                     </div>
@@ -1347,31 +1787,126 @@ export const KDPBookFormatter = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Download className="h-5 w-5" />
-                Export Complete
+                Export Complete - Ready for KDP
               </CardTitle>
               <CardDescription>
-                Your KDP-ready book has been generated
+                Your book has been formatted according to KDP standards and is ready for publishing
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center space-y-4">
-              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-lg font-medium">PDF Generated Successfully!</h3>
-                <p className="text-muted-foreground">
-                  Your book is now formatted and ready for Amazon KDP publishing
+            <CardContent className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-medium mb-2">Professional Formatting Applied!</h3>
+                <p className="text-muted-foreground mb-4">
+                  Your book now includes proper margins, typography, and layout optimized for Amazon KDP
                 </p>
               </div>
-              <div className="flex gap-4 justify-center">
-                <Button onClick={() => setCurrentStep('preview')}>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">📄 PDF Export Instructions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="space-y-2">
+                      <p><strong>1. Print to PDF:</strong></p>
+                      <ul className="list-disc list-inside space-y-1 ml-4">
+                        <li>Use Ctrl/Cmd + P in the preview window</li>
+                        <li>Select "Save as PDF" as destination</li>
+                        <li>Set margins to "None" or "Custom: 0"</li>
+                        <li>Enable "Background graphics"</li>
+                        <li>Choose "More settings" → "Paper size: A4 or Letter"</li>
+                      </ul>
+                    </div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                      <p className="text-blue-800 dark:text-blue-200 text-xs">
+                        <strong>Tip:</strong> For best results, use Chrome or Firefox. Avoid Safari for PDF generation.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">📚 KDP Upload Ready</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <div className="space-y-2">
+                      <p><strong>Your book includes:</strong></p>
+                      <ul className="list-disc list-inside space-y-1 ml-4">
+                        <li>KDP-compliant margins and spacing</li>
+                        <li>Professional typography</li>
+                        <li>Proper chapter breaks and pagination</li>
+                        <li>Table of contents (if enabled)</li>
+                        <li>Title page with metadata</li>
+                      </ul>
+                    </div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
+                      <p className="text-green-800 dark:text-green-200 text-xs">
+                        <strong>Book Details:</strong><br/>
+                        Size: {selectedTemplate?.settings.trimSize}<br/>
+                        Font: {selectedTemplate?.settings.fontFamily} {selectedTemplate?.settings.fontSize}pt<br/>
+                        Pages: ~{bookAnalysis?.structuredContent.chapters.length || 0} chapters
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex gap-4 justify-center pt-4">
+                <Button 
+                  onClick={() => exportToPDF()} 
+                  size="lg"
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export PDF Again
+                </Button>
+                <Button 
+                  onClick={() => setCurrentStep('preview')} 
+                  variant="outline"
+                  size="lg"
+                >
                   <Eye className="h-4 w-4 mr-2" />
                   Back to Preview
                 </Button>
-                <Button onClick={() => window.location.reload()}>
+                <Button 
+                  onClick={() => window.location.reload()} 
+                  variant="outline"
+                  size="lg"
+                >
                   <Upload className="h-4 w-4 mr-2" />
-                  Format Another Book
+                  Format New Book
                 </Button>
+              </div>
+
+              <div className="border-t pt-6">
+                <h4 className="font-medium mb-3">Next Steps for KDP Publishing:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <span className="text-orange-600 font-bold">1</span>
+                    </div>
+                    <p><strong>Upload to KDP</strong></p>
+                    <p className="text-muted-foreground">Go to kdp.amazon.com and upload your PDF as manuscript</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <span className="text-orange-600 font-bold">2</span>
+                    </div>
+                    <p><strong>Design Cover</strong></p>
+                    <p className="text-muted-foreground">Create or upload your book cover (separate from manuscript)</p>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                      <span className="text-orange-600 font-bold">3</span>
+                    </div>
+                    <p><strong>Publish</strong></p>
+                    <p className="text-muted-foreground">Set pricing, description, and publish your book worldwide</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
