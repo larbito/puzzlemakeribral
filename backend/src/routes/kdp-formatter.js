@@ -178,63 +178,91 @@ async function performIntelligentTextAnalysis(completeText) {
     console.log('Sending complete text to AI for intelligent analysis...');
     
     // Prepare the complete text for AI analysis
-    const analysisPrompt = `You are a professional document analyst. I'm going to give you the COMPLETE text content of a book/document. Please read through it carefully and provide a comprehensive analysis.
+    const analysisPrompt = `You are a professional document analyst. I'm giving you the COMPLETE text content of a book. Your job is to extract the EXACT title, author, and structure from the text.
 
 COMPLETE DOCUMENT TEXT:
 """
 ${completeText}
 """
 
-Please analyze this document and provide:
+ANALYZE THIS DOCUMENT STEP BY STEP:
 
-1. DOCUMENT OVERVIEW:
-   - Document type (novel, textbook, workbook, manual, children's book, etc.)
-   - Main topic/subject
-   - Estimated target audience
-   - Overall structure and organization
+1. FIND THE EXACT TITLE:
+Look for the main book title. It might appear:
+- On a title page (often in larger text or centered)
+- In copyright information ("Copyright © YEAR by AUTHOR" - the book title is usually above this)
+- As a heading at the beginning
+- In table of contents header
+EXTRACT THE EXACT TITLE (not "Untitled Book").
 
-2. CONTENT IDENTIFICATION:
-   - Title (actual book title from the text)
-   - Author name (if mentioned)
-   - Subtitle (if present)
-   - Copyright information (if present)
-   - Table of contents structure (if present)
+2. FIND THE EXACT AUTHOR:
+Look for author name in:
+- Copyright notices ("Copyright © YEAR by [AUTHOR NAME]")
+- Title page ("by [AUTHOR NAME]")
+- Author bylines
+EXTRACT THE EXACT AUTHOR NAME (not "Unknown Author").
 
-3. CHAPTER/SECTION ANALYSIS:
-   - How many clear chapters/sections are there?
-   - What are the chapter titles/headings?
-   - What is the main content type in each section?
+3. IDENTIFY TABLE OF CONTENTS:
+Look for a section that lists chapters/sections with page numbers or dots.
+Common patterns:
+- "CONTENTS" or "TABLE OF CONTENTS" header
+- Lines with chapter/section titles followed by page numbers
+- Lines with dots between title and page number
+- Entries like "Chapter 1: Title........5" or "FACTS 1: Title 8"
 
-4. SPECIAL ELEMENTS FOUND:
-   - Questions (count and examples)
-   - Exercises/activities (count and examples)
-   - Quotes or dialogue (count and examples)
-   - Instructions or step-by-step content
-   - Lists or bullet points
-   - Answers or solutions
-   - Any other special formatting needs
+4. EXTRACT CHAPTER STRUCTURE:
+From the table of contents, extract each chapter/section:
+- Chapter number/identifier
+- Chapter title
+- Type (FACTS, STORY, QUIZ, etc.)
 
-5. RECOMMENDED FORMATTING:
-   - Should this have a title page?
-   - Should this have a table of contents?
-   - What special formatting is needed for questions/exercises?
-   - Any other formatting recommendations?
+5. DOCUMENT TYPE ANALYSIS:
+Based on content, determine if this is:
+- Educational book with facts/stories
+- Novel
+- Textbook with exercises
+- Reference book
 
-Please be specific and detailed. This analysis will be used to format the document professionally for KDP publishing.
+RESPOND IN THIS EXACT FORMAT:
 
-Return your analysis in a clear, structured format.`;
+TITLE: [Exact title from the document]
+AUTHOR: [Exact author name from the document]
+SUBTITLE: [Subtitle if present, otherwise "None"]
+
+DOCUMENT_TYPE: [Type of document]
+
+TABLE_OF_CONTENTS_FOUND: Yes/No
+TOC_ENTRIES:
+1. [Chapter identifier]: [Chapter title]
+2. [Chapter identifier]: [Chapter title]
+[Continue for all TOC entries found]
+
+SPECIAL_ELEMENTS:
+- Questions: [count if any]
+- Facts: [count if any] 
+- Stories: [count if any]
+- Quizzes: [count if any]
+
+FORMATTING_RECOMMENDATIONS:
+- Needs title page: Yes/No
+- Needs table of contents: Yes/No
+- Special formatting for facts: Yes/No
+- Special formatting for stories: Yes/No
+- Special formatting for quizzes: Yes/No
+
+Be VERY specific and extract EXACT text from the document. Do not make up generic titles or authors.`;
 
     const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
       model: "gpt-4", // Use GPT-4 for better analysis
       messages: [
         { 
           role: "system", 
-          content: "You are a professional document analyst specializing in book structure and content organization. Provide detailed, accurate analysis of the complete document content."
+          content: "You are a document structure expert. Extract EXACT information from the provided text. Do not invent or assume anything. Only extract what is clearly present in the text."
         },
         { role: "user", content: analysisPrompt }
       ],
-      temperature: 0.1, // Low temperature for consistent analysis
-      max_tokens: 2000 // More tokens for detailed analysis
+      temperature: 0, // Zero temperature for precise extraction
+      max_tokens: 1500 // Enough for detailed analysis
     }));
 
     const analysis = response.choices[0].message.content;
@@ -539,6 +567,9 @@ async function organizeContentForKDP(intelligentAnalysis, originalText) {
   // Organize chapters/sections
   if (groupedContent.chapter_header.length > 0) {
     finalStructure.chapters = createChaptersFromHeaders(groupedContent.chapter_header, semanticStructure);
+  } else if (metadata.tocEntries && metadata.tocEntries.length > 0) {
+    // Use TOC entries to create professional chapter structure
+    finalStructure.chapters = createChaptersFromTOC(metadata.tocEntries, semanticStructure, originalText);
   } else {
     finalStructure.chapters = createIntelligentSections(semanticStructure, metadata);
   }
@@ -554,36 +585,77 @@ function extractMetadataFromAnalysis(aiAnalysis) {
     author: '',
     documentType: 'general book',
     recommendTitlePage: true,
-    recommendTOC: false
+    recommendTOC: false,
+    tocEntries: []
   };
   
-  // Extract title
-  const titleMatch = aiAnalysis.match(/title[:\s]*([^\n\.]+)/i);
-  if (titleMatch) {
+  // Extract title using the new format
+  const titleMatch = aiAnalysis.match(/TITLE:\s*(.+)/i);
+  if (titleMatch && titleMatch[1].trim() !== '[Exact title from the document]') {
     metadata.title = titleMatch[1].trim().replace(/['"]/g, '');
   }
   
-  // Extract subtitle
-  const subtitleMatch = aiAnalysis.match(/subtitle[:\s]*([^\n\.]+)/i);
-  if (subtitleMatch) {
-    metadata.subtitle = subtitleMatch[1].trim().replace(/['"]/g, '');
-  }
-  
-  // Extract author
-  const authorMatch = aiAnalysis.match(/author[:\s]*([^\n\.]+)/i);
-  if (authorMatch) {
+  // Extract author using the new format
+  const authorMatch = aiAnalysis.match(/AUTHOR:\s*(.+)/i);
+  if (authorMatch && authorMatch[1].trim() !== '[Exact author name from the document]') {
     metadata.author = authorMatch[1].trim().replace(/['"]/g, '');
   }
   
+  // Extract subtitle
+  const subtitleMatch = aiAnalysis.match(/SUBTITLE:\s*(.+)/i);
+  if (subtitleMatch && subtitleMatch[1].trim() !== 'None' && subtitleMatch[1].trim() !== '[Subtitle if present, otherwise "None"]') {
+    metadata.subtitle = subtitleMatch[1].trim().replace(/['"]/g, '');
+  }
+  
   // Extract document type
-  const docTypeMatch = aiAnalysis.match(/document type[:\s]*([^\n\.]+)/i);
+  const docTypeMatch = aiAnalysis.match(/DOCUMENT_TYPE:\s*(.+)/i);
   if (docTypeMatch) {
     metadata.documentType = docTypeMatch[1].trim().toLowerCase();
   }
   
-  // Check recommendations
-  if (aiAnalysis.toLowerCase().includes('table of contents') || 
-      aiAnalysis.toLowerCase().includes('should have a toc')) {
+  // Check if TOC was found
+  const tocFoundMatch = aiAnalysis.match(/TABLE_OF_CONTENTS_FOUND:\s*(Yes|No)/i);
+  if (tocFoundMatch && tocFoundMatch[1].toLowerCase() === 'yes') {
+    metadata.recommendTOC = true;
+    
+    // Extract TOC entries
+    const tocSection = aiAnalysis.match(/TOC_ENTRIES:\s*([\s\S]*?)(?=SPECIAL_ELEMENTS:|$)/i);
+    if (tocSection) {
+      const tocLines = tocSection[1].split('\n');
+      for (const line of tocLines) {
+        const entryMatch = line.match(/^\d+\.\s*(.+)/);
+        if (entryMatch) {
+          metadata.tocEntries.push({
+            title: entryMatch[1].trim(),
+            original: line.trim()
+          });
+        }
+      }
+    }
+  }
+  
+  // Extract special elements
+  const factsMatch = aiAnalysis.match(/Facts:\s*(\d+)/i);
+  if (factsMatch) {
+    metadata.factsCount = parseInt(factsMatch[1]);
+  }
+  
+  const storiesMatch = aiAnalysis.match(/Stories:\s*(\d+)/i);
+  if (storiesMatch) {
+    metadata.storiesCount = parseInt(storiesMatch[1]);
+  }
+  
+  const quizzesMatch = aiAnalysis.match(/Quizzes:\s*(\d+)/i);
+  if (quizzesMatch) {
+    metadata.quizzesCount = parseInt(quizzesMatch[1]);
+  }
+  
+  // Check formatting recommendations
+  if (aiAnalysis.toLowerCase().includes('needs title page: yes')) {
+    metadata.recommendTitlePage = true;
+  }
+  
+  if (aiAnalysis.toLowerCase().includes('needs table of contents: yes')) {
     metadata.recommendTOC = true;
   }
   
@@ -964,6 +1036,122 @@ function mergeShortChapters(chapters) {
   }
   
   return processed;
+}
+
+// Helper function to create chapters from extracted TOC entries
+function createChaptersFromTOC(tocEntries, semanticStructure, originalText) {
+  console.log(`Creating chapters from ${tocEntries.length} TOC entries`);
+  
+  const chapters = [];
+  const lines = originalText.split('\n');
+  
+  for (let i = 0; i < tocEntries.length; i++) {
+    const tocEntry = tocEntries[i];
+    const nextTocEntry = tocEntries[i + 1];
+    
+    // Find the start of this chapter in the text
+    let startLineIndex = -1;
+    let endLineIndex = lines.length;
+    
+    // Look for the chapter title in the text
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+      const line = lines[lineIndex].trim();
+      
+      // Try to match the TOC entry title with content in the text
+      if (line.toLowerCase().includes(tocEntry.title.toLowerCase()) ||
+          tocEntry.title.toLowerCase().includes(line.toLowerCase())) {
+        startLineIndex = lineIndex;
+        break;
+      }
+      
+      // Also try to match patterns like "FACTS 1:", "STORY 1:", etc.
+      const tocPattern = tocEntry.title.match(/^(FACTS|STORY|QUIZ)\s*(\d+)/i);
+      if (tocPattern) {
+        const linePattern = line.match(/^(FACTS|STORY|QUIZ)\s*(\d+)/i);
+        if (linePattern && 
+            tocPattern[1].toLowerCase() === linePattern[1].toLowerCase() && 
+            tocPattern[2] === linePattern[2]) {
+          startLineIndex = lineIndex;
+          break;
+        }
+      }
+    }
+    
+    // If we found the start, find the end
+    if (startLineIndex !== -1 && nextTocEntry) {
+      // Look for the next chapter
+      for (let lineIndex = startLineIndex + 1; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex].trim();
+        
+        if (line.toLowerCase().includes(nextTocEntry.title.toLowerCase()) ||
+            nextTocEntry.title.toLowerCase().includes(line.toLowerCase())) {
+          endLineIndex = lineIndex;
+          break;
+        }
+        
+        // Also try to match patterns for next entry
+        const nextTocPattern = nextTocEntry.title.match(/^(FACTS|STORY|QUIZ)\s*(\d+)/i);
+        if (nextTocPattern) {
+          const linePattern = line.match(/^(FACTS|STORY|QUIZ)\s*(\d+)/i);
+          if (linePattern && 
+              nextTocPattern[1].toLowerCase() === linePattern[1].toLowerCase() && 
+              nextTocPattern[2] === linePattern[2]) {
+            endLineIndex = lineIndex;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Extract content for this chapter
+    let chapterContent = '';
+    if (startLineIndex !== -1) {
+      const chapterLines = lines.slice(startLineIndex, endLineIndex);
+      chapterContent = chapterLines.join('\n').trim();
+    } else {
+      // Fallback: create a placeholder chapter
+      chapterContent = `Content for ${tocEntry.title} would be extracted here.`;
+    }
+    
+    // Determine chapter type and formatting
+    let chapterType = 'chapter';
+    let specialElements = [];
+    
+    if (tocEntry.title.match(/^FACTS\s+\d+/i)) {
+      chapterType = 'facts';
+      specialElements.push('facts');
+    } else if (tocEntry.title.match(/^STORY\s+\d+/i)) {
+      chapterType = 'story';
+      specialElements.push('narrative');
+    } else if (tocEntry.title.match(/^QUIZ\s+\d+/i)) {
+      chapterType = 'quiz';
+      specialElements.push('questions');
+    }
+    
+    chapters.push({
+      id: `chapter-${i + 1}`,
+      title: tocEntry.title,
+      content: chapterContent,
+      level: 1,
+      type: chapterType,
+      specialElements: specialElements,
+      hasQuestions: chapterType === 'quiz',
+      hasExercises: false,
+      hasQuotes: chapterType === 'story',
+      wordCount: chapterContent.split(' ').length,
+      startLine: startLineIndex + 1,
+      endLine: endLineIndex
+    });
+  }
+  
+  // If no chapters were successfully created, fall back to intelligent sections
+  if (chapters.length === 0 || chapters.every(ch => ch.content.length < 100)) {
+    console.log('TOC-based chapter creation failed, falling back to intelligent sections');
+    return createIntelligentSections(semanticStructure, { title: 'Extracted Content' });
+  }
+  
+  console.log(`Successfully created ${chapters.length} chapters from TOC`);
+  return chapters;
 }
 
 // Enhanced content extraction endpoint
