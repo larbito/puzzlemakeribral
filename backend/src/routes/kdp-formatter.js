@@ -11,6 +11,20 @@ const pdfParse = require('pdf-parse');
 const puppeteer = require('puppeteer');
 const handlebars = require('handlebars');
 
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({ 
+    status: 'success', 
+    message: 'KDP Formatter routes are working!',
+    endpoints: [
+      'POST /extract - Upload and analyze document',
+      'POST /enhance - AI content enhancement', 
+      'POST /generate-pdf - Generate formatted PDF',
+      'POST /format-pdf - Format PDF (legacy)'
+    ]
+  });
+});
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
