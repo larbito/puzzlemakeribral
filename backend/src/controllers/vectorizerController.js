@@ -7,7 +7,8 @@ const util = require('util');
 const fetch = require('node-fetch');
 const FormData = require('form-data');
 const multer = require('multer');
-const sharp = require('sharp');
+const express = require('express');
+const { spawn } = require('child_process');
 
 // Promisify exec for cleaner async/await syntax
 const execPromise = util.promisify(exec);
@@ -44,6 +45,17 @@ const upload = multer({
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
 const RAPIDAPI_HOST = 'raster-to-svg-vector-conversion-api-jpg-png-to-svg.p.rapidapi.com';
 
+// Try to load Sharp, but provide fallback if it fails
+let sharp;
+try {
+  sharp = require('sharp');
+  console.log('Sharp loaded successfully for vectorizer');
+} catch (error) {
+  console.error('Failed to load Sharp module for vectorizer:', error.message);
+  console.log('Vectorizer functionality will be limited without Sharp');
+  sharp = null;
+}
+
 /**
  * Controller function for vectorizing images using external API
  */
@@ -75,9 +87,17 @@ const vectorizeImage = async (req, res) => {
     
     // Resize the image to a reasonable size for API processing
     const processedPath = path.join(workDir, 'processed.png');
-    await sharp(inputPath)
-      .resize(800, 800, { fit: 'inside' })
-      .toFile(processedPath);
+    
+    if (sharp) {
+      // Use Sharp for image processing if available
+      await sharp(inputPath)
+        .resize(800, 800, { fit: 'inside' })
+        .toFile(processedPath);
+    } else {
+      // Fallback: use the original image without resizing
+      console.log('Sharp not available, using original image without resizing');
+      await fs.promises.copyFile(inputPath, processedPath);
+    }
     
     // Check if RapidAPI key is available
     if (!RAPIDAPI_KEY) {

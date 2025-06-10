@@ -11,6 +11,17 @@ const path = require('path');
 const fs = require('fs');
 const { enhanceImage } = require('../controllers/imageEnhancementController');
 
+// Try to load Sharp, but provide fallback if it fails
+let sharp;
+try {
+  sharp = require('sharp');
+  console.log('Sharp loaded successfully for book covers');
+} catch (error) {
+  console.error('Failed to load Sharp module for book covers:', error.message);
+  console.log('Book cover functionality will be limited without Sharp');
+  sharp = null;
+}
+
 // Define static directory for storing image files
 const staticDir = path.join(__dirname, '..', '..', 'static');
 
