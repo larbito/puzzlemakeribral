@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { BookContent } from '../KDPBookFormatter';
 import { getApiUrl, API_CONFIG } from '@/config/api';
@@ -17,7 +19,9 @@ import {
   CheckCircle,
   Loader2,
   FileType,
-  FileCheck
+  FileCheck,
+  Zap,
+  Brain
 } from 'lucide-react';
 
 interface FileUploadStepProps {
@@ -43,6 +47,8 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
   const [extractError, setExtractError] = useState<string | null>(null);
   const [previewText, setPreviewText] = useState<string>('');
   const [extractedStats, setExtractedStats] = useState<{characters: number, words: number, chapters: number} | null>(null);
+  const [quickMode, setQuickMode] = useState(false);
+  const [processingMode, setProcessingMode] = useState<'quick' | 'ai' | null>(null);
   const { toast } = useToast();
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -72,10 +78,12 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
     setExtracting(true);
     setExtractProgress(10);
     setExtractError(null);
+    setProcessingMode(quickMode ? 'quick' : 'ai');
 
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('quickMode', quickMode.toString());
 
       setExtractProgress(30);
 
@@ -95,6 +103,7 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
       
       if (data.success && data.content) {
         setExtractProgress(100);
+        setProcessingMode(data.processingMode || (quickMode ? 'quick' : 'ai'));
         
         const rawText = data.content.rawText || '';
         const wordCount = rawText.split(/\s+/).filter((word: string) => word.length > 0).length;
@@ -128,7 +137,7 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
         onContentExtracted(enhancedContent);
         onTextExtracted();
 
-        // Show enhanced success message with detected info
+        // Show enhanced success message with detected info and processing mode
         const detectedInfo = [];
         if (enhancedContent.title && enhancedContent.title !== selectedFile.name.replace(/\.[^/.]+$/, '')) {
           detectedInfo.push(`Title: "${enhancedContent.title}"`);
@@ -137,9 +146,10 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
           detectedInfo.push(`Author: ${enhancedContent.metadata.author}`);
         }
         
+        const modeText = data.processingMode === 'quick' ? ' (Quick Mode)' : ' (AI Enhanced)';
         const successMessage = detectedInfo.length > 0 
-          ? `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words. ${detectedInfo.join(', ')}`
-          : `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words`;
+          ? `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words${modeText}. ${detectedInfo.join(', ')}`
+          : `Found ${chapterCount} chapters, ${wordCount.toLocaleString()} words${modeText}`;
 
         toast({
           title: 'Content extracted successfully',
@@ -228,6 +238,56 @@ export const FileUploadStep: React.FC<FileUploadStepProps> = ({
                   Choose File
                 </Button>
               </div>
+            </div>
+
+            {/* Processing Mode Toggle */}
+            <div className="border rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    quickMode ? 'bg-orange-100 dark:bg-orange-900/20' : 'bg-blue-100 dark:bg-blue-900/20'
+                  }`}>
+                    {quickMode ? (
+                      <Zap className="h-4 w-4 text-orange-600" />
+                    ) : (
+                      <Brain className="h-4 w-4 text-blue-600" />
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="quick-mode" className="text-sm font-medium cursor-pointer">
+                      {quickMode ? 'Quick Mode' : 'AI Enhanced Mode'}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {quickMode 
+                        ? 'Fast processing with basic chapter detection' 
+                        : 'Comprehensive AI analysis for better chapter detection'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="quick-mode"
+                  checked={quickMode}
+                  onCheckedChange={setQuickMode}
+                  disabled={extracting}
+                />
+              </div>
+              
+              {processingMode && (
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  {processingMode === 'quick' ? (
+                    <>
+                      <Zap className="h-3 w-3" />
+                      Last processed in Quick Mode
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="h-3 w-3" />
+                      Last processed with AI Enhancement
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Supported Formats */}

@@ -103,7 +103,7 @@ function cleanRawText(text) {
     .trim();
 }
 
-// AI-powered structure detection with comprehensive analysis
+// AI-powered structure detection with optimized performance
 async function detectBookStructureWithAI(text) {
   if (!openai) {
     console.log('OpenAI not available, using fallback structure detection');
@@ -111,140 +111,139 @@ async function detectBookStructureWithAI(text) {
   }
 
   try {
-    // First, extract metadata and basic structure from the beginning
-    const metadataPrompt = `Analyze the beginning of this book and extract key metadata. Return JSON only.
+    console.log(`Starting optimized AI analysis for ${text.length} characters`);
+    
+    // Quick metadata extraction from beginning (reduced from 3000 to 1500 chars)
+    const metadataPrompt = `Analyze this book excerpt and extract metadata. Return JSON only.
 
-Text:
-${text.substring(0, 3000)}
+Text excerpt:
+${text.substring(0, 1500)}
 
-Return JSON in this exact format:
+Return JSON:
 {
-  "title": "Book Title (extract from text)",
-  "author": "Author Name (extract from text)", 
+  "title": "Book Title",
+  "author": "Author Name", 
   "subtitle": "Subtitle if any",
-  "estimated_chapters": "estimated number based on content patterns"
+  "estimated_chapters": "number estimate"
 }`;
 
     const metadataResponse = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        {
-          role: "system", 
-          content: "Extract metadata from book content. Return valid JSON only."
-        },
-        {
-          role: "user", 
-          content: metadataPrompt
-        }
+        { role: "system", content: "Extract book metadata. Return valid JSON only." },
+        { role: "user", content: metadataPrompt }
       ],
       temperature: 0,
-      max_tokens: 500
+      max_tokens: 300
     });
 
     let bookMetadata = {};
     try {
-      bookMetadata = JSON.parse(metadataResponse.choices[0].message.content);
+      const metadataText = metadataResponse.choices[0].message.content.trim();
+      // Clean up response to ensure valid JSON
+      const cleanedMetadata = metadataText.replace(/```json\n?|```\n?/g, '').trim();
+      bookMetadata = JSON.parse(cleanedMetadata);
     } catch (e) {
       console.log('Failed to parse metadata, using defaults');
       bookMetadata = { title: "Untitled Book", author: "", subtitle: "", estimated_chapters: "unknown" };
     }
 
-    // Now analyze the full structure with chunking for large content
-    const maxChunkSize = 15000; // Larger chunks for better context
-    const chunks = [];
+    // Optimized structure analysis - use fewer, larger chunks
+    const maxChunkSize = 25000; // Larger chunks, fewer API calls
+    const maxChunks = 6; // Limit total chunks to avoid timeout
     
-    for (let i = 0; i < text.length; i += maxChunkSize) {
+    let chunks = [];
+    for (let i = 0; i < text.length && chunks.length < maxChunks; i += maxChunkSize) {
       chunks.push(text.substring(i, i + maxChunkSize));
     }
+    
+    // If we still have more content, add it to the last chunk
+    if (text.length > maxChunks * maxChunkSize) {
+      const remainingText = text.substring(maxChunks * maxChunkSize);
+      if (chunks.length > 0) {
+        chunks[chunks.length - 1] += remainingText;
+      } else {
+        chunks.push(remainingText);
+      }
+    }
+
+    console.log(`Processing ${chunks.length} optimized chunks`);
 
     let allChapters = [];
     let chapterCounter = 1;
 
-    // Process each chunk to identify chapters
-    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-      const chunk = chunks[chunkIndex];
-      const isFirstChunk = chunkIndex === 0;
-      const isLastChunk = chunkIndex === chunks.length - 1;
-      
+    // Process chunks with timeout protection
+    const chunkPromises = chunks.map(async (chunk, chunkIndex) => {
       console.log(`Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} characters)`);
 
-      const structurePrompt = `You are analyzing ${isFirstChunk ? 'the beginning of' : isLastChunk ? 'the end of' : 'a middle section of'} a book for chapter detection.
+      const structurePrompt = `Analyze this book section for chapters. Focus on clear chapter markers.
 
-Book appears to be: "${bookMetadata.title}" by ${bookMetadata.author}
-${bookMetadata.estimated_chapters !== 'unknown' ? `Estimated total chapters: ${bookMetadata.estimated_chapters}` : ''}
+Book: "${bookMetadata.title}" by ${bookMetadata.author}
 
-CRITICAL RULES:
-1. NEVER change, edit, or rewrite any content - preserve exactly
-2. Detect chapter breaks and extract titles 
-3. Each chapter should be substantial (at least 200 words)
-4. Look for patterns like "Story 1", "Chapter 1", numbered sections, etc.
-5. If no clear chapters, create logical breaks based on content
+RULES:
+1. Find clear chapter breaks only
+2. Preserve content exactly
+3. Look for "Chapter X", "Story X", numbered sections
+4. Return substantial chapters (500+ words)
 
-Text to analyze:
+Text:
 ${chunk}
 
-Return JSON in this exact format:
+Return JSON:
 {
-  "chapters_found": [
-    {"title": "Exact chapter title from text", "content": "complete original content", "start_marker": "first few words"},
-    {"title": "Next chapter title", "content": "complete original content", "start_marker": "first few words"}
+  "chapters": [
+    {"title": "Chapter title", "content": "full content", "marker": "first words"}
   ]
 }`;
 
       try {
-        const chunkResponse = await openai.chat.completions.create({
+        const response = await openai.chat.completions.create({
           model: "gpt-4",
           messages: [
-            {
-              role: "system", 
-              content: "You are a book formatter that NEVER changes content. You only detect structure and preserve original text exactly. Return valid JSON only."
-            },
-            {
-              role: "user", 
-              content: structurePrompt
-            }
+            { role: "system", content: "Extract book chapters. Return valid JSON only." },
+            { role: "user", content: structurePrompt }
           ],
           temperature: 0,
-          max_tokens: 4000
+          max_tokens: 3000
         });
 
-        const chunkResult = JSON.parse(chunkResponse.choices[0].message.content);
+        const responseText = response.choices[0].message.content.trim();
+        const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '').trim();
+        const result = JSON.parse(cleanedResponse);
         
-        if (chunkResult.chapters_found && Array.isArray(chunkResult.chapters_found)) {
-          // Add chapters with proper IDs
-          for (const chapter of chunkResult.chapters_found) {
-            if (chapter.content && chapter.content.trim().length > 100) { // Ensure substantial content
-              allChapters.push({
-                id: `chapter-${chapterCounter++}`,
-                title: chapter.title || `Chapter ${chapterCounter - 1}`,
-                content: chapter.content.trim(),
-                level: 1
-              });
-            }
-          }
-        }
-
-        // Add delay to avoid rate limiting
-        if (chunkIndex < chunks.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-      } catch (chunkError) {
-        console.error(`Error processing chunk ${chunkIndex + 1}:`, chunkError);
-        // If chunk processing fails, add the raw chunk as a chapter
-        allChapters.push({
-          id: `chapter-${chapterCounter++}`,
+        return result.chapters || [];
+      } catch (error) {
+        console.error(`Error processing chunk ${chunkIndex + 1}:`, error.message);
+        // Fallback: create a single chapter from the chunk
+        return [{
           title: `Section ${chunkIndex + 1}`,
           content: chunk.trim(),
-          level: 1
-        });
+          marker: chunk.substring(0, 50)
+        }];
+      }
+    });
+
+    // Wait for all chunks with timeout
+    const chunkResults = await Promise.all(chunkPromises);
+    
+    // Combine results
+    for (const chapters of chunkResults) {
+      for (const chapter of chapters) {
+        if (chapter.content && chapter.content.trim().length > 200) {
+          allChapters.push({
+            id: `chapter-${chapterCounter++}`,
+            title: chapter.title || `Chapter ${chapterCounter - 1}`,
+            content: chapter.content.trim(),
+            level: 1
+          });
+        }
       }
     }
 
-    // Post-process: merge very short chapters and handle edge cases
-    const processedChapters = postProcessChapters(allChapters, text);
+    // Quick post-processing
+    const processedChapters = quickPostProcess(allChapters, text);
     
-    console.log(`AI detected ${processedChapters.length} chapters from ${text.length} characters`);
+    console.log(`Optimized AI analysis complete: ${processedChapters.length} chapters`);
     
     return {
       title: bookMetadata.title || 'Untitled Book',
@@ -257,16 +256,15 @@ Return JSON in this exact format:
     };
     
   } catch (error) {
-    console.error('AI structure detection failed:', error);
-    console.log('Falling back to rule-based detection');
+    console.error('Optimized AI analysis failed:', error.message);
+    console.log('Using fast fallback detection');
     return detectBookStructureFallback(text);
   }
 }
 
-// Post-process chapters to handle edge cases
-function postProcessChapters(chapters, originalText) {
+// Quick post-processing without complex overlap detection
+function quickPostProcess(chapters, originalText) {
   if (!chapters || chapters.length === 0) {
-    // No chapters detected, return entire content as one chapter
     return [{
       id: 'chapter-1',
       title: 'Complete Content',
@@ -275,73 +273,17 @@ function postProcessChapters(chapters, originalText) {
     }];
   }
 
-  // Remove duplicate content and merge overlapping chapters
-  const processed = [];
-  let totalProcessedLength = 0;
+  // Simple deduplication - remove very short chapters
+  const processed = chapters.filter(chapter => 
+    chapter.content && chapter.content.length > 300
+  );
 
-  for (let i = 0; i < chapters.length; i++) {
-    const chapter = chapters[i];
-    
-    // Skip if content is too short (likely a false positive)
-    if (chapter.content.length < 200) {
-      console.log(`Skipping short chapter: "${chapter.title}" (${chapter.content.length} chars)`);
-      continue;
-    }
-
-    // Check for substantial overlap with previous chapter
-    if (processed.length > 0) {
-      const prevChapter = processed[processed.length - 1];
-      const overlap = findOverlap(prevChapter.content, chapter.content);
-      
-      if (overlap > chapter.content.length * 0.5) {
-        console.log(`Merging overlapping chapter: "${chapter.title}"`);
-        prevChapter.content += '\n\n' + chapter.content.substring(overlap);
-        continue;
-      }
-    }
-
-    processed.push(chapter);
-    totalProcessedLength += chapter.content.length;
+  // If we filtered out too many, keep the originals
+  if (processed.length < chapters.length * 0.5) {
+    return chapters;
   }
 
-  // Check if we've captured most of the original content
-  const capturePercentage = totalProcessedLength / originalText.length;
-  console.log(`Captured ${(capturePercentage * 100).toFixed(1)}% of original content in ${processed.length} chapters`);
-
-  // If we missed significant content, add a final chapter with remaining content
-  if (capturePercentage < 0.85 && processed.length > 0) {
-    const lastChapter = processed[processed.length - 1];
-    const lastChapterEnd = originalText.indexOf(lastChapter.content) + lastChapter.content.length;
-    const remainingContent = originalText.substring(lastChapterEnd).trim();
-    
-    if (remainingContent.length > 500) {
-      processed.push({
-        id: `chapter-${processed.length + 1}`,
-        title: 'Additional Content',
-        content: remainingContent,
-        level: 1
-      });
-      console.log(`Added remaining content as final chapter (${remainingContent.length} chars)`);
-    }
-  }
-
-  return processed;
-}
-
-// Helper function to find overlap between two strings
-function findOverlap(str1, str2) {
-  const maxOverlap = Math.min(str1.length, str2.length, 1000);
-  
-  for (let i = maxOverlap; i > 50; i--) {
-    const end1 = str1.substring(str1.length - i);
-    const start2 = str2.substring(0, i);
-    
-    if (end1 === start2) {
-      return i;
-    }
-  }
-  
-  return 0;
+  return processed.length > 0 ? processed : chapters;
 }
 
 // Enhanced fallback structure detection with better chapter naming
@@ -554,8 +496,9 @@ router.post('/extract', upload.single('file'), async (req, res) => {
     
     const filePath = req.file.path;
     const fileType = req.file.mimetype;
+    const quickMode = req.body.quickMode === 'true'; // Check for quick mode
     
-    console.log(`Processing file: ${req.file.originalname}, Type: ${fileType}, Size: ${req.file.size} bytes`);
+    console.log(`Processing file: ${req.file.originalname}, Type: ${fileType}, Size: ${req.file.size} bytes, Quick Mode: ${quickMode}`);
     
     // Extract text from the file
     const extractedText = await extractTextFromFile(filePath, fileType);
@@ -566,8 +509,30 @@ router.post('/extract', upload.single('file'), async (req, res) => {
     
     console.log(`Extracted ${extractedText.length} characters of text`);
     
-    // Use AI-powered structure detection
-    const structuredContent = await detectBookStructureWithAI(extractedText);
+    let structuredContent;
+    
+    if (quickMode) {
+      // Skip AI processing for immediate results
+      console.log('Quick mode enabled - using fast fallback detection');
+      structuredContent = detectBookStructureFallback(extractedText);
+    } else {
+      // Set a timeout for AI processing (30 seconds max)
+      const AI_TIMEOUT = 30000;
+      
+      try {
+        // Race between AI processing and timeout
+        structuredContent = await Promise.race([
+          detectBookStructureWithAI(extractedText),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('AI processing timeout')), AI_TIMEOUT)
+          )
+        ]);
+      } catch (error) {
+        console.log(`AI processing failed or timed out: ${error.message}`);
+        console.log('Using fast fallback detection');
+        structuredContent = detectBookStructureFallback(extractedText);
+      }
+    }
     
     // Add raw text to the result
     structuredContent.rawText = extractedText;
@@ -579,7 +544,8 @@ router.post('/extract', upload.single('file'), async (req, res) => {
     
     res.json({
       success: true,
-      content: structuredContent
+      content: structuredContent,
+      processingMode: quickMode ? 'quick' : 'ai'
     });
     
   } catch (error) {
