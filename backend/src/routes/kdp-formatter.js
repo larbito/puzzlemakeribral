@@ -473,54 +473,67 @@ async function performIntelligentTextAnalysis(completeText) {
   try {
     console.log('Performing comprehensive single-pass document analysis...');
     
-    // Simplified but more effective single analysis
-    const analysisPrompt = `Analyze this complete document for professional book formatting. 
+    // Comprehensive content analysis first - understand the book completely
+    const analysisPrompt = `You are a professional book analyst. I need you to analyze this complete document and give me a detailed breakdown of its content, structure, and themes - similar to how a literary analyst would examine a book.
 
-DOCUMENT TEXT:
+COMPLETE DOCUMENT:
 """
 ${completeText}
 """
 
-Extract and analyze:
+Please provide a comprehensive analysis covering:
 
-1. METADATA:
-- Title: [exact title found]
-- Author: [exact author found]
-- Document type: [novel/textbook/manual/etc]
+**BASIC INFORMATION:**
+- Title: [Exact title as it appears]
+- Author: [Exact author name]
+- Year/Date: [If mentioned]
+- Publisher: [If mentioned]
+- Genre/Type: [What kind of document is this]
 
-2. STRUCTURE:
-- Main sections/chapters found
-- Table of contents if present
-- Content organization
+**CONTENT STRUCTURE & ORGANIZATION:**
+- Overall structure (chapters, sections, parts)
+- Table of contents (if present, list entries)
+- How content is organized
+- Main content divisions
 
-3. FORMATTING NEEDS:
-- Questions or exercises present?
-- Special elements (quotes, lists, etc)?
-- Professional formatting requirements
+**CONTENT TYPES & ELEMENTS:**
+- What types of content are included (stories, facts, exercises, quizzes, etc.)
+- Special formatting elements (lists, quotes, questions, etc.)
+- Interactive elements (Q&A, exercises, activities)
+- Writing style and tone
 
-Respond in this format:
+**MAIN THEMES & TOPICS:**
+- Primary subject matter
+- Key themes explored
+- Target audience
+- Unique qualities or features
 
-TITLE: [title or "Not found"]
-AUTHOR: [author or "Not found"]  
-TYPE: [document type]
-CHAPTERS: [list main sections found]
-STRUCTURE: [describe organization]
-ELEMENTS: [special content types found]
-RECOMMENDATIONS: [formatting guidance]
+**DETAILED CONTENT BREAKDOWN:**
+- Major sections and what they contain
+- Types of information presented
+- How content flows from section to section
+- Any recurring patterns or structures
 
-Be specific about what you actually see in the document.`;
+**FORMATTING REQUIREMENTS:**
+Based on the content analysis above, recommend:
+- How this should be structured for professional formatting
+- Special formatting needs for different content types
+- Chapter organization approach
+- Special elements that need attention
+
+Analyze this document thoroughly and give me the same level of detailed understanding that you would provide if someone asked you to analyze any published book. Be specific about what you find.`;
 
     const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { 
           role: "system", 
-          content: "You are a document analyst who extracts structure and content information for professional formatting. Be precise and only describe what you actually see."
+          content: "You are a professional book analyst and content expert. Provide comprehensive, detailed analysis of documents. Examine content thoroughly like analyzing a published book - understand themes, structure, style, and provide detailed insights."
         },
         { role: "user", content: analysisPrompt }
       ],
-      temperature: 0,
-      max_tokens: 2000
+      temperature: 0.1,
+      max_tokens: 3000 // More tokens for comprehensive analysis
     }));
 
     const analysis = response.choices[0].message.content;
@@ -544,22 +557,36 @@ Be specific about what you actually see in the document.`;
 
 // Create simple semantic structure without complex chunking
 function createSimpleSemanticStructure(text, aiAnalysis) {
-  console.log('Creating semantic structure from AI analysis...');
+  console.log('Creating semantic structure from comprehensive AI analysis...');
   
   const lines = text.split('\n');
   
-  // Extract key info from AI analysis
-  const titleMatch = aiAnalysis.match(/TITLE:\s*(.+)/i);
-  const authorMatch = aiAnalysis.match(/AUTHOR:\s*(.+)/i);
-  const chaptersMatch = aiAnalysis.match(/CHAPTERS:\s*(.+)/i);
+  // Extract key info from comprehensive AI analysis
+  const titleMatch = aiAnalysis.match(/Title:\s*(.+)/i);
+  const authorMatch = aiAnalysis.match(/Author:\s*(.+)/i);
+  const contentTypesMatch = aiAnalysis.match(/CONTENT TYPES & ELEMENTS:([\s\S]*?)(?=\*\*|$)/i);
   
-  const detectedTitle = titleMatch && !titleMatch[1].includes('Not found') ? titleMatch[1].trim() : null;
-  const detectedAuthor = authorMatch && !authorMatch[1].includes('Not found') ? authorMatch[1].trim() : null;
-  const hasChapters = chaptersMatch && !chaptersMatch[1].toLowerCase().includes('none');
+  const detectedTitle = titleMatch && !titleMatch[1].includes('[Exact title') && !titleMatch[1].includes('Not found') ? titleMatch[1].trim() : null;
+  const detectedAuthor = authorMatch && !authorMatch[1].includes('[Exact author') && !authorMatch[1].includes('Not found') ? authorMatch[1].trim() : null;
   
-  console.log('AI detected:', { title: detectedTitle, author: detectedAuthor, hasChapters });
+  // Check for content types from the comprehensive analysis
+  const hasQuizzes = aiAnalysis.toLowerCase().includes('quiz') || aiAnalysis.toLowerCase().includes('question');
+  const hasExercises = aiAnalysis.toLowerCase().includes('exercise') || aiAnalysis.toLowerCase().includes('activit');
+  const hasStories = aiAnalysis.toLowerCase().includes('story') || aiAnalysis.toLowerCase().includes('narrative');
+  const hasFacts = aiAnalysis.toLowerCase().includes('fact') || aiAnalysis.toLowerCase().includes('trivia');
+  const hasChapters = aiAnalysis.toLowerCase().includes('chapter') || aiAnalysis.toLowerCase().includes('section');
   
-  // Classify lines with AI insights
+  console.log('AI comprehensive analysis detected:', { 
+    title: detectedTitle, 
+    author: detectedAuthor, 
+    hasQuizzes, 
+    hasExercises, 
+    hasStories, 
+    hasFacts,
+    hasChapters 
+  });
+  
+  // Classify lines with comprehensive AI insights
   const semanticLines = lines.map((line, index) => {
     const trimmed = line.trim();
     
@@ -569,15 +596,15 @@ function createSimpleSemanticStructure(text, aiAnalysis) {
         content: line,
         semantic_type: 'blank',
         confidence: 'high',
-        analysis_method: 'simple_ai_guided'
+        analysis_method: 'comprehensive_ai_guided'
       };
     }
     
-    // Enhanced classification using AI insights
+    // Enhanced classification using comprehensive AI insights
     let semanticType = classifyLineHeuristically(line);
     let confidence = 'medium';
     
-    // Use AI insights to improve classification
+    // Use comprehensive AI insights to improve classification
     if (detectedTitle && trimmed.toLowerCase().includes(detectedTitle.toLowerCase()) && index < 50) {
       semanticType = 'title_page';
       confidence = 'high';
@@ -586,16 +613,39 @@ function createSimpleSemanticStructure(text, aiAnalysis) {
       confidence = 'high';
     }
     
+    // Enhanced question detection based on AI analysis
+    if (hasQuizzes && (semanticType === 'question' || 
+        trimmed.includes('?') || 
+        trimmed.toLowerCase().includes('true or false') ||
+        trimmed.match(/^[A-D]\)/))) {
+      semanticType = 'question';
+      confidence = 'high';
+    }
+    
+    // Enhanced exercise detection
+    if (hasExercises && (trimmed.toLowerCase().includes('exercise') || 
+        trimmed.toLowerCase().includes('activity') ||
+        trimmed.toLowerCase().includes('complete'))) {
+      semanticType = 'exercise';
+      confidence = 'high';
+    }
+    
+    // Enhanced story/narrative detection
+    if (hasStories && semanticType === 'paragraph' && trimmed.length > 100) {
+      // Long paragraphs in story documents are likely narrative content
+      confidence = 'high';
+    }
+    
     return {
       line_number: index + 1,
       content: line,
       semantic_type: semanticType,
       confidence: confidence,
-      analysis_method: 'simple_ai_guided'
+      analysis_method: 'comprehensive_ai_guided'
     };
   });
   
-  console.log(`Created semantic structure with ${semanticLines.length} lines`);
+  console.log(`Created semantic structure with ${semanticLines.length} lines using comprehensive analysis`);
   return semanticLines;
 }
 
@@ -606,7 +656,7 @@ async function organizeContentForKDP(intelligentAnalysis, originalText) {
   const { aiAnalysis, semanticStructure } = intelligentAnalysis;
   
   // Extract metadata from AI analysis
-  const metadata = extractMetadataFromAnalysis(aiAnalysis);
+  const metadata = parseAIAnalysisMetadata(aiAnalysis);
   
   // Group semantic content
   const groupedContent = groupSemanticContent(semanticStructure);
@@ -618,7 +668,7 @@ async function organizeContentForKDP(intelligentAnalysis, originalText) {
     author: metadata.author || '',
     chapters: [],
     metadata: {
-      documentType: metadata.documentType,
+      documentType: metadata.type,
       hasTitle: groupedContent.title_page.length > 0,
       hasTOC: groupedContent.toc_entry.length > 3,
       hasCopyright: groupedContent.copyright.length > 0,
@@ -656,100 +706,123 @@ async function organizeContentForKDP(intelligentAnalysis, originalText) {
   return finalStructure;
 }
 
-// Helper function to extract metadata from AI analysis
-function extractMetadataFromAnalysis(aiAnalysis) {
+// Parse metadata from AI analysis
+function parseAIAnalysisMetadata(analysis) {
   const metadata = {
-    title: 'Untitled Book',
+    title: 'Untitled',
+    author: 'Unknown Author',
     subtitle: '',
-    author: '',
-    documentType: 'general book',
-    recommendTitlePage: true,
-    recommendTOC: false,
-    tocEntries: []
+    type: 'general',
+    hasChapters: false,
+    hasTOC: false,
+    chapters: [],
+    specialElements: []
   };
   
-  // Extract title using the new format
-  const titleMatch = aiAnalysis.match(/TITLE:\s*(.+)/i);
-  if (titleMatch && titleMatch[1].trim() !== 'Not found' && titleMatch[1].trim() !== '[Exact title from the document, or "Not found" if no clear title]') {
-    metadata.title = titleMatch[1].trim().replace(/['"]/g, '');
+  // Extract title from comprehensive analysis
+  const titleMatch = analysis.match(/Title:\s*(.+)/i);
+  if (titleMatch && titleMatch[1].trim() !== '[Exact title as it appears]' && !titleMatch[1].includes('Not found')) {
+    metadata.title = titleMatch[1].trim().replace(/[\[\]]/g, '');
   }
   
-  // Extract author using the new format
-  const authorMatch = aiAnalysis.match(/AUTHOR:\s*(.+)/i);
-  if (authorMatch && authorMatch[1].trim() !== 'Not found' && authorMatch[1].trim() !== '[Exact author name from the document, or "Not found" if no clear author]') {
-    metadata.author = authorMatch[1].trim().replace(/['"]/g, '');
+  // Extract author from comprehensive analysis
+  const authorMatch = analysis.match(/Author:\s*(.+)/i);
+  if (authorMatch && authorMatch[1].trim() !== '[Exact author name]' && !authorMatch[1].includes('Not found')) {
+    metadata.author = authorMatch[1].trim().replace(/[\[\]]/g, '');
   }
   
-  // Extract subtitle
-  const subtitleMatch = aiAnalysis.match(/SUBTITLE:\s*(.+)/i);
-  if (subtitleMatch && subtitleMatch[1].trim() !== 'None' && subtitleMatch[1].trim() !== '[Subtitle if present, or "None"]') {
-    metadata.subtitle = subtitleMatch[1].trim().replace(/['"]/g, '');
+  // Extract publisher
+  const publisherMatch = analysis.match(/Publisher:\s*(.+)/i);
+  if (publisherMatch && !publisherMatch[1].includes('[If mentioned]')) {
+    metadata.publisher = publisherMatch[1].trim().replace(/[\[\]]/g, '');
   }
   
-  // Extract document type
-  const docTypeMatch = aiAnalysis.match(/TYPE:\s*(.+)/i);
-  if (docTypeMatch) {
-    metadata.documentType = docTypeMatch[1].trim().toLowerCase();
+  // Extract genre/type
+  const genreMatch = analysis.match(/Genre\/Type:\s*(.+)/i);
+  if (genreMatch && !genreMatch[1].includes('[What kind of document]')) {
+    metadata.type = genreMatch[1].trim().toLowerCase().replace(/[\[\]]/g, '');
   }
   
-  // Check if TOC was found
-  const tocFoundMatch = aiAnalysis.match(/TABLE_OF_CONTENTS_FOUND:\s*(Yes|No)/i);
-  if (tocFoundMatch && tocFoundMatch[1].toLowerCase() === 'yes') {
-    metadata.recommendTOC = true;
-    
-    // Extract TOC entries - now completely generic
-    const tocSection = aiAnalysis.match(/TOC_ENTRIES:\s*([\s\S]*?)(?=CHAPTER_STRUCTURE:|SPECIAL_ELEMENTS:|$)/i);
-    if (tocSection) {
-      const tocLines = tocSection[1].split('\n');
-      for (const line of tocLines) {
-        const trimmedLine = line.trim();
-        if (trimmedLine && !trimmedLine.startsWith('[') && trimmedLine.length > 3) {
-          // Remove leading numbers and clean up
-          const cleanedEntry = trimmedLine.replace(/^\d+\.\s*/, '').trim();
-          if (cleanedEntry.length > 0) {
-            metadata.tocEntries.push({
-              title: cleanedEntry,
-              original: trimmedLine
-            });
-          }
-        }
-      }
+  // Extract year
+  const yearMatch = analysis.match(/Year\/Date:\s*(.+)/i);
+  if (yearMatch && !yearMatch[1].includes('[If mentioned]')) {
+    metadata.year = yearMatch[1].trim().replace(/[\[\]]/g, '');
+  }
+  
+  // Check for chapters/structure
+  if (analysis.toLowerCase().includes('chapter') || 
+      analysis.toLowerCase().includes('section') ||
+      analysis.toLowerCase().includes('part')) {
+    metadata.hasChapters = true;
+  }
+  
+  // Check for table of contents
+  if (analysis.toLowerCase().includes('table of contents') ||
+      analysis.toLowerCase().includes('contents')) {
+    metadata.hasTOC = true;
+  }
+  
+  // Extract content types and special elements
+  const contentTypes = [];
+  const specialElements = [];
+  
+  if (analysis.toLowerCase().includes('quiz') || analysis.toLowerCase().includes('question')) {
+    contentTypes.push('quizzes');
+    specialElements.push('questions');
+  }
+  
+  if (analysis.toLowerCase().includes('exercise') || analysis.toLowerCase().includes('activit')) {
+    contentTypes.push('exercises');
+    specialElements.push('exercises');
+  }
+  
+  if (analysis.toLowerCase().includes('story') || analysis.toLowerCase().includes('narrative')) {
+    contentTypes.push('stories');
+    specialElements.push('narratives');
+  }
+  
+  if (analysis.toLowerCase().includes('fact') || analysis.toLowerCase().includes('trivia')) {
+    contentTypes.push('facts');
+    specialElements.push('facts');
+  }
+  
+  if (analysis.toLowerCase().includes('list') || analysis.toLowerCase().includes('bullet')) {
+    specialElements.push('lists');
+  }
+  
+  if (analysis.toLowerCase().includes('quote') || analysis.toLowerCase().includes('dialogue')) {
+    specialElements.push('quotes');
+  }
+  
+  metadata.contentTypes = contentTypes;
+  metadata.specialElements = specialElements;
+  
+  // Extract chapter information from structure analysis
+  const structureMatch = analysis.match(/Overall structure.*?(?=\*\*|$)/is);
+  if (structureMatch) {
+    const structureText = structureMatch[0];
+    // Look for mentions of specific chapters or sections
+    const chapterMatches = structureText.match(/(chapter|section|part)\s+\d+/gi);
+    if (chapterMatches) {
+      chapterMatches.forEach((match, index) => {
+        metadata.chapters.push({
+          index: index + 1,
+          title: match,
+          detected: true
+        });
+      });
     }
   }
   
-  // Extract special elements counts
-  const questionsMatch = aiAnalysis.match(/Questions:\s*(\d+)/i);
-  if (questionsMatch) {
-    metadata.questionsCount = parseInt(questionsMatch[1]);
-  }
-  
-  const exercisesMatch = aiAnalysis.match(/Exercises:\s*(\d+)/i);
-  if (exercisesMatch) {
-    metadata.exercisesCount = parseInt(exercisesMatch[1]);
-  }
-  
-  const listsMatch = aiAnalysis.match(/Lists:\s*(\d+)/i);
-  if (listsMatch) {
-    metadata.listsCount = parseInt(listsMatch[1]);
-  }
-  
-  const quotesMatch = aiAnalysis.match(/Quotes:\s*(\d+)/i);
-  if (quotesMatch) {
-    metadata.quotesCount = parseInt(quotesMatch[1]);
-  }
-  
-  // Check formatting recommendations
-  if (aiAnalysis.toLowerCase().includes('needs title page: yes')) {
-    metadata.recommendTitlePage = true;
-  }
-  
-  if (aiAnalysis.toLowerCase().includes('needs table of contents: yes')) {
-    metadata.recommendTOC = true;
-  }
-  
-  if (aiAnalysis.toLowerCase().includes('chapter formatting needed: yes')) {
-    metadata.needsChapterFormatting = true;
-  }
+  console.log('Parsed comprehensive metadata:', {
+    title: metadata.title,
+    author: metadata.author,
+    type: metadata.type,
+    contentTypes: metadata.contentTypes,
+    specialElements: metadata.specialElements,
+    hasChapters: metadata.hasChapters,
+    chaptersFound: metadata.chapters.length
+  });
   
   return metadata;
 }
