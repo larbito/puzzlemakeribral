@@ -147,6 +147,293 @@ function cleanRawText(text) {
     .trim();
 }
 
+// Intelligent preprocessing to remove page headers/footers and repetitive elements
+function preprocessDocumentText(text) {
+  console.log('Preprocessing document to remove page headers/footers and repetitive elements...');
+  
+  const lines = text.split('\n');
+  const cleanedLines = [];
+  
+  // Step 1: Identify repetitive elements (headers/footers)
+  const repetitiveElements = identifyRepetitiveElements(lines);
+  
+  console.log(`Found ${repetitiveElements.length} repetitive patterns:`);
+  repetitiveElements.forEach(elem => {
+    console.log(`  - "${elem.text}" (appears ${elem.frequency} times)`);
+  });
+  
+  // Step 2: Remove identified repetitive elements
+  let removedCount = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    // Skip completely empty lines initially
+    if (!line) {
+      cleanedLines.push(lines[i]);
+      continue;
+    }
+    
+    // Check if this line is a repetitive element (header/footer)
+    let isRepetitive = false;
+    for (const repetitivePattern of repetitiveElements) {
+      // For regular repetitive elements, check exact match
+      if (repetitivePattern.type === 'repetitive' || repetitivePattern.type === 'page_pattern') {
+        if (line.toLowerCase().includes(repetitivePattern.text.toLowerCase()) ||
+            repetitivePattern.text.toLowerCase().includes(line.toLowerCase())) {
+          isRepetitive = true;
+          console.log(`Removing ${repetitivePattern.type} at line ${i + 1}: "${line}"`);
+          removedCount++;
+          break;
+        }
+      }
+      
+      // For header/footer patterns, check if this line matches any of the examples
+      if (repetitivePattern.type === 'header_footer_pattern') {
+        const lineNormalized = line.toLowerCase();
+        
+        // Check if this line contains the pattern key
+        if (lineNormalized.includes(repetitivePattern.text)) {
+          isRepetitive = true;
+          console.log(`Removing header/footer pattern at line ${i + 1}: "${line}"`);
+          removedCount++;
+          break;
+        }
+        
+        // Also check against example patterns for more precise matching
+        for (const example of repetitivePattern.examples || []) {
+          if (line.toLowerCase() === example.toLowerCase()) {
+            isRepetitive = true;
+            console.log(`Removing exact header/footer match at line ${i + 1}: "${line}"`);
+            removedCount++;
+            break;
+          }
+        }
+        
+        if (isRepetitive) break;
+      }
+    }
+    
+    // Check for common page artifacts
+    if (!isRepetitive) {
+      const artifactResult = isPageArtifact(line, i, lines);
+      if (artifactResult) {
+        console.log(`Removing page artifact at line ${i + 1}: "${line}"`);
+        isRepetitive = true;
+        removedCount++;
+      }
+    }
+    
+    // Only add non-repetitive, non-artifact lines
+    if (!isRepetitive) {
+      cleanedLines.push(lines[i]);
+    }
+  }
+  
+  // Step 3: Clean up excessive blank lines after removal
+  const finalText = cleanedLines.join('\n')
+    .replace(/\n{5,}/g, '\n\n\n') // Max 3 consecutive empty lines
+    .trim();
+  
+  const originalLineCount = lines.length;
+  const cleanedLineCount = cleanedLines.length;
+  
+  console.log(`Preprocessing complete: Removed ${removedCount} repetitive/artifact lines (${originalLineCount} → ${cleanedLineCount})`);
+  console.log(`Text length: ${text.length} → ${finalText.length} characters`);
+  
+  return finalText;
+}
+
+// Identify repetitive elements that appear multiple times (likely headers/footers)
+function identifyRepetitiveElements(lines) {
+  const lineFrequency = new Map();
+  const repetitiveElements = [];
+  const linePositions = new Map(); // Track where lines appear
+  
+  // Count frequency of each non-empty line and track positions
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed.length > 2 && trimmed.length < 150) { // Focus on potential header/footer length
+      const normalized = trimmed.toLowerCase();
+      
+      // Track frequency
+      lineFrequency.set(normalized, (lineFrequency.get(normalized) || 0) + 1);
+      
+      // Track positions
+      if (!linePositions.has(normalized)) {
+        linePositions.set(normalized, []);
+      }
+      linePositions.get(normalized).push(i);
+    }
+  }
+  
+  // Identify lines that appear multiple times (likely headers/footers)
+  for (const [text, frequency] of lineFrequency.entries()) {
+    const positions = linePositions.get(text);
+    
+    if (frequency >= 3) { // Appears 3+ times = likely repetitive
+      // Check if positions suggest page header/footer pattern
+      const isRegularPattern = isRegularPagePattern(positions, lines.length);
+      
+      // Additional checks to avoid removing legitimate repeated content
+      if (isLikelyHeaderFooter(text) || isRegularPattern) {
+        repetitiveElements.push({
+          text: text,
+          frequency: frequency,
+          positions: positions,
+          type: isRegularPattern ? 'page_pattern' : 'repetitive'
+        });
+        console.log(`Identified ${isRegularPattern ? 'page pattern' : 'repetitive'} element: "${text}" (appears ${frequency} times)`);
+      }
+    }
+  }
+  
+  // Also detect patterns like "Author Name - Page X" or "Book Title | Chapter Y"
+  const headerFooterPatterns = detectHeaderFooterPatterns(lines);
+  repetitiveElements.push(...headerFooterPatterns);
+  
+  return repetitiveElements;
+}
+
+// Check if positions suggest a regular page header/footer pattern
+function isRegularPagePattern(positions, totalLines) {
+  if (positions.length < 3) return false;
+  
+  // Check if elements appear at regular intervals (suggesting page breaks)
+  const intervals = [];
+  for (let i = 1; i < positions.length; i++) {
+    intervals.push(positions[i] - positions[i-1]);
+  }
+  
+  // If intervals are roughly similar, it's likely a page pattern
+  const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+  const variance = intervals.reduce((sum, interval) => sum + Math.pow(interval - avgInterval, 2), 0) / intervals.length;
+  const stdDev = Math.sqrt(variance);
+  
+  // If standard deviation is low relative to average, it's a regular pattern
+  return stdDev < avgInterval * 0.5 && avgInterval > 10; // Regular pattern with reasonable spacing
+}
+
+// Detect header/footer patterns like "Author - Page 5" or "Book Title | Chapter 2"
+function detectHeaderFooterPatterns(lines) {
+  const patterns = [];
+  const headerFooterRegexes = [
+    /^(.+)\s*[-–—]\s*page\s*\d+\s*$/i,          // "Author Name - Page 5"
+    /^(.+)\s*[-–—]\s*\d+\s*$/,                   // "Book Title - 23"
+    /^(.+)\s*\|\s*(.+)$/,                        // "Title | Chapter"
+    /^page\s*\d+\s*[-–—]\s*(.+)$/i,             // "Page 5 - Book Title"
+    /^\d+\s*[-–—]\s*(.+)$/,                      // "23 - Title"
+    /^(.+)\s*chapter\s*\d+/i,                    // "Book Title Chapter 5"
+    /^chapter\s*\d+\s*[-–—]\s*(.+)/i            // "Chapter 5 - Title"
+  ];
+  
+  for (const regex of headerFooterRegexes) {
+    const matchingLines = new Map();
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const match = line.match(regex);
+      
+      if (match) {
+        // Extract the non-page/chapter part as the key
+        const key = match[1] ? match[1].trim().toLowerCase() : line.toLowerCase();
+        
+        if (!matchingLines.has(key)) {
+          matchingLines.set(key, []);
+        }
+        matchingLines.get(key).push({ line: line, position: i });
+      }
+    }
+    
+    // Add patterns that appear multiple times
+    for (const [key, occurrences] of matchingLines.entries()) {
+      if (occurrences.length >= 3) {
+        patterns.push({
+          text: key,
+          frequency: occurrences.length,
+          positions: occurrences.map(occ => occ.position),
+          type: 'header_footer_pattern',
+          examples: occurrences.slice(0, 3).map(occ => occ.line)
+        });
+        console.log(`Detected header/footer pattern: "${key}" (${occurrences.length} variations)`);
+      }
+    }
+  }
+  
+  return patterns;
+}
+
+// Check if a repeated line is likely a header/footer vs legitimate content
+function isLikelyHeaderFooter(text) {
+  const lower = text.toLowerCase();
+  
+  // Likely headers/footers contain:
+  // - Author names (often just 2-3 words)
+  // - Book titles (but not super long)
+  // - Publisher info
+  // - Page indicators
+  // - Chapter references
+  
+  // Skip if it looks like a chapter title or important content
+  if (lower.includes('chapter ') || lower.includes('section ') || 
+      lower.includes('part ') || lower.includes('lesson ')) {
+    return false;
+  }
+  
+  // Skip if it looks like a question or substantial content
+  if (lower.includes('?') || lower.includes('what ') || lower.includes('how ')) {
+    return false;
+  }
+  
+  // Likely header/footer patterns
+  return (
+    // Short author-like names (2-4 words, proper case)
+    (text.split(' ').length >= 2 && text.split(' ').length <= 4 && /^[A-Z]/.test(text)) ||
+    // Contains publishing keywords
+    lower.includes('copyright') || lower.includes('published') || 
+    lower.includes('edition') || lower.includes('press') ||
+    // Short title-like phrases
+    (text.length < 50 && text.split(' ').length <= 6 && /^[A-Z]/.test(text)) ||
+    // Page number patterns
+    /^\d+$/.test(text) || lower.includes('page ') ||
+    // Common header/footer elements
+    lower.includes('continued') || lower.includes('chapter') && text.length < 30
+  );
+}
+
+// Check if an individual line is a page artifact
+function isPageArtifact(line, lineIndex, allLines) {
+  const trimmed = line.trim();
+  const lower = trimmed.toLowerCase();
+  
+  // Page numbers (standalone numbers)
+  if (/^\d+$/.test(trimmed) && trimmed.length <= 3) {
+    return true;
+  }
+  
+  // Page indicators
+  if (lower.match(/^page\s+\d+/) || lower.match(/^\d+\s*[-–—]\s*\d+$/)) {
+    return true;
+  }
+  
+  // Very short lines that appear isolated (likely artifacts)
+  if (trimmed.length <= 3) {
+    return true;
+  }
+  
+  // Lines that are just initials or very short names in isolation
+  if (trimmed.length <= 15 && /^[A-Z][a-z]*\s*[A-Z]?[a-z]*$/.test(trimmed)) {
+    // Check if surrounded by empty lines (isolated = likely header/footer)
+    const prevLine = lineIndex > 0 ? allLines[lineIndex - 1].trim() : '';
+    const nextLine = lineIndex < allLines.length - 1 ? allLines[lineIndex + 1].trim() : '';
+    
+    if (!prevLine && !nextLine) {
+      return true; // Isolated short text = likely artifact
+    }
+  }
+  
+  return false;
+}
+
 // AI-powered structure detection with complete text extraction first
 async function detectBookStructureWithAI(text) {
   console.log(`Starting comprehensive analysis for ${text.length} characters`);
@@ -155,13 +442,22 @@ async function detectBookStructureWithAI(text) {
   console.log('Phase 1: Complete text extraction - DONE');
   console.log(`Extracted ${text.length} characters of raw content`);
   
-  // PHASE 2: Give the complete text to AI for line-by-line semantic understanding
-  console.log('Phase 2: AI semantic understanding of complete content...');
-  const intelligentAnalysis = await performIntelligentTextAnalysis(text);
+  // PHASE 1.5: Intelligent preprocessing to remove page artifacts
+  console.log('Phase 1.5: Preprocessing to remove page headers/footers...');
+  const cleanedText = preprocessDocumentText(text);
+  console.log(`Preprocessing complete: ${text.length} → ${cleanedText.length} characters`);
+  
+  // PHASE 2: Give the cleaned text to AI for line-by-line semantic understanding
+  console.log('Phase 2: AI semantic understanding of cleaned content...');
+  const intelligentAnalysis = await performIntelligentTextAnalysis(cleanedText);
   
   // PHASE 3: Structure the results for formatting
   console.log('Phase 3: Structuring results for KDP formatting...');
-  const finalStructure = await organizeContentForKDP(intelligentAnalysis, text);
+  const finalStructure = await organizeContentForKDP(intelligentAnalysis, cleanedText);
+  
+  // Add both raw and cleaned text to the result for reference
+  finalStructure.rawText = text;
+  finalStructure.cleanedText = cleanedText;
   
   console.log(`Analysis complete: Found ${finalStructure.chapters.length} content sections`);
   return finalStructure;
@@ -439,7 +735,11 @@ Analyze each line individually and return the JSON array.`;
 function performEnhancedHeuristicAnalysis(text) {
   console.log('Performing enhanced heuristic analysis of complete text');
   
-  const lines = text.split('\n');
+  // First preprocess the text to remove headers/footers
+  const cleanedText = preprocessDocumentText(text);
+  console.log(`Heuristic analysis: preprocessed ${text.length} → ${cleanedText.length} characters`);
+  
+  const lines = cleanedText.split('\n');
   const semanticLines = lines.map((line, index) => {
     const trimmed = line.trim();
     
