@@ -287,9 +287,7 @@ export const KDPBookFormatter = () => {
     'ai-enhance': false,
     'export-pdf': false
   });
-  const [isSaved, setIsSaved] = useState(false);
   const { toast } = useToast();
-  const [userPresets, setUserPresets] = useState<FormattingPreset[]>([]);
   const [currentStep, setCurrentStep] = useState<'upload' | 'analysis' | 'templates' | 'preview' | 'export'>('upload');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
@@ -304,21 +302,8 @@ export const KDPBookFormatter = () => {
 
   // Load saved project on mount
   useEffect(() => {
-    try {
-      const savedSettings = localStorage.getItem('kdpFormatterSettings');
-      const savedContent = localStorage.getItem('kdpFormatterContent');
-      const wasSaved = localStorage.getItem('kdpFormatterSaved');
-      
-      if (savedSettings && wasSaved) {
-        setSettings(JSON.parse(savedSettings));
-        setIsSaved(true);
-      }
-      if (savedContent && wasSaved) {
-        setBookContent(JSON.parse(savedContent));
-      }
-    } catch (error) {
-      console.error('Error loading saved project:', error);
-    }
+    // Start fresh every time - no localStorage loading
+    console.log('KDP Formatter initialized - starting fresh');
   }, []);
 
   // Handle setting changes with margin presets
@@ -336,13 +321,13 @@ export const KDPBookFormatter = () => {
     } else {
       setSettings(prev => ({ ...prev, [key]: value }));
     }
-    setIsSaved(false);
+    // Remove auto-save functionality
   };
 
   // Handle content changes
   const handleContentChange = (newContent: Partial<BookContent>) => {
     setBookContent(prev => ({ ...prev, ...newContent }));
-    setIsSaved(false);
+    // Remove auto-save functionality
   };
 
   // Handle chapter content edits
@@ -353,14 +338,14 @@ export const KDPBookFormatter = () => {
         chapter.id === chapterId ? { ...chapter, content: newContent } : chapter
       )
     }));
-    setIsSaved(false);
+    // Remove auto-save functionality
   };
 
   // Handle file upload
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
     setCompletedSteps(prev => ({ ...prev, 'file-upload': true }));
-    setIsSaved(false);
+    // Remove auto-save functionality
   };
 
   // Reset the project to defaults
@@ -377,34 +362,30 @@ export const KDPBookFormatter = () => {
       'ai-enhance': false,
       'export-pdf': false
     });
-    setIsSaved(false);
+    setCurrentStep('upload');
+    setAnalyzing(false);
+    setAnalysisProgress(0);
+    setBookAnalysis(null);
+    setTemplateSuggestions(null);
+    setSelectedTemplate(null);
+    setCustomCSS('');
+    setFormattedHTML('');
+    setAiMessage('');
+    setProcessingFeedback(false);
+    setRawText('');
     
     toast({
       title: 'Project reset',
-      description: 'Your book formatting project has been reset to default settings.',
+      description: 'Ready for a new book upload.',
     });
   };
 
-  // Save the current project
+  // Save the current project (remove this functionality)
   const handleSaveProject = () => {
-    try {
-      localStorage.setItem('kdpFormatterSettings', JSON.stringify(settings));
-      localStorage.setItem('kdpFormatterContent', JSON.stringify(bookContent));
-      localStorage.setItem('kdpFormatterSaved', 'true');
-      
-      setIsSaved(true);
-      
-      toast({
-        title: 'Project saved',
-        description: 'Your book formatting project has been saved and will be available when you return.',
-      });
-    } catch (error) {
-      console.error('Error saving project:', error);
-      toast({
-        title: 'Error saving project',
-        description: 'Something went wrong. Your changes might not be saved.',
-      });
-    }
+    toast({
+      title: 'Project Management Disabled',
+      description: 'Each session starts fresh. Upload your file to begin formatting.',
+    });
   };
 
   // Handle step completion
@@ -486,50 +467,6 @@ export const KDPBookFormatter = () => {
       isComplete: completedSteps['export-pdf']
     }
   ];
-
-  // Add preset management functions
-  const loadPreset = (preset: FormattingPreset) => {
-    setSettings({
-      ...preset.settings,
-      detectChapterBreaks: settings.detectChapterBreaks // Preserve current detection mode
-    });
-    
-    toast({
-      title: 'Preset loaded',
-      description: `Applied ${preset.name} formatting settings`,
-    });
-  };
-
-  const saveAsPreset = (name: string, description: string) => {
-    const newPreset: FormattingPreset = {
-      id: `custom-${Date.now()}`,
-      name,
-      description,
-      settings: {
-        trimSize: settings.trimSize,
-        marginTop: settings.marginTop,
-        marginBottom: settings.marginBottom,
-        marginInside: settings.marginInside,
-        marginOutside: settings.marginOutside,
-        bleed: settings.bleed,
-        fontFamily: settings.fontFamily,
-        fontSize: settings.fontSize,
-        lineSpacing: settings.lineSpacing,
-        includeTOC: settings.includeTOC,
-        includePageNumbers: settings.includePageNumbers,
-        includeTitlePage: settings.includeTitlePage
-      }
-    };
-    
-    const updatedPresets = [...userPresets, newPreset];
-    setUserPresets(updatedPresets);
-    localStorage.setItem('kdpFormatterPresets', JSON.stringify(updatedPresets));
-    
-    toast({
-      title: 'Preset saved',
-      description: `Saved "${name}" preset for future use`,
-    });
-  };
 
   // File upload with AI analysis
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
