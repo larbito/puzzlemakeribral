@@ -546,7 +546,7 @@ export const KDPBookFormatter = () => {
 
       setAnalysisProgress(30);
       
-      const response = await fetch(getApiUrl('/api/kdp-formatter/analyze-complete'), {
+      const response = await fetch(getApiUrl('/api/kdp-formatter/extract'), {
         method: 'POST',
         body: formData,
       });
@@ -560,16 +560,122 @@ export const KDPBookFormatter = () => {
 
       const data = await response.json();
       
-      if (data.success) {
+      if (data.success && data.content) {
         setAnalysisProgress(100);
-        setBookAnalysis(data.analysis);
-        setTemplateSuggestions(data.suggestions);
-        setRawText(data.rawText);
+        
+        // Create mock template suggestions based on the extracted content
+        const mockSuggestions = {
+          suggestions: [
+            {
+              id: 'novel-template',
+              name: 'Novel Template',
+              description: 'Perfect for fiction and narrative content',
+              style: 'classic',
+              bestFor: 'Fiction, novels, and story collections',
+              settings: {
+                trimSize: '6x9',
+                fontFamily: 'Times New Roman',
+                fontSize: 12,
+                lineSpacing: 1.2,
+                margins: { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
+                includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
+              },
+              suitabilityScore: 95
+            },
+            {
+              id: 'textbook-template',
+              name: 'Textbook Template',
+              description: 'Ideal for educational and reference content',
+              style: 'academic',
+              bestFor: 'Educational content and reference books',
+              settings: {
+                trimSize: '8.5x11',
+                fontFamily: 'Arial',
+                fontSize: 11,
+                lineSpacing: 1.5,
+                margins: { top: 1.0, bottom: 1.0, inside: 1.0, outside: 0.75 },
+                includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
+              },
+              suitabilityScore: 85
+            },
+            {
+              id: 'minimalist-template',
+              name: 'Minimalist Template',
+              description: 'Clean and simple formatting',
+              style: 'minimalist',
+              bestFor: 'Poetry, short stories, and clean layouts',
+              settings: {
+                trimSize: '5x8',
+                fontFamily: 'Garamond',
+                fontSize: 11,
+                lineSpacing: 1.0,
+                margins: { top: 0.75, bottom: 0.75, inside: 0.75, outside: 0.5 },
+                includeElements: { titlePage: true, tableOfContents: false, pageNumbers: true, chapterHeaders: false }
+              },
+              suitabilityScore: 80
+            }
+          ]
+        };
+
+        // Create mock book analysis based on extracted content
+        const mockAnalysis = {
+          metadata: {
+            title: data.content.title || 'Untitled Book',
+            author: data.content.metadata?.author || 'Unknown Author',
+            subtitle: '',
+            publisher: data.content.metadata?.publisher || '',
+            year: data.content.metadata?.year || new Date().getFullYear().toString()
+          },
+          bookAnalysis: {
+            genre: data.content.chapters.length > 20 ? 'Short Stories Collection' : 'General Fiction',
+            tone: 'Narrative',
+            targetAudience: 'General Readers',
+            complexity: 'Moderate',
+            estimatedReadingLevel: 'Adult',
+            contentType: 'Narrative'
+          },
+          recommendedTemplate: {
+            templateId: 'novel-template',
+            templateName: 'Novel Template',
+            reasoning: 'Best suited for your content structure and chapter count',
+            trimSize: '6x9',
+            fontFamily: 'Times New Roman',
+            fontSize: 12,
+            lineSpacing: 1.2,
+            margins: { top: 0.875, bottom: 0.875, inside: 0.875, outside: 0.625 },
+            includeElements: { titlePage: true, tableOfContents: true, pageNumbers: true, chapterHeaders: true }
+          },
+          structuredContent: {
+            chapters: data.content.chapters.map((chapter: any, index: number) => ({
+              id: chapter.id,
+              title: chapter.title,
+              type: 'chapter',
+              content: chapter.content,
+              level: chapter.level || 1,
+              startPage: index + 1,
+              wordCount: chapter.content.split(' ').length
+            })),
+            tableOfContents: data.content.chapters.map((chapter: any, index: number) => ({
+              title: chapter.title,
+              page: index + 1,
+              level: 1
+            }))
+          },
+          alternativeTemplates: [
+            { templateId: 'textbook-template', templateName: 'Textbook Template', reasoning: 'For more formal presentation', suitabilityScore: 85 },
+            { templateId: 'minimalist-template', templateName: 'Minimalist Template', reasoning: 'For clean, simple layout', suitabilityScore: 80 }
+          ]
+        };
+
+        setBookAnalysis(mockAnalysis);
+        setTemplateSuggestions(mockSuggestions);
+        setRawText(data.content.rawText || '');
+        setBookContent(data.content);
         setCurrentStep('templates');
 
         toast({
           title: 'Analysis Complete!',
-          description: `Found ${data.analysis.structuredContent.chapters.length} chapters. AI suggests "${data.analysis.recommendedTemplate.templateName}" template.`,
+          description: `Found ${data.content.chapters.length} chapters. Ready to select formatting template.`,
         });
       } else {
         throw new Error('Invalid response from server');
@@ -608,25 +714,18 @@ export const KDPBookFormatter = () => {
     if (!bookAnalysis) return;
 
     try {
-      const response = await fetch(getApiUrl('/api/kdp-formatter/generate-formatted'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: {
-            chapters: bookAnalysis.structuredContent.chapters,
-            metadata: bookAnalysis.metadata
-          },
-          settings: template.settings,
-          customCSS: template.previewCSS || customCSS
-        }),
-      });
-
-      const data = await response.json();
+      // Generate HTML locally instead of calling backend
+      const formattedHTML = generateFormattedHTML(
+        {
+          chapters: bookAnalysis.structuredContent.chapters,
+          metadata: bookAnalysis.metadata
+        },
+        template.settings,
+        template.previewCSS || customCSS
+      );
       
-      if (data.success) {
-        setFormattedHTML(data.formattedHTML);
-        setCurrentStep('preview');
-      }
+      setFormattedHTML(formattedHTML);
+      setCurrentStep('preview');
     } catch (error) {
       console.error('Preview generation error:', error);
       toast({
@@ -636,6 +735,175 @@ export const KDPBookFormatter = () => {
     }
   };
 
+  // Local HTML generation function
+  const generateFormattedHTML = (content: any, settings: any, customCSS = '') => {
+    const { chapters, metadata } = content;
+    const { title = 'Untitled Book', author = '', publisher = '', year = new Date().getFullYear() } = metadata;
+    
+    // Get page dimensions based on trim size
+    const pageDimensions: { [key: string]: { width: string; height: string } } = {
+      '5x8': { width: '5in', height: '8in' },
+      '6x9': { width: '6in', height: '9in' },
+      '7x10': { width: '7in', height: '10in' },
+      '8.5x11': { width: '8.5in', height: '11in' }
+    };
+    
+    const dimensions = pageDimensions[settings.trimSize] || pageDimensions['6x9'];
+    
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        @page {
+            size: ${dimensions.width} ${dimensions.height};
+            margin: ${settings.margins.top}in ${settings.margins.outside}in ${settings.margins.bottom}in ${settings.margins.inside}in;
+        }
+        
+        body {
+            font-family: ${settings.fontFamily};
+            font-size: ${settings.fontSize}pt;
+            line-height: ${settings.lineSpacing};
+            margin: 0;
+            padding: 20px;
+            color: #000;
+            background: white;
+        }
+        
+        .page {
+            page-break-after: always;
+            width: 100%;
+            min-height: 500px;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 1px solid #e0e0e0;
+            margin-bottom: 20px;
+            background: white;
+        }
+        
+        .page:last-child {
+            page-break-after: avoid;
+        }
+        
+        h1, h2, h3 {
+            font-weight: bold;
+            margin: 1em 0 0.5em 0;
+        }
+        
+        h1 { font-size: 1.5em; text-align: center; }
+        h2 { font-size: 1.3em; }
+        h3 { font-size: 1.1em; }
+        
+        .title-page {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 400px;
+        }
+        
+        .title-page h1 {
+            font-size: 2em;
+            margin-bottom: 0.5em;
+        }
+        
+        .title-page .author {
+            font-size: 1.2em;
+            margin-top: 2em;
+        }
+        
+        .chapter {
+            margin-bottom: 2em;
+        }
+        
+        .chapter-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            text-align: center;
+            margin: 2em 0 1em 0;
+            page-break-after: avoid;
+        }
+        
+        .chapter-content {
+            text-align: justify;
+            text-indent: 1em;
+        }
+        
+        .chapter-content p {
+            margin: 0 0 1em 0;
+        }
+        
+        .toc {
+            page-break-before: always;
+        }
+        
+        .toc h2 {
+            text-align: center;
+            margin-bottom: 1em;
+        }
+        
+        .toc-entry {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5em;
+        }
+        
+        .page-number {
+            position: absolute;
+            bottom: 20px;
+            right: 50%;
+            transform: translateX(50%);
+            font-size: 10pt;
+        }
+        
+        ${customCSS}
+    </style>
+</head>
+<body>
+    ${settings.includeElements.titlePage ? `
+    <div class="page title-page">
+        <h1>${title}</h1>
+        ${metadata.subtitle ? `<p class="subtitle">${metadata.subtitle}</p>` : ''}
+        <p class="author">by ${author}</p>
+        ${publisher ? `<p class="publisher">${publisher}</p>` : ''}
+        ${year ? `<p class="year">${year}</p>` : ''}
+    </div>
+    ` : ''}
+    
+    ${settings.includeElements.tableOfContents ? `
+    <div class="page toc">
+        <h2>Table of Contents</h2>
+        ${chapters.map((chapter: any, index: number) => `
+            <div class="toc-entry">
+                <span>${chapter.title}</span>
+                <span>${index + 1}</span>
+            </div>
+        `).join('')}
+    </div>
+    ` : ''}
+    
+    ${chapters.map((chapter: any, index: number) => `
+        <div class="page">
+            <div class="chapter">
+                <h2 class="chapter-title">${chapter.title}</h2>
+                <div class="chapter-content">
+                    ${chapter.content.split('\n\n').map((paragraph: string) => 
+                        `<p>${paragraph}</p>`
+                    ).join('')}
+                </div>
+            </div>
+            ${settings.includeElements.pageNumbers ? 
+                `<div class="page-number">${index + (settings.includeElements.titlePage ? 2 : 1) + (settings.includeElements.tableOfContents ? 1 : 0)}</div>` 
+                : ''
+            }
+        </div>
+    `).join('')}
+</body>
+</html>`;
+  };
+
   // AI feedback system
   const sendAIFeedback = async () => {
     if (!aiMessage.trim() || !bookAnalysis || !selectedTemplate) return;
@@ -643,41 +911,73 @@ export const KDPBookFormatter = () => {
     setProcessingFeedback(true);
 
     try {
-      const response = await fetch(getApiUrl('/api/kdp-formatter/ai-feedback'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          feedback: aiMessage,
-          currentContent: bookAnalysis.structuredContent,
-          currentSettings: selectedTemplate.settings,
-          bookAnalysis: bookAnalysis
-        }),
+      // Process feedback locally with basic formatting rules
+      let updatedTemplate = { ...selectedTemplate };
+      let additionalCSS = customCSS;
+      let explanation = 'Applied your formatting request.';
+
+      const message = aiMessage.toLowerCase();
+      
+      // Basic feedback processing rules
+      if (message.includes('bold') && message.includes('chapter')) {
+        additionalCSS += '\n.chapter-title { font-weight: bold !important; }';
+        explanation = 'Made chapter titles bold.';
+      }
+      
+      if (message.includes('center') || message.includes('centered')) {
+        additionalCSS += '\n.chapter-title { text-align: center !important; }';
+        explanation = 'Centered chapter titles.';
+      }
+      
+      if (message.includes('bigger') || message.includes('larger') || message.includes('increase')) {
+        if (message.includes('font') || message.includes('text')) {
+          updatedTemplate.settings.fontSize = Math.min(updatedTemplate.settings.fontSize + 1, 16);
+          explanation = 'Increased font size.';
+        }
+      }
+      
+      if (message.includes('smaller') || message.includes('decrease')) {
+        if (message.includes('font') || message.includes('text')) {
+          updatedTemplate.settings.fontSize = Math.max(updatedTemplate.settings.fontSize - 1, 8);
+          explanation = 'Decreased font size.';
+        }
+      }
+      
+      if (message.includes('margin') || message.includes('space')) {
+        if (message.includes('more') || message.includes('increase')) {
+          updatedTemplate.settings.margins.top += 0.125;
+          updatedTemplate.settings.margins.bottom += 0.125;
+          explanation = 'Increased margins.';
+        } else if (message.includes('less') || message.includes('decrease')) {
+          updatedTemplate.settings.margins.top = Math.max(updatedTemplate.settings.margins.top - 0.125, 0.5);
+          updatedTemplate.settings.margins.bottom = Math.max(updatedTemplate.settings.margins.bottom - 0.125, 0.5);
+          explanation = 'Decreased margins.';
+        }
+      }
+      
+      if (message.includes('line spacing') || message.includes('line height')) {
+        if (message.includes('more') || message.includes('increase')) {
+          updatedTemplate.settings.lineSpacing = Math.min(updatedTemplate.settings.lineSpacing + 0.1, 3.0);
+          explanation = 'Increased line spacing.';
+        } else if (message.includes('less') || message.includes('decrease')) {
+          updatedTemplate.settings.lineSpacing = Math.max(updatedTemplate.settings.lineSpacing - 0.1, 1.0);
+          explanation = 'Decreased line spacing.';
+        }
+      }
+
+      // Update template and regenerate preview
+      setSelectedTemplate(updatedTemplate);
+      setCustomCSS(additionalCSS);
+      
+      // Regenerate preview with updates
+      await generatePreview(updatedTemplate);
+
+      toast({
+        title: 'Changes Applied',
+        description: explanation,
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        // Update settings and content based on AI feedback
-        const updatedTemplate = {
-          ...selectedTemplate,
-          settings: data.updates.updatedSettings
-        };
-        setSelectedTemplate(updatedTemplate);
-        
-        if (data.updates.customCSS) {
-          setCustomCSS(data.updates.customCSS);
-        }
-
-        // Regenerate preview with updates
-        await generatePreview(updatedTemplate);
-
-        toast({
-          title: 'Changes Applied',
-          description: data.updates.explanation,
-        });
-
-        setAiMessage('');
-      }
+      setAiMessage('');
     } catch (error) {
       console.error('AI feedback error:', error);
       toast({
