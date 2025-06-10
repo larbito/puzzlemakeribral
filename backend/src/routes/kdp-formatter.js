@@ -994,6 +994,143 @@ function detectSpecialElements(semanticLines) {
   return elements.length > 0 ? elements.join(', ') : 'Standard text content';
 }
 
+// Enhanced heuristic line classification when AI is not available
+function classifyLineHeuristically(line) {
+  const trimmed = line.trim();
+  const lower = trimmed.toLowerCase();
+  
+  // Empty lines
+  if (!trimmed) return 'blank';
+  
+  // Copyright and legal information
+  if (lower.includes('copyright') || lower.includes('©') || lower.includes('(c)') || 
+      lower.includes('isbn') || lower.includes('publisher') || lower.includes('published by') ||
+      lower.includes('all rights reserved') || lower.match(/^\d{4}\s+by/)) {
+    return 'copyright';
+  }
+  
+  // Title page elements
+  if ((trimmed.length < 100 && trimmed.length > 5) && 
+      (/^[A-Z][A-Z\s:]+$/.test(trimmed) || // ALL CAPS titles
+       (trimmed.split(' ').length <= 8 && /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')))) {
+    // Check if it's likely a title vs header
+    if (lower.includes('chapter') || lower.includes('lesson') || lower.includes('part')) {
+      return 'chapter_header';
+    }
+    return 'title_page';
+  }
+  
+  // Table of Contents
+  if (lower.includes('table of contents') || lower === 'contents' || 
+      lower.includes('index') && trimmed.length < 20) {
+    return 'toc_header';
+  }
+  
+  // TOC entries (lines with page numbers at the end)
+  if (trimmed.match(/.*\.\.*\s*\d+\s*$/) || // "Chapter 1....... 5"
+      trimmed.match(/.*\s+\d+\s*$/) && trimmed.includes('.')) { // "Chapter 1    5"
+    return 'toc_entry';
+  }
+  
+  // Chapter and section headers
+  if (trimmed.match(/^(Chapter|Lesson|Unit|Section|Part)\s+(\d+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)[\s:.-]*/i)) {
+    return 'chapter_header';
+  }
+  
+  // Questions (various patterns)
+  if (trimmed.match(/^\d+\.\s*.{10,}\?/) || // "1. What is...?"
+      trimmed.match(/^Q\d+[\.:]\s*./) || // "Q1: ..." or "Q1. ..."
+      trimmed.match(/^\d+\)\s*.{10,}\?/) || // "1) What is...?"
+      lower.match(/^(what|how|why|when|where|which|who)\b.*\?/) || // Question words
+      lower.includes('true or false') || lower.includes('multiple choice') ||
+      trimmed.match(/^[A-D]\)\s+/)) { // Multiple choice options
+    return 'question';
+  }
+  
+  // Exercises and activities
+  if (lower.includes('exercise') || lower.includes('activity') || 
+      lower.includes('practice') || lower.includes('try this') ||
+      lower.includes('complete the')) {
+    return 'exercise';
+  }
+  
+  // Instructions and steps
+  if (trimmed.match(/^(Step\s+\d+|First|Second|Third|Next|Finally|Then)[\s:.-]/i) ||
+      lower.includes('follow these') || lower.includes('instructions') ||
+      trimmed.match(/^\d+\.\s+(Do|Try|Complete|Follow|Find|List)/i)) {
+    return 'instruction';
+  }
+  
+  // Lists
+  if (trimmed.match(/^[-•*]\s+/) || // Bulleted lists
+      trimmed.match(/^[a-z]\)\s+/) || // a) b) c) lists
+      trimmed.match(/^[ivx]+\.\s+/i)) { // Roman numeral lists
+    return 'list_item';
+  }
+  
+  // Quotes and dialogue
+  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith('"') || trimmed.endsWith('"')) ||
+      trimmed.includes('" said') || trimmed.includes('" asked') ||
+      trimmed.includes('said "') || trimmed.includes('asked "')) {
+    return 'quote';
+  }
+  
+  // Special sections
+  if (lower.includes('dedication') || 
+      (lower.includes('to my') || lower.includes('for my')) && trimmed.length < 100) {
+    return 'dedication';
+  }
+  if (lower.includes('acknowledgment') || lower.includes('thanks to') || 
+      lower.includes('grateful to') || lower.includes('special thanks')) {
+    return 'acknowledgments';
+  }
+  if (lower.includes('preface') || lower.includes('foreword') || 
+      lower.includes('introduction') && trimmed.length < 50) {
+    return 'preface';
+  }
+  if (lower.includes('appendix') || lower.includes('references') || 
+      lower.includes('bibliography') || lower.includes('glossary')) {
+    return 'appendix';
+  }
+  
+  // Page numbers and metadata
+  if (trimmed.match(/^\d+$/) || // Just a number
+      trimmed.match(/^page\s+\d+/i) ||
+      trimmed.match(/^\d+\s*[-–—]\s*\d+$/) || // Page ranges
+      (trimmed.length < 10 && trimmed.match(/^\d/))) {
+    return 'metadata';
+  }
+  
+  // Answers
+  if (lower.includes('answer:') || lower.includes('solution:') || 
+      lower.includes('answers:') || trimmed.match(/^Answer\s+\d+/i)) {
+    return 'answer';
+  }
+  
+  // Subheaders (short lines that look like headers)
+  if (trimmed.length < 80 && trimmed.length > 10 && 
+      /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.') && 
+      !trimmed.endsWith('?') && !trimmed.endsWith('!') &&
+      trimmed.split(' ').length <= 8) {
+    return 'subheader';
+  }
+  
+  // Regular paragraphs (default)
+  if (trimmed.length > 20 && 
+      (trimmed.includes('.') || trimmed.includes(',') || trimmed.includes(';'))) {
+    return 'paragraph';
+  }
+  
+  // Short text (might be headers or metadata)
+  if (trimmed.length <= 20) {
+    return 'metadata';
+  }
+  
+  // Default to paragraph
+  return 'paragraph';
+}
+
 // Enhanced fallback structure detection with better chapter naming
 async function detectBookStructureFallback(text) {
   const lines = text.split('\n').filter(line => line.trim() !== '');
