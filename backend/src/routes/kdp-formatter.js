@@ -103,7 +103,7 @@ function cleanRawText(text) {
     .trim();
 }
 
-// AI-powered structure detection with enhanced intelligence
+// AI-powered structure detection with comprehensive book understanding
 async function detectBookStructureWithAI(text) {
   if (!openai) {
     console.log('OpenAI not available, using fallback structure detection');
@@ -111,247 +111,341 @@ async function detectBookStructureWithAI(text) {
   }
 
   try {
-    console.log(`Starting enhanced AI analysis for ${text.length} characters`);
+    console.log(`Starting comprehensive book analysis for ${text.length} characters`);
     
-    // Enhanced metadata extraction from first few pages
-    const metadataSection = text.substring(0, 5000); // Analyze first 5000 chars for metadata
-    const metadataPrompt = `You are a professional book analyst. Carefully analyze this book opening to extract all metadata information.
+    // PHASE 1: Comprehensive Book Understanding
+    const bookUnderstandingPrompt = `You are a professional book analyst and editor. Your job is to completely understand this book before formatting it.
 
-BOOK OPENING TEXT:
-${metadataSection}
+COMPLETE BOOK CONTENT:
+${text}
 
-INSTRUCTIONS:
-1. Look for the book title (usually on title page, may be in all caps, larger text, or centered)
-2. Find the author name (often appears as "by [Author Name]" or "Author: [Name]")
-3. Look for subtitle (often appears below main title, may be in smaller text)
-4. Check for publication info, dedication, copyright, etc.
-5. Be very careful to distinguish between title and author
-6. If you see "Chapter 1" or similar, that's NOT the title
+COMPREHENSIVE ANALYSIS INSTRUCTIONS:
+1. READ THE ENTIRE BOOK CAREFULLY
+2. Understand what TYPE of book this is
+3. Identify ALL structural elements present
+4. Understand the book's purpose and audience
+5. Note any special formatting requirements
+
+Analyze and categorize this book completely:
+
+BOOK TYPE IDENTIFICATION:
+- Is this a novel, textbook, workbook, manual, poetry, children's book, academic text, etc.?
+- What is the primary purpose? (entertainment, education, reference, practice, etc.)
+
+STRUCTURAL ELEMENTS ANALYSIS:
+- Title page elements (title, subtitle, author, publisher, etc.)
+- Table of Contents (if present)
+- Foreword, Preface, Introduction
+- Main content organization (chapters, units, sections, lessons, stories, etc.)
+- Special elements (questions, quizzes, exercises, diagrams, tables, etc.)
+- Appendices, glossary, index, bibliography
+- Any unique formatting patterns
+
+CONTENT CHARACTERISTICS:
+- Writing style and tone
+- Target audience level
+- Complexity of content
+- Interactive elements present
+- Visual elements mentioned
+- Educational components
 
 Return this EXACT JSON structure:
 {
-  "title": "Exact book title as it appears",
-  "author": "Author's full name",
-  "subtitle": "Subtitle if present, otherwise empty string",
-  "publisher": "Publisher if mentioned",
-  "year": "Publication year if mentioned",
-  "dedication": "Dedication text if present",
-  "hasTableOfContents": true/false,
-  "estimatedChapters": "rough estimate based on content structure"
+  "bookUnderstanding": {
+    "bookType": "specific type (novel, textbook, workbook, manual, etc.)",
+    "primaryPurpose": "main purpose of this book",
+    "targetAudience": "who this book is for",
+    "contentStyle": "writing style and approach",
+    "complexity": "content complexity level",
+    "interactiveElements": ["list of interactive elements found"],
+    "specialFeatures": ["unique aspects of this book"]
+  },
+  "structuralAnalysis": {
+    "hasTableOfContents": true/false,
+    "mainOrganization": "how content is organized (chapters, lessons, units, etc.)",
+    "totalSections": "number of main sections",
+    "specialSections": ["list of special sections like appendix, glossary, etc."],
+    "questionSections": ["locations of questions/quizzes/exercises"],
+    "visualElements": ["tables, diagrams, charts mentioned"],
+    "formatRequirements": ["special formatting needs identified"]
+  },
+  "extractedMetadata": {
+    "title": "exact book title",
+    "subtitle": "subtitle if present",
+    "author": "author name",
+    "publisher": "publisher if mentioned",
+    "year": "publication year if mentioned",
+    "isbn": "ISBN if present",
+    "dedication": "dedication text if present",
+    "copyright": "copyright info if present"
+  }
 }`;
 
-    const metadataResponse = await openai.chat.completions.create({
+    console.log('Phase 1: Analyzing book comprehensively...');
+    const understandingResponse = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { 
           role: "system", 
-          content: "You are an expert at extracting book metadata. Always return valid JSON. Pay close attention to distinguish between title, author, and chapter headings."
+          content: "You are an expert book analyst. Read and understand the COMPLETE book before analyzing. Return valid JSON only."
         },
-        { role: "user", content: metadataPrompt }
+        { role: "user", content: bookUnderstandingPrompt }
       ],
       temperature: 0,
-      max_tokens: 500
+      max_tokens: 2000
     });
 
-    let bookMetadata = {};
+    let bookUnderstanding = {};
     try {
-      const metadataText = metadataResponse.choices[0].message.content.trim();
-      const cleanedMetadata = metadataText.replace(/```json\n?|```\n?/g, '').trim();
-      bookMetadata = JSON.parse(cleanedMetadata);
-      console.log('Extracted metadata:', bookMetadata);
+      const understandingText = understandingResponse.choices[0].message.content.trim();
+      const cleanedUnderstanding = understandingText.replace(/```json\n?|```\n?/g, '').trim();
+      bookUnderstanding = JSON.parse(cleanedUnderstanding);
+      console.log('Book understanding complete:', bookUnderstanding.bookUnderstanding?.bookType);
     } catch (e) {
-      console.log('Failed to parse metadata:', e.message);
-      bookMetadata = { 
-        title: "Untitled Book", 
-        author: "Unknown Author", 
-        subtitle: "", 
-        estimatedChapters: "unknown" 
+      console.log('Failed to parse book understanding:', e.message);
+      bookUnderstanding = {
+        bookUnderstanding: { bookType: "Unknown", primaryPurpose: "Unknown" },
+        structuralAnalysis: { mainOrganization: "chapters", totalSections: "unknown" },
+        extractedMetadata: { title: "Untitled Book", author: "Unknown Author" }
       };
     }
 
-    // Enhanced chapter detection - analyze entire book structure first
-    const structureAnalysisPrompt = `You are a professional book editor. Analyze this complete book text to identify ALL chapters and major sections.
+    // PHASE 2: Detailed Content Extraction Based on Understanding
+    const contentExtractionPrompt = `Based on your understanding, this is a ${bookUnderstanding.bookUnderstanding?.bookType} with ${bookUnderstanding.structuralAnalysis?.mainOrganization} organization.
 
-COMPLETE BOOK TEXT:
+COMPLETE BOOK CONTENT:
 ${text}
 
-INSTRUCTIONS:
-1. Find ALL chapter breaks in the entire text
-2. Look for patterns like:
-   - "Chapter 1", "Chapter One", "Chapter I"
-   - "Part 1", "Section 1"
-   - Numbered sections (1., 2., 3.)
-   - Clear section breaks with titles
-   - Story titles (for collections)
-3. Each chapter should have substantial content (at least 200 words)
-4. Preserve the exact chapter titles as they appear
-5. Include the full content of each chapter
-6. Don't miss any chapters - scan the entire text carefully
+DETAILED EXTRACTION INSTRUCTIONS:
+Now extract ALL content sections based on what you understand about this book:
+
+1. Find ALL main sections (${bookUnderstanding.structuralAnalysis?.mainOrganization})
+2. Extract ANY questions, quizzes, or exercises found
+3. Identify special formatting sections
+4. Preserve exact titles and content as written
+5. Note any tables, lists, or special formatting needed
+6. Include ALL content - don't skip anything
+
+SPECIFIC EXTRACTION RULES:
+- For textbooks: Find chapters, lessons, exercises, review questions
+- For workbooks: Find activities, worksheets, answer keys
+- For novels: Find chapters, parts, sections
+- For manuals: Find procedures, steps, troubleshooting sections
+- For academic texts: Find chapters, case studies, references
+- For children's books: Find stories, activities, illustrations mentioned
 
 Return this EXACT JSON structure:
 {
-  "totalChapters": "number of chapters found",
-  "chapters": [
+  "contentSections": [
     {
-      "number": 1,
-      "title": "Exact chapter title as it appears",
-      "content": "Complete chapter content including all paragraphs",
-      "wordCount": "approximate word count",
-      "startsAt": "first few words of the chapter for identification"
+      "sectionNumber": 1,
+      "sectionType": "chapter/lesson/unit/story/activity/etc",
+      "title": "exact title as it appears",
+      "content": "complete content including all text, questions, exercises",
+      "specialElements": ["questions", "tables", "exercises", "etc"],
+      "formattingNotes": "any special formatting requirements",
+      "wordCount": "approximate word count"
     }
-  ]
+  ],
+  "specialSections": [
+    {
+      "type": "table_of_contents/glossary/appendix/answer_key/etc",
+      "title": "section title",
+      "content": "complete content",
+      "location": "beginning/middle/end"
+    }
+  ],
+  "formatRequirements": {
+    "needsQuestionFormatting": true/false,
+    "needsTableFormatting": true/false,
+    "needsExerciseSpacing": true/false,
+    "needsAnswerKeySection": true/false,
+    "specialLayoutNeeds": ["list any special layout requirements"]
+  }
 }`;
 
-    console.log('Analyzing complete book structure...');
-    const structureResponse = await openai.chat.completions.create({
+    console.log('Phase 2: Extracting all content sections...');
+    const extractionResponse = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
         { 
           role: "system", 
-          content: "You are an expert book editor who never misses chapters. Analyze the COMPLETE text to find ALL chapters. Return valid JSON only."
+          content: `You are extracting content from a ${bookUnderstanding.bookUnderstanding?.bookType}. Extract ALL sections and preserve ALL content including questions, exercises, and special elements. Return valid JSON only.`
         },
-        { role: "user", content: structureAnalysisPrompt }
+        { role: "user", content: contentExtractionPrompt }
       ],
       temperature: 0,
-      max_tokens: 8000 // Increased for larger responses
+      max_tokens: 8000
     });
 
-    let allChapters = [];
+    let contentAnalysis = {};
     try {
-      const structureText = structureResponse.choices[0].message.content.trim();
-      const cleanedStructure = structureText.replace(/```json\n?|```\n?/g, '').trim();
-      const structureResult = JSON.parse(cleanedStructure);
+      const extractionText = extractionResponse.choices[0].message.content.trim();
+      const cleanedExtraction = extractionText.replace(/```json\n?|```\n?/g, '').trim();
+      contentAnalysis = JSON.parse(cleanedExtraction);
+      console.log(`Content extraction complete: Found ${contentAnalysis.contentSections?.length || 0} sections`);
+    } catch (e) {
+      console.error('Failed to parse content extraction:', e.message);
       
-      console.log(`AI found ${structureResult.totalChapters} chapters`);
-      
-      // Convert to our format
-      allChapters = structureResult.chapters.map((chapter, index) => ({
-        id: `chapter-${index + 1}`,
-        title: chapter.title || `Chapter ${index + 1}`,
-        content: chapter.content.trim(),
-        level: 1,
-        wordCount: chapter.wordCount,
-        startsAt: chapter.startsAt
-      }));
-      
-    } catch (error) {
-      console.error('Failed to parse structure analysis:', error.message);
-      
-      // Fallback: Split into chunks and analyze each
-      console.log('Using chunk-based analysis as fallback...');
-      allChapters = await analyzeInChunks(text, bookMetadata);
+      // Fallback to chunk analysis
+      console.log('Using fallback chunk analysis...');
+      return await analyzeInChunks(text, bookUnderstanding.extractedMetadata || {});
     }
 
-    // Validate and clean chapters
-    const validChapters = allChapters.filter(chapter => 
-      chapter.content && 
-      chapter.content.trim().length > 100 && // At least 100 characters
-      chapter.title && 
-      chapter.title.trim().length > 0
-    );
+    // PHASE 3: Convert to our format with proper understanding
+    const allSections = [];
+    
+    // Add main content sections
+    if (contentAnalysis.contentSections) {
+      contentAnalysis.contentSections.forEach((section, index) => {
+        allSections.push({
+          id: `section-${index + 1}`,
+          title: section.title || `${section.sectionType} ${index + 1}`,
+          content: section.content,
+          level: 1,
+          type: section.sectionType || 'chapter',
+          specialElements: section.specialElements || [],
+          formattingNotes: section.formattingNotes || '',
+          wordCount: section.wordCount
+        });
+      });
+    }
 
-    console.log(`Enhanced AI analysis complete: ${validChapters.length} valid chapters found`);
+    // Add special sections
+    if (contentAnalysis.specialSections) {
+      contentAnalysis.specialSections.forEach((section, index) => {
+        allSections.push({
+          id: `special-${index + 1}`,
+          title: section.title,
+          content: section.content,
+          level: 1,
+          type: section.type,
+          location: section.location
+        });
+      });
+    }
+
+    console.log(`Comprehensive analysis complete: ${allSections.length} total sections found`);
     
     return {
-      title: bookMetadata.title || 'Untitled Book',
-      chapters: validChapters.length > 0 ? validChapters : [{
-        id: 'chapter-1',
-        title: 'Complete Content',
-        content: text,
-        level: 1
-      }],
+      title: bookUnderstanding.extractedMetadata?.title || 'Untitled Book',
+      chapters: allSections,
       metadata: {
-        author: bookMetadata.author || '',
-        subtitle: bookMetadata.subtitle || '',
-        publisher: bookMetadata.publisher || '',
-        year: bookMetadata.year || '',
-        dedication: bookMetadata.dedication || '',
-        hasTableOfContents: bookMetadata.hasTableOfContents || false,
-        totalChapters: validChapters.length,
-        estimatedTotal: bookMetadata.estimatedChapters
-      }
+        ...bookUnderstanding.extractedMetadata,
+        bookType: bookUnderstanding.bookUnderstanding?.bookType,
+        primaryPurpose: bookUnderstanding.bookUnderstanding?.primaryPurpose,
+        targetAudience: bookUnderstanding.bookUnderstanding?.targetAudience,
+        interactiveElements: bookUnderstanding.bookUnderstanding?.interactiveElements,
+        specialFeatures: bookUnderstanding.bookUnderstanding?.specialFeatures,
+        totalSections: allSections.length,
+        formatRequirements: contentAnalysis.formatRequirements
+      },
+      bookAnalysis: bookUnderstanding.bookUnderstanding,
+      structuralAnalysis: bookUnderstanding.structuralAnalysis,
+      formatRequirements: contentAnalysis.formatRequirements
     };
     
   } catch (error) {
-    console.error('Enhanced AI analysis failed:', error.message);
+    console.error('Comprehensive AI analysis failed:', error.message);
     console.log('Using fallback detection');
     return detectBookStructureFallback(text);
   }
 }
 
-// Fallback chunk analysis for very large books
-async function analyzeInChunks(text, bookMetadata) {
-  const maxChunkSize = 15000;
+// Fallback analysis for large texts
+async function analyzeInChunks(text, basicMetadata = {}) {
+  console.log('Performing chunk-based analysis...');
+  
+  const chunkSize = 8000; // Characters per chunk
   const chunks = [];
   
-  for (let i = 0; i < text.length; i += maxChunkSize) {
-    chunks.push(text.substring(i, i + maxChunkSize));
+  // Split text into manageable chunks
+  for (let i = 0; i < text.length; i += chunkSize) {
+    chunks.push(text.substring(i, i + chunkSize));
   }
   
-  console.log(`Analyzing ${chunks.length} chunks for chapter detection`);
+  console.log(`Analyzing ${chunks.length} chunks...`);
   
-  const allChapters = [];
-  let chapterCounter = 1;
+  // Analyze first few chunks for structure
+  const analysisChunks = chunks.slice(0, 3); // First 3 chunks
+  const allSections = [];
   
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
+  for (let i = 0; i < analysisChunks.length; i++) {
+    const chunk = analysisChunks[i];
     
-    const chunkPrompt = `Find all chapters in this text section. Look carefully for chapter markers.
+    try {
+      if (openai) {
+        const chunkPrompt = `Analyze this section of text and extract any structural elements:
 
-TEXT SECTION ${i + 1}/${chunks.length}:
+TEXT SECTION:
 ${chunk}
 
-RULES:
-1. Find ALL chapter breaks in this section
-2. Look for "Chapter X", numbered sections, story titles
-3. Include complete content for each chapter
-4. Don't split chapters - if a chapter continues beyond this section, note it
+Find any:
+- Chapter titles or section headings
+- Questions or exercises
+- Special formatting requirements
+- Content breaks
 
-Return JSON:
+Return JSON with sections found:
 {
-  "chapters": [
+  "sections": [
     {
-      "title": "Exact chapter title",
-      "content": "Complete content in this section",
-      "continues": true/false,
-      "startsAt": "first few words"
+      "title": "section title",
+      "content": "section content",
+      "type": "chapter/question/exercise/etc"
     }
   ]
 }`;
 
-    try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: "Find all chapters in this text section. Return valid JSON only." },
-          { role: "user", content: chunkPrompt }
-        ],
-        temperature: 0,
-        max_tokens: 4000
-      });
+        const response = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: "Extract structural elements from text. Return valid JSON only." },
+            { role: "user", content: chunkPrompt }
+          ],
+          temperature: 0,
+          max_tokens: 1000
+        });
 
-      const responseText = response.choices[0].message.content.trim();
-      const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '').trim();
-      const result = JSON.parse(cleanedResponse);
-      
-      for (const chapter of result.chapters || []) {
-        if (chapter.content && chapter.content.trim().length > 100) {
-          allChapters.push({
-            id: `chapter-${chapterCounter++}`,
-            title: chapter.title || `Chapter ${chapterCounter - 1}`,
-            content: chapter.content.trim(),
-            level: 1,
-            startsAt: chapter.startsAt
+        const chunkResult = JSON.parse(response.choices[0].message.content.trim().replace(/```json\n?|```\n?/g, ''));
+        
+        if (chunkResult.sections) {
+          chunkResult.sections.forEach((section, idx) => {
+            allSections.push({
+              id: `chunk-${i}-section-${idx}`,
+              title: section.title || `Section ${allSections.length + 1}`,
+              content: section.content,
+              level: 1,
+              type: section.type || 'section'
+            });
           });
         }
       }
-      
-    } catch (error) {
-      console.error(`Error analyzing chunk ${i + 1}:`, error.message);
+    } catch (e) {
+      console.log(`Chunk ${i} analysis failed:`, e.message);
     }
   }
   
-  return allChapters;
+  // If no sections found, treat entire text as one section
+  if (allSections.length === 0) {
+    allSections.push({
+      id: 'full-content',
+      title: basicMetadata.title || 'Complete Content',
+      content: text,
+      level: 1,
+      type: 'chapter'
+    });
+  }
+  
+  return {
+    title: basicMetadata.title || 'Untitled Book',
+    chapters: allSections,
+    metadata: {
+      ...basicMetadata,
+      totalSections: allSections.length,
+      analysisMethod: 'chunk-based'
+    }
+  };
 }
 
 // Enhanced fallback structure detection with better chapter naming
