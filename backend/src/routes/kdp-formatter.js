@@ -471,100 +471,68 @@ async function performIntelligentTextAnalysis(completeText) {
   }
 
   try {
-    console.log('Sending complete text to AI for intelligent analysis...');
+    console.log('Performing comprehensive single-pass document analysis...');
     
-    // Prepare the complete text for AI analysis
-    const analysisPrompt = `You are a professional document analyst. I'm giving you the COMPLETE text content of a book. Your job is to extract the EXACT title, author, and structure from the text.
+    // Simplified but more effective single analysis
+    const analysisPrompt = `Analyze this complete document for professional book formatting. 
 
-COMPLETE DOCUMENT TEXT:
+DOCUMENT TEXT:
 """
 ${completeText}
 """
 
-ANALYZE THIS DOCUMENT AND EXTRACT:
+Extract and analyze:
 
-1. FIND THE EXACT TITLE:
-Look for the main book title anywhere in the document:
-- Title page (usually near the beginning)
-- Copyright page ("Copyright © YEAR by AUTHOR" - title is usually above this)
-- Headers or large text at the start
-- Before author name
-EXTRACT THE EXACT TITLE as it appears.
+1. METADATA:
+- Title: [exact title found]
+- Author: [exact author found]
+- Document type: [novel/textbook/manual/etc]
 
-2. FIND THE EXACT AUTHOR:
-Look for author name in:
-- Copyright notices ("Copyright © YEAR by [AUTHOR NAME]")
-- Title page ("by [AUTHOR NAME]")
-- Author bylines anywhere in document
-EXTRACT THE EXACT AUTHOR NAME as it appears.
+2. STRUCTURE:
+- Main sections/chapters found
+- Table of contents if present
+- Content organization
 
-3. IDENTIFY TABLE OF CONTENTS:
-Look for any section that lists chapters/sections/parts:
-- "CONTENTS", "TABLE OF CONTENTS", "INDEX" headers
-- Lines listing chapters with page numbers or dots
-- Any structured list of sections
-- Patterns like "Chapter 1...5", "Part A", "Section 1.1", etc.
+3. FORMATTING NEEDS:
+- Questions or exercises present?
+- Special elements (quotes, lists, etc)?
+- Professional formatting requirements
 
-4. EXTRACT ALL CHAPTER/SECTION STRUCTURE:
-From the table of contents OR from headers in the text, find:
-- Any chapter numbers/identifiers (Chapter 1, Part A, Section 1.1, etc.)
-- Any chapter titles
-- Any section breaks or divisions
+Respond in this format:
 
-5. DOCUMENT TYPE:
-Determine what type of document this is based on content.
+TITLE: [title or "Not found"]
+AUTHOR: [author or "Not found"]  
+TYPE: [document type]
+CHAPTERS: [list main sections found]
+STRUCTURE: [describe organization]
+ELEMENTS: [special content types found]
+RECOMMENDATIONS: [formatting guidance]
 
-RESPOND IN THIS EXACT FORMAT:
-
-TITLE: [Exact title from the document, or "Not found" if no clear title]
-AUTHOR: [Exact author name from the document, or "Not found" if no clear author]
-SUBTITLE: [Subtitle if present, or "None"]
-
-DOCUMENT_TYPE: [Type of document based on content]
-
-TABLE_OF_CONTENTS_FOUND: Yes/No
-TOC_ENTRIES:
-[List each entry exactly as it appears, one per line, numbered 1, 2, 3, etc.]
-
-CHAPTER_STRUCTURE:
-[Describe how chapters/sections are organized in this document]
-
-SPECIAL_ELEMENTS:
-- Questions: [count if any found]
-- Exercises: [count if any found]
-- Lists: [count if any found]
-- Quotes: [count if any found]
-
-FORMATTING_RECOMMENDATIONS:
-- Needs title page: Yes/No
-- Needs table of contents: Yes/No
-- Chapter formatting needed: Yes/No
-
-Extract EXACTLY what is in the document. Do not assume or invent anything.`;
+Be specific about what you actually see in the document.`;
 
     const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
-      model: "gpt-4", // Use GPT-4 for better analysis
+      model: "gpt-4",
       messages: [
         { 
           role: "system", 
-          content: "You are a document structure expert. Extract EXACT information from any type of document. Work with novels, textbooks, manuals, poetry books, reference books - anything. Only extract what is clearly present."
+          content: "You are a document analyst who extracts structure and content information for professional formatting. Be precise and only describe what you actually see."
         },
         { role: "user", content: analysisPrompt }
       ],
-      temperature: 0, // Zero temperature for precise extraction
-      max_tokens: 1500 // Enough for detailed analysis
+      temperature: 0,
+      max_tokens: 2000
     }));
 
     const analysis = response.choices[0].message.content;
-    console.log('AI Analysis completed successfully');
+    console.log('AI analysis completed successfully');
     
-    // Now do line-by-line semantic tagging based on the analysis
-    const semanticStructure = await performSemanticTagging(completeText, analysis);
+    // Create simple semantic structure based on analysis and heuristics
+    const semanticStructure = createSimpleSemanticStructure(completeText, analysis);
     
     return {
       aiAnalysis: analysis,
       semanticStructure: semanticStructure,
-      method: 'complete-text-ai-analysis'
+      method: 'simplified-ai-analysis'
     };
     
   } catch (error) {
@@ -574,231 +542,61 @@ Extract EXACTLY what is in the document. Do not assume or invent anything.`;
   }
 }
 
-// Enhanced line-by-line semantic tagging based on AI analysis
-async function performSemanticTagging(text, aiAnalysis) {
+// Create simple semantic structure without complex chunking
+function createSimpleSemanticStructure(text, aiAnalysis) {
+  console.log('Creating semantic structure from AI analysis...');
+  
   const lines = text.split('\n');
-  console.log(`Performing TRUE AI line-by-line semantic analysis on ${lines.length} lines`);
   
-  if (!openai) {
-    console.log('OpenAI not available, using heuristic line classification');
-    return lines.map((line, index) => ({
-      line_number: index + 1,
-      content: line,
-      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
-      confidence: 'medium'
-    }));
-  }
-
-  try {
-    const semanticLines = [];
-    const chunkSize = 20; // Process 20 lines at a time for AI analysis
-    
-    // Process lines in chunks
-    for (let i = 0; i < lines.length; i += chunkSize) {
-      const chunk = lines.slice(i, i + chunkSize);
-      const startLineNum = i + 1;
-      
-      console.log(`AI analyzing lines ${startLineNum} to ${startLineNum + chunk.length - 1}...`);
-      
-      try {
-        const chunkAnalysis = await analyzeChunkWithAI(chunk, startLineNum, aiAnalysis);
-        semanticLines.push(...chunkAnalysis);
-        
-        // Add delay to respect rate limits
-        if (i + chunkSize < lines.length) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-        
-      } catch (error) {
-        console.log(`AI analysis failed for chunk ${Math.floor(i/chunkSize) + 1}, using heuristic fallback:`, error.message);
-        
-        // Fallback to heuristic analysis for this chunk
-        const heuristicChunk = chunk.map((line, index) => ({
-          line_number: startLineNum + index,
-          content: line,
-          semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
-          confidence: 'medium',
-          analysis_method: 'heuristic_fallback'
-        }));
-        
-        semanticLines.push(...heuristicChunk);
-      }
-    }
-    
-    console.log(`Completed AI line-by-line analysis of ${semanticLines.length} lines`);
-    return semanticLines;
-    
-  } catch (error) {
-    console.error('Line-by-line AI analysis failed completely:', error.message);
-    
-    // Complete fallback to heuristic analysis
-    return lines.map((line, index) => ({
-      line_number: index + 1,
-      content: line,
-      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
-      confidence: 'medium',
-      analysis_method: 'heuristic_complete_fallback'
-    }));
-  }
-}
-
-// AI-powered analysis of a chunk of lines
-async function analyzeChunkWithAI(lines, startLineNum, documentContext) {
-  const numberedLines = lines.map((line, index) => 
-    `${startLineNum + index}: ${line}`
-  ).join('\n');
+  // Extract key info from AI analysis
+  const titleMatch = aiAnalysis.match(/TITLE:\s*(.+)/i);
+  const authorMatch = aiAnalysis.match(/AUTHOR:\s*(.+)/i);
+  const chaptersMatch = aiAnalysis.match(/CHAPTERS:\s*(.+)/i);
   
-  const prompt = `You are analyzing a document line by line. Here is the document context:
-
-DOCUMENT CONTEXT:
-${documentContext}
-
-LINES TO ANALYZE (with line numbers):
-${numberedLines}
-
-For EACH line, determine its semantic type. Read each line carefully and classify it based on its content and purpose in the document.
-
-SEMANTIC TYPES:
-- "title_page": Main title, subtitle, author name on title page
-- "copyright": Copyright notices, ISBN, publisher info, publication details
-- "dedication": Dedication text
-- "toc_header": "Table of Contents", "Contents", "Index" headers
-- "toc_entry": Table of contents entries (chapter listings with page numbers)
-- "chapter_header": Chapter titles, section headers, main divisions
-- "subheader": Subsection titles, smaller headings
-- "paragraph": Regular body text, narrative content
-- "quote": Quoted text, dialogue, citations
-- "question": Questions, numbered questions, Q&A
-- "exercise": Exercises, activities, practice problems
-- "instruction": Instructions, steps, how-to content
-- "list_item": Bulleted or numbered list items
-- "answer": Answers to questions, solutions
-- "preface": Preface, foreword, introduction sections
-- "acknowledgments": Acknowledgments, thanks
-- "appendix": Appendix content, references, bibliography
-- "metadata": Page numbers, headers, footers, publication info
-- "blank": Empty lines
-
-RESPOND WITH VALID JSON ONLY:
-[
-  {
-    "line_number": 1,
-    "content": "actual line content",
-    "semantic_type": "classification",
-    "confidence": "high/medium/low",
-    "reasoning": "brief explanation"
-  }
-]
-
-Analyze each line individually and return the JSON array.`;
-
-  const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      { 
-        role: "system", 
-        content: "You are a document semantic analyzer. Analyze each line carefully and return only valid JSON. Be precise in your classifications."
-      },
-      { role: "user", content: prompt }
-    ],
-    temperature: 0,
-    max_tokens: 2000
-  }));
-
-  let analysisResult;
-  try {
-    const responseText = response.choices[0].message.content.trim();
-    // Clean up the response to ensure valid JSON
-    const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '');
-    analysisResult = JSON.parse(cleanedResponse);
-  } catch (parseError) {
-    console.error('Failed to parse AI response:', parseError.message);
-    throw new Error('Invalid JSON response from AI');
-  }
-
-  // Validate and ensure we have results for all lines
-  if (!Array.isArray(analysisResult) || analysisResult.length !== lines.length) {
-    throw new Error(`AI returned ${analysisResult?.length || 0} results for ${lines.length} lines`);
-  }
-
-  return analysisResult.map((result, index) => ({
-    line_number: startLineNum + index,
-    content: lines[index],
-    semantic_type: result.semantic_type || 'paragraph',
-    confidence: result.confidence || 'medium',
-    reasoning: result.reasoning || '',
-    analysis_method: 'ai_powered'
-  }));
-}
-
-// Enhanced heuristic analysis for when AI is not available
-function performEnhancedHeuristicAnalysis(text) {
-  console.log('Performing enhanced heuristic analysis of complete text');
+  const detectedTitle = titleMatch && !titleMatch[1].includes('Not found') ? titleMatch[1].trim() : null;
+  const detectedAuthor = authorMatch && !authorMatch[1].includes('Not found') ? authorMatch[1].trim() : null;
+  const hasChapters = chaptersMatch && !chaptersMatch[1].toLowerCase().includes('none');
   
-  // First preprocess the text to remove headers/footers
-  const cleanedText = preprocessDocumentText(text);
-  console.log(`Heuristic analysis: preprocessed ${text.length} → ${cleanedText.length} characters`);
+  console.log('AI detected:', { title: detectedTitle, author: detectedAuthor, hasChapters });
   
-  const lines = cleanedText.split('\n');
+  // Classify lines with AI insights
   const semanticLines = lines.map((line, index) => {
     const trimmed = line.trim();
+    
+    if (!trimmed) {
+      return {
+        line_number: index + 1,
+        content: line,
+        semantic_type: 'blank',
+        confidence: 'high',
+        analysis_method: 'simple_ai_guided'
+      };
+    }
+    
+    // Enhanced classification using AI insights
+    let semanticType = classifyLineHeuristically(line);
+    let confidence = 'medium';
+    
+    // Use AI insights to improve classification
+    if (detectedTitle && trimmed.toLowerCase().includes(detectedTitle.toLowerCase()) && index < 50) {
+      semanticType = 'title_page';
+      confidence = 'high';
+    } else if (detectedAuthor && trimmed.toLowerCase().includes(detectedAuthor.toLowerCase()) && index < 50) {
+      semanticType = 'title_page';
+      confidence = 'high';
+    }
     
     return {
       line_number: index + 1,
       content: line,
-      semantic_type: trimmed ? classifyLineHeuristically(line) : 'blank',
-      confidence: 'medium'
+      semantic_type: semanticType,
+      confidence: confidence,
+      analysis_method: 'simple_ai_guided'
     };
   });
   
-  // Analyze the overall structure
-  const analysis = `HEURISTIC ANALYSIS:
-Document type: ${determineDocumentType(semanticLines)}
-Total lines: ${lines.length}
-Estimated structure: ${estimateStructure(semanticLines)}
-Special elements detected: ${detectSpecialElements(semanticLines)}
-Formatting recommendations: Standard book formatting with detected elements`;
-  
-  return {
-    aiAnalysis: analysis,
-    semanticStructure: semanticLines,
-    method: 'enhanced-heuristic-analysis'
-  };
-}
-
-// Helper functions for heuristic analysis
-function determineDocumentType(semanticLines) {
-  const questionCount = semanticLines.filter(l => l.semantic_type === 'question').length;
-  const exerciseCount = semanticLines.filter(l => l.semantic_type === 'exercise').length;
-  const quoteCount = semanticLines.filter(l => l.semantic_type === 'quote').length;
-  const paragraphCount = semanticLines.filter(l => l.semantic_type === 'paragraph').length;
-  
-  if (questionCount > 20 || exerciseCount > 10) return 'workbook';
-  if (questionCount > 5 || exerciseCount > 5) return 'textbook';
-  if (quoteCount > paragraphCount * 0.1) return 'novel';
-  return 'general book';
-}
-
-function estimateStructure(semanticLines) {
-  const chapterCount = semanticLines.filter(l => l.semantic_type === 'chapter_header').length;
-  const tocCount = semanticLines.filter(l => l.semantic_type === 'toc_entry').length;
-  
-  if (chapterCount > 3) return `${chapterCount} chapters detected`;
-  if (tocCount > 3) return `Table of contents with ${tocCount} entries`;
-  return 'Unstructured or single-section document';
-}
-
-function detectSpecialElements(semanticLines) {
-  const elements = [];
-  const questionCount = semanticLines.filter(l => l.semantic_type === 'question').length;
-  const exerciseCount = semanticLines.filter(l => l.semantic_type === 'exercise').length;
-  const quoteCount = semanticLines.filter(l => l.semantic_type === 'quote').length;
-  
-  if (questionCount > 0) elements.push(`${questionCount} questions`);
-  if (exerciseCount > 0) elements.push(`${exerciseCount} exercises`);
-  if (quoteCount > 0) elements.push(`${quoteCount} quotes`);
-  
-  return elements.length > 0 ? elements.join(', ') : 'Standard text content';
+  console.log(`Created semantic structure with ${semanticLines.length} lines`);
+  return semanticLines;
 }
 
 // PHASE 3: Organize content for KDP formatting
@@ -889,7 +687,7 @@ function extractMetadataFromAnalysis(aiAnalysis) {
   }
   
   // Extract document type
-  const docTypeMatch = aiAnalysis.match(/DOCUMENT_TYPE:\s*(.+)/i);
+  const docTypeMatch = aiAnalysis.match(/TYPE:\s*(.+)/i);
   if (docTypeMatch) {
     metadata.documentType = docTypeMatch[1].trim().toLowerCase();
   }
@@ -1126,141 +924,74 @@ function analyzeChapterSemantics(chapterLines) {
   };
 }
 
-// Enhanced heuristic line classification when AI is not available
-function classifyLineHeuristically(line) {
-  const trimmed = line.trim();
-  const lower = trimmed.toLowerCase();
+// Enhanced heuristic analysis for when AI is not available
+function performEnhancedHeuristicAnalysis(text) {
+  console.log('Performing enhanced heuristic analysis of complete text');
   
-  // Empty lines
-  if (!trimmed) return 'blank';
+  // First preprocess the text to remove headers/footers
+  const cleanedText = preprocessDocumentText(text);
+  console.log(`Heuristic analysis: preprocessed ${text.length} → ${cleanedText.length} characters`);
   
-  // Copyright and legal information
-  if (lower.includes('copyright') || lower.includes('©') || lower.includes('(c)') || 
-      lower.includes('isbn') || lower.includes('publisher') || lower.includes('published by') ||
-      lower.includes('all rights reserved') || lower.match(/^\d{4}\s+by/)) {
-    return 'copyright';
-  }
+  const lines = cleanedText.split('\n');
+  const semanticLines = lines.map((line, index) => {
+    const trimmed = line.trim();
+    
+    return {
+      line_number: index + 1,
+      content: line,
+      semantic_type: trimmed ? classifyLineHeuristically(line) : 'blank',
+      confidence: 'medium'
+    };
+  });
   
-  // Title page elements
-  if ((trimmed.length < 100 && trimmed.length > 5) && 
-      (/^[A-Z][A-Z\s:]+$/.test(trimmed) || // ALL CAPS titles
-       (trimmed.split(' ').length <= 8 && /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')))) {
-    // Check if it's likely a title vs header
-    if (lower.includes('chapter') || lower.includes('lesson') || lower.includes('part')) {
-      return 'chapter_header';
-    }
-    return 'title_page';
-  }
+  // Analyze the overall structure
+  const analysis = `HEURISTIC ANALYSIS:
+Document type: ${determineDocumentType(semanticLines)}
+Total lines: ${lines.length}
+Estimated structure: ${estimateStructure(semanticLines)}
+Special elements detected: ${detectSpecialElements(semanticLines)}
+Formatting recommendations: Standard book formatting with detected elements`;
   
-  // Table of Contents
-  if (lower.includes('table of contents') || lower === 'contents' || 
-      lower.includes('index') && trimmed.length < 20) {
-    return 'toc_header';
-  }
+  return {
+    aiAnalysis: analysis,
+    semanticStructure: semanticLines,
+    method: 'enhanced-heuristic-analysis'
+  };
+}
+
+// Helper functions for heuristic analysis
+function determineDocumentType(semanticLines) {
+  const questionCount = semanticLines.filter(l => l.semantic_type === 'question').length;
+  const exerciseCount = semanticLines.filter(l => l.semantic_type === 'exercise').length;
+  const quoteCount = semanticLines.filter(l => l.semantic_type === 'quote').length;
+  const paragraphCount = semanticLines.filter(l => l.semantic_type === 'paragraph').length;
   
-  // TOC entries (lines with page numbers at the end)
-  if (trimmed.match(/.*\.\.*\s*\d+\s*$/) || // "Chapter 1....... 5"
-      trimmed.match(/.*\s+\d+\s*$/) && trimmed.includes('.')) { // "Chapter 1    5"
-    return 'toc_entry';
-  }
+  if (questionCount > 20 || exerciseCount > 10) return 'workbook';
+  if (questionCount > 5 || exerciseCount > 5) return 'textbook';
+  if (quoteCount > paragraphCount * 0.1) return 'novel';
+  return 'general book';
+}
+
+function estimateStructure(semanticLines) {
+  const chapterCount = semanticLines.filter(l => l.semantic_type === 'chapter_header').length;
+  const tocCount = semanticLines.filter(l => l.semantic_type === 'toc_entry').length;
   
-  // Chapter and section headers
-  if (trimmed.match(/^(Chapter|Lesson|Unit|Section|Part)\s+(\d+|[IVXLC]+|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten)[\s:.-]*/i)) {
-    return 'chapter_header';
-  }
+  if (chapterCount > 3) return `${chapterCount} chapters detected`;
+  if (tocCount > 3) return `Table of contents with ${tocCount} entries`;
+  return 'Unstructured or single-section document';
+}
+
+function detectSpecialElements(semanticLines) {
+  const elements = [];
+  const questionCount = semanticLines.filter(l => l.semantic_type === 'question').length;
+  const exerciseCount = semanticLines.filter(l => l.semantic_type === 'exercise').length;
+  const quoteCount = semanticLines.filter(l => l.semantic_type === 'quote').length;
   
-  // Questions (various patterns)
-  if (trimmed.match(/^\d+\.\s*.{10,}\?/) || // "1. What is...?"
-      trimmed.match(/^Q\d+[\.:]\s*./) || // "Q1: ..." or "Q1. ..."
-      trimmed.match(/^\d+\)\s*.{10,}\?/) || // "1) What is...?"
-      lower.match(/^(what|how|why|when|where|which|who)\b.*\?/) || // Question words
-      lower.includes('true or false') || lower.includes('multiple choice') ||
-      trimmed.match(/^[A-D]\)\s+/)) { // Multiple choice options
-    return 'question';
-  }
+  if (questionCount > 0) elements.push(`${questionCount} questions`);
+  if (exerciseCount > 0) elements.push(`${exerciseCount} exercises`);
+  if (quoteCount > 0) elements.push(`${quoteCount} quotes`);
   
-  // Exercises and activities
-  if (lower.includes('exercise') || lower.includes('activity') || 
-      lower.includes('practice') || lower.includes('try this') ||
-      lower.includes('complete the')) {
-    return 'exercise';
-  }
-  
-  // Instructions and steps
-  if (trimmed.match(/^(Step\s+\d+|First|Second|Third|Next|Finally|Then)[\s:.-]/i) ||
-      lower.includes('follow these') || lower.includes('instructions') ||
-      trimmed.match(/^\d+\.\s+(Do|Try|Complete|Follow|Find|List)/i)) {
-    return 'instruction';
-  }
-  
-  // Lists
-  if (trimmed.match(/^[-•*]\s+/) || // Bulleted lists
-      trimmed.match(/^[a-z]\)\s+/) || // a) b) c) lists
-      trimmed.match(/^[ivx]+\.\s+/i)) { // Roman numeral lists
-    return 'list_item';
-  }
-  
-  // Quotes and dialogue
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith('"') || trimmed.endsWith('"')) ||
-      trimmed.includes('" said') || trimmed.includes('" asked') ||
-      trimmed.includes('said "') || trimmed.includes('asked "')) {
-    return 'quote';
-  }
-  
-  // Special sections
-  if (lower.includes('dedication') || 
-      (lower.includes('to my') || lower.includes('for my')) && trimmed.length < 100) {
-    return 'dedication';
-  }
-  if (lower.includes('acknowledgment') || lower.includes('thanks to') || 
-      lower.includes('grateful to') || lower.includes('special thanks')) {
-    return 'acknowledgments';
-  }
-  if (lower.includes('preface') || lower.includes('foreword') || 
-      lower.includes('introduction') && trimmed.length < 50) {
-    return 'preface';
-  }
-  if (lower.includes('appendix') || lower.includes('references') || 
-      lower.includes('bibliography') || lower.includes('glossary')) {
-    return 'appendix';
-  }
-  
-  // Page numbers and metadata
-  if (trimmed.match(/^\d+$/) || // Just a number
-      trimmed.match(/^page\s+\d+/i) ||
-      trimmed.match(/^\d+\s*[-–—]\s*\d+$/) || // Page ranges
-      (trimmed.length < 10 && trimmed.match(/^\d/))) {
-    return 'metadata';
-  }
-  
-  // Answers
-  if (lower.includes('answer:') || lower.includes('solution:') || 
-      lower.includes('answers:') || trimmed.match(/^Answer\s+\d+/i)) {
-    return 'answer';
-  }
-  
-  // Subheaders (short lines that look like headers)
-  if (trimmed.length < 80 && trimmed.length > 10 && 
-      /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.') && 
-      !trimmed.endsWith('?') && !trimmed.endsWith('!') &&
-      trimmed.split(' ').length <= 8) {
-    return 'subheader';
-  }
-  
-  // Regular paragraphs (default)
-  if (trimmed.length > 20 && 
-      (trimmed.includes('.') || trimmed.includes(',') || trimmed.includes(';'))) {
-    return 'paragraph';
-  }
-  
-  // Short text (might be headers or metadata)
-  if (trimmed.length <= 20) {
-    return 'metadata';
-  }
-  
-  // Default to paragraph
-  return 'paragraph';
+  return elements.length > 0 ? elements.join(', ') : 'Standard text content';
 }
 
 // Enhanced fallback structure detection with better chapter naming
@@ -1622,6 +1353,163 @@ function createChaptersFromTOC(tocEntries, semanticStructure, originalText) {
   
   console.log(`Successfully created ${chapters.length} chapters from TOC`);
   return chapters;
+}
+
+// Enhanced line-by-line semantic tagging based on AI analysis
+async function performSemanticTagging(text, aiAnalysis) {
+  const lines = text.split('\n');
+  console.log(`Performing TRUE AI line-by-line semantic analysis on ${lines.length} lines`);
+  
+  if (!openai) {
+    console.log('OpenAI not available, using heuristic line classification');
+    return lines.map((line, index) => ({
+      line_number: index + 1,
+      content: line,
+      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+      confidence: 'medium'
+    }));
+  }
+
+  try {
+    const semanticLines = [];
+    const chunkSize = 20; // Process 20 lines at a time for AI analysis
+    
+    // Process lines in chunks
+    for (let i = 0; i < lines.length; i += chunkSize) {
+      const chunk = lines.slice(i, i + chunkSize);
+      const startLineNum = i + 1;
+      
+      console.log(`AI analyzing lines ${startLineNum} to ${startLineNum + chunk.length - 1}...`);
+      
+      try {
+        const chunkAnalysis = await analyzeChunkWithAI(chunk, startLineNum, aiAnalysis);
+        semanticLines.push(...chunkAnalysis);
+        
+        // Add delay to respect rate limits
+        if (i + chunkSize < lines.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (error) {
+        console.log(`AI analysis failed for chunk ${Math.floor(i/chunkSize) + 1}, using heuristic fallback:`, error.message);
+        
+        // Fallback to heuristic analysis for this chunk
+        const heuristicChunk = chunk.map((line, index) => ({
+          line_number: startLineNum + index,
+          content: line,
+          semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+          confidence: 'medium',
+          analysis_method: 'heuristic_fallback'
+        }));
+        
+        semanticLines.push(...heuristicChunk);
+      }
+    }
+    
+    console.log(`Completed AI line-by-line analysis of ${semanticLines.length} lines`);
+    return semanticLines;
+    
+  } catch (error) {
+    console.error('Line-by-line AI analysis failed completely:', error.message);
+    
+    // Complete fallback to heuristic analysis
+    return lines.map((line, index) => ({
+      line_number: index + 1,
+      content: line,
+      semantic_type: line.trim() ? classifyLineHeuristically(line) : 'blank',
+      confidence: 'medium',
+      analysis_method: 'heuristic_complete_fallback'
+    }));
+  }
+}
+
+// AI-powered analysis of a chunk of lines
+async function analyzeChunkWithAI(lines, startLineNum, documentContext) {
+  const numberedLines = lines.map((line, index) => 
+    `${startLineNum + index}: ${line}`
+  ).join('\n');
+  
+  const prompt = `You are analyzing a document line by line. Here is the document context:
+
+DOCUMENT CONTEXT:
+${documentContext}
+
+LINES TO ANALYZE (with line numbers):
+${numberedLines}
+
+For EACH line, determine its semantic type. Read each line carefully and classify it based on its content and purpose in the document.
+
+SEMANTIC TYPES:
+- "title_page": Main title, subtitle, author name on title page
+- "copyright": Copyright notices, ISBN, publisher info, publication details
+- "dedication": Dedication text
+- "toc_header": "Table of Contents", "Contents", "Index" headers
+- "toc_entry": Table of contents entries (chapter listings with page numbers)
+- "chapter_header": Chapter titles, section headers, main divisions
+- "subheader": Subsection titles, smaller headings
+- "paragraph": Regular body text, narrative content
+- "quote": Quoted text, dialogue, citations
+- "question": Questions, numbered questions, Q&A
+- "exercise": Exercises, activities, practice problems
+- "instruction": Instructions, steps, how-to content
+- "list_item": Bulleted or numbered list items
+- "answer": Answers to questions, solutions
+- "preface": Preface, foreword, introduction sections
+- "acknowledgments": Acknowledgments, thanks
+- "appendix": Appendix content, references, bibliography
+- "metadata": Page numbers, headers, footers, publication info
+- "blank": Empty lines
+
+RESPOND WITH VALID JSON ONLY:
+[
+  {
+    "line_number": 1,
+    "content": "actual line content",
+    "semantic_type": "classification",
+    "confidence": "high/medium/low",
+    "reasoning": "brief explanation"
+  }
+]
+
+Analyze each line individually and return the JSON array.`;
+
+  const response = await makeRateLimitedRequest(() => openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [
+      { 
+        role: "system", 
+        content: "You are a document semantic analyzer. Analyze each line carefully and return only valid JSON. Be precise in your classifications."
+      },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0,
+    max_tokens: 2000
+  }));
+
+  let analysisResult;
+  try {
+    const responseText = response.choices[0].message.content.trim();
+    // Clean up the response to ensure valid JSON
+    const cleanedResponse = responseText.replace(/```json\n?|```\n?/g, '');
+    analysisResult = JSON.parse(cleanedResponse);
+  } catch (parseError) {
+    console.error('Failed to parse AI response:', parseError.message);
+    throw new Error('Invalid JSON response from AI');
+  }
+
+  // Validate and ensure we have results for all lines
+  if (!Array.isArray(analysisResult) || analysisResult.length !== lines.length) {
+    throw new Error(`AI returned ${analysisResult?.length || 0} results for ${lines.length} lines`);
+  }
+
+  return analysisResult.map((result, index) => ({
+    line_number: startLineNum + index,
+    content: lines[index],
+    semantic_type: result.semantic_type || 'paragraph',
+    confidence: result.confidence || 'medium',
+    reasoning: result.reasoning || '',
+    analysis_method: 'ai_powered'
+  }));
 }
 
 // Enhanced content extraction endpoint
