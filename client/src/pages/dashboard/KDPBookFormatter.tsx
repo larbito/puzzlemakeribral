@@ -307,8 +307,39 @@ export const KDPBookFormatter = () => {
   // Load saved project on mount
   useEffect(() => {
     // Start fresh every time - no localStorage loading
+    // Also clear any remaining cache
+    clearAllCaches();
     console.log('KDP Formatter initialized - starting fresh');
   }, []);
+
+  // Clear all possible caches
+  const clearAllCaches = () => {
+    // Clear any potential localStorage keys
+    const keysToRemove = [
+      'kdpFormatterSettings',
+      'kdpFormatterContent', 
+      'kdpFormatterSaved',
+      'kdpFormatterPresets',
+      'kdp-formatter-analysis',
+      'kdp-formatter-book',
+      'kdp-formatter-templates'
+    ];
+    
+    keysToRemove.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+
+    // Clear session storage too
+    try {
+      sessionStorage.clear();
+    } catch (e) {
+      // Ignore errors
+    }
+  };
 
   // Handle setting changes with margin presets
   const handleSettingChange = (key: keyof KDPBookSettings, value: any) => {
@@ -354,6 +385,9 @@ export const KDPBookFormatter = () => {
 
   // Reset the project to defaults
   const handleResetProject = () => {
+    // Clear all caches first
+    clearAllCaches();
+    
     setSettings(defaultBookSettings);
     setBookContent(emptyBookContent);
     setUploadedFile(null);
@@ -379,9 +413,31 @@ export const KDPBookFormatter = () => {
     setRawText('');
     
     toast({
-      title: 'Project reset',
-      description: 'Ready for a new book upload.',
+      title: 'Complete Fresh Start',
+      description: 'All data cleared. Ready for a new book upload.',
     });
+  };
+
+  // Force complete refresh (clears everything and reloads page)
+  const handleForceRefresh = () => {
+    clearAllCaches();
+    
+    // Clear browser cache if possible
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+    
+    toast({
+      title: 'Force Refresh',
+      description: 'Clearing all caches and reloading...',
+    });
+    
+    // Force reload after a short delay
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
 
   // Save the current project (remove this functionality)
@@ -490,6 +546,12 @@ export const KDPBookFormatter = () => {
       const response = await fetch(getApiUrl('/api/kdp-formatter/extract'), {
         method: 'POST',
         body: formData,
+        headers: {
+          // Add cache-busting headers
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
 
       setAnalysisProgress(70);
@@ -1116,10 +1178,26 @@ export const KDPBookFormatter = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">AI-Powered KDP Book Formatter</h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            Upload your manuscript and let AI handle the complete formatting process
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">AI-Powered KDP Book Formatter</h1>
+              <p className="text-lg text-muted-foreground mt-2">
+                Upload your manuscript and let AI handle the complete formatting process
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button 
+                onClick={handleForceRefresh}
+                variant="outline"
+                size="sm"
+                className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Force Fresh Start
+              </Button>
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
 
         {/* Progress Steps */}
