@@ -7,6 +7,10 @@ const fs = require('fs');
 const mammoth = require('mammoth');
 const pdfParse = require('pdf-parse');
 
+// Add new dependencies for PDF generation
+const puppeteer = require('puppeteer');
+const handlebars = require('handlebars');
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -1528,7 +1532,7 @@ function createChaptersFromTOC(tocEntries, semanticStructure, originalText) {
     if (contentLower.includes('question') || contentLower.includes('?')) {
       specialElements.push('questions');
     }
-    if (contentLower.includes('exercise') || contentLower.includes('practice')) {
+    if (contentLower.includes('exercise') || contentLower.includes('activity')) {
       specialElements.push('exercises');
     }
     if (contentLower.includes('"') || contentLower.includes('said') || contentLower.includes('told')) {
@@ -1844,5 +1848,444 @@ router.post('/format-pdf', async (req, res) => {
     res.status(500).json({ error: 'Failed to format PDF' });
   }
 });
+
+// Generate KDP-ready PDF with user settings
+router.post('/generate-pdf', async (req, res) => {
+  try {
+    const { content, settings } = req.body;
+    
+    if (!content || !content.chapters) {
+      return res.status(400).json({
+        success: false,
+        error: 'No content provided for PDF generation'
+      });
+    }
+    
+    console.log('Generating KDP-ready PDF with settings:', settings);
+    
+    // Default KDP settings following the workflow specification
+    const pdfSettings = {
+      trimSize: settings.trimSize || '6x9',
+      font: settings.font || 'Garamond',
+      fontSize: settings.fontSize || '12pt',
+      lineSpacing: settings.lineSpacing || 1.5,
+      marginTop: settings.marginTop || '1in',
+      marginBottom: settings.marginBottom || '1in',
+      marginInside: settings.marginInside || '1in',
+      marginOutside: settings.marginOutside || '0.75in',
+      pageNumbering: settings.pageNumbering !== false,
+      justification: settings.justification || 'full',
+      ...settings
+    };
+    
+    // Generate HTML from content and settings
+    const htmlContent = await generateBookHTML(content, pdfSettings);
+    
+    // Convert HTML to PDF using Puppeteer
+    const pdfBuffer = await generatePDF(htmlContent, pdfSettings);
+    
+    // Generate unique filename
+    const filename = `${content.title.replace(/[^a-zA-Z0-9]/g, '_')}_formatted.pdf`;
+    const outputPath = path.join(__dirname, '../../public/books', filename);
+    
+    // Ensure directory exists
+    const outputDir = path.dirname(outputPath);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    // Save PDF file
+    fs.writeFileSync(outputPath, pdfBuffer);
+    
+    console.log(`Generated KDP PDF: ${filename}`);
+    
+    res.json({
+      success: true,
+      filename: filename,
+      downloadUrl: `/books/${filename}`,
+      message: 'KDP-ready PDF generated successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to generate PDF: ' + error.message
+    });
+  }
+});
+
+// Generate HTML template for book formatting
+async function generateBookHTML(content, settings) {
+  console.log('Generating HTML template for book formatting...');
+  
+  // KDP-compliant HTML template following the workflow specification
+  const template = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{title}}</title>
+    <style>
+        @page {
+            size: {{trimSize}};
+            margin: {{marginTop}} {{marginOutside}} {{marginBottom}} {{marginInside}};
+            {{#if pageNumbering}}
+            @bottom-center {
+                content: counter(page);
+                font-family: {{font}};
+                font-size: 10pt;
+            }
+            {{/if}}
+        }
+        
+        body {
+            font-family: {{font}}, serif;
+            font-size: {{fontSize}};
+            line-height: {{lineSpacing}};
+            text-align: {{justification}};
+            margin: 0;
+            padding: 0;
+            color: #000;
+            background: #fff;
+        }
+        
+        /* Title Page */
+        .title-page {
+            page-break-after: always;
+            text-align: center;
+            padding-top: 3in;
+        }
+        
+        .title-page h1 {
+            font-size: 24pt;
+            font-weight: bold;
+            margin-bottom: 1in;
+            line-height: 1.2;
+        }
+        
+        .title-page .author {
+            font-size: 16pt;
+            margin-top: 2in;
+        }
+        
+        /* Copyright Page */
+        .copyright-page {
+            page-break-after: always;
+            page-break-before: always;
+            padding-top: 1in;
+            font-size: 10pt;
+            line-height: 1.4;
+        }
+        
+        /* Table of Contents */
+        .toc {
+            page-break-before: always;
+            page-break-after: always;
+        }
+        
+        .toc h2 {
+            font-size: 18pt;
+            text-align: center;
+            margin-bottom: 1in;
+        }
+        
+        .toc-entry {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5em;
+            border-bottom: 1px dotted #ccc;
+        }
+        
+        /* Chapters */
+        .chapter {
+            page-break-before: always;
+        }
+        
+        .chapter-title {
+            font-size: 18pt;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1in;
+            margin-top: 0.5in;
+        }
+        
+        /* Paragraphs */
+        p {
+            margin-bottom: 1em;
+            text-indent: 1em;
+        }
+        
+        p.first-paragraph {
+            text-indent: 0;
+        }
+        
+        /* Questions and Exercises */
+        .question {
+            margin: 1em 0;
+            padding: 0.5em;
+            background: #f9f9f9;
+            border-left: 3px solid #333;
+        }
+        
+        .exercise {
+            margin: 1em 0;
+            padding: 0.5em;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+        }
+        
+        /* Lists */
+        ul, ol {
+            margin: 1em 0;
+            padding-left: 2em;
+        }
+        
+        li {
+            margin-bottom: 0.5em;
+        }
+        
+        /* Quotes */
+        .quote {
+            margin: 1em 2em;
+            font-style: italic;
+            padding: 0.5em;
+            border-left: 2px solid #666;
+        }
+        
+        /* Subheaders */
+        .subheader {
+            font-size: 14pt;
+            font-weight: bold;
+            margin: 1.5em 0 0.5em 0;
+            text-align: left;
+        }
+        
+        /* Page breaks for special content */
+        .page-break {
+            page-break-after: always;
+        }
+        
+        /* Prevent orphans and widows */
+        p, li {
+            orphans: 2;
+            widows: 2;
+        }
+        
+        h1, h2, h3, .chapter-title {
+            page-break-after: avoid;
+        }
+    </style>
+</head>
+<body>
+    <!-- Title Page -->
+    <div class="title-page">
+        <h1>{{title}}</h1>
+        {{#if subtitle}}
+        <div class="subtitle">{{subtitle}}</div>
+        {{/if}}
+        <div class="author">{{author}}</div>
+    </div>
+    
+    <!-- Copyright Page -->
+    <div class="copyright-page">
+        <p>Copyright © {{year}} by {{author}}</p>
+        <p>All rights reserved. No part of this publication may be reproduced, distributed, or transmitted in any form or by any means, including photocopying, recording, or other electronic or mechanical methods, without the prior written permission of the author.</p>
+        {{#if isbn}}
+        <p>ISBN: {{isbn}}</p>
+        {{/if}}
+        <p>First Edition</p>
+    </div>
+    
+    <!-- Table of Contents (if chapters exist) -->
+    {{#if hasChapters}}
+    <div class="toc">
+        <h2>Table of Contents</h2>
+        {{#each chapters}}
+        <div class="toc-entry">
+            <span>{{title}}</span>
+            <span>{{pageNumber}}</span>
+        </div>
+        {{/each}}
+    </div>
+    {{/if}}
+    
+    <!-- Chapters/Content -->
+    {{#each chapters}}
+    <div class="chapter">
+        <h2 class="chapter-title">{{title}}</h2>
+        {{{formatContent content}}}
+    </div>
+    {{/each}}
+</body>
+</html>`;
+
+  // Register Handlebars helper for content formatting
+  handlebars.registerHelper('formatContent', function(content) {
+    if (!content) return '';
+    
+    // Split content into lines and format based on semantic type
+    const lines = content.split('\n');
+    let formattedHTML = '';
+    let inParagraph = false;
+    let isFirstParagraph = true;
+    
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        if (inParagraph) {
+          formattedHTML += '</p>';
+          inParagraph = false;
+        }
+        continue;
+      }
+      
+      // Detect content types and apply appropriate formatting
+      if (trimmed.includes('?') && (trimmed.startsWith('Q') || /^\d+\./.test(trimmed))) {
+        // Question
+        if (inParagraph) {
+          formattedHTML += '</p>';
+          inParagraph = false;
+        }
+        formattedHTML += `<div class="question">${trimmed}</div>`;
+      } else if (trimmed.toLowerCase().includes('exercise') || trimmed.toLowerCase().includes('activity')) {
+        // Exercise
+        if (inParagraph) {
+          formattedHTML += '</p>';
+          inParagraph = false;
+        }
+        formattedHTML += `<div class="exercise">${trimmed}</div>`;
+      } else if (trimmed.startsWith('"') || trimmed.includes('" said')) {
+        // Quote
+        if (inParagraph) {
+          formattedHTML += '</p>';
+          inParagraph = false;
+        }
+        formattedHTML += `<div class="quote">${trimmed}</div>`;
+      } else if (trimmed.length < 80 && /^[A-Z]/.test(trimmed) && !trimmed.endsWith('.')) {
+        // Subheader
+        if (inParagraph) {
+          formattedHTML += '</p>';
+          inParagraph = false;
+        }
+        formattedHTML += `<h3 class="subheader">${trimmed}</h3>`;
+        isFirstParagraph = true;
+      } else {
+        // Regular paragraph
+        if (!inParagraph) {
+          const paragraphClass = isFirstParagraph ? ' class="first-paragraph"' : '';
+          formattedHTML += `<p${paragraphClass}>`;
+          inParagraph = true;
+          isFirstParagraph = false;
+        } else {
+          formattedHTML += ' ';
+        }
+        formattedHTML += trimmed;
+      }
+    }
+    
+    if (inParagraph) {
+      formattedHTML += '</p>';
+    }
+    
+    return new handlebars.SafeString(formattedHTML);
+  });
+  
+  // Compile template with content data
+  const compiledTemplate = handlebars.compile(template);
+  
+  const templateData = {
+    title: content.title || 'Untitled Book',
+    subtitle: content.subtitle || '',
+    author: content.author || 'Unknown Author',
+    year: new Date().getFullYear(),
+    isbn: settings.isbn || '',
+    hasChapters: content.chapters && content.chapters.length > 1,
+    chapters: content.chapters || [],
+    trimSize: settings.trimSize,
+    font: settings.font,
+    fontSize: settings.fontSize,
+    lineSpacing: settings.lineSpacing,
+    marginTop: settings.marginTop,
+    marginBottom: settings.marginBottom,
+    marginInside: settings.marginInside,
+    marginOutside: settings.marginOutside,
+    justification: settings.justification,
+    pageNumbering: settings.pageNumbering
+  };
+  
+  const html = compiledTemplate(templateData);
+  console.log('HTML template generated successfully');
+  
+  return html;
+}
+
+// Generate PDF from HTML using Puppeteer
+async function generatePDF(htmlContent, settings) {
+  console.log('Converting HTML to PDF using Puppeteer...');
+  
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
+  
+  try {
+    const page = await browser.newPage();
+    
+    // Set content
+    await page.setContent(htmlContent, { 
+      waitUntil: 'networkidle0',
+      timeout: 30000 
+    });
+    
+    // Configure PDF options based on trim size
+    const trimDimensions = getTrimDimensions(settings.trimSize);
+    
+    const pdfOptions = {
+      format: 'A4', // Will be overridden by width/height
+      width: trimDimensions.width,
+      height: trimDimensions.height,
+      printBackground: true,
+      margin: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      preferCSSPageSize: true
+    };
+    
+    // Generate PDF
+    const pdfBuffer = await page.pdf(pdfOptions);
+    
+    console.log('PDF generated successfully');
+    return pdfBuffer;
+    
+  } finally {
+    await browser.close();
+  }
+}
+
+// Get trim size dimensions for PDF generation
+function getTrimDimensions(trimSize) {
+  const dimensions = {
+    '5x8': { width: '5in', height: '8in' },
+    '5.25x8': { width: '5.25in', height: '8in' },
+    '5.5x8.5': { width: '5.5in', height: '8.5in' },
+    '6x9': { width: '6in', height: '9in' },
+    '6.14x9.21': { width: '6.14in', height: '9.21in' },
+    '6.69x9.61': { width: '6.69in', height: '9.61in' },
+    '7x10': { width: '7in', height: '10in' },
+    '7.44x9.69': { width: '7.44in', height: '9.69in' },
+    '7.5x9.25': { width: '7.5in', height: '9.25in' },
+    '8x10': { width: '8in', height: '10in' },
+    '8.25x6': { width: '8.25in', height: '6in' },
+    '8.25x8.25': { width: '8.25in', height: '8.25in' },
+    '8.5x11': { width: '8.5in', height: '11in' }
+  };
+  
+  return dimensions[trimSize] || dimensions['6x9']; // Default to 6x9
+}
 
 module.exports = router; 
