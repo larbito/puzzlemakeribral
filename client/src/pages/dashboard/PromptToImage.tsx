@@ -100,33 +100,35 @@ export const PromptToImage: React.FC = () => {
     setModel1State(prev => ({ ...prev, isGeneratingDalle: true }));
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-dalle`, {
+      // Temporarily using Ideogram for both until Railway deploys the DALL-E endpoint
+      const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: model1State.enhancedPrompt,
-          size: '1024x1024'
+          prompt: model1State.enhancedPrompt + " (DALL-E style: photorealistic, high quality)",
+          aspect_ratio: 'ASPECT_1_1'
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate image with DALL-E');
+        throw new Error('Failed to generate image (using Ideogram temporarily)');
       }
 
       const data = await response.json();
+      console.log('DALL-E API Response:', data);
       
       setModel1State(prev => ({
         ...prev,
-        dalleImage: data.imageUrl,
+        dalleImage: data.data?.[0]?.url || data.imageUrl,
         isGeneratingDalle: false
       }));
 
-      toast.success('Image generated with DALL-E successfully!');
+      toast.success('Image generated successfully! (Using Ideogram temporarily until Railway deploys)');
     } catch (error) {
       console.error('Error generating image with DALL-E:', error);
-      toast.error('Failed to generate image with DALL-E');
+      toast.error('Failed to generate image - check console for details');
       setModel1State(prev => ({ ...prev, isGeneratingDalle: false }));
     }
   };
@@ -156,6 +158,7 @@ export const PromptToImage: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Ideogram API Response:', data);
       
       setModel1State(prev => ({
         ...prev,
@@ -245,33 +248,35 @@ export const PromptToImage: React.FC = () => {
     setModel2State(prev => ({ ...prev, isGeneratingDalle: true }));
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-dalle`, {
+      // Temporarily using Ideogram for both until Railway deploys the DALL-E endpoint
+      const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt: model2State.editedPrompt,
-          size: '1024x1024'
+          prompt: model2State.editedPrompt + " (DALL-E style: photorealistic, high quality)",
+          aspect_ratio: 'ASPECT_1_1'
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate image with DALL-E');
+        throw new Error('Failed to generate image (using Ideogram temporarily)');
       }
 
       const data = await response.json();
+      console.log('Model 2 DALL-E API Response:', data);
       
       setModel2State(prev => ({
         ...prev,
-        dalleImage: data.imageUrl,
+        dalleImage: data.data?.[0]?.url || data.imageUrl,
         isGeneratingDalle: false
       }));
 
-      toast.success('Image generated with DALL-E successfully!');
+      toast.success('Image generated successfully! (Using Ideogram temporarily until Railway deploys)');
     } catch (error) {
       console.error('Error generating image with DALL-E:', error);
-      toast.error('Failed to generate image with DALL-E');
+      toast.error('Failed to generate image - check console for details');
       setModel2State(prev => ({ ...prev, isGeneratingDalle: false }));
     }
   };
