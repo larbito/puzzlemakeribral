@@ -39,8 +39,6 @@ const navigation = [
   { name: 'T-shirt Designs', href: '/dashboard/t-shirts', icon: Shirt },
   { name: 'Coloring Pages', href: '/dashboard/coloring', icon: Palette },
   { name: 'KDP Cover Designer', href: '/dashboard/kdp-covers', icon: BookCopy },
-  { name: 'DALL·E Cover Designer', href: '/dashboard/dall-kdp-covers', icon: Sparkles },
-  { name: 'Book Cover Wizard', href: '/dashboard/book-cover-wizard', icon: Sparkles },
   { name: 'AI Book Generator', href: '/dashboard/ai-book-generator', icon: BookCopy },
   { name: 'KDP Book Formatter', href: '/dashboard/kdp-formatter', icon: FileText },
   { name: 'Puzzle Generator', href: '/dashboard/puzzle-generator', icon: Puzzle },
