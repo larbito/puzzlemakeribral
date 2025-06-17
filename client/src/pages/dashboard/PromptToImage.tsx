@@ -53,22 +53,14 @@ export const PromptToImage: React.FC = () => {
     setModel1State(prev => ({ ...prev, isEnhancing: true }));
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/openai/chat`, {
+      const response = await fetch(`${getApiUrl()}/api/openai/enhance-prompt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert at writing detailed prompts for DALL·E 3. Take the user\'s simple prompt and enhance it with rich visual details, artistic style, composition, lighting, and mood while keeping the core concept intact. Return only the enhanced prompt, no explanations.'
-            },
-            {
-              role: 'user',
-              content: `Enhance this prompt for DALL·E 3: ${model1State.originalPrompt}`
-            }
-          ]
+          prompt: model1State.originalPrompt,
+          context: 'You are an expert at writing detailed prompts for DALL·E 3. Take the user\'s simple prompt and enhance it with rich visual details, artistic style, composition, lighting, and mood while keeping the core concept intact. Return only the enhanced prompt, no explanations.'
         })
       });
 
@@ -77,7 +69,7 @@ export const PromptToImage: React.FC = () => {
       }
 
       const data = await response.json();
-      const enhancedPrompt = data.choices[0].message.content;
+      const enhancedPrompt = data.enhancedPrompt;
 
       setModel1State(prev => ({
         ...prev,
@@ -102,14 +94,14 @@ export const PromptToImage: React.FC = () => {
     setModel1State(prev => ({ ...prev, isGenerating: true }));
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-like-this`, {
+      const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           prompt: model1State.enhancedPrompt,
-          size: '1024x1024'
+          aspect_ratio: 'ASPECT_1_1'
         })
       });
 
@@ -121,7 +113,7 @@ export const PromptToImage: React.FC = () => {
       
       setModel1State(prev => ({
         ...prev,
-        generatedImage: data.imageUrl,
+        generatedImage: data.data?.[0]?.url || data.imageUrl,
         isGenerating: false
       }));
 
@@ -163,14 +155,13 @@ export const PromptToImage: React.FC = () => {
         const base64Image = reader.result?.toString().split(',')[1];
         const mimeType = model2State.uploadedImage?.type;
 
-        const response = await fetch(`${getApiUrl()}/api/openai/generate-prompt-from-image`, {
+        const response = await fetch(`${getApiUrl()}/api/openai/extract-prompt`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            base64Image,
-            mimeType
+            imageUrl: `data:${mimeType};base64,${base64Image}`
           })
         });
 
@@ -182,8 +173,8 @@ export const PromptToImage: React.FC = () => {
         
         setModel2State(prev => ({
           ...prev,
-          extractedPrompt: data.prompt,
-          editedPrompt: data.prompt,
+          extractedPrompt: data.extractedPrompt || data.prompt,
+          editedPrompt: data.extractedPrompt || data.prompt,
           isExtracting: false
         }));
 
@@ -207,14 +198,14 @@ export const PromptToImage: React.FC = () => {
     setModel2State(prev => ({ ...prev, isGenerating: true }));
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-like-this`, {
+      const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           prompt: model2State.editedPrompt,
-          size: '1024x1024'
+          aspect_ratio: 'ASPECT_1_1'
         })
       });
 
@@ -226,7 +217,7 @@ export const PromptToImage: React.FC = () => {
       
       setModel2State(prev => ({
         ...prev,
-        generatedImage: data.imageUrl,
+        generatedImage: data.data?.[0]?.url || data.imageUrl,
         isGenerating: false
       }));
 
