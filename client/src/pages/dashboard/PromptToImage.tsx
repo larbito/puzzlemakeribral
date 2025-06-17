@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 
 // Get API URL from environment
 const getApiUrl = () => {
-  return process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  return process.env.REACT_APP_API_URL || process.env.VITE_API_URL || 'https://puzzlemakeribral-production.up.railway.app';
 };
 
 export const PromptToImage: React.FC = () => {
