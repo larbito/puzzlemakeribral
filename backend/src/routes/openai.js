@@ -344,6 +344,49 @@ router.post('/generate-image-like-this', express.json(), async (req, res) => {
 });
 
 /**
+ * Generate image from prompt using DALL-E
+ * POST /api/openai/generate-image-dalle
+ */
+router.post('/generate-image-dalle', express.json(), async (req, res) => {
+  try {
+    console.log('DALL-E image generation request received');
+    const { prompt, size = '1024x1024', model = 'dall-e-3', quality = 'standard' } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    if (req.useLocalMock) {
+      // Mock response for local development
+      return res.json({
+        imageUrl: 'https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=Mock+DALL-E+Generated+Image'
+      });
+    }
+    
+    console.log('Calling OpenAI API to generate image with DALL-E');
+    const response = await openai.images.generate({
+      model,
+      prompt,
+      n: 1,
+      size,
+      quality,
+      response_format: 'url'
+    });
+
+    const imageUrl = response.data[0].url;
+    console.log('DALL-E image generated successfully');
+    
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Error generating image with DALL-E:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate image with DALL-E',
+      details: error.message
+    });
+  }
+});
+
+/**
  * Generate prompt from image using GPT-4 Vision
  * POST /api/openai/generate-prompt-from-image
  */

@@ -13,7 +13,9 @@ import {
   ArrowRight,
   Copy,
   Download,
-  Loader2
+  Loader2,
+  Zap,
+  Brain
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -27,9 +29,11 @@ export const PromptToImage: React.FC = () => {
   const [model1State, setModel1State] = useState({
     originalPrompt: '',
     enhancedPrompt: '',
-    generatedImage: '',
+    dalleImage: '',
+    ideogramImage: '',
     isEnhancing: false,
-    isGenerating: false
+    isGeneratingDalle: false,
+    isGeneratingIdeogram: false
   });
 
   // Model 2 State - Image to Prompt
@@ -38,9 +42,11 @@ export const PromptToImage: React.FC = () => {
     uploadedImageUrl: '',
     extractedPrompt: '',
     editedPrompt: '',
-    generatedImage: '',
+    dalleImage: '',
+    ideogramImage: '',
     isExtracting: false,
-    isGenerating: false
+    isGeneratingDalle: false,
+    isGeneratingIdeogram: false
   });
 
   // Model 1 Functions
@@ -85,13 +91,53 @@ export const PromptToImage: React.FC = () => {
     }
   };
 
-  const generateImageFromPrompt = async () => {
+  const generateImageWithDalle = async () => {
     if (!model1State.enhancedPrompt.trim()) {
       toast.error('Please enhance your prompt first');
       return;
     }
 
-    setModel1State(prev => ({ ...prev, isGenerating: true }));
+    setModel1State(prev => ({ ...prev, isGeneratingDalle: true }));
+
+    try {
+      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-dalle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: model1State.enhancedPrompt,
+          size: '1024x1024'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate image with DALL-E');
+      }
+
+      const data = await response.json();
+      
+      setModel1State(prev => ({
+        ...prev,
+        dalleImage: data.imageUrl,
+        isGeneratingDalle: false
+      }));
+
+      toast.success('Image generated with DALL-E successfully!');
+    } catch (error) {
+      console.error('Error generating image with DALL-E:', error);
+      toast.error('Failed to generate image with DALL-E');
+      setModel1State(prev => ({ ...prev, isGeneratingDalle: false }));
+    }
+  };
+
+  const generateImageWithIdeogram = async () => {
+    if (!model1State.enhancedPrompt.trim()) {
+      toast.error('Please enhance your prompt first');
+      return;
+    }
+
+    setModel1State(prev => ({ ...prev, isGeneratingIdeogram: true }));
 
     try {
       const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
@@ -106,22 +152,22 @@ export const PromptToImage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate image');
+        throw new Error('Failed to generate image with Ideogram');
       }
 
       const data = await response.json();
       
       setModel1State(prev => ({
         ...prev,
-        generatedImage: data.data?.[0]?.url || data.imageUrl,
-        isGenerating: false
+        ideogramImage: data.data?.[0]?.url || data.imageUrl,
+        isGeneratingIdeogram: false
       }));
 
-      toast.success('Image generated successfully!');
+      toast.success('Image generated with Ideogram successfully!');
     } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error('Failed to generate image');
-      setModel1State(prev => ({ ...prev, isGenerating: false }));
+      console.error('Error generating image with Ideogram:', error);
+      toast.error('Failed to generate image with Ideogram');
+      setModel1State(prev => ({ ...prev, isGeneratingIdeogram: false }));
     }
   };
 
@@ -135,7 +181,8 @@ export const PromptToImage: React.FC = () => {
         uploadedImageUrl: URL.createObjectURL(file),
         extractedPrompt: '',
         editedPrompt: '',
-        generatedImage: ''
+        dalleImage: '',
+        ideogramImage: ''
       }));
     }
   };
@@ -189,13 +236,53 @@ export const PromptToImage: React.FC = () => {
     }
   };
 
-  const generateImageFromExtractedPrompt = async () => {
+  const generateImageFromExtractedPromptDalle = async () => {
     if (!model2State.editedPrompt.trim()) {
       toast.error('Please extract and edit the prompt first');
       return;
     }
 
-    setModel2State(prev => ({ ...prev, isGenerating: true }));
+    setModel2State(prev => ({ ...prev, isGeneratingDalle: true }));
+
+    try {
+      const response = await fetch(`${getApiUrl()}/api/openai/generate-image-dalle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: model2State.editedPrompt,
+          size: '1024x1024'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate image with DALL-E');
+      }
+
+      const data = await response.json();
+      
+      setModel2State(prev => ({
+        ...prev,
+        dalleImage: data.imageUrl,
+        isGeneratingDalle: false
+      }));
+
+      toast.success('Image generated with DALL-E successfully!');
+    } catch (error) {
+      console.error('Error generating image with DALL-E:', error);
+      toast.error('Failed to generate image with DALL-E');
+      setModel2State(prev => ({ ...prev, isGeneratingDalle: false }));
+    }
+  };
+
+  const generateImageFromExtractedPromptIdeogram = async () => {
+    if (!model2State.editedPrompt.trim()) {
+      toast.error('Please extract and edit the prompt first');
+      return;
+    }
+
+    setModel2State(prev => ({ ...prev, isGeneratingIdeogram: true }));
 
     try {
       const response = await fetch(`${getApiUrl()}/api/ideogram/generate`, {
@@ -210,22 +297,22 @@ export const PromptToImage: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate image');
+        throw new Error('Failed to generate image with Ideogram');
       }
 
       const data = await response.json();
       
       setModel2State(prev => ({
         ...prev,
-        generatedImage: data.data?.[0]?.url || data.imageUrl,
-        isGenerating: false
+        ideogramImage: data.data?.[0]?.url || data.imageUrl,
+        isGeneratingIdeogram: false
       }));
 
-      toast.success('Image generated successfully!');
+      toast.success('Image generated with Ideogram successfully!');
     } catch (error) {
-      console.error('Error generating image:', error);
-      toast.error('Failed to generate image');
-      setModel2State(prev => ({ ...prev, isGenerating: false }));
+      console.error('Error generating image with Ideogram:', error);
+      toast.error('Failed to generate image with Ideogram');
+      setModel2State(prev => ({ ...prev, isGeneratingIdeogram: false }));
     }
   };
 
@@ -249,10 +336,10 @@ export const PromptToImage: React.FC = () => {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
-          Prompt-to-Image Generator
+          AI Image Studio
         </h1>
         <p className="text-zinc-400 text-lg">
-          Transform your ideas into stunning images with AI-powered enhancement and generation
+          Transform your ideas into stunning images with dual AI-powered generation
         </p>
         <div className="flex items-center justify-center gap-2 mt-4">
           <Badge variant="secondary" className="bg-blue-900/20 text-blue-300">
@@ -260,6 +347,9 @@ export const PromptToImage: React.FC = () => {
           </Badge>
           <Badge variant="secondary" className="bg-purple-900/20 text-purple-300">
             DALL·E 3
+          </Badge>
+          <Badge variant="secondary" className="bg-green-900/20 text-green-300">
+            Ideogram AI
           </Badge>
         </div>
       </div>
@@ -269,10 +359,10 @@ export const PromptToImage: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wand2 className="h-5 w-5 text-blue-400" />
-            Model 1: Prompt Enhancement
+            Model 1: Prompt Enhancement Studio
           </CardTitle>
           <p className="text-sm text-zinc-400">
-            Enter a simple prompt, enhance it with GPT-4, then generate an image with DALL·E 3
+            Enter a simple prompt, enhance it with GPT-4, then generate images with both DALL·E and Ideogram
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -329,49 +419,95 @@ export const PromptToImage: React.FC = () => {
             </div>
           )}
 
-          {/* Generate Image Button */}
+          {/* Generate Image Buttons */}
           {model1State.enhancedPrompt && (
-            <Button
-              onClick={generateImageFromPrompt}
-              disabled={model1State.isGenerating}
-              className="w-full bg-purple-600 hover:bg-purple-500"
-            >
-              {model1State.isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Image...
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Generate Image
-                </>
-              )}
-            </Button>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Button
+                onClick={generateImageWithDalle}
+                disabled={model1State.isGeneratingDalle}
+                className="bg-purple-600 hover:bg-purple-500"
+              >
+                {model1State.isGeneratingDalle ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="mr-2 h-4 w-4" />
+                    AI Artist Pro (DALL-E)
+                  </>
+                )}
+              </Button>
 
-          {/* Generated Image */}
-          {model1State.generatedImage && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Generated Image</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => downloadImage(model1State.generatedImage, 'enhanced-prompt-image.png')}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="bg-zinc-800 rounded-lg p-4">
-                <img
-                  src={model1State.generatedImage}
-                  alt="Generated from enhanced prompt"
-                  className="w-full max-w-md mx-auto rounded-lg shadow-lg"
-                />
-              </div>
+              <Button
+                onClick={generateImageWithIdeogram}
+                disabled={model1State.isGeneratingIdeogram}
+                className="bg-green-600 hover:bg-green-500"
+              >
+                {model1State.isGeneratingIdeogram ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    AI Artist Ultra (Ideogram)
+                  </>
+                )}
+              </Button>
             </div>
           )}
+
+          {/* Generated Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* DALL-E Generated Image */}
+            {model1State.dalleImage && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>AI Artist Pro (DALL-E) Result</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadImage(model1State.dalleImage, 'dalle-generated-image.png')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <img
+                    src={model1State.dalleImage}
+                    alt="Generated with DALL-E"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Ideogram Generated Image */}
+            {model1State.ideogramImage && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>AI Artist Ultra (Ideogram) Result</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadImage(model1State.ideogramImage, 'ideogram-generated-image.png')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <img
+                    src={model1State.ideogramImage}
+                    alt="Generated with Ideogram"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -380,10 +516,10 @@ export const PromptToImage: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-green-400" />
-            Model 2: Image to Prompt
+            Model 2: Image Analysis Studio
           </CardTitle>
           <p className="text-sm text-zinc-400">
-            Upload an image, extract a prompt with GPT-4 Vision, edit it, then generate a new image
+            Upload an image, extract a prompt with GPT-4 Vision, edit it, then generate new images with both AI artists
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -457,49 +593,95 @@ export const PromptToImage: React.FC = () => {
             </div>
           )}
 
-          {/* Generate Image from Extracted Prompt Button */}
+          {/* Generate Image from Extracted Prompt Buttons */}
           {model2State.editedPrompt && (
-            <Button
-              onClick={generateImageFromExtractedPrompt}
-              disabled={model2State.isGenerating}
-              className="w-full bg-purple-600 hover:bg-purple-500"
-            >
-              {model2State.isGenerating ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating Image...
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  Generate Image from Prompt
-                </>
-              )}
-            </Button>
-          )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Button
+                onClick={generateImageFromExtractedPromptDalle}
+                disabled={model2State.isGeneratingDalle}
+                className="bg-purple-600 hover:bg-purple-500"
+              >
+                {model2State.isGeneratingDalle ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Brain className="mr-2 h-4 w-4" />
+                    AI Artist Pro (DALL-E)
+                  </>
+                )}
+              </Button>
 
-          {/* Generated Image */}
-          {model2State.generatedImage && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>Generated Image</Label>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => downloadImage(model2State.generatedImage, 'extracted-prompt-image.png')}
-                >
-                  <Download className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="bg-zinc-800 rounded-lg p-4">
-                <img
-                  src={model2State.generatedImage}
-                  alt="Generated from extracted prompt"
-                  className="w-full max-w-md mx-auto rounded-lg shadow-lg"
-                />
-              </div>
+              <Button
+                onClick={generateImageFromExtractedPromptIdeogram}
+                disabled={model2State.isGeneratingIdeogram}
+                className="bg-green-600 hover:bg-green-500"
+              >
+                {model2State.isGeneratingIdeogram ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="mr-2 h-4 w-4" />
+                    AI Artist Ultra (Ideogram)
+                  </>
+                )}
+              </Button>
             </div>
           )}
+
+          {/* Generated Images */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* DALL-E Generated Image */}
+            {model2State.dalleImage && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>AI Artist Pro (DALL-E) Result</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadImage(model2State.dalleImage, 'dalle-extracted-image.png')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <img
+                    src={model2State.dalleImage}
+                    alt="Generated from extracted prompt with DALL-E"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Ideogram Generated Image */}
+            {model2State.ideogramImage && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>AI Artist Ultra (Ideogram) Result</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadImage(model2State.ideogramImage, 'ideogram-extracted-image.png')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="bg-zinc-800 rounded-lg p-4">
+                  <img
+                    src={model2State.ideogramImage}
+                    alt="Generated from extracted prompt with Ideogram"
+                    className="w-full rounded-lg shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
