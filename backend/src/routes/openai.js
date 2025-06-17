@@ -365,7 +365,7 @@ router.post('/generate-prompt-from-image', express.json(), async (req, res) => {
     
     console.log('Calling OpenAI API to generate prompt from image');
     const response = await openai.chat.completions.create({
-      model: 'gpt-4-vision-preview',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
@@ -1636,7 +1636,7 @@ router.post('/extract-text', upload.none(), async (req, res) => {
     const openaiResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4-vision-preview',
+        model: 'gpt-4o',
         messages: [
           {
             role: 'user',
