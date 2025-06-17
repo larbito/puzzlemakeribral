@@ -257,6 +257,153 @@ IMPORTANT: If text is difficult to read or partially obscured, make your best ed
   }
 });
 
+/**
+ * General chat endpoint for prompt enhancement
+ * POST /api/openai/chat
+ */
+router.post('/chat', express.json(), async (req, res) => {
+  try {
+    console.log('Chat request received');
+    const { messages, model = 'gpt-4', max_tokens = 500, temperature = 0.7 } = req.body;
+    
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: 'Messages array is required' });
+    }
+
+    if (req.useLocalMock) {
+      // Mock response for local development
+      return res.json({
+        choices: [{
+          message: {
+            content: "Enhanced prompt: A highly detailed, photorealistic image with vibrant colors, professional lighting, and artistic composition. The scene should be visually striking with excellent depth of field and masterful use of color theory."
+          }
+        }]
+      });
+    }
+    
+    console.log('Calling OpenAI API for chat completion');
+    const response = await openai.chat.completions.create({
+      model,
+      messages,
+      max_tokens,
+      temperature
+    });
+
+    console.log('Chat completion successful');
+    res.json(response);
+  } catch (error) {
+    console.error('Error in chat completion:', error);
+    res.status(500).json({ 
+      error: 'Failed to process chat request',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Generate image from prompt using DALL-E
+ * POST /api/openai/generate-image-like-this
+ */
+router.post('/generate-image-like-this', express.json(), async (req, res) => {
+  try {
+    console.log('Image generation request received');
+    const { prompt, size = '1024x1024', model = 'dall-e-3', quality = 'standard' } = req.body;
+    
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    if (req.useLocalMock) {
+      // Mock response for local development
+      return res.json({
+        imageUrl: 'https://via.placeholder.com/1024x1024/4F46E5/FFFFFF?text=Mock+Generated+Image'
+      });
+    }
+    
+    console.log('Calling OpenAI API to generate image');
+    const response = await openai.images.generate({
+      model,
+      prompt,
+      n: 1,
+      size,
+      quality,
+      response_format: 'url'
+    });
+
+    const imageUrl = response.data[0].url;
+    console.log('Image generated successfully');
+    
+    res.json({ imageUrl });
+  } catch (error) {
+    console.error('Error generating image:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate image',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Generate prompt from image using GPT-4 Vision
+ * POST /api/openai/generate-prompt-from-image
+ */
+router.post('/generate-prompt-from-image', express.json(), async (req, res) => {
+  try {
+    console.log('Generate prompt from image request received');
+    const { base64Image, mimeType } = req.body;
+    
+    if (!base64Image) {
+      return res.status(400).json({ error: 'Base64 image is required' });
+    }
+
+    if (req.useLocalMock) {
+      // Mock response for local development
+      return res.json({
+        prompt: "A beautifully composed image with vibrant colors and excellent lighting. The scene features detailed textures, professional photography style, and artistic composition with strong visual impact."
+      });
+    }
+    
+    console.log('Calling OpenAI API to generate prompt from image');
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4-vision-preview',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert at analyzing images and creating detailed prompts for DALL·E 3. Analyze the image and create a detailed prompt that would generate a similar image. Focus on visual elements, style, composition, colors, lighting, and mood.'
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Analyze this image and create a detailed prompt for DALL·E 3 that would generate a similar image. Focus on the visual elements, artistic style, composition, colors, lighting, and overall mood. Return only the prompt, no explanations.'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7
+    });
+
+    const prompt = response.choices[0].message.content;
+    console.log('Prompt generated from image successfully');
+    
+    res.json({ prompt });
+  } catch (error) {
+    console.error('Error generating prompt from image:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate prompt from image',
+      details: error.message
+    });
+  }
+});
+
 // Add the generate-toc endpoint
 router.post('/generate-toc', async (req, res) => {
   try {

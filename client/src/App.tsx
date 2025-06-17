@@ -28,6 +28,8 @@ import { ToastProvider } from '@/components/ui/toast';
 import { ThemeDebug } from '@/pages/dashboard/puzzles/ThemeDebug';
 import { AIBookGenerator } from '@/pages/dashboard/AIBookGenerator';
 import { KDPBookFormatter } from '@/pages/dashboard/KDPBookFormatter';
+import { PromptToImage } from '@/pages/dashboard/PromptToImage';
+import { Toaster } from 'sonner';
 
 function App() {
   return (
@@ -67,6 +69,7 @@ function App() {
                       <Route path="content" element={<Content />} />
                       <Route path="pricing" element={<KDPRoyaltiesCalculator />} />
                       <Route path="coloring" element={<AIColoringGenerator />} />
+                      <Route path="prompt-to-image" element={<PromptToImage />} />
                       <Route path="sudoku" element={<SudokuPage />} />
                       <Route path="bulk" element={<BulkGeneratorPage />} />
                       <Route path="ai-book" element={<AIBookPage />} />
@@ -86,6 +89,7 @@ function App() {
               <Route path="/debug/modal" element={<ThemeDebug />} />
             </Routes>
           </div>
+          <Toaster position="top-right" />
         </div>
       </Router>
     </ToastProvider>
