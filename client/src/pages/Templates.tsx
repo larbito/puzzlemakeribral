@@ -44,36 +44,42 @@ const templates = [
 
 export const Templates = () => {
   return (
-    <PageLayout
-      title="Templates"
-      description="Start with our professionally designed templates to create your products faster."
-    >
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templates.map((template, index) => (
-          <Card key={index} className="group overflow-hidden">
-            <CardContent className="p-0">
-              <div className="aspect-video bg-primary/10 relative">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <p className="text-primary/50">Preview Image</p>
-                </div>
-              </div>
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="font-semibold text-lg">{template.title}</h3>
-                    <p className="text-sm text-muted-foreground">{template.category}</p>
+    <div className="relative">
+      <div className="absolute inset-0 bg-gradient-radial from-secondary/5 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-grid-white/[0.02]" />
+
+      <PageLayout
+        title="Templates"
+        description="Start with our professionally designed templates to create your products faster."
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {templates.map((template, index) => (
+            <Card key={index} className="group overflow-hidden relative hover:border-primary/40 transition-colors">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="p-0 relative">
+                <div className="aspect-video bg-primary/5 relative">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="text-primary/60">Preview Image</p>
                   </div>
-                  <Button size="sm" variant="outline">
-                    <Download className="w-4 h-4 mr-2" />
-                    Use
-                  </Button>
                 </div>
-                <p className="text-sm text-muted-foreground">{template.description}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </PageLayout>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg">{template.title}</h3>
+                      <p className="text-sm text-muted-foreground">{template.category}</p>
+                    </div>
+                    <Button size="sm" variant="outline" className="group/btn">
+                      <Download className="w-4 h-4 mr-2" />
+                      Use
+                    </Button>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{template.description}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </PageLayout>
+    </div>
   );
 }; 

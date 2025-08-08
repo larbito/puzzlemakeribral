@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
-import { Home as HomePro } from '@/pages/HomePro';
+import { Home } from '@/pages/Home';
 import { Pricing as MainPricing } from '@/pages/Pricing';
 import { Features } from '@/pages/Features';
 import { Templates } from '@/pages/Templates';
@@ -42,7 +42,7 @@ function App() {
           <div className="relative">
             <Routes>
               {/* Public routes */}
-              <Route path="/" element={<><Navbar /><HomePro /><Footer /></>} />
+              <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
               <Route path="/features" element={<><Navbar /><Features /><Footer /></>} />
               <Route path="/templates" element={<><Navbar /><Templates /><Footer /></>} />
               <Route path="/pricing" element={<><Navbar /><MainPricing /><Footer /></>} />
