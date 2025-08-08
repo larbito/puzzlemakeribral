@@ -444,7 +444,7 @@ export const Home = () => {
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
-          <Link to="/explore">
+          <Link to="/features">
             <Button variant="outline" size="lg" className="border-primary text-primary hover:bg-primary/10">
               Explore Ideas
             </Button>
@@ -1442,7 +1442,7 @@ export const Home = () => {
                   <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Link to="/explore">
+              <Link to="/features">
                 <Button 
                   variant="outline" 
                   size="lg" 

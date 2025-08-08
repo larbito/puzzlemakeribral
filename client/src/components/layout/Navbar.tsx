@@ -1,10 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogIn, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const menuItems = [
     {
@@ -34,7 +42,7 @@ export const Navbar = () => {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b border-primary/10">
+    <nav className={`fixed top-0 left-0 right-0 z-50 bg-background/60 backdrop-blur-xl border-b transition-all ${scrolled ? 'border-primary/20 shadow-[0_8px_30px_rgba(0,0,0,0.12)]' : 'border-primary/10'}`}>
       <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-secondary/5" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="flex items-center justify-between h-16">
@@ -50,12 +58,12 @@ export const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-2 lg:space-x-4">
             {menuItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className="group flex items-center space-x-2 text-foreground/80 hover:text-foreground relative px-3 py-2"
+                className="group flex items-center space-x-2 text-foreground/80 hover:text-foreground relative px-3 py-2 rounded-lg"
               >
                 <div className="absolute inset-0 bg-primary/5 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
                 <div className="relative flex items-center space-x-2">
@@ -65,6 +73,19 @@ export const Navbar = () => {
                 <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-primary to-secondary scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
               </Link>
             ))}
+            <div className="h-6 w-px bg-border/60 mx-1" />
+            <Link to="/login">
+              <Button variant="ghost" className="px-3">
+                <LogIn className="w-4 h-4 mr-2" />
+                Log in
+              </Button>
+            </Link>
+            <Link to="/register">
+              <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Get Started
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -94,16 +115,28 @@ export const Navbar = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className="group flex items-center space-x-2 px-3 py-2 text-foreground/80 hover:text-foreground relative"
+                className="group flex items-center justify-between px-3 py-2 text-foreground/80 hover:text-foreground relative"
                 onClick={() => setIsOpen(false)}
               >
-                <div className="absolute inset-0 bg-primary/5 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
                 <div className="relative flex items-center space-x-2">
                   {item.icon}
                   <span>{item.name}</span>
                 </div>
+                <div className="absolute inset-0 bg-primary/5 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
               </Link>
             ))}
+            <div className="flex items-center gap-2 pt-2">
+              <Link to="/login" className="flex-1" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10">
+                  Log in
+                </Button>
+              </Link>
+              <Link to="/register" className="flex-1" onClick={() => setIsOpen(false)}>
+                <Button className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}

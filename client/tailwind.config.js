@@ -6,6 +6,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Plus Jakarta Sans", "Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -46,5 +49,10 @@ export default {
       },
     },
   },
+  safelist: [
+    // Dynamic color utilities used in Home page
+    { pattern: /(from|to|text|bg|border)-(yellow|blue|green|pink|purple|teal|emerald|cyan|red|orange)-(100|200|300|400|500|600|700|800|900)(\/\d+)?/ },
+    { pattern: /(bg|text|border)-(primary|secondary|accent)(\/\d+)?/ },
+  ],
   plugins: [],
 } 
