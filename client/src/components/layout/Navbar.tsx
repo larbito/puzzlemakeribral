@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogIn, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ui/toggleTheme';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -73,6 +74,7 @@ export const Navbar = () => {
                 <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-primary to-secondary scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
               </Link>
             ))}
+            <ThemeToggle />
             <div className="h-6 w-px bg-border/60 mx-1" />
             <Link to="/login">
               <Button variant="ghost" className="px-3">
@@ -89,7 +91,8 @@ export const Navbar = () => {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center gap-1">
+            <ThemeToggle />
             <Button 
               variant="ghost"
               size="icon"
