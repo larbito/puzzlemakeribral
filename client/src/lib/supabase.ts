@@ -9,11 +9,13 @@ const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
 function createSupabaseStub() {
   const noop = async (..._args: any[]) => ({ data: null, error: new Error('Supabase not configured') });
   const onAuthStateChange = (_cb: any) => ({ data: { subscription: { unsubscribe: () => {} } } });
+  const getSession = async () => ({ data: { session: null }, error: null });
   const getUser = async () => ({ data: { user: null }, error: new Error('Supabase not configured') });
   const signOut = async () => ({ error: null });
   return {
     auth: {
       onAuthStateChange,
+      getSession,
       getUser,
       signInWithOAuth: noop,
       signOut,
