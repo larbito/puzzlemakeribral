@@ -27,7 +27,8 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Plus, Download, Zap, LineChart } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Download, Zap, LineChart, Wand2 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const quickActions = [
   {
@@ -150,39 +151,56 @@ export const Overview = () => {
   // Placeholder user for now
   const user = {
     name: 'Creator',
-    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=Creator&backgroundColor=1f2937`,
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
     credits: 120,
     plan: 'Pro'
   };
 
   return (
     <div className="space-y-8 p-8">
-      {/* Welcome Header */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <img src={user.avatar} alt="avatar" className="h-14 w-14 rounded-full border border-white/10" />
-          <div>
-            <h1 className="text-2xl font-bold">Welcome back, {user.name} 👋</h1>
-            <p className="text-muted-foreground">Let’s build something great today.</p>
+      {/* Hero Banner */}
+      <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="relative overflow-hidden border-primary/20">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-background" />
+        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-secondary/20 blur-3xl" />
+        <CardContent className="relative p-6 md:p-8">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Hey {user.name}, ready to create something amazing?</h1>
+              <p className="text-muted-foreground">Use quick starts below to jump into your favorite tools or continue where you left off.</p>
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Link to="/dashboard/prompt-to-image"><Button size="sm"><Wand2 className="h-4 w-4 mr-2" /> Prompt to Image</Button></Link>
+                <Link to="/dashboard/coloring"><Button size="sm" variant="outline"><Palette className="h-4 w-4 mr-2" /> Coloring</Button></Link>
+                <Link to="/dashboard/kdp-covers"><Button size="sm" variant="outline"><BookOpen className="h-4 w-4 mr-2" /> Covers</Button></Link>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-20 w-20 ring-2 ring-primary/30">
+                  <AvatarImage src={user.avatar} alt="avatar" />
+                  <AvatarFallback>CR</AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-1 -right-1 px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1">
+                  <Coins className="h-3.5 w-3.5" />
+                  {user.credits}
+                </div>
+              </div>
+              <div className="hidden md:flex flex-col gap-2">
+                <div className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm w-max">
+                  Plan: {user.plan}
+                </div>
+                <Button variant="outline" size="sm" className="w-max">Add credits</Button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2">
-            <Coins className="h-4 w-4" />
-            <span className="text-sm">Credits</span>
-            <span className="font-semibold">{user.credits}</span>
-          </div>
-          <div className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary flex items-center gap-2">
-            <Crown className="h-4 w-4" />
-            <span className="text-sm">Plan</span>
-            <span className="font-semibold">{user.plan}</span>
-          </div>
-          <Button className="bg-primary/90 hover:bg-primary">Add credits</Button>
-        </div>
-      </div>
+        </CardContent>
+      </MotionCard>
 
-      {/* Stats Section */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Stats + Body */}
+      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+        <div className="xl:col-span-2 space-y-6">
+          {/* Stats Section (compact row) */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MotionCard
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -264,9 +282,42 @@ export const Overview = () => {
             </div>
           </CardContent>
         </MotionCard>
-      </div>
+          </div>
 
-      {/* Subscription Usage */}
+          {/* Recent Activity Timeline (new) */}
+          <MotionCard initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="relative overflow-hidden border-primary/15">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" /> Recent Activity
+              </CardTitle>
+              <CardDescription>Your latest projects and actions</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {recentProjects.slice(0, 5).map((project, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="mt-0.5 p-2 rounded-lg bg-white/10">
+                    <project.icon className={cn("h-4 w-4", project.iconColor)} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="font-medium">{project.title}</div>
+                      <div className="text-xs text-muted-foreground">{project.date}</div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">{project.items} {project.type === 'Puzzle' ? 'pages' : 'items'} • {project.status}</div>
+                    <div className="mt-2 h-1.5 bg-primary/10 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${project.progress}%` }} className="h-full bg-gradient-to-r from-primary to-secondary" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </MotionCard>
+        </div>
+
+        {/* Right: Account & Usage */}
+        <div className="space-y-6">
+          {/* Subscription Usage */}
       <MotionCard
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -342,6 +393,8 @@ export const Overview = () => {
           )}
         </CardContent>
       </MotionCard>
+        </div>
+      </div>
 
       {/* Quick Actions */}
       <div>
