@@ -30,6 +30,8 @@ import { AIBookGenerator } from '@/pages/dashboard/AIBookGenerator';
 import { KDPBookFormatter } from '@/pages/dashboard/KDPBookFormatter';
 import { PromptToImage } from '@/pages/dashboard/PromptToImage';
 import { Toaster } from 'sonner';
+import { Login } from '@/pages/auth/Login';
+import { Register } from '@/pages/auth/Register';
 
 function App() {
   return (
@@ -49,6 +51,8 @@ function App() {
               <Route path="/contact" element={<><Navbar /><Contact /><Footer /></>} />
               <Route path="/privacy" element={<><Navbar /><Privacy /><Footer /></>} />
               <Route path="/terms" element={<><Navbar /><Terms /><Footer /></>} />
+              <Route path="/login" element={<><Navbar /><Login /><Footer /></>} />
+              <Route path="/register" element={<><Navbar /><Register /><Footer /></>} />
 
               {/* Dashboard routes */}
               <Route
