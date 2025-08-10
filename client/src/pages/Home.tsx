@@ -208,7 +208,7 @@ const testimonials = [
     name: "Sarah Johnson",
     role: "Elementary Teacher",
     location: "Boston, MA",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Sarah&backgroundColor=b6e3f4",
+    avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=Sarah&backgroundColor=b6e3f4&radius=50",
     content: "PuzzleCraft Forge has revolutionized how I create educational materials. The AI-powered generation saves me hours of work, and my students love the engaging puzzles!",
     rating: 5,
     verified: true
@@ -217,7 +217,7 @@ const testimonials = [
     name: "Mike Chen",
     role: "Content Creator",
     location: "San Francisco, CA",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Mike&backgroundColor=c0aede",
+    avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=Mike&backgroundColor=c0aede&radius=50",
     content: "I've published three successful puzzle books using this platform. The quality and variety of puzzles is outstanding, and the KDP integration makes publishing a breeze.",
     rating: 5,
     verified: true
@@ -226,7 +226,7 @@ const testimonials = [
     name: "Emily Davis",
     role: "Educational Publisher",
     location: "London, UK",
-    avatar: "https://api.dicebear.com/7.x/lorelei/svg?seed=Emily&backgroundColor=ffdfbf",
+    avatar: "https://api.dicebear.com/7.x/adventurer/svg?seed=Emily&backgroundColor=ffdfbf&radius=50",
     content: "The AI recommendations are spot-on! The platform understands exactly what type of puzzles work best for our educational content. It's made our production process so much more efficient.",
     rating: 5,
     verified: true

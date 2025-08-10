@@ -83,7 +83,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       <motion.aside
         initial={{ x: -300 }}
         animate={{ x: isSidebarOpen ? 0 : -300 }}
-        className="fixed top-0 left-0 z-40 h-screen w-72 bg-white/5 backdrop-blur-xl border-r border-primary/10"
+        className="fixed top-0 left-0 z-40 h-screen w-72 bg-gradient-to-b from-fuchsia-900/30 via-fuchsia-800/20 to-transparent backdrop-blur-xl border-r border-fuchsia-500/20"
       >
         <div className="flex h-full flex-col relative">
           <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent" />
