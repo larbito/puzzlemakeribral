@@ -45,6 +45,12 @@ import {
 } from 'lucide-react';
 import { Shuffle } from "@phosphor-icons/react";
 import SocialProof from '@/components/SocialProof';
+import kdpLogo from '/images/brands/amazon-kdp.png';
+import etsyLogo from '/images/brands/etsy.png';
+import redbubbleLogo from '/images/brands/redbubble.png';
+import gumroadLogo from '/images/brands/gumroad.png';
+import mbaLogo from '/images/brands/merch-by-amazon.png';
+import teespringLogo from '/images/brands/teespring.png';
 
 // Stats data
 const stats = [
@@ -1192,12 +1198,12 @@ export const Home = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-12 gap-y-10">
             {[
-              { name: "Amazon KDP", src: "/images/brands/amazon-kdp.png" },
-              { name: "Etsy", src: "/images/brands/etsy.png" },
-              { name: "Redbubble", src: "/images/brands/redbubble.png" },
-              { name: "Gumroad", src: "/images/brands/gumroad.png" },
-              { name: "Merch by Amazon", src: "/images/brands/merch-by-amazon.png" },
-              { name: "Teespring", src: "/images/brands/teespring.png" }
+              { name: "Amazon KDP", src: kdpLogo },
+              { name: "Etsy", src: etsyLogo },
+              { name: "Redbubble", src: redbubbleLogo },
+              { name: "Gumroad", src: gumroadLogo },
+              { name: "Merch by Amazon", src: mbaLogo },
+              { name: "Teespring", src: teespringLogo }
             ].map((platform, index) => (
               <div 
                 key={index} 
