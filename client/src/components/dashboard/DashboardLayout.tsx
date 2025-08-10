@@ -178,11 +178,11 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
       {/* Main Content */}
       <div className={cn(
         "transition-all duration-300",
-        isSidebarOpen ? "ml-64" : "ml-0"
+        isSidebarOpen ? "ml-72" : "ml-0",
       )}>
         {/* Top Bar */}
         <header className="sticky top-0 z-30 h-16 bg-background/60 backdrop-blur-xl border-b border-primary/10">
-          <div className="flex h-full items-center justify-between px-6 gap-4">
+          <div className="flex h-full items-center justify-between px-8 gap-4">
             <Button
               variant="ghost"
               size="icon"
@@ -216,7 +216,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 <span className="text-xs">Pro</span>
               </div>
               <Avatar className="h-9 w-9 border border-white/10">
-                <AvatarImage src="https://randomuser.me/api/portraits/men/32.jpg" alt="User avatar" />
+                <AvatarImage src="https://api.dicebear.com/7.x/adventurer/svg?seed=Nova&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=50" alt="User avatar" />
                 <AvatarFallback>CR</AvatarFallback>
               </Avatar>
             </div>
@@ -224,7 +224,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         </header>
 
         {/* Page Content */}
-        <main className="min-h-[calc(100vh-4rem)]">
+        <main className="min-h-[calc(100vh-4rem)] px-6 md:px-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
