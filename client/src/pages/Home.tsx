@@ -487,7 +487,7 @@ export const Home = () => {
       <section className="relative py-32 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         
         {/* Animated Decorative Elements */}
         <div className="absolute top-20 left-20 w-72 h-72 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-full blur-3xl animate-pulse-slow" />
@@ -623,7 +623,7 @@ export const Home = () => {
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
         <div className="absolute inset-0 hidden dark:block bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -739,7 +739,7 @@ export const Home = () => {
               <div className="relative w-full max-w-[600px] aspect-square">
                 {/* Main Preview Area */}
                <div className="absolute inset-0 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/5 to-secondary/5 border border-border/50">
-                  <div className="absolute inset-0 bg-grid-white/[0.02]" />
+                  <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
                   
                   {/* T-Shirt Preview */}
                   <div className="absolute inset-0 flex items-center justify-center">
@@ -831,7 +831,7 @@ export const Home = () => {
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-secondary/10 via-background to-background" />
         <div className="absolute inset-0 hidden dark:block bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -927,7 +927,7 @@ export const Home = () => {
               <div className="relative w-full max-w-[600px] aspect-square">
                 {/* Main Preview Area */}
                 <div className="absolute inset-0 rounded-2xl overflow-hidden bg-gradient-to-br from-secondary/5 to-primary/5 border border-white/10">
-                  <div className="absolute inset-0 bg-grid-white/[0.02]" />
+                  <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
                   
                   {/* Split Preview */}
                   <div className="absolute inset-0 flex">
@@ -983,7 +983,7 @@ export const Home = () => {
       {/* Pricing Section */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1065,7 +1065,7 @@ export const Home = () => {
       {/* Coming Soon Section */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent" />
         
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1183,7 +1183,7 @@ export const Home = () => {
       {/* Platform Trust / Social Proof Section */}
       <section className="relative py-16 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent" />
         
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -1226,7 +1226,7 @@ export const Home = () => {
       {/* Testimonials Section */}
       <section className="relative py-24 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent" />
         
         {/* Decorative elements */}
@@ -1376,7 +1376,7 @@ export const Home = () => {
       <section className="relative py-32 text-center">
         {/* Background effects */}
         <div className="absolute inset-0 bg-gradient-to-b from-background via-background/50 to-background" />
-        <div className="absolute inset-0 bg-grid-white/[0.02]" />
+        <div className="absolute inset-0 hidden dark:block bg-grid-white/[0.02]" />
         <div className="absolute inset-0 bg-gradient-radial from-primary/10 via-transparent to-transparent" />
         
         {/* Decorative elements */}
