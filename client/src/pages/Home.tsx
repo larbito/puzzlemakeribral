@@ -1192,19 +1192,24 @@ export const Home = () => {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-12 gap-y-10">
             {[
-              { name: "Amazon KDP", logo: <AmazonKDPLogo /> },
-              { name: "Etsy", logo: <EtsyLogo /> },
-              { name: "Redbubble", logo: <RedbubbleLogo /> },
-              { name: "Gumroad", logo: <GumroadLogo /> },
-              { name: "Merch by Amazon", logo: <MerchByAmazonLogo /> },
-              { name: "Teespring", logo: <TeespringLogo /> }
+              { name: "Amazon KDP", src: "/images/brands/amazon-kdp.png" },
+              { name: "Etsy", src: "/images/brands/etsy.png" },
+              { name: "Redbubble", src: "/images/brands/redbubble.png" },
+              { name: "Gumroad", src: "/images/brands/gumroad.png" },
+              { name: "Merch by Amazon", src: "/images/brands/merch-by-amazon.png" },
+              { name: "Teespring", src: "/images/brands/teespring.png" }
             ].map((platform, index) => (
               <div 
                 key={index} 
                 className="flex flex-col items-center justify-center"
               >
                 <div className="w-32 h-16 mx-auto flex items-center justify-center">
-                  {platform.logo}
+                  <img
+                    src={platform.src}
+                    alt={platform.name}
+                    loading="lazy"
+                    className="max-h-8 opacity-80 hover:opacity-100 transition-opacity"
+                  />
                 </div>
                 {/*<div className="mt-2 text-sm text-gray-400">{platform.name}</div>*/}
               </div>
