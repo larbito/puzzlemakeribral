@@ -4,12 +4,6 @@
   "outputDirectory": "client/dist",
   "installCommand": "cd client && npm install && cd ../backend && npm install",
   "framework": "vite",
-  "functions": {
-    "api/index.js": {
-      "runtime": "nodejs20.x",
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
