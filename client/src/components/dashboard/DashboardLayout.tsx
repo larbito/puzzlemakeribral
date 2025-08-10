@@ -15,10 +15,14 @@ import {
   BookCopy,
   FileText,
   Clock,
-  Wand2
+  Wand2,
+  Bell,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Coins, Crown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
 // Define which routes are coming soon
@@ -69,16 +73,22 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   }, [location.pathname, navigate]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Subtle decorative background */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -top-32 -right-32 h-[420px] w-[420px] rounded-full bg-primary/10 blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 h-[420px] w-[420px] rounded-full bg-secondary/10 blur-3xl" />
+      </div>
       {/* Sidebar */}
       <motion.aside
         initial={{ x: -300 }}
         animate={{ x: isSidebarOpen ? 0 : -300 }}
-        className="fixed top-0 left-0 z-40 h-screen w-64 bg-white/5 backdrop-blur-xl border-r border-primary/10"
+        className="fixed top-0 left-0 z-40 h-screen w-72 bg-white/5 backdrop-blur-xl border-r border-primary/10"
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col relative">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/5 via-transparent to-transparent" />
           {/* Logo Area */}
-          <Link to="/" className="flex h-16 items-center gap-2 px-6 border-b border-primary/10 hover:bg-primary/5 transition-colors">
+          <Link to="/" className="relative flex h-16 items-center gap-2 px-6 border-b border-primary/10 hover:bg-primary/5 transition-colors">
             <motion.div
               className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center"
               whileHover={{ scale: 1.05 }}
@@ -92,7 +102,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
           </Link>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
+          <nav className="relative flex-1 space-y-1 px-3 py-4">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const isComingSoon = comingSoonRoutes.includes(item.href);
@@ -115,7 +125,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 >
                   <motion.div
                     className={cn(
-                      "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-colors",
+                      "relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
                       "text-muted-foreground/60"
                     )}
                   >
@@ -138,13 +148,16 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 >
                   <motion.div
                     className={cn(
-                      "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-colors",
+                      "group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
                       isActive
                         ? "text-primary"
                         : "text-muted-foreground hover:text-primary hover:bg-primary/5"
                     )}
                     whileHover={{ x: 5 }}
                   >
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gradient-to-b from-primary to-secondary" />
+                    )}
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
                     
@@ -168,8 +181,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
         isSidebarOpen ? "ml-64" : "ml-0"
       )}>
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 h-16 bg-background/50 backdrop-blur-xl border-b border-primary/10">
-          <div className="flex h-full items-center justify-between px-6">
+        <header className="sticky top-0 z-30 h-16 bg-background/60 backdrop-blur-xl border-b border-primary/10">
+          <div className="flex h-full items-center justify-between px-6 gap-4">
             <Button
               variant="ghost"
               size="icon"
@@ -178,8 +191,21 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             >
               <Menu className="h-5 w-5" />
             </Button>
+            {/* Search */}
+            <div className="hidden md:flex flex-1 max-w-xl items-center gap-2">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search tools, projects, or actions..."
+                  className="pl-9 bg-background/60 border-primary/20 focus:border-primary/40"
+                />
+              </div>
+            </div>
             {/* Global account summary on the right */}
             <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                <Bell className="h-5 w-5" />
+              </Button>
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                 <Coins className="h-4 w-4" />
                 <span className="text-xs">Credits</span>
@@ -189,11 +215,10 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 <Crown className="h-4 w-4" />
                 <span className="text-xs">Pro</span>
               </div>
-              <img
-                src={`https://api.dicebear.com/7.x/identicon/svg?seed=Creator&backgroundColor=1f2937`}
-                alt="avatar"
-                className="h-9 w-9 rounded-full border border-white/10"
-              />
+              <Avatar className="h-9 w-9 border border-white/10">
+                <AvatarImage src="https://randomuser.me/api/portraits/men/32.jpg" alt="User avatar" />
+                <AvatarFallback>CR</AvatarFallback>
+              </Avatar>
             </div>
           </div>
         </header>
