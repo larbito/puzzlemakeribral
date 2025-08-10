@@ -22,7 +22,7 @@ export const Login = () => {
       toast.success('Welcome back!');
       navigate('/dashboard', { replace: true });
       setIsLoading(false);
-    }, 700);
+    }, 200);
   };
 
   const handleSocialLogin = async (_provider: 'google' | 'apple' | 'facebook' | 'github') => {
@@ -32,7 +32,7 @@ export const Login = () => {
       toast.success('Signed in successfully');
       navigate('/dashboard', { replace: true });
       setIsLoading(false);
-    }, 700);
+    }, 200);
   };
 
   return (

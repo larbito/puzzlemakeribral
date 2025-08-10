@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, hasSupabase } from '@/lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -40,9 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription?.unsubscribe?.();
   }, []);
 
-  // Protect routes
+  // Protect routes (bypass if Supabase not configured)
   useEffect(() => {
     if (!loading) {
+      if (!hasSupabase) return; // no auth when not configured
       if (!session && location.pathname.startsWith('/dashboard')) {
         navigate('/login?redirect=' + encodeURIComponent(location.pathname));
       } else if (session && location.pathname === '/login') {

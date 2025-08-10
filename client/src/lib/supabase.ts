@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
+export const hasSupabase = Boolean(supabaseUrl && supabaseAnonKey);
 
 // Build a safe stub so the app doesn't crash if env vars are not configured
 function createSupabaseStub() {
