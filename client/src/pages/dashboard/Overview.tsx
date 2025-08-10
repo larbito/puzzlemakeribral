@@ -158,49 +158,40 @@ export const Overview = () => {
 
   return (
     <div className="space-y-8 p-8">
-      {/* Hero Banner */}
-      <MotionCard initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="relative overflow-hidden border-primary/20">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-background to-background" />
-        <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
-        <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-secondary/20 blur-3xl" />
-        <CardContent className="relative p-6 md:p-8">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="space-y-2">
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Hey {user.name}, ready to create something amazing?</h1>
-              <p className="text-muted-foreground">Use quick starts below to jump into your favorite tools or continue where you left off.</p>
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Link to="/dashboard/prompt-to-image"><Button size="sm"><Wand2 className="h-4 w-4 mr-2" /> Prompt to Image</Button></Link>
-                <Link to="/dashboard/coloring"><Button size="sm" variant="outline"><Palette className="h-4 w-4 mr-2" /> Coloring</Button></Link>
-                <Link to="/dashboard/kdp-covers"><Button size="sm" variant="outline"><BookOpen className="h-4 w-4 mr-2" /> Covers</Button></Link>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Avatar className="h-20 w-20 ring-2 ring-primary/30">
-                  <AvatarImage src={user.avatar} alt="avatar" />
-                  <AvatarFallback>CR</AvatarFallback>
-                </Avatar>
-                <div className="absolute -bottom-1 -right-1 px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1">
-                  <Coins className="h-3.5 w-3.5" />
-                  {user.credits}
-                </div>
-              </div>
-              <div className="hidden md:flex flex-col gap-2">
-                <div className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm w-max">
-                  Plan: {user.plan}
-                </div>
-                <Button variant="outline" size="sm" className="w-max">Add credits</Button>
-              </div>
+      {/* Clean Header */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Welcome back, {user.name}</h1>
+          <p className="text-muted-foreground mt-1">Jump back into your favorite tools or pick up where you left off.</p>
+          <div className="flex flex-wrap gap-2 pt-3">
+            <Link to="/dashboard/prompt-to-image"><Button size="sm"><Wand2 className="h-4 w-4 mr-2" /> Prompt to Image</Button></Link>
+            <Link to="/dashboard/coloring"><Button size="sm" variant="outline"><Palette className="h-4 w-4 mr-2" /> Coloring</Button></Link>
+            <Link to="/dashboard/kdp-covers"><Button size="sm" variant="outline"><BookOpen className="h-4 w-4 mr-2" /> Covers</Button></Link>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Avatar className="h-16 w-16 border border-white/10">
+              <AvatarImage src={user.avatar} alt="avatar" />
+              <AvatarFallback>CR</AvatarFallback>
+            </Avatar>
+            <div className="absolute -bottom-1 -right-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1">
+              <Coins className="h-3 w-3" />
+              {user.credits}
             </div>
           </div>
-        </CardContent>
-      </MotionCard>
+          <div className="hidden md:flex flex-col items-end gap-1.5">
+            <div className="px-2.5 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs">Plan: {user.plan}</div>
+            <Button variant="outline" size="sm">Add credits</Button>
+          </div>
+        </div>
+      </div>
 
       {/* Stats + Body */}
-      <div className="grid gap-6 grid-cols-1 xl:grid-cols-3">
+      <div className="grid gap-8 grid-cols-1 xl:grid-cols-3">
         <div className="xl:col-span-2 space-y-6">
           {/* Stats Section (compact row) */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MotionCard
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
