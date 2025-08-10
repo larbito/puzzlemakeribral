@@ -769,7 +769,7 @@ export const Home = () => {
                           >
                             <div className="relative group">
                               <div className="w-3 h-3 rounded-full bg-primary" />
-                              <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white text-sm px-3 py-1 rounded-lg -translate-y-full -translate-x-1/2 left-1/2 mb-2">
+                             <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 text-foreground text-sm px-3 py-1 rounded-lg -translate-y-full -translate-x-1/2 left-1/2 mb-2 border border-border/60">
                                 {point.label}
                               </div>
                             </div>
@@ -780,7 +780,7 @@ export const Home = () => {
                   </div>
 
                   {/* Control Panel */}
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] p-4 backdrop-blur-sm bg-black/40 border border-white/10 rounded-xl">
+                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] p-4 backdrop-blur-sm bg-background/60 border border-border/60 rounded-xl">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -815,7 +815,7 @@ export const Home = () => {
                     <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center hover:bg-primary/10 hover:border-primary/50 transition-all duration-300">
                       <div className="text-primary">{tool.icon}</div>
                     </div>
-                    <div className="absolute left-full ml-2 px-3 py-1 bg-black/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                   <div className="absolute left-full ml-2 px-3 py-1 bg-background/90 border border-border/60 text-foreground rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
                       <span className="text-sm text-foreground whitespace-nowrap">{tool.label}</span>
                     </div>
                   </div>
@@ -963,7 +963,7 @@ export const Home = () => {
                   </div>
 
                   {/* Status Indicator */}
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] p-4 backdrop-blur-sm bg-black/40 border border-white/10 rounded-xl">
+                 <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] p-4 backdrop-blur-sm bg-background/60 border border-border/60 rounded-xl">
                     <div className="flex items-center justify-center gap-4">
                       <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                       <span className="text-sm text-muted-foreground">AI preview loading...</span>
