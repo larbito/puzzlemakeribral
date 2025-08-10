@@ -340,33 +340,37 @@ export const PromptToImage: React.FC = () => {
     <div className="space-y-8 p-8">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-4">
+        <div className="inline-flex p-2 mb-4 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20">
+          <Sparkles className="w-6 h-6 text-primary" />
+        </div>
+        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60 mb-3">
           AI Image Studio
         </h1>
-        <p className="text-zinc-400 text-lg">
+        <p className="text-muted-foreground text-lg">
           Transform your ideas into stunning images with dual AI-powered generation
         </p>
         <div className="flex items-center justify-center gap-2 mt-4">
-          <Badge variant="secondary" className="bg-blue-900/20 text-blue-300">
+          <Badge variant="outline" className="bg-primary/10 text-primary border border-primary/20">
             GPT-4 Enhanced
           </Badge>
-          <Badge variant="secondary" className="bg-purple-900/20 text-purple-300">
+          <Badge variant="outline" className="bg-primary/10 text-primary border border-primary/20">
             DALL·E 3
           </Badge>
-          <Badge variant="secondary" className="bg-green-900/20 text-green-300">
+          <Badge variant="outline" className="bg-primary/10 text-primary border border-primary/20">
             Ideogram AI
           </Badge>
         </div>
       </div>
 
       {/* Model 1: Prompt Enhancement */}
-      <Card className="bg-zinc-900/50 border-zinc-700">
+      <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Wand2 className="h-5 w-5 text-blue-400" />
+            <Wand2 className="h-5 w-5 text-primary" />
             Model 1: Prompt Enhancement Studio
           </CardTitle>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Enter a simple prompt, enhance it with GPT-4, then generate images with both DALL·E and Ideogram
           </p>
         </CardHeader>
@@ -379,7 +383,7 @@ export const PromptToImage: React.FC = () => {
               placeholder="Enter your original prompt here... (e.g., 'a cat sitting on a chair')"
               value={model1State.originalPrompt}
               onChange={(e) => setModel1State(prev => ({ ...prev, originalPrompt: e.target.value }))}
-              className="min-h-[100px] bg-zinc-800 border-zinc-600"
+              className="min-h-[100px] bg-background/50 border-primary/20 focus:border-primary/50"
             />
           </div>
 
@@ -387,7 +391,7 @@ export const PromptToImage: React.FC = () => {
           <Button
             onClick={enhancePrompt}
             disabled={model1State.isEnhancing || !model1State.originalPrompt.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-500"
+            className="w-full"
           >
             {model1State.isEnhancing ? (
               <>
@@ -419,7 +423,7 @@ export const PromptToImage: React.FC = () => {
                 id="enhanced-prompt"
                 value={model1State.enhancedPrompt}
                 onChange={(e) => setModel1State(prev => ({ ...prev, enhancedPrompt: e.target.value }))}
-                className="min-h-[120px] bg-zinc-800 border-zinc-600"
+                className="min-h-[120px] bg-background/50 border-primary/20 focus:border-primary/50"
               />
             </div>
           )}
@@ -430,7 +434,7 @@ export const PromptToImage: React.FC = () => {
               <Button
                 onClick={generateImageWithDalle}
                 disabled={model1State.isGeneratingDalle}
-                className="bg-purple-600 hover:bg-purple-500"
+                className=""
               >
                 {model1State.isGeneratingDalle ? (
                   <>
@@ -448,7 +452,7 @@ export const PromptToImage: React.FC = () => {
               <Button
                 onClick={generateImageWithIdeogram}
                 disabled={model1State.isGeneratingIdeogram}
-                className="bg-green-600 hover:bg-green-500"
+                className=""
               >
                 {model1State.isGeneratingIdeogram ? (
                   <>
@@ -480,7 +484,7 @@ export const PromptToImage: React.FC = () => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="bg-zinc-800 rounded-lg p-4">
+                <div className="bg-background/50 border border-primary/20 rounded-lg p-4">
                   <img
                     src={model1State.dalleImage}
                     alt="Generated with DALL-E"
@@ -503,7 +507,7 @@ export const PromptToImage: React.FC = () => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="bg-zinc-800 rounded-lg p-4">
+                <div className="bg-background/50 border border-primary/20 rounded-lg p-4">
                   <img
                     src={model1State.ideogramImage}
                     alt="Generated with Ideogram"
@@ -517,13 +521,14 @@ export const PromptToImage: React.FC = () => {
       </Card>
 
       {/* Model 2: Image to Prompt */}
-      <Card className="bg-zinc-900/50 border-zinc-700">
+      <Card className="relative overflow-hidden border border-primary/20 bg-background/40 backdrop-blur-xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-green-400" />
+            <Upload className="h-5 w-5 text-primary" />
             Model 2: Image Analysis Studio
           </CardTitle>
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Upload an image, extract a prompt with GPT-4 Vision, edit it, then generate new images with both AI artists
           </p>
         </CardHeader>
@@ -536,7 +541,7 @@ export const PromptToImage: React.FC = () => {
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
-              className="bg-zinc-800 border-zinc-600"
+              className="bg-background/50 border-primary/20 focus:border-primary/50"
             />
           </div>
 
@@ -544,7 +549,7 @@ export const PromptToImage: React.FC = () => {
           {model2State.uploadedImageUrl && (
             <div className="space-y-2">
               <Label>Uploaded Image</Label>
-              <div className="bg-zinc-800 rounded-lg p-4">
+              <div className="bg-background/50 border border-primary/20 rounded-lg p-4">
                 <img
                   src={model2State.uploadedImageUrl}
                   alt="Uploaded image"
@@ -559,7 +564,7 @@ export const PromptToImage: React.FC = () => {
             <Button
               onClick={extractPromptFromImage}
               disabled={model2State.isExtracting}
-              className="w-full bg-green-600 hover:bg-green-500"
+              className="w-full"
             >
               {model2State.isExtracting ? (
                 <>
@@ -592,7 +597,7 @@ export const PromptToImage: React.FC = () => {
                 id="extracted-prompt"
                 value={model2State.editedPrompt}
                 onChange={(e) => setModel2State(prev => ({ ...prev, editedPrompt: e.target.value }))}
-                className="min-h-[120px] bg-zinc-800 border-zinc-600"
+                className="min-h-[120px] bg-background/50 border-primary/20 focus:border-primary/50"
                 placeholder="Edit the extracted prompt here..."
               />
             </div>
@@ -604,7 +609,7 @@ export const PromptToImage: React.FC = () => {
               <Button
                 onClick={generateImageFromExtractedPromptDalle}
                 disabled={model2State.isGeneratingDalle}
-                className="bg-purple-600 hover:bg-purple-500"
+                className=""
               >
                 {model2State.isGeneratingDalle ? (
                   <>
@@ -622,7 +627,7 @@ export const PromptToImage: React.FC = () => {
               <Button
                 onClick={generateImageFromExtractedPromptIdeogram}
                 disabled={model2State.isGeneratingIdeogram}
-                className="bg-green-600 hover:bg-green-500"
+                className=""
               >
                 {model2State.isGeneratingIdeogram ? (
                   <>
@@ -654,7 +659,7 @@ export const PromptToImage: React.FC = () => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="bg-zinc-800 rounded-lg p-4">
+                <div className="bg-background/50 border border-primary/20 rounded-lg p-4">
                   <img
                     src={model2State.dalleImage}
                     alt="Generated from extracted prompt with DALL-E"
@@ -677,7 +682,7 @@ export const PromptToImage: React.FC = () => {
                     <Download className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="bg-zinc-800 rounded-lg p-4">
+                <div className="bg-background/50 border border-primary/20 rounded-lg p-4">
                   <img
                     src={model2State.ideogramImage}
                     alt="Generated from extracted prompt with Ideogram"
