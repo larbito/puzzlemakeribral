@@ -19,6 +19,18 @@
   </head>
 
   <body>
+    <script>
+      // Theme initialization to prevent flash
+      try {
+        const theme = localStorage.getItem('theme') || 
+                     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <noscript>JavaScript is required to run this app.</noscript>
     <script type="module" src="/src/main.tsx"></script>
