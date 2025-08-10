@@ -494,9 +494,6 @@ export const Home = () => {
                 <PuzzleIcon className="w-5 h-5" />
                 AI-Powered POD Creation
               </span>
-              <span className="ml-3 align-middle inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-300 border border-yellow-300/30">
-                Coming Soon
-              </span>
             </div>
             
             <div>
