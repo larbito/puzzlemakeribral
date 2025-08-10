@@ -150,7 +150,7 @@ export const Overview = () => {
   // Placeholder user for now
   const user = {
     name: 'Creator',
-    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=Creator&backgroundColor=1f2937`,
+    avatar: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Nova&backgroundColor=b6e3f4,c0aede,d1d4f9&radius=50',
     credits: 120,
     plan: 'Pro'
   };

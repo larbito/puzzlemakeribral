@@ -96,7 +96,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             >
               <Sparkles className="h-5 w-5 text-primary" />
             </motion.div>
-            <span className="font-semibold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+            <span className="font-semibold bg-gradient-to-r from-fuchsia-400 to-pink-400 bg-clip-text text-transparent">
               PuzzleCraft Forge
             </span>
           </Link>
@@ -150,20 +150,20 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                     className={cn(
                       "group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-colors",
                       isActive
-                        ? "text-primary"
-                        : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                        ? "text-fuchsia-400"
+                        : "text-muted-foreground hover:text-fuchsia-400 hover:bg-fuchsia-500/5"
                     )}
                     whileHover={{ x: 5 }}
                   >
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gradient-to-b from-primary to-secondary" />
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-full bg-gradient-to-b from-fuchsia-400 to-pink-400" />
                     )}
                     <item.icon className="h-5 w-5" />
                     <span>{item.name}</span>
                     
                     {isActive && (
                       <motion.div
-                        className="absolute inset-0 rounded-xl bg-primary/10 -z-10"
+                        className="absolute inset-0 rounded-xl bg-fuchsia-500/10 -z-10"
                         layoutId="activeNav"
                       />
                     )}
