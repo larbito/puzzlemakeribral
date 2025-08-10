@@ -4,47 +4,84 @@
 
 @layer base {
   :root {
-    /* Dark Theme Variables */
-    --background: 240 10% 4%;    /* Dark Background */
-    --foreground: 0 0% 100%;     /* White Text */
-    
-    --primary: 158 100% 50%;     /* Bright Mint */
-    --primary-light: 158 100% 70%;
-    --primary-dark: 158 100% 40%;
-    
-    --secondary: 187 100% 45%;    /* Teal Blue */
-    --secondary-light: 187 100% 65%;
-    --secondary-dark: 187 100% 35%;
-    
-    --accent: 43 100% 50%;       /* Bright Gold */
-    --accent-light: 43 100% 70%;
-    --accent-dark: 43 100% 40%;
-    
+    /* Light Theme Variables */
+    --background: 210 20% 98%;    /* Light gray background */
+    --foreground: 222 47% 11%;    /* Slate-900 text */
+
+    --primary: 158 90% 40%;       /* Emerald */
+    --primary-light: 158 90% 55%;
+    --primary-dark: 158 90% 32%;
+
+    --secondary: 187 90% 42%;     /* Cyan/teal */
+    --secondary-light: 187 90% 58%;
+    --secondary-dark: 187 90% 34%;
+
+    --accent: 43 95% 50%;         /* Amber */
+    --accent-light: 43 95% 65%;
+    --accent-dark: 43 95% 42%;
+
     /* UI Colors */
-    --success: 142 100% 40%;
-    --warning: 43 100% 50%;
-    --error: 187 100% 45%;
-    --info: 201 100% 50%;
-    
+    --success: 142 70% 32%;
+    --warning: 43 95% 50%;
+    --error: 0 84% 60%;
+    --info: 201 100% 45%;
+
     /* Neutral Colors */
-    --muted: 240 5% 13%;
-    --muted-foreground: 240 5% 65%;
-    
+    --muted: 210 16% 93%;
+    --muted-foreground: 215 16% 35%;
+
     /* Border Colors */
-    --border: 240 5% 26%;
-    --border-hover: 240 5% 65%;
-    
-    /* Card Colors */
-    --card: 240 10% 4%;
-    --card-foreground: 0 0% 100%;
-    
-    /* Input Colors */
-    --input: 240 5% 13%;
-    --input-border: 240 5% 26%;
-    --ring: 158 100% 50%;
+    --border: 214 16% 85%;
+    --border-hover: 214 16% 65%;
+
+    /* Cards */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    /* Inputs */
+    --input: 0 0% 100%;
+    --input-border: 214 16% 85%;
+    --ring: 158 90% 40%;
 
     /* Border Radius */
     --radius: 0.75rem;
+  }
+
+  /* Dark mode overrides */
+  .dark :root,
+  .dark{
+    --background: 240 10% 4%;
+    --foreground: 0 0% 100%;
+
+    --primary: 158 100% 50%;
+    --primary-light: 158 100% 70%;
+    --primary-dark: 158 100% 40%;
+
+    --secondary: 187 100% 45%;
+    --secondary-light: 187 100% 65%;
+    --secondary-dark: 187 100% 35%;
+
+    --accent: 43 100% 50%;
+    --accent-light: 43 100% 70%;
+    --accent-dark: 43 100% 40%;
+
+    --success: 142 100% 40%;
+    --warning: 43 100% 50%;
+    --error: 0 84% 60%;
+    --info: 201 100% 50%;
+
+    --muted: 240 5% 13%;
+    --muted-foreground: 240 5% 65%;
+
+    --border: 240 5% 26%;
+    --border-hover: 240 5% 65%;
+
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 100%;
+
+    --input: 240 5% 13%;
+    --input-border: 240 5% 26%;
+    --ring: 158 100% 50%;
   }
 
   * {
