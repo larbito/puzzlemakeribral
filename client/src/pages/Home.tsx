@@ -707,8 +707,8 @@ export const Home = () => {
                     description: "Export in print-ready formats for KDP, Merch, Redbubble, etc."
                   }
                 ].map((feature, index) => (
-                  <div key={index} className="group relative overflow-hidden rounded-xl bg-white/[0.02] border border-white/10 p-6 hover:bg-white/[0.05] hover:border-primary/50 transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div key={index} className="relative overflow-hidden rounded-xl bg-primary/10 border border-primary/50 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/15 to-transparent" />
                     <div className="relative flex flex-col gap-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <div className="text-primary">{feature.icon}</div>
@@ -727,7 +727,7 @@ export const Home = () => {
                   Start Free
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
-                <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary/50 text-primary hover:bg-primary/10">
+                 <Button size="lg" variant="outline" className="w-full sm:w-auto border-primary/60 text-primary">
                   Browse Tools
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
@@ -887,8 +887,8 @@ export const Home = () => {
                     ]
                   }
                 ].map((tool, index) => (
-                  <div key={index} className="group relative overflow-hidden rounded-xl bg-white/[0.02] border border-white/10 p-6 hover:bg-white/[0.05] hover:border-primary/50 transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div key={index} className="relative overflow-hidden rounded-xl bg-primary/10 border border-primary/50 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-r from-primary/15 to-transparent" />
                     <div className="relative flex flex-col gap-4">
                       <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <div className="text-primary">{tool.icon}</div>
