@@ -494,6 +494,9 @@ export const Home = () => {
                 <PuzzleIcon className="w-5 h-5" />
                 AI-Powered POD Creation
               </span>
+              <span className="ml-3 align-middle inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-300 border border-yellow-300/30">
+                Coming Soon
+              </span>
             </div>
             
             <div>
@@ -518,15 +521,8 @@ export const Home = () => {
                 icon: <PuzzleIcon className="w-8 h-8" />,
                 color: "yellow",
                 link: "/puzzle-generator",
-                features: ["Multiple difficulty levels", "KDP-ready formats", "Auto-answer page generation"]
-              },
-              {
-                title: "Coloring Page Generator",
-                description: "Design AI-generated black-and-white coloring pages for all ages.",
-                icon: <Palette className="w-8 h-8" />,
-                color: "blue",
-                link: "/coloring-page-generator",
-                features: ["Prompt-based generation", "Style presets", "SVG + PNG export"]
+                features: ["Multiple difficulty levels", "KDP-ready formats", "Auto-answer page generation"],
+                comingSoon: true,
               },
               {
                 title: "T-shirt AI Design Generator",
@@ -550,7 +546,8 @@ export const Home = () => {
                 icon: <PenTool className="w-8 h-8" />,
                 color: "blue",
                 link: "/puzzle-generator",
-                features: ["Multiple difficulty levels", "Solution sheets included", "Professional layout"]
+                features: ["Multiple difficulty levels", "Solution sheets included", "Professional layout"],
+                comingSoon: true,
               },
               {
                 title: "KDP & Merch Calculators",
@@ -558,15 +555,8 @@ export const Home = () => {
                 icon: <Calculator className="w-8 h-8" />,
                 color: "pink",
                 link: "/calculators",
-                features: ["Real-time royalty breakdowns", "Region and trim-size options", "Compare prices across niches"]
-              },
-              {
-                title: "Content Planner",
-                description: "Discover high-demand POD niches with keyword ideas and seasonal trends.",
-                icon: <ListTodo className="w-8 h-8" />,
-                color: "orange",
-                link: "/content-planner",
-                features: ["Keyword suggestions", "Competition level", "Launch calendar view"]
+                features: ["Real-time royalty breakdowns", "Region and trim-size options", "Compare prices across niches"],
+                comingSoon: true,
               }
             ].map((product, index) => (
               <Link
@@ -574,6 +564,13 @@ export const Home = () => {
                 to={product.link}
                 className="group relative overflow-hidden rounded-xl bg-white/[0.02] border border-white/10 hover:border-primary/50 transition-all duration-500"
               >
+                {product.comingSoon && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-yellow-500/10 text-yellow-300 border border-yellow-300/30">
+                      Coming Soon
+                    </span>
+                  </div>
+                )}
                 <div className={`absolute inset-0 bg-gradient-to-br from-${product.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500`} />
                 <div className="relative p-8">
                   <div className="flex items-center gap-4 mb-6">
