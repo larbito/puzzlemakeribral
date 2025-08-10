@@ -409,7 +409,7 @@ export const Home = () => {
         <FloatingEmoji emoji="🧩" className="top-20 left-[15%] animate-float" />
         <FloatingEmoji emoji="🎮" className="top-40 right-[20%] animate-float-reverse" />
         <FloatingEmoji emoji="📚" className="bottom-20 left-[25%] animate-float-slow" />
-        <FloatingEmoji emoji="✨" className="top-32 left-[48%] animate-pulse-glow" />
+        <FloatingEmoji emoji="✨" className="top-32 right-[60%] animate-pulse-glow" />
         <FloatingEmoji emoji="🎯" className="bottom-40 right-[30%] animate-float" />
         <FloatingEmoji emoji="🌟" className="top-60 right-[35%] animate-float-reverse" />
 

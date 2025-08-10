@@ -19,7 +19,9 @@ import {
   TrendingUp,
   Check,
   Clock,
-  Shirt
+  Shirt,
+  Coins,
+  Crown
 } from "lucide-react";
 import { PageLayout } from '@/components/layout/PageLayout';
 import { cn } from '@/lib/utils';
@@ -145,8 +147,40 @@ export const Overview = () => {
   const totalLimit = usageBreakdown.reduce((acc, item) => acc + item.limit, 0);
   const totalPercentage = Math.round((totalUsed / totalLimit) * 100);
 
+  // Placeholder user for now
+  const user = {
+    name: 'Creator',
+    avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=Creator&backgroundColor=1f2937`,
+    credits: 120,
+    plan: 'Pro'
+  };
+
   return (
     <div className="space-y-8 p-8">
+      {/* Welcome Header */}
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <img src={user.avatar} alt="avatar" className="h-14 w-14 rounded-full border border-white/10" />
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back, {user.name} 👋</h1>
+            <p className="text-muted-foreground">Let’s build something great today.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center gap-2">
+            <Coins className="h-4 w-4" />
+            <span className="text-sm">Credits</span>
+            <span className="font-semibold">{user.credits}</span>
+          </div>
+          <div className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary flex items-center gap-2">
+            <Crown className="h-4 w-4" />
+            <span className="text-sm">Plan</span>
+            <span className="font-semibold">{user.plan}</span>
+          </div>
+          <Button className="bg-primary/90 hover:bg-primary">Add credits</Button>
+        </div>
+      </div>
+
       {/* Stats Section */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MotionCard
