@@ -20,16 +20,15 @@
 
   <body>
     <script>
-      // Theme initialization to prevent flash
+      // Theme initialization: default to light unless user explicitly chose dark
       try {
-        const theme = localStorage.getItem('theme') || 
-                     (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        if (theme === 'dark') {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
         }
-      } catch (e) {}
+      } catch (e) { /* no-op */ }
     </script>
     <div id="root"></div>
     <noscript>JavaScript is required to run this app.</noscript>
