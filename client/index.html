@@ -20,13 +20,13 @@
 
   <body>
     <script>
-      // Theme initialization: default to light unless user explicitly chose dark
+      // Theme initialization: DEFAULT to dark (black) unless explicitly set to light
       try {
-        const stored = localStorage.getItem('theme');
-        if (stored === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else {
+        const stored = localStorage.getItem('pcf-theme');
+        if (stored === 'light') {
           document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
         }
       } catch (e) { /* no-op */ }
     </script>
