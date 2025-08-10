@@ -23,7 +23,8 @@ export const TShirtDesigner = () => {
       <div className="relative z-[100]" style={{ pointerEvents: 'auto' }}>
         <div className="container mx-auto px-4 max-w-7xl space-y-8">
           {/* Step Bar Component - Static UI for explanation only */}
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-zinc-700/50 p-6 shadow-lg">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-background/40 backdrop-blur-xl p-6 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
             <div className="flex items-center justify-between">
               <div className="flex flex-col items-center">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 border-emerald-500 bg-black">
@@ -53,7 +54,8 @@ export const TShirtDesigner = () => {
           </div>
           
           {/* Tips for Best Results */}
-          <div className="bg-black/80 backdrop-blur-sm rounded-2xl border border-amber-500/30 p-6 shadow-lg">
+          <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-background/40 backdrop-blur-xl p-6 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full flex items-center justify-center bg-amber-500/20 border border-amber-500/50">
                 <Lightbulb className="h-5 w-5 text-amber-400" />
@@ -80,7 +82,8 @@ export const TShirtDesigner = () => {
           </div>
           
           {/* Main content with better spacing */}
-          <div className="bg-card rounded-lg border shadow-sm overflow-hidden">
+          <div className="relative overflow-hidden rounded-lg border border-primary/20 bg-background/40 backdrop-blur-xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
             {/* Section 1: Mode Selector */}
             <Tabs 
               defaultValue="prompt" 
@@ -134,7 +137,8 @@ export const TShirtDesigner = () => {
           </div>
           
           {/* Section 4: Design History with proper spacing */}
-          <div className="bg-card rounded-lg border shadow-sm relative z-[101]">
+          <div className="relative overflow-hidden rounded-lg border border-primary/20 bg-background/40 backdrop-blur-xl z-[101]">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent" />
             <DesignHistoryPanel />
           </div>
         </div>
