@@ -458,27 +458,80 @@ export const Home = () => {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="relative py-16 select-text">
-        <FloatingEmoji emoji="📈" className="top-0 left-[10%] animate-float" />
-        <FloatingEmoji emoji="🎯" className="bottom-0 right-[10%] animate-float-reverse" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+      {/* Stats Section - Professional Redesign */}
+      <section className="relative py-24 bg-gradient-to-b from-background to-primary/5">
+        {/* Subtle background decoration */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+        
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Section Header */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6">
+              <TrendingUp className="w-4 h-4" />
+              Trusted by Creators Worldwide
+            </div>
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Join Thousands of Successful Creators
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Our platform has empowered creators to build thriving POD businesses with professional-grade tools and AI assistance.
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
             {stats.map((stat, index) => (
-              <Card key={index} className="text-center p-6 shine-effect glass-effect hover:scale-105 transition-transform">
-                <h3 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent animate-pulse-glow">
-                  {stat.number}
-                </h3>
-                <p className="text-muted-foreground mt-2">{stat.label}</p>
-                {index === 3 && (
-                  <div className="flex items-center justify-center gap-1 mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 text-yellow-400" fill="currentColor" />
-                    ))}
+              <div 
+                key={index} 
+                className="group relative bg-white/80 backdrop-blur-sm border border-primary/20 rounded-2xl p-8 text-center hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1"
+              >
+                {/* Card background accent */}
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                {/* Content */}
+                <div className="relative">
+                  <div className="text-4xl lg:text-5xl font-bold text-primary mb-3 tracking-tight">
+                    {stat.number}
                   </div>
-                )}
-              </Card>
+                  <div className="text-sm lg:text-base font-medium text-foreground/80 leading-relaxed">
+                    {stat.label}
+                  </div>
+                  
+                  {/* Stars for rating */}
+                  {index === 3 && (
+                    <div className="flex items-center justify-center gap-1 mt-4">
+                      {[...Array(5)].map((_, i) => (
+                        <Star 
+                          key={i} 
+                          className="w-5 h-5 text-yellow-500 fill-yellow-500" 
+                        />
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Subtle icon indicators */}
+                  {index === 0 && <Palette className="w-6 h-6 text-primary/40 mx-auto mt-4" />}
+                  {index === 1 && <Users className="w-6 h-6 text-primary/40 mx-auto mt-4" />}
+                  {index === 2 && <Target className="w-6 h-6 text-primary/40 mx-auto mt-4" />}
+                </div>
+                
+                {/* Subtle border glow on hover */}
+                <div className="absolute inset-0 rounded-2xl border border-primary/0 group-hover:border-primary/30 transition-colors duration-300" />
+              </div>
             ))}
+          </div>
+          
+          {/* Bottom CTA */}
+          <div className="text-center mt-16">
+            <p className="text-muted-foreground mb-6">
+              Ready to join our community of successful creators?
+            </p>
+            <Link to="/register">
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+                Start Creating Today
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
