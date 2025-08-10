@@ -30,6 +30,28 @@
         }
       } catch (e) { /* no-op */ }
     </script>
+    <script>
+      // Visible runtime error overlay to diagnose blank screen in production
+      (function(){
+        function showError(msg){
+          try{
+            var el=document.createElement('div');
+            el.style.position='fixed';
+            el.style.inset='0';
+            el.style.zIndex='99999';
+            el.style.background='rgba(0,0,0,0.85)';
+            el.style.color='#fff';
+            el.style.fontFamily='ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif';
+            el.style.padding='24px';
+            el.style.overflow='auto';
+            el.innerHTML='<h2 style="margin:0 0 8px 0">App error</h2><pre style="white-space:pre-wrap">'+msg+'</pre>';
+            document.body.appendChild(el);
+          }catch(_e){/* ignore */}
+        }
+        window.addEventListener('error', function(e){ showError(e.message+"\n"+(e.filename||'')+":"+(e.lineno||'') ); });
+        window.addEventListener('unhandledrejection', function(e){ showError('Unhandled: '+(e.reason&&e.reason.message?e.reason.message:String(e.reason))); });
+      })();
+    </script>
     <div id="root"></div>
     <noscript>JavaScript is required to run this app.</noscript>
     <script type="module" src="/src/main.tsx"></script>
