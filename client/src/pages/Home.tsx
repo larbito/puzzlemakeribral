@@ -738,7 +738,7 @@ export const Home = () => {
             <div className="relative lg:h-[700px] flex items-center justify-center">
               <div className="relative w-full max-w-[600px] aspect-square">
                 {/* Main Preview Area */}
-                <div className="absolute inset-0 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/5 to-purple-500/5 border border-white/10">
+               <div className="absolute inset-0 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/5 to-secondary/5 border border-border/50">
                   <div className="absolute inset-0 bg-grid-white/[0.02]" />
                   
                   {/* T-Shirt Preview */}
