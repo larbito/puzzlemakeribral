@@ -510,7 +510,7 @@ export const Home = () => {
                   </span>
                 </span>
               </h2>
-              <p className="mt-6 text-xl text-white/80 max-w-2xl mx-auto leading-relaxed">
+              <p className="mt-6 text-xl text-foreground/80 max-w-2xl mx-auto leading-relaxed">
                 Choose from a full range of AI tools to design and publish books, shirts, and more — faster than ever.
               </p>
             </div>
@@ -588,18 +588,18 @@ export const Home = () => {
                     <div className={`w-16 h-16 rounded-2xl bg-${product.color}-900/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-500`}>
                       <div className={`text-${product.color}-500`}>{product.icon}</div>
                     </div>
-                    <h3 className="text-2xl font-semibold text-white group-hover:text-primary transition-colors">
+                   <h3 className="text-2xl font-semibold text-foreground group-hover:text-primary transition-colors">
                       {product.title}
                     </h3>
                   </div>
                   
-                  <p className="text-white/70 mb-6 line-clamp-2">
+                 <p className="text-muted-foreground mb-6 line-clamp-2">
                     {product.description}
                   </p>
 
                   <div className="space-y-2">
                     {product.features.map((feature, featureIndex) => (
-                      <div key={featureIndex} className="flex items-center gap-2 text-sm text-white/60">
+                     <div key={featureIndex} className="flex items-center gap-2 text-sm text-muted-foreground">
                         <div className="w-1.5 h-1.5 rounded-full bg-primary/50" />
                         <span>{feature}</span>
                       </div>
@@ -642,7 +642,7 @@ export const Home = () => {
                     <div className="absolute -inset-x-20 -inset-y-10 bg-[radial-gradient(circle_at_50%_50%,rgba(255,61,0,0.1),transparent_50%)] animate-pulse-slow"></div>
                     <div className="absolute -inset-x-20 -inset-y-10 bg-[radial-gradient(circle_at_50%_50%,rgba(0,195,255,0.1),transparent_50%)] animate-pulse"></div>
                     
-                    <span className="block text-2xl text-white/60 mb-6 title-reveal">Introducing</span>
+                   <span className="block text-2xl text-muted-foreground mb-6 title-reveal">Introducing</span>
                     
                     <div className="title-container relative">
                       <div 
@@ -679,7 +679,7 @@ export const Home = () => {
                   </div>
                 </h2>
 
-                <p className="text-xl text-white/80 leading-relaxed max-w-xl">
+               <p className="text-xl text-foreground/80 leading-relaxed max-w-xl">
                   Transform your ideas into ready-to-sell print-on-demand products with AI. From books and covers to shirts and coloring pages — all in one place.
                 </p>
               </div>
@@ -714,8 +714,8 @@ export const Home = () => {
                         <div className="text-primary">{feature.icon}</div>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
-                        <p className="text-sm text-white/70">{feature.description}</p>
+                       <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
+                       <p className="text-sm text-muted-foreground">{feature.description}</p>
                       </div>
                     </div>
                   </div>
@@ -784,7 +784,7 @@ export const Home = () => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-sm text-white/70">AI generating your unique design...</span>
+                        <span className="text-sm text-muted-foreground">AI generating your unique design...</span>
                       </div>
                       <div className="flex gap-2">
                         <Button size="sm" variant="ghost" className="text-primary hover:text-primary/80">
@@ -816,7 +816,7 @@ export const Home = () => {
                       <div className="text-primary">{tool.icon}</div>
                     </div>
                     <div className="absolute left-full ml-2 px-3 py-1 bg-black/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-sm text-white whitespace-nowrap">{tool.label}</span>
+                      <span className="text-sm text-foreground whitespace-nowrap">{tool.label}</span>
                     </div>
                   </div>
                 ))}
@@ -859,7 +859,7 @@ export const Home = () => {
                   </div>
                 </h2>
 
-                <p className="text-xl text-white/80 leading-relaxed max-w-xl">
+               <p className="text-xl text-foreground/80 leading-relaxed max-w-xl">
                   Design stunning, print-ready interiors and full-wrap covers — instantly. Perfect for KDP, activity books, journals, and creative niches.
                 </p>
               </div>
@@ -894,8 +894,8 @@ export const Home = () => {
                         <div className="text-primary">{tool.icon}</div>
                       </div>
                       <div>
-                        <h3 className="font-semibold text-white mb-1">{tool.title}</h3>
-                        <p className="text-sm text-white/70 mb-4">{tool.description}</p>
+                       <h3 className="font-semibold text-foreground mb-1">{tool.title}</h3>
+                       <p className="text-sm text-muted-foreground mb-4">{tool.description}</p>
                         <div className="space-y-2">
                           {tool.features.map((feature, featureIndex) => (
                             <div key={featureIndex} className="flex items-center gap-2 text-sm text-white/60">
@@ -940,7 +940,7 @@ export const Home = () => {
                           </div>
                         </div>
                         <div className="absolute bottom-4 left-0 right-0 text-center">
-                          <span className="text-sm text-white/50">Coloring Page</span>
+                          <span className="text-sm text-muted-foreground">Coloring Page</span>
                         </div>
                       </div>
                     </div>
@@ -952,11 +952,11 @@ export const Home = () => {
                           <div className="w-32 h-32 relative">
                             <div className="absolute inset-0 bg-gradient-to-r from-secondary/20 to-primary/20 rounded-md transform rotate-3 animate-pulse"></div>
                             <div className="absolute inset-2 border border-white/20 rounded-sm"></div>
-                            <BookOpen className="absolute inset-0 m-auto w-16 h-16 text-white/50" />
+                            <BookOpen className="absolute inset-0 m-auto w-16 h-16 text-muted-foreground" />
                           </div>
                         </div>
                         <div className="absolute bottom-4 left-0 right-0 text-center">
-                          <span className="text-sm text-white/50">Book Cover</span>
+                          <span className="text-sm text-muted-foreground">Book Cover</span>
                         </div>
                       </div>
                     </div>
@@ -966,7 +966,7 @@ export const Home = () => {
                   <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] p-4 backdrop-blur-sm bg-black/40 border border-white/10 rounded-xl">
                     <div className="flex items-center justify-center gap-4">
                       <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                      <span className="text-sm text-white/70">AI preview loading...</span>
+                      <span className="text-sm text-muted-foreground">AI preview loading...</span>
                     </div>
                   </div>
                 </div>
@@ -1017,19 +1017,19 @@ export const Home = () => {
                 <div className="w-full">
                   <div className={`h-full rounded-xl backdrop-blur-sm border ${plan.popular ? 'border-primary/50 bg-primary/5' : 'border-white/10 bg-white/5'} p-8 transition-all duration-300 hover:border-primary/50 hover:bg-primary/5`}>
                     <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
+                      <h3 className="text-2xl font-bold text-foreground mb-2">{plan.name}</h3>
                       <div className="flex items-center justify-center gap-1">
-                        <span className="text-4xl font-bold text-white">{plan.price}</span>
-                        <span className="text-white/70">/{plan.period}</span>
+                        <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                        <span className="text-muted-foreground">/{plan.period}</span>
                       </div>
-                      <p className="text-white/70 mt-2">{plan.description}</p>
+                      <p className="text-muted-foreground mt-2">{plan.description}</p>
                     </div>
 
                     <div className="space-y-4 mb-8">
                       {plan.features.map((feature, featureIndex) => (
                         <div key={featureIndex} className="flex items-center gap-2">
                           <CheckCircle className="w-5 h-5 text-primary" />
-                          <span className="text-white/80">{feature}</span>
+                          <span className="text-foreground/80">{feature}</span>
                         </div>
                       ))}
                     </div>
@@ -1053,7 +1053,7 @@ export const Home = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-4xl mx-auto">
               {addOns.map((addon, index) => (
                 <div key={index} className="bg-white/[0.03] backdrop-blur-sm border border-white/10 p-4 rounded-xl text-center">
-                  <div className="font-semibold text-white mb-1">{addon.name}</div>
+                  <div className="font-semibold text-foreground mb-1">{addon.name}</div>
                   <div className="text-primary">{addon.price}</div>
                 </div>
               ))}
@@ -1095,8 +1095,8 @@ export const Home = () => {
                     <div className="text-primary">{puzzle.icon}</div>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white mb-1">{puzzle.title}</h3>
-                    <p className="text-sm text-white/70">{puzzle.description}</p>
+                    <h3 className="font-semibold text-foreground mb-1">{puzzle.title}</h3>
+                    <p className="text-sm text-muted-foreground">{puzzle.description}</p>
                   </div>
                 </div>
               </div>
@@ -1188,7 +1188,7 @@ export const Home = () => {
         
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="space-y-6 mb-12">
-            <h2 className="text-4xl font-bold text-white">
+            <h2 className="text-4xl font-bold text-foreground">
               Trusted by 25,000+ Print-on-Demand Creators Worldwide
             </h2>
             <p className="text-lg text-gray-200 max-w-3xl mx-auto">
@@ -1248,7 +1248,7 @@ export const Home = () => {
                   What Our Community Says
                 </span>
               </h2>
-              <p className="text-xl text-white/90 max-w-2xl mx-auto">
+              <p className="text-xl text-foreground/90 max-w-2xl mx-auto">
                 Join thousands of satisfied creators who've transformed their puzzle-making journey
               </p>
             </div>
@@ -1277,8 +1277,8 @@ export const Home = () => {
                     </div>
                     
                     <div>
-                      <h4 className="font-semibold text-white">{testimonial.name}</h4>
-                      <p className="text-sm text-white/70">{testimonial.role}</p>
+                      <h4 className="font-semibold text-foreground">{testimonial.name}</h4>
+                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
                     </div>
                   </div>
 
@@ -1289,12 +1289,12 @@ export const Home = () => {
                   </div>
 
                   <blockquote className="mt-4">
-                    <p className="text-white/80 leading-relaxed">
+                    <p className="text-foreground/80 leading-relaxed">
                       "{testimonial.content}"
                     </p>
                   </blockquote>
 
-                  <div className="mt-6 flex items-center gap-2 text-sm text-white/60">
+                  <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4" />
                     <span>{testimonial.location}</span>
                   </div>
@@ -1314,7 +1314,7 @@ export const Home = () => {
                   <div className="text-3xl font-bold bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
                     {stat.number}
                   </div>
-                  <p className="text-white/70 mt-1">{stat.label}</p>
+                  <p className="text-muted-foreground mt-1">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -1406,7 +1406,7 @@ export const Home = () => {
             </h2>
 
             {/* Description with better contrast */}
-            <p className="text-xl text-white/90 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-xl text-foreground/90 max-w-2xl mx-auto leading-relaxed">
               Join thousands of creators using our AI platform to publish shirts, books, covers, and coloring pages — all with zero design skills.
             </p>
 
@@ -1440,8 +1440,8 @@ export const Home = () => {
                       {feature.icon}
                     </div>
                   </div>
-                  <h3 className="font-semibold text-white mb-1">{feature.title}</h3>
-                  <p className="text-sm text-white/70">{feature.description}</p>
+                  <h3 className="font-semibold text-foreground mb-1">{feature.title}</h3>
+                  <p className="text-sm text-muted-foreground">{feature.description}</p>
                 </div>
               ))}
             </div>
