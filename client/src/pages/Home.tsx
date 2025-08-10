@@ -622,7 +622,7 @@ export const Home = () => {
       <section className="relative py-32 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.15),transparent_50%,rgba(0,0,0,0.15))] dark:bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
+        <div className="absolute inset-0 hidden dark:block bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
         <div className="absolute inset-0 bg-grid-white/[0.02]" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -830,7 +830,7 @@ export const Home = () => {
       <section className="relative py-24 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-secondary/10 via-background to-background" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.15),transparent_50%,rgba(0,0,0,0.15))] dark:bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
+        <div className="absolute inset-0 hidden dark:block bg-[linear-gradient(to_right,rgba(0,0,0,0.6),transparent_50%,rgba(0,0,0,0.6))]" />
         <div className="absolute inset-0 bg-grid-white/[0.02]" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
