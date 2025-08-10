@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard } from 'lucide-react';
+import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogIn, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const Navbar = () => {
@@ -50,7 +50,7 @@ export const Navbar = () => {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             {menuItems.map((item) => (
               <Link
                 key={item.path}
@@ -65,6 +65,19 @@ export const Navbar = () => {
                 <div className="absolute bottom-0 left-0 h-[2px] w-full bg-gradient-to-r from-primary to-secondary scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
               </Link>
             ))}
+            <div className="h-6 w-px bg-border/60" />
+            <Link to="/login">
+              <Button variant="ghost" className="px-3">
+                <LogIn className="w-4 h-4 mr-2" />
+                Log in
+              </Button>
+            </Link>
+            <Link to="/register">
+              <Button className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Register
+              </Button>
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -94,16 +107,28 @@ export const Navbar = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className="group flex items-center space-x-2 px-3 py-2 text-foreground/80 hover:text-foreground relative"
+                className="group flex items-center justify-between px-3 py-2 text-foreground/80 hover:text-foreground relative"
                 onClick={() => setIsOpen(false)}
               >
-                <div className="absolute inset-0 bg-primary/5 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
                 <div className="relative flex items-center space-x-2">
                   {item.icon}
                   <span>{item.name}</span>
                 </div>
+                <div className="absolute inset-0 bg-primary/5 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300" />
               </Link>
             ))}
+            <div className="flex items-center gap-2 pt-2">
+              <Link to="/login" className="flex-1" onClick={() => setIsOpen(false)}>
+                <Button variant="outline" className="w-full border-primary/40 text-primary hover:bg-primary/10">
+                  Log in
+                </Button>
+              </Link>
+              <Link to="/register" className="flex-1" onClick={() => setIsOpen(false)}>
+                <Button className="w-full bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                  Register
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       )}
