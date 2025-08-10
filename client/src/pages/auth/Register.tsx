@@ -1,47 +1,40 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { signInWithGoogle, signInWithApple, signInWithFacebook, signInWithGithub } from '@/lib/supabase';
 import { FcGoogle } from 'react-icons/fc';
 import { FaFacebook, FaApple } from 'react-icons/fa';
+import { toast } from 'sonner';
 
 export const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    // TODO: Implement email/password registration logic
-    setTimeout(() => setIsLoading(false), 2000);
+    setTimeout(() => {
+      toast.success('Account created!');
+      navigate('/dashboard', { replace: true });
+      setIsLoading(false);
+    }, 800);
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
+  const handleSocialLogin = async (_provider: 'google' | 'apple' | 'facebook' | 'github') => {
     setIsLoading(true);
     setError(null);
-    try {
-      const loginFn = {
-        google: signInWithGoogle,
-        apple: signInWithApple,
-        facebook: signInWithFacebook,
-        github: signInWithGithub
-      }[provider];
-
-      const { error } = await loginFn();
-      if (error) throw error;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during registration');
-    } finally {
+    setTimeout(() => {
+      toast.success('Signed up successfully');
+      navigate('/dashboard', { replace: true });
       setIsLoading(false);
-    }
+    }, 800);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-      {/* Background Effects */}
       <div className="absolute inset-0 bg-gradient-radial from-primary/5 via-transparent to-transparent opacity-50" />
       <div className="absolute inset-0 bg-gradient-radial from-secondary/5 via-transparent to-transparent translate-x-full opacity-50" />
       <div className="absolute inset-0 bg-grid-white/[0.02]" />

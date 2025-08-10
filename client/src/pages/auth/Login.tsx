@@ -1,89 +1,38 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { signInWithGoogle, signInWithApple, signInWithFacebook, signInWithGithub, supabase } from '@/lib/supabase';
 import { FcGoogle } from 'react-icons/fc';
 import { FaFacebook, FaApple } from 'react-icons/fa';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 export const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const location = useLocation();
-  const { session } = useAuth();
-
-  // If user is already logged in, redirect to dashboard or the requested page
-  useEffect(() => {
-    if (session) {
-      const params = new URLSearchParams(location.search);
-      const redirectTo = params.get('redirect') || '/dashboard';
-      navigate(redirectTo, { replace: true });
-    }
-  }, [session, navigate, location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    const formData = new FormData(e.target as HTMLFormElement);
-    const email = formData.get('email') as string;
-    const password = formData.get('password') as string;
-
-    try {
-      console.log('Attempting to sign in with email/password');
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        console.log('Email/password sign in successful, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
-        toast.success('Successfully signed in!');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
-      toast.error('Login failed. Please try again.');
-    } finally {
+    // Simulate login; replace with real auth later
+    setTimeout(() => {
+      toast.success('Welcome back!');
+      navigate('/dashboard', { replace: true });
       setIsLoading(false);
-    }
+    }, 700);
   };
 
-  const handleSocialLogin = async (provider: 'google' | 'apple' | 'facebook' | 'github') => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      
-      console.log(`Attempting to sign in with ${provider}`);
-      
-      const loginFn = {
-        google: signInWithGoogle,
-        apple: signInWithApple,
-        facebook: signInWithFacebook,
-        github: signInWithGithub
-      }[provider];
-
-      const { error } = await loginFn();
-      
-      if (error) throw error;
-      
-      console.log(`${provider} sign in initiated, waiting for redirect`);
-      // Social login will redirect to callback URL
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
-      toast.error('Login failed. Please try again.');
-    } finally {
+  const handleSocialLogin = async (_provider: 'google' | 'apple' | 'facebook' | 'github') => {
+    setIsLoading(true);
+    setError(null);
+    setTimeout(() => {
+      toast.success('Signed in successfully');
+      navigate('/dashboard', { replace: true });
       setIsLoading(false);
-    }
+    }, 700);
   };
 
   return (
@@ -149,7 +98,7 @@ export const Login = () => {
                 <span>Remember me</span>
               </label>
               <Link 
-                to="/forgot-password"
+                to="#"
                 className="text-primary hover:text-primary/90 transition-colors"
               >
                 Forgot password?
@@ -164,7 +113,7 @@ export const Login = () => {
               <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               <span className="relative flex items-center justify-center">
                 {isLoading ? (
-                  <span className="animate-pulse">Logging in...</span>
+                  <span className="animate-pulse">Signing in...</span>
                 ) : (
                   <>
                     Sign In
