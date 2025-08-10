@@ -18,6 +18,7 @@ import {
   Wand2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Coins, Crown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 // Define which routes are coming soon
@@ -177,6 +178,23 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             >
               <Menu className="h-5 w-5" />
             </Button>
+            {/* Global account summary on the right */}
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                <Coins className="h-4 w-4" />
+                <span className="text-xs">Credits</span>
+                <span className="text-sm font-semibold">120</span>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/30 text-primary">
+                <Crown className="h-4 w-4" />
+                <span className="text-xs">Pro</span>
+              </div>
+              <img
+                src={`https://api.dicebear.com/7.x/identicon/svg?seed=Creator&backgroundColor=1f2937`}
+                alt="avatar"
+                className="h-9 w-9 rounded-full border border-white/10"
+              />
+            </div>
           </div>
         </header>
 
