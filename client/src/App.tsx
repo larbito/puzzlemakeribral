@@ -32,11 +32,13 @@ import { PromptToImage } from '@/pages/dashboard/PromptToImage';
 import { Toaster } from 'sonner';
 import { Login } from '@/pages/auth/Login';
 import { Register } from '@/pages/auth/Register';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 function App() {
   return (
     <ToastProvider>
       <Router>
+        <AuthProvider>
         <div className="min-h-screen bg-background text-foreground">
           {/* Content */}
           <div className="relative">
@@ -95,6 +97,7 @@ function App() {
           </div>
           <Toaster position="top-right" />
         </div>
+        </AuthProvider>
       </Router>
     </ToastProvider>
   );
