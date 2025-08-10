@@ -1,10 +1,29 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, Puzzle, DollarSign, Users, Phone, LayoutDashboard, LogIn, UserPlus, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const stored = localStorage.getItem('pcf-theme');
+    if (stored) return stored === 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    const root = document.documentElement;
+    if (next) {
+      root.classList.add('dark');
+      localStorage.setItem('pcf-theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      localStorage.setItem('pcf-theme', 'light');
+    }
+  };
 
   const menuItems = [
     {
@@ -66,6 +85,9 @@ export const Navbar = () => {
               </Link>
             ))}
             <div className="h-6 w-px bg-border/60" />
+            <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={toggleTheme}>
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Link to="/login">
               <Button variant="ghost" className="px-3">
                 <LogIn className="w-4 h-4 mr-2" />
