@@ -541,6 +541,14 @@ export const Home = () => {
                 features: ["HD vector illustrations", "Age-specific difficulty", "Full KDP formatting"]
               },
               {
+                title: "Book Cover AI Generator",
+                description: "Create full-wrap book covers sized by trim and page count.",
+                icon: <BookOpen className="w-8 h-8" />,
+                color: "blue",
+                link: "/dashboard/kdp-covers",
+                features: ["Auto-size by trim & pages", "Built-in font styles", "CMYK PDF output"]
+              },
+              {
                 title: "Sudoku & Logic Puzzles",
                 description: "Generate professional puzzle books with varying difficulty levels.",
                 icon: <PenTool className="w-8 h-8" />,
