@@ -1203,15 +1203,14 @@ export const Home = () => {
                 key={index} 
                 className="flex flex-col items-center justify-center"
               >
-                <div className="w-32 h-16 mx-auto flex items-center justify-center">
+                <div className="w-40 h-14 md:h-16 mx-auto flex items-center justify-center">
                   <img
                     src={platform.src}
                     alt={platform.name}
                     loading="lazy"
-                    className="max-h-8 opacity-80 hover:opacity-100 transition-opacity"
+                    className="h-full w-auto object-contain select-none"
                   />
                 </div>
-                {/*<div className="mt-2 text-sm text-gray-400">{platform.name}</div>*/}
               </div>
             ))}
           </div>
