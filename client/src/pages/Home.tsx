@@ -516,15 +516,6 @@ export const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
-                title: "Puzzle Book Generator",
-                description: "Create puzzle books with Sudoku, Word Search, and Crosswords in seconds.",
-                icon: <PuzzleIcon className="w-8 h-8" />,
-                color: "yellow",
-                link: "/puzzle-generator",
-                features: ["Multiple difficulty levels", "KDP-ready formats", "Auto-answer page generation"],
-                comingSoon: true,
-              },
-              {
                 title: "T-shirt AI Design Generator",
                 description: "Create unique t-shirt designs with AI. Perfect for POD platforms.",
                 icon: <Shirt className="w-8 h-8" />,
@@ -547,6 +538,15 @@ export const Home = () => {
                 color: "blue",
                 link: "/dashboard/kdp-covers",
                 features: ["Auto-size by trim & pages", "Built-in font styles", "CMYK PDF output"]
+              },
+              {
+                title: "Puzzle Book Generator",
+                description: "Create puzzle books with Sudoku, Word Search, and Crosswords in seconds.",
+                icon: <PuzzleIcon className="w-8 h-8" />,
+                color: "yellow",
+                link: "/puzzle-generator",
+                features: ["Multiple difficulty levels", "KDP-ready formats", "Auto-answer page generation"],
+                comingSoon: true,
               },
               {
                 title: "Sudoku & Logic Puzzles",
